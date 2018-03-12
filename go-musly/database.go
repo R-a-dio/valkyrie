@@ -3,6 +3,7 @@ package musly
 import (
 	"encoding/binary"
 	"errors"
+	"sync/atomic"
 
 	"github.com/boltdb/bolt"
 )
@@ -10,6 +11,20 @@ import (
 const binNumTracks = 1000
 
 var (
+	// DatabaseVersion indicates the internal version of the boltdb
+	DatabaseVersion = []byte{0, 0, 1}
+
+	// static bucket names and keys
+	metadataBucket = []byte("metadata")
+	// stores jukebox.method used
+	metadataMethod = []byte("method")
+	// stores jukebox.decoder used
+	metadataDecoder = []byte("decoder")
+	// stores DatabaseVersion
+	metadataVersion = []byte("database_version")
+	// stores amount of tracks per entry in jukeboxBucket
+	metadataBinNumTracks = []byte("bin_num_tracks")
+
 	jukeboxBucket      = []byte("jukebox")
 	jukeboxTrackBucket = []byte("tracks")
 )
@@ -36,8 +51,8 @@ func (b *Box) storeJukebox() error {
 		}
 
 		// write out the jukebox header first
-		var buf = make([]byte, b.jukeboxBinSize(1, 0))
-		n, err := b.jukeboxToBin(buf, 1, 0, 0)
+		var buf = make([]byte, b.jukebox.binSize(1, 0))
+		n, err := b.jukebox.toBin(buf, 1, 0, 0)
 		if err != nil {
 			return err
 		}
@@ -57,7 +72,7 @@ func (b *Box) storeJukebox() error {
 		return err
 	}
 
-	var max = b.TrackCount()
+	var max = b.jukebox.trackCount()
 	var pos = 0
 	var buf []byte
 
@@ -65,12 +80,12 @@ func (b *Box) storeJukebox() error {
 		putInt(intBuf, uint64(pos)/binNumTracks+1)
 		bkt := tx.Bucket(jukeboxBucket)
 
-		size := b.jukeboxBinSize(0, binNumTracks)
+		size := b.jukebox.binSize(0, binNumTracks)
 		if len(buf) < size {
 			buf = make([]byte, size)
 		}
 
-		n, err := b.jukeboxToBin(buf, 0, binNumTracks, pos)
+		n, err := b.jukebox.toBin(buf, 0, binNumTracks, pos)
 		if err != nil {
 			return err
 		}
@@ -103,7 +118,7 @@ func (b *Box) loadJukebox() error {
 			return errors.New("musly: no header found")
 		}
 
-		expected, err := b.jukeboxFromBin(header, 1, 0)
+		expected, err := b.jukebox.fromBin(header, 1, 0)
 		if err != nil {
 			return err
 		}
@@ -120,7 +135,7 @@ func (b *Box) loadJukebox() error {
 				amount = expected - pos
 			}
 
-			_, err = b.jukeboxFromBin(segment, 0, amount)
+			_, err = b.jukebox.fromBin(segment, 0, amount)
 			if err != nil {
 				return err
 			}
@@ -130,50 +145,47 @@ func (b *Box) loadJukebox() error {
 	})
 }
 
-// StoreTrack stores a track for later use with the id given
-func (b *Box) StoreTrack(t Track, id TrackID) error {
+// storeTrack stores a track for later use with the id given
+func (b *Box) storeTrack(t track, id TrackID) error {
 	return b.DB.Batch(func(tx *bolt.Tx) error {
 		bkt, err := tx.CreateBucketIfNotExists(jukeboxTrackBucket)
 		if err != nil {
 			return err
 		}
 
-		return bkt.Put(keyTrackID(nil, id), b.trackToBytes(t))
+		key := make([]byte, 8)
+		putInt(key, uint64(id))
+		return bkt.Put(key, b.trackToBytes(t))
 	})
 }
 
-func keyTrackID(buf []byte, id TrackID) []byte {
-	if buf == nil {
-		buf = make([]byte, 8)
-	}
-	binary.BigEndian.PutUint64(buf, uint64(id))
-	return buf
-}
+// loadTrack returns a Track previously stored by a call to storeTrack
+func (b *Box) loadTrack(id TrackID) (track, error) {
+	t := b.newTrackBytes()
 
-// Track returns a Track previously stored by a call to StoreTrack
-func (b *Box) Track(id TrackID) (Track, error) {
-	track := b.NewTrackBytes()
 	err := b.DB.View(func(tx *bolt.Tx) error {
 		bkt := tx.Bucket(jukeboxTrackBucket)
 		if bkt == nil {
 			return nil
 		}
 
-		t := bkt.Get(keyTrackID(nil, id))
-		if t == nil {
+		key := make([]byte, 8)
+		putInt(key, uint64(id))
+		tt := bkt.Get(key)
+		if tt == nil {
 			return errors.New("unknown track")
 		}
 
-		copy(track, t)
+		copy(t, tt)
 		return nil
 	})
 
-	return b.bytesToTrack(track), err
+	return b.bytesToTrack(t), err
 }
 
-// Tracks returns multiple tracks previously stored by calls to StoreTrack
-func (b *Box) Tracks(ids []TrackID) ([]Track, error) {
-	var tracks = make([]Track, len(ids))
+// loadTracks returns multiple tracks previously stored by calls to storeTrack
+func (b *Box) loadTracks(ids []TrackID) ([]track, error) {
+	var tracks = make([]track, len(ids))
 
 	err := b.DB.View(func(tx *bolt.Tx) error {
 		bkt := tx.Bucket(jukeboxTrackBucket)
@@ -184,22 +196,36 @@ func (b *Box) Tracks(ids []TrackID) ([]Track, error) {
 		key := make([]byte, 8)
 		var err error
 		for i, id := range ids {
-			track := b.NewTrack()
-			v := bkt.Get(keyTrackID(key, id))
+			t := b.newTrack()
+			putInt(key, uint64(id))
+			v := bkt.Get(key)
 			if v == nil {
 				err = ErrMissingTracks
-				b.FreeTrack(track)
+				b.freeTrack(t)
 				continue
 			}
 
-			copy(b.trackToBytes(track), v)
-			tracks[i] = track
+			copy(b.trackToBytes(t), v)
+			tracks[i] = t
 		}
 
 		return err
 	})
 
 	return tracks, err
+}
+
+// TrackCount returns the amount of tracks in the box
+func (b *Box) TrackCount() (n int, err error) {
+	return n, b.DB.View(func(tx *bolt.Tx) error {
+		bkt := tx.Bucket(jukeboxTrackBucket)
+		if bkt == nil {
+			return nil
+		}
+
+		n = bkt.Stats().KeyN
+		return nil
+	})
 }
 
 // AllTrackIDs returns all TrackIDs stored in this box
@@ -221,4 +247,30 @@ func (b *Box) AllTrackIDs() ([]TrackID, error) {
 	})
 
 	return ids, err
+}
+
+// RemoveTrack removes a single track, see RemoveTracks
+func (b *Box) RemoveTrack(id TrackID) error {
+	return b.RemoveTracks([]TrackID{id})
+}
+
+// RemoveTracks removes all IDs given from both the jukebox aswell as the
+// internal track database. This means to add a track again it has to be
+// reanalyzed with AnalyzeFile or AnalyzePCM
+func (b *Box) RemoveTracks(ids []TrackID) error {
+	atomic.StoreInt32(&b.modified, 1)
+	return b.DB.Update(func(tx *bolt.Tx) error {
+		bkt := tx.Bucket(jukeboxTrackBucket)
+		if bkt == nil {
+			return nil
+		}
+
+		key := make([]byte, 8)
+		for _, id := range ids {
+			putInt(key, uint64(id))
+			bkt.Delete(key)
+		}
+
+		return b.jukebox.removeTracks(ids)
+	})
 }
