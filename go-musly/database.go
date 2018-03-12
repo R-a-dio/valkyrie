@@ -2,7 +2,6 @@ package musly
 
 import (
 	"encoding/binary"
-	"errors"
 	"sync/atomic"
 
 	"github.com/boltdb/bolt"
@@ -29,7 +28,6 @@ var (
 	jukeboxTrackBucket = []byte("tracks")
 )
 
-var ErrMissingTracks = errors.New("musly: missing track")
 var putInt = binary.BigEndian.PutUint64
 
 func (b *Box) storeJukebox() error {
@@ -109,13 +107,19 @@ func (b *Box) loadJukebox() error {
 		bkt := tx.Bucket(jukeboxBucket)
 		if bkt == nil {
 			// nothing to load
-			return errors.New("musly: no jukebox found")
+			return &Error{
+				Err:  ErrInvalidDatabase,
+				Info: "missing jukebox",
+			}
 		}
 
 		intBuf := make([]byte, 8)
 		header := bkt.Get(intBuf)
 		if header == nil {
-			return errors.New("musly: no header found")
+			return &Error{
+				Err:  ErrInvalidDatabase,
+				Info: "missing jukebox header",
+			}
 		}
 
 		expected, err := b.jukebox.fromBin(header, 1, 0)
@@ -127,7 +131,10 @@ func (b *Box) loadJukebox() error {
 			putInt(intBuf, uint64(pos)/b.binNumTracks+1)
 			segment := bkt.Get(intBuf)
 			if segment == nil {
-				return errors.New("musly: missing track segment")
+				return &Error{
+					Err:  ErrInvalidDatabase,
+					Info: "missing jukebox segment",
+				}
 			}
 
 			var amount = int(b.binNumTracks)
@@ -173,14 +180,22 @@ func (b *Box) loadTrack(id TrackID) (track, error) {
 		putInt(key, uint64(id))
 		tt := bkt.Get(key)
 		if tt == nil {
-			return errors.New("unknown track")
+			return &Error{
+				Err: ErrMissingTrack,
+				IDs: []TrackID{id},
+			}
 		}
 
 		copy(t, tt)
 		return nil
 	})
 
-	return b.bytesToTrack(t), err
+	if err != nil {
+		b.freeTrack(b.bytesToTrack(t))
+		return nil, err
+	}
+
+	return b.bytesToTrack(t), nil
 }
 
 // loadTracks returns multiple tracks previously stored by calls to storeTrack
@@ -194,25 +209,36 @@ func (b *Box) loadTracks(ids []TrackID) ([]track, error) {
 		}
 
 		key := make([]byte, 8)
-		var err error
+		var err *Error
 		for i, id := range ids {
 			t := b.newTrack()
 			putInt(key, uint64(id))
 			v := bkt.Get(key)
-			if v == nil {
-				err = ErrMissingTracks
-				b.freeTrack(t)
-				continue
-			}
 
 			copy(b.trackToBytes(t), v)
 			tracks[i] = t
+
+			if v == nil {
+				if err != nil {
+					err.IDs = append(err.IDs, id)
+				} else {
+					err = &Error{
+						Err: ErrMissingTrack,
+						IDs: []TrackID{id},
+					}
+				}
+			}
 		}
 
 		return err
 	})
 
-	return tracks, err
+	if err != nil {
+		b.freeTracks(tracks)
+		return nil, err
+	}
+
+	return tracks, nil
 }
 
 // TrackCount returns the amount of tracks in the box
@@ -255,8 +281,7 @@ func (b *Box) RemoveTrack(id TrackID) error {
 }
 
 // RemoveTracks removes all IDs given from both the jukebox aswell as the
-// internal track database. This means to add a track again it has to be
-// reanalyzed with AnalyzeFile or AnalyzePCM
+// internal track database. IDs that don't exist are ignored.
 func (b *Box) RemoveTracks(ids []TrackID) error {
 	atomic.StoreInt32(&b.modified, 1)
 	return b.DB.Update(func(tx *bolt.Tx) error {
@@ -271,6 +296,7 @@ func (b *Box) RemoveTracks(ids []TrackID) error {
 			bkt.Delete(key)
 		}
 
-		return b.jukebox.removeTracks(ids)
+		b.jukebox.removeTracks(ids)
+		return nil
 	})
 }

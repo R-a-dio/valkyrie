@@ -10,7 +10,6 @@ import "C"
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/rand"
 	"runtime"
@@ -36,10 +35,10 @@ type jukebox = C.musly_jukebox
 // addTracks adds the given tracks to the jukebox;
 // It's an error if the slices given are not the same length
 func (j *jukebox) addTracks(tracks []track, ids []TrackID) error {
-	if len(tracks) == 0 {
+	if len(tracks) != len(ids) {
+		return ErrInvalidInput
+	} else if len(tracks) == 0 {
 		return nil
-	} else if len(tracks) != len(ids) {
-		return errors.New("musly: unequal slices length")
 	}
 
 	ret := C.musly_jukebox_addtracks(
@@ -50,22 +49,21 @@ func (j *jukebox) addTracks(tracks []track, ids []TrackID) error {
 		0,
 	)
 	if ret < 0 {
-		return errors.New("musly: failed addtracks")
+		panic("musly: addTracks called before SetMusicStyle")
 	}
 
 	return nil
 }
 
-func (j *jukebox) removeTracks(ids []TrackID) error {
+func (j *jukebox) removeTracks(ids []TrackID) {
 	ret := C.musly_jukebox_removetracks(
 		j,
 		(*C.musly_trackid)(&ids[0]),
 		C.int(len(ids)),
 	)
 	if ret < 0 {
-		return errors.New("musly: failed removetracks")
+		panic("musly: removeTracks called on nil jukebox")
 	}
-	return nil
 }
 
 // trackCount returns the amount of tracks added to the jukebox
@@ -81,10 +79,10 @@ func (j *jukebox) trackCount() int {
 //
 // This value does not have to be equal to the amount of tracks we have stored
 // in our database; Especially when SetMusicStyle hasn't been called yet.
-func (j *jukebox) trackIDs() ([]TrackID, error) {
+func (j *jukebox) trackIDs() []TrackID {
 	numtracks := j.trackCount()
 	if numtracks == 0 {
-		return []TrackID{}, nil
+		return []TrackID{}
 	}
 
 	ids := make([]TrackID, numtracks)
@@ -94,12 +92,12 @@ func (j *jukebox) trackIDs() ([]TrackID, error) {
 		(*C.musly_trackid)(&ids[0]),
 	)
 	if ret < 0 {
-		return nil, errors.New("musly: gettrackids")
+		panic("musly: trackIDs called on nil jukebox")
 	}
 	if int(ret) > len(ids) {
-		panic("musly buffer overflow")
+		panic("musly: buffer overflow")
 	}
-	return ids, nil
+	return ids
 }
 
 // musly_jukebox_binsize function as declared in musly/musly.h:434
@@ -118,8 +116,9 @@ func (j *jukebox) toBin(p []byte, header int, num int, skip int) (int, error) {
 		C.int(skip),
 	)
 
-	if ret == -1 {
-		return 0, errors.New("musly: failed jukebox_tobin")
+	// tobin should only error if our parameters are wrong, such as num-skip<0
+	if ret < 0 {
+		return 0, ErrInvalidInput
 	}
 	return int(ret), nil
 }
@@ -132,8 +131,9 @@ func (j *jukebox) fromBin(p []byte, header int, num int) (int, error) {
 		C.int(num),
 	)
 
-	if ret == -1 {
-		return 0, errors.New("musly: failed jukebox_frombin")
+	// frombin should only error if our parameters are wrong, such as num<0
+	if ret < 0 {
+		return 0, ErrInvalidInput
 	}
 
 	return int(ret), nil
@@ -168,8 +168,37 @@ func ListDecoders() []string {
 	return strings.Split(str, ",")
 }
 
+// stringIn checks if b is in a or if b is empty
+func stringInOrEmpty(a []string, b string) bool {
+	if b == "" {
+		return true
+	}
+
+	for i := range a {
+		if a[i] == b {
+			return true
+		}
+	}
+	return false
+}
+
 // initializes a musly jukebox with the provided options
-func newJukebox(method, decoder string) *jukebox {
+func newJukebox(method, decoder string) (*jukebox, error) {
+	if !stringInOrEmpty(ListMethods(), method) {
+		return nil, &Error{
+			Err:  ErrInvalidInput,
+			Info: "unknown method: " + method,
+		}
+	}
+	if !stringInOrEmpty(ListDecoders(), method) {
+		return nil, &Error{
+			Err:  ErrInvalidInput,
+			Info: "unknown decoder: " + decoder,
+		}
+	}
+
+	// create C strings to pass to musly, but use nil when empty strings
+	// because those indicate default values for musly
 	cmethod := C.CString(method)
 	if method == "" {
 		cmethod = nil
@@ -181,7 +210,12 @@ func newJukebox(method, decoder string) *jukebox {
 	}
 	defer C.free((unsafe.Pointer)(cdecoder))
 
-	return C.musly_jukebox_poweron(cmethod, cdecoder)
+	jukebox := C.musly_jukebox_poweron(cmethod, cdecoder)
+	if jukebox == nil {
+		return nil, ErrInvalidInput
+	}
+
+	return jukebox, nil
 }
 
 // NewTrack returns a fresh musly track as a Go byte slice
@@ -213,10 +247,10 @@ func (b *Box) freeTracks(t []track) {
 // on database size, this can take a few seconds.
 func (b *Box) Close() error {
 	if b.jukebox == nil {
-		panic("musly: close on nil box")
+		return nil
 	}
 	if b.allocs != 0 {
-		fmt.Println("tracks alive on close:", b.allocs)
+		fmt.Println("musly: unfreed tracks exist:", b.allocs)
 	}
 
 	if atomic.LoadInt32(&b.modified) != 0 {
@@ -246,7 +280,10 @@ func (b *Box) Close() error {
 // the tracks given to the algorithm will be randomly selected for you
 func (b *Box) SetMusicStyle(ids []TrackID) error {
 	if len(ids) == 0 {
-		return errors.New("musly: empty track list")
+		return &Error{
+			Err:  ErrInvalidInput,
+			Info: "empty input",
+		}
 	}
 
 	tracks, err := b.loadTracks(ids)
@@ -286,7 +323,7 @@ func (b *Box) SetMusicStyle(ids []TrackID) error {
 		C.int(len(usableTracks)),
 	)
 	if ret < 0 {
-		return errors.New("musly: failed setmusicstyle")
+		return ErrUnknown
 	}
 
 	return nil
@@ -323,7 +360,7 @@ func (b *Box) Similarity(seed TrackID, against []TrackID) ([]float32, error) {
 		(*C.float)(&similarity[0]),
 	)
 	if ret < 0 {
-		return nil, errors.New("musly: similarity failed")
+		return nil, ErrUnknown
 	}
 
 	return similarity, nil
@@ -405,7 +442,7 @@ func (b *Box) GuessNeighbors(seed TrackID, maxNeighbors int, filter []TrackID) (
 	}
 
 	if ret < 0 {
-		return nil, errors.New("musly: failed to guess neighbors")
+		return nil, ErrUnknown
 	}
 	return ids[:int(ret)], nil
 }
@@ -424,38 +461,6 @@ func (b *Box) bytesToTrack(p []byte) track {
 // musly_track_size function as declared in musly/musly.h:640
 func (b *Box) TrackSize() int {
 	return int(C.musly_track_size(b.jukebox))
-}
-
-// musly_track_binsize function as declared in musly/musly.h:656
-func (b *Box) TrackBinSize() int {
-	return int(C.musly_track_binsize(b.jukebox))
-}
-
-// musly_track_tobin function as declared in musly/musly.h:680
-func (b *Box) TrackToBin(t track) ([]byte, error) {
-	buf := make([]byte, b.TrackBinSize())
-	ret := C.musly_track_tobin(b.jukebox,
-		t,
-		(*C.uchar)(&buf[0]),
-	)
-	if ret < 0 {
-		return nil, errors.New("musly: failed track_tobin")
-	}
-	return buf[:ret], nil
-}
-
-// musly_track_frombin function as declared in musly/musly.h:705
-func (b *Box) TrackFromBin(buf []byte) (track, error) {
-	track := b.newTrack()
-	ret := C.musly_track_frombin(
-		b.jukebox,
-		(*C.uchar)(&buf[0]),
-		track,
-	)
-	if ret == -1 {
-		return nil, errors.New("musly: failed")
-	}
-	return track, nil
 }
 
 // musly_track_tostr function as declared in musly/musly.h:726
@@ -479,7 +484,11 @@ func (b *Box) AnalyzePCM(id TrackID, pcm []byte) error {
 		t,
 	)
 	if ret < 0 {
-		return errors.New("musly: failed analyzing PCM")
+		return ErrUnknown
+	} else if ret == 2 {
+		// in some rare situation, musly can actually return a 2 on failure
+		// of estimate_gaussian when analyzing audio
+		return ErrAnalyze
 	}
 
 	return b.storeTrack(t, id)
@@ -502,7 +511,7 @@ func (b *Box) AnalyzeFile(id TrackID, path string, len float32, start float32) e
 		t,
 	)
 	if ret == -1 {
-		return errors.New("musly: failed analyzing file")
+		return ErrAnalyze
 	}
 
 	return b.storeTrack(t, id)

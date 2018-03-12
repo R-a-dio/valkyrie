@@ -8,12 +8,12 @@ import "C"
 
 import (
 	"encoding/binary"
-	"errors"
-	"sync/atomic"
 
 	"github.com/boltdb/bolt"
 )
 
+// Box is an abstraction on-top of a musly_jukebox and an on-disk database of
+// audio tracks.
 type Box struct {
 	// allocs counts the amount of tracks we've allocated and not freed yet
 	allocs int64
@@ -65,16 +65,19 @@ func openBox(db *bolt.DB, path string) (*Box, error) {
 	err := db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket(metadataBucket)
 		if b == nil {
-			return errors.New("musly: invalid database file")
+			return &Error{
+				Err:  ErrInvalidDatabase,
+				Info: "missing metadata",
+			}
 		}
 
 		method = string(b.Get(metadataMethod))
 		if method == "" {
-			return errors.New("musly: empty method")
+			return ErrInvalidDatabase
 		}
 		decoder = string(b.Get(metadataDecoder))
 		if decoder == "" {
-			return errors.New("musly: empty decoder")
+			return ErrInvalidDatabase
 		}
 
 		num := b.Get(metadataBinNumTracks)
@@ -90,10 +93,10 @@ func openBox(db *bolt.DB, path string) (*Box, error) {
 		return nil, err
 	}
 
-	jukebox := newJukebox(method, decoder)
-	if jukebox == nil {
+	jukebox, err := newJukebox(method, decoder)
+	if err != nil {
 		db.Close()
-		return nil, errors.New("musly: power on failed")
+		return nil, err
 	}
 
 	box := &Box{
@@ -110,10 +113,10 @@ func openBox(db *bolt.DB, path string) (*Box, error) {
 
 // newBox returns a new musly jukebox with the given method and decoder
 func newBox(db *bolt.DB, path string, method string, decoder string) (*Box, error) {
-	jukebox := newJukebox(method, decoder)
-	if jukebox == nil {
+	jukebox, err := newJukebox(method, decoder)
+	if err != nil {
 		db.Close()
-		return nil, errors.New("musly: power on failed")
+		return nil, err
 	}
 
 	box := &Box{
@@ -125,7 +128,7 @@ func newBox(db *bolt.DB, path string, method string, decoder string) (*Box, erro
 		DB:          db,
 	}
 
-	err := db.Update(func(tx *bolt.Tx) error {
+	err = db.Update(func(tx *bolt.Tx) error {
 		b, err := tx.CreateBucketIfNotExists(metadataBucket)
 		if err != nil {
 			return err
@@ -147,26 +150,4 @@ func newBox(db *bolt.DB, path string, method string, decoder string) (*Box, erro
 	}
 
 	return box, nil
-}
-
-func (b *Box) RemoveTrack(id TrackID) error {
-	return b.RemoveTracks([]TrackID{id})
-}
-
-func (b *Box) RemoveTracks(ids []TrackID) error {
-	atomic.StoreInt32(&b.modified, 1)
-	return b.DB.Update(func(tx *bolt.Tx) error {
-		bkt := tx.Bucket(jukeboxTrackBucket)
-		if bkt == nil {
-			return nil
-		}
-
-		key := make([]byte, 8)
-		for _, id := range ids {
-			putInt(key, uint64(id))
-			bkt.Delete(key)
-		}
-
-		return b.jukebox.removeTracks(ids)
-	})
 }
