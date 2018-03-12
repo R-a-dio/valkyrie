@@ -2,7 +2,6 @@ package musly
 
 import (
 	"encoding/binary"
-	"sync/atomic"
 
 	"github.com/boltdb/bolt"
 )
@@ -24,6 +23,7 @@ var (
 	// stores amount of tracks per entry in jukeboxBucket
 	metadataBinNumTracks = []byte("bin_num_tracks")
 
+	jukeboxMusicStyle  = []byte("jukebox.music_style_set")
 	jukeboxBucket      = []byte("jukebox")
 	jukeboxTrackBucket = []byte("tracks")
 )
@@ -63,6 +63,17 @@ func (b *Box) storeJukebox() error {
 
 		// store the size of each segment
 		bkt = tx.Bucket(metadataBucket)
+		if bkt == nil {
+			return ErrInvalidDatabase
+		}
+
+		if b.musicStyleSet.IsSet() {
+			err = bkt.Put(jukeboxMusicStyle, []byte("true"))
+			if err != nil {
+				return err
+			}
+		}
+
 		putInt(intBuf, binNumTracks)
 		return bkt.Put(metadataBinNumTracks, intBuf)
 	})
@@ -160,6 +171,13 @@ func (b *Box) storeTrack(t track, id TrackID) error {
 			return err
 		}
 
+		if b.musicStyleSet.IsSet() {
+			err = b.jukebox.addTrack(t, id)
+			if err != nil {
+				return err
+			}
+		}
+
 		key := make([]byte, 8)
 		putInt(key, uint64(id))
 		return bkt.Put(key, b.trackToBytes(t))
@@ -242,8 +260,14 @@ func (b *Box) loadTracks(ids []TrackID) ([]track, error) {
 }
 
 // TrackCount returns the amount of tracks in the box
-func (b *Box) TrackCount() (n int, err error) {
-	return n, b.DB.View(func(tx *bolt.Tx) error {
+func (b *Box) TrackCount() int {
+	var n int
+
+	// ignore an unlikely database error here, we assume the user will be using
+	// the track count with some other function, so they will catch a persistent
+	// database error at that point. This approach makes us able to not have to
+	// return an error in this function
+	b.DB.View(func(tx *bolt.Tx) error {
 		bkt := tx.Bucket(jukeboxTrackBucket)
 		if bkt == nil {
 			return nil
@@ -252,6 +276,8 @@ func (b *Box) TrackCount() (n int, err error) {
 		n = bkt.Stats().KeyN
 		return nil
 	})
+
+	return n
 }
 
 // AllTrackIDs returns all TrackIDs stored in this box
@@ -283,7 +309,7 @@ func (b *Box) RemoveTrack(id TrackID) error {
 // RemoveTracks removes all IDs given from both the jukebox aswell as the
 // internal track database. IDs that don't exist are ignored.
 func (b *Box) RemoveTracks(ids []TrackID) error {
-	atomic.StoreInt32(&b.modified, 1)
+	b.modified.Set()
 	return b.DB.Update(func(tx *bolt.Tx) error {
 		bkt := tx.Bucket(jukeboxTrackBucket)
 		if bkt == nil {

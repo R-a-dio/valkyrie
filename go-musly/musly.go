@@ -10,7 +10,6 @@ import "C"
 
 import (
 	"context"
-	"fmt"
 	"math/rand"
 	"runtime"
 	"sort"
@@ -31,6 +30,22 @@ type track = *C.musly_track
 type TrackID = C.musly_trackid
 
 type jukebox = C.musly_jukebox
+
+// addTrack adds the given track to the jukebox;
+func (j *jukebox) addTrack(tracks track, ids TrackID) error {
+	ret := C.musly_jukebox_addtracks(
+		j,
+		(**C.musly_track)(&tracks),
+		(*C.musly_trackid)(&ids),
+		C.int(1),
+		0,
+	)
+	if ret < 0 {
+		panic("musly: addTracks called before SetMusicStyle")
+	}
+
+	return nil
+}
 
 // addTracks adds the given tracks to the jukebox;
 // It's an error if the slices given are not the same length
@@ -243,29 +258,6 @@ func (b *Box) freeTracks(t []track) {
 	}
 }
 
-// Close closes a box and stores state to the path given on creation. Depending
-// on database size, this can take a few seconds.
-func (b *Box) Close() error {
-	if b.jukebox == nil {
-		return nil
-	}
-	if b.allocs != 0 {
-		fmt.Println("musly: unfreed tracks exist:", b.allocs)
-	}
-
-	if atomic.LoadInt32(&b.modified) != 0 {
-		err := b.storeJukebox()
-		if err != nil {
-			return err
-		}
-	}
-
-	C.musly_jukebox_poweroff(b.jukebox)
-	b.jukebox = nil
-
-	return b.DB.Close()
-}
-
 // SetMusicStyle primes the algorithm used with the tracks given.
 // See the musly documentation on musly_jukebox_setmusicstyle for details.
 //
@@ -326,7 +318,36 @@ func (b *Box) SetMusicStyle(ids []TrackID) error {
 		return ErrUnknown
 	}
 
+	// since we changed our music style, all previously added tracks are
+	// invalidated and have to be re-added;
+	ids, err = b.AllTrackIDs()
+	if err != nil {
+		return err
+	}
+
+	tracks, err = b.loadTracks(ids)
+	if err != nil {
+		return err
+	}
+	defer b.freeTracks(tracks)
+
+	err = b.jukebox.addTracks(tracks, ids)
+	if err != nil {
+		return err
+	}
+
+	b.modified.Set()
+	b.musicStyleSet.Set()
 	return nil
+}
+
+func (b *Box) setMusicStyleOnce() error {
+	ids, err := b.AllTrackIDs()
+	if err != nil {
+		return err
+	}
+
+	return b.SetMusicStyle(ids)
 }
 
 // Similarity calculates a similarity score for the seed given against the list
@@ -336,6 +357,12 @@ func (b *Box) SetMusicStyle(ids []TrackID) error {
 // match, and 1 being the furthest away from the seed given. You can use FindMin
 // or FindMax to sort the result with the IDs.
 func (b *Box) Similarity(seed TrackID, against []TrackID) ([]float32, error) {
+	// try to set music style, but only if it hasn't been set already
+	err := b.musicStyleOnce.Do(b.setMusicStyleOnce)
+	if err != nil {
+		return nil, err
+	}
+
 	seedTrack, err := b.loadTrack(seed)
 	if err != nil {
 		return nil, err
@@ -369,6 +396,13 @@ func (b *Box) Similarity(seed TrackID, against []TrackID) ([]float32, error) {
 // ParallelSimilarity is like Similarity, except it uses multiple goroutines
 // to do so
 func (b *Box) ParallelSimilarity(seed TrackID, against []TrackID) ([]float32, error) {
+	// try to set music style, but only if it hasn't been set already, we do this
+	// here to avoid setting up our goroutines for no reason, error early.
+	err := b.musicStyleOnce.Do(b.setMusicStyleOnce)
+	if err != nil {
+		return nil, err
+	}
+
 	g, ctx := errgroup.WithContext(context.Background())
 	var ch = make(chan int)
 	var groupSize = 50
@@ -407,7 +441,7 @@ func (b *Box) ParallelSimilarity(seed TrackID, against []TrackID) ([]float32, er
 		close(ch)
 	}()
 
-	err := g.Wait()
+	err = g.Wait()
 	if err != nil {
 		return nil, err
 	}
@@ -510,7 +544,11 @@ func (b *Box) AnalyzeFile(id TrackID, path string, len float32, start float32) e
 		C.float(start),
 		t,
 	)
-	if ret == -1 {
+	if ret < 0 {
+		return ErrAnalyze
+	} else if ret == 2 {
+		// in some rare situation, musly can actually return a 2 on failure
+		// of estimate_gaussian when analyzing audio
 		return ErrAnalyze
 	}
 

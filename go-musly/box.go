@@ -8,6 +8,9 @@ import "C"
 
 import (
 	"encoding/binary"
+	"fmt"
+	"sync"
+	"sync/atomic"
 
 	"github.com/boltdb/bolt"
 )
@@ -18,7 +21,9 @@ type Box struct {
 	// allocs counts the amount of tracks we've allocated and not freed yet
 	allocs int64
 	// modified indicates if our musly_jukebox has been modified
-	modified int32
+	modified atomicBool
+	// set if setmusicstyle has been called on our jukebox
+	musicStyleSet atomicBool
 
 	jukebox     *jukebox
 	MethodName  string
@@ -27,6 +32,8 @@ type Box struct {
 
 	binNumTracks uint64
 	DB           *bolt.DB
+
+	musicStyleOnce errorOnce
 }
 
 // OpenBox opens or creates a jukebox with default options
@@ -62,30 +69,34 @@ func openBox(db *bolt.DB, path string) (*Box, error) {
 	var method string
 	var decoder string
 	var numTracks uint64
+	var musicStyleSet bool
+
 	err := db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket(metadataBucket)
-		if b == nil {
+		bkt := tx.Bucket(metadataBucket)
+		if bkt == nil {
 			return &Error{
 				Err:  ErrInvalidDatabase,
 				Info: "missing metadata",
 			}
 		}
 
-		method = string(b.Get(metadataMethod))
+		method = string(bkt.Get(metadataMethod))
 		if method == "" {
 			return ErrInvalidDatabase
 		}
-		decoder = string(b.Get(metadataDecoder))
+		decoder = string(bkt.Get(metadataDecoder))
 		if decoder == "" {
 			return ErrInvalidDatabase
 		}
 
-		num := b.Get(metadataBinNumTracks)
+		num := bkt.Get(metadataBinNumTracks)
 		if len(num) != 8 {
 			numTracks = binNumTracks
 		} else {
 			numTracks = binary.BigEndian.Uint64(num)
 		}
+
+		musicStyleSet = string(bkt.Get(jukeboxMusicStyle)) == "true"
 		return nil
 	})
 	if err != nil {
@@ -106,6 +117,12 @@ func openBox(db *bolt.DB, path string) (*Box, error) {
 		binNumTracks: numTracks,
 		Path:         path,
 		DB:           db,
+	}
+
+	if musicStyleSet {
+		// trigger our once, since we've already set our music style in a previous
+		// use of the jukebox
+		box.musicStyleOnce.Do(func() error { return nil })
 	}
 
 	return box, box.loadJukebox()
@@ -142,6 +159,10 @@ func newBox(db *bolt.DB, path string, method string, decoder string) (*Box, erro
 		if err != nil {
 			return err
 		}
+		err = b.Put(jukeboxMusicStyle, []byte("false"))
+		if err != nil {
+			return err
+		}
 		return b.Put(metadataMethod, []byte(box.MethodName))
 	})
 	if err != nil {
@@ -150,4 +171,66 @@ func newBox(db *bolt.DB, path string, method string, decoder string) (*Box, erro
 	}
 
 	return box, nil
+}
+
+// Close closes a box and stores state to the path given on creation. Depending
+// on database size, this can take a few seconds.
+func (b *Box) Close() error {
+	if b.jukebox == nil {
+		return nil
+	}
+	if b.allocs != 0 {
+		fmt.Println("musly: unfreed tracks exist:", b.allocs)
+	}
+
+	if b.modified.IsSet() {
+		err := b.storeJukebox()
+		if err != nil {
+			return err
+		}
+	}
+
+	C.musly_jukebox_poweroff(b.jukebox)
+	b.jukebox = nil
+
+	return b.DB.Close()
+}
+
+// errorOnce is similar to sync.Once with two exceptions
+//
+// 1. it returns an error from Do; a non-nil error means the function passed
+//    to Do will be called again. In other words Do is called until a nil error
+//    is returned from the function.
+// 2. it does not mark done when a panic occurs in f
+type errorOnce struct {
+	m    sync.Mutex
+	done uint32
+}
+
+func (o *errorOnce) Do(f func() error) error {
+	if atomic.LoadUint32(&o.done) == 1 {
+		return nil
+	}
+
+	o.m.Lock()
+	defer o.m.Unlock()
+	if o.done == 0 {
+		err := f()
+		if err != nil {
+			return err
+		}
+		atomic.StoreUint32(&o.done, 1)
+	}
+
+	return nil
+}
+
+type atomicBool int32
+
+func (b *atomicBool) Set() {
+	atomic.StoreInt32((*int32)(b), 1)
+}
+
+func (b *atomicBool) IsSet() bool {
+	return atomic.LoadInt32((*int32)(b)) == 1
 }
