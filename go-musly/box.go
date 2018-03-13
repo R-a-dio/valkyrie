@@ -25,11 +25,16 @@ type Box struct {
 	// set if setmusicstyle has been called on our jukebox
 	musicStyleSet atomicBool
 
+	// mutex to protect the musly_jukebox; which does not seem to do internal
+	// locking of any kind. We do a best-effort job by assuming some operations
+	// are read-only and should be safe for multiple readers
+	jukeboxMu   sync.RWMutex
 	jukebox     *jukebox
 	MethodName  string
 	DecoderName string
 	Path        string
 
+	trackSize    int
 	binNumTracks uint64
 	DB           *bolt.DB
 
@@ -112,6 +117,7 @@ func openBox(db *bolt.DB, path string) (*Box, error) {
 
 	box := &Box{
 		jukebox:      jukebox,
+		trackSize:    jukebox.trackSize(),
 		DecoderName:  decoder,
 		MethodName:   method,
 		binNumTracks: numTracks,
@@ -122,6 +128,7 @@ func openBox(db *bolt.DB, path string) (*Box, error) {
 	if musicStyleSet {
 		// trigger our once, since we've already set our music style in a previous
 		// use of the jukebox
+		box.musicStyleSet.Set()
 		box.musicStyleOnce.Do(func() error { return nil })
 	}
 
@@ -139,6 +146,7 @@ func newBox(db *bolt.DB, path string, method string, decoder string) (*Box, erro
 	box := &Box{
 		modified:    1,
 		jukebox:     jukebox,
+		trackSize:   jukebox.trackSize(),
 		DecoderName: C.GoString(jukebox.decoder_name),
 		MethodName:  C.GoString(jukebox.method_name),
 		Path:        path,
@@ -176,10 +184,15 @@ func newBox(db *bolt.DB, path string, method string, decoder string) (*Box, erro
 // Close closes a box and stores state to the path given on creation. Depending
 // on database size, this can take a few seconds.
 func (b *Box) Close() error {
+	// note: locking in this function is a mess due to relocking by storeJukebox
+	// internally, make sure lock logic is correct when modifying this code.
+	b.jukeboxMu.RLock()
 	if b.jukebox == nil {
+		b.jukeboxMu.RUnlock()
 		return nil
 	}
-	if b.allocs != 0 {
+	b.jukeboxMu.RUnlock()
+	if atomic.LoadInt64(&b.allocs) != 0 {
 		fmt.Println("musly: unfreed tracks exist:", b.allocs)
 	}
 
@@ -190,8 +203,10 @@ func (b *Box) Close() error {
 		}
 	}
 
+	b.jukeboxMu.Lock()
 	C.musly_jukebox_poweroff(b.jukebox)
 	b.jukebox = nil
+	b.jukeboxMu.Unlock()
 
 	return b.DB.Close()
 }

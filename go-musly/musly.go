@@ -115,6 +115,11 @@ func (j *jukebox) trackIDs() []TrackID {
 	return ids
 }
 
+// musly_track_size function as declared in musly/musly.h:640
+func (j *jukebox) trackSize() int {
+	return int(C.musly_track_size(j))
+}
+
 // musly_jukebox_binsize function as declared in musly/musly.h:434
 func (j *jukebox) binSize(header int, num int) int {
 	ret := C.musly_jukebox_binsize(j, C.int(header), C.int(num))
@@ -233,18 +238,22 @@ func newJukebox(method, decoder string) (*jukebox, error) {
 	return jukebox, nil
 }
 
-// NewTrack returns a fresh musly track as a Go byte slice
+// newTrackBytes returns a fresh musly track as a Go byte slice; unlike newTrack
+// newTrackBytes locks jukeboxMu before allocating
 func (b *Box) newTrackBytes() []byte {
-	return b.trackToBytes(b.newTrack())
+	b.jukeboxMu.RLock()
+	t := b.trackToBytes(b.newTrack())
+	b.jukeboxMu.RUnlock()
+	return t
 }
 
-// NewTrack returns a fresh musly track
+// newTrack returns a fresh musly track; jukeboxMu needs to be held when called
 func (b *Box) newTrack() track {
 	atomic.AddInt64(&b.allocs, 1)
 	return track(C.musly_track_alloc(b.jukebox))
 }
 
-// FreeTrack frees a musly track
+// freeTrack frees a musly track
 func (b *Box) freeTrack(t track) {
 	atomic.AddInt64(&b.allocs, -1)
 	C.musly_track_free(t)
@@ -309,11 +318,13 @@ func (b *Box) SetMusicStyle(ids []TrackID) error {
 		}
 	}
 
+	b.jukeboxMu.Lock()
 	ret := C.musly_jukebox_setmusicstyle(
 		b.jukebox,
 		(**C.musly_track)(&usableTracks[0]),
 		C.int(len(usableTracks)),
 	)
+	b.jukeboxMu.Unlock()
 	if ret < 0 {
 		return ErrUnknown
 	}
@@ -331,7 +342,9 @@ func (b *Box) SetMusicStyle(ids []TrackID) error {
 	}
 	defer b.freeTracks(tracks)
 
+	b.jukeboxMu.Lock()
 	err = b.jukebox.addTracks(tracks, ids)
+	b.jukeboxMu.Unlock()
 	if err != nil {
 		return err
 	}
@@ -377,6 +390,7 @@ func (b *Box) Similarity(seed TrackID, against []TrackID) ([]float32, error) {
 
 	similarity := make([]float32, len(against))
 
+	b.jukeboxMu.RLock()
 	ret := C.musly_jukebox_similarity(
 		b.jukebox,
 		seedTrack,
@@ -386,6 +400,7 @@ func (b *Box) Similarity(seed TrackID, against []TrackID) ([]float32, error) {
 		C.int(len(against)),
 		(*C.float)(&similarity[0]),
 	)
+	b.jukeboxMu.RUnlock()
 	if ret < 0 {
 		return nil, ErrUnknown
 	}
@@ -394,7 +409,7 @@ func (b *Box) Similarity(seed TrackID, against []TrackID) ([]float32, error) {
 }
 
 // ParallelSimilarity is like Similarity, except it uses multiple goroutines
-// to do so
+// to distribute the work across
 func (b *Box) ParallelSimilarity(seed TrackID, against []TrackID) ([]float32, error) {
 	// try to set music style, but only if it hasn't been set already, we do this
 	// here to avoid setting up our goroutines for no reason, error early.
@@ -457,6 +472,7 @@ func (b *Box) GuessNeighbors(seed TrackID, maxNeighbors int, filter []TrackID) (
 	ids := make([]TrackID, maxNeighbors)
 
 	var ret C.int
+	b.jukeboxMu.RLock()
 	if len(filter) > 0 {
 		ret = C.musly_jukebox_guessneighbors_filtered(
 			b.jukebox,
@@ -474,6 +490,7 @@ func (b *Box) GuessNeighbors(seed TrackID, maxNeighbors int, filter []TrackID) (
 			C.int(maxNeighbors),
 		)
 	}
+	b.jukeboxMu.RUnlock()
 
 	if ret < 0 {
 		return nil, ErrUnknown
@@ -492,13 +509,16 @@ func (b *Box) bytesToTrack(p []byte) track {
 	return track(unsafe.Pointer(&p[0]))
 }
 
-// musly_track_size function as declared in musly/musly.h:640
 func (b *Box) TrackSize() int {
-	return int(C.musly_track_size(b.jukebox))
+	return b.trackSize
 }
 
 // musly_track_tostr function as declared in musly/musly.h:726
 func (b *Box) TrackToStr(t track) string {
+	// track_tostr is the only function with an explicit note that it is not
+	// threadsafe; so assume we're writing something here
+	b.jukeboxMu.Lock()
+	defer b.jukeboxMu.Unlock()
 	ret := C.musly_track_tostr(b.jukebox, t)
 	return C.GoString(ret)
 }
@@ -508,6 +528,7 @@ func (b *Box) TrackToStr(t track) string {
 // The PCM signal has to be mono, sampled at 22kHz and float values between
 // -1.0 and +1.0
 func (b *Box) AnalyzePCM(id TrackID, pcm []byte) error {
+	b.jukeboxMu.RLock()
 	t := b.newTrack()
 	defer b.freeTrack(t)
 
@@ -517,6 +538,7 @@ func (b *Box) AnalyzePCM(id TrackID, pcm []byte) error {
 		C.int(len(pcm)/4),
 		t,
 	)
+	b.jukeboxMu.RUnlock()
 	if ret < 0 {
 		return ErrUnknown
 	} else if ret == 2 {
@@ -534,6 +556,7 @@ func (b *Box) AnalyzePCM(id TrackID, pcm []byte) error {
 func (b *Box) AnalyzeFile(id TrackID, path string, len float32, start float32) error {
 	cpath := C.CString(path)
 	defer C.free(unsafe.Pointer(cpath))
+	b.jukeboxMu.RLock()
 	t := b.newTrack()
 	defer b.freeTrack(t)
 
@@ -544,6 +567,7 @@ func (b *Box) AnalyzeFile(id TrackID, path string, len float32, start float32) e
 		C.float(start),
 		t,
 	)
+	b.jukeboxMu.RUnlock()
 	if ret < 0 {
 		return ErrAnalyze
 	} else if ret == 2 {

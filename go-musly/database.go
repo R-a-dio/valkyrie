@@ -40,6 +40,10 @@ func (b *Box) storeJukebox() error {
 	// 2: tracks segment
 	// 3: ...
 	var intBuf = make([]byte, 8)
+	// lock for the whole function, so we can have a consistent read state from
+	// musly internals
+	b.jukeboxMu.RLock()
+	defer b.jukeboxMu.RUnlock()
 
 	err := b.DB.Update(func(tx *bolt.Tx) error {
 		tx.DeleteBucket(jukeboxBucket)
@@ -133,6 +137,9 @@ func (b *Box) loadJukebox() error {
 			}
 		}
 
+		b.jukeboxMu.Lock()
+		defer b.jukeboxMu.Unlock()
+
 		expected, err := b.jukebox.fromBin(header, 1, 0)
 		if err != nil {
 			return err
@@ -172,7 +179,9 @@ func (b *Box) storeTrack(t track, id TrackID) error {
 		}
 
 		if b.musicStyleSet.IsSet() {
+			b.jukeboxMu.RLock()
 			err = b.jukebox.addTrack(t, id)
+			b.jukeboxMu.RUnlock()
 			if err != nil {
 				return err
 			}
@@ -228,6 +237,7 @@ func (b *Box) loadTracks(ids []TrackID) ([]track, error) {
 
 		key := make([]byte, 8)
 		var err *Error
+		b.jukeboxMu.RLock() // hold lock for newTrack calls
 		for i, id := range ids {
 			t := b.newTrack()
 			putInt(key, uint64(id))
@@ -247,6 +257,7 @@ func (b *Box) loadTracks(ids []TrackID) ([]track, error) {
 				}
 			}
 		}
+		b.jukeboxMu.RUnlock()
 
 		return err
 	})
@@ -282,7 +293,7 @@ func (b *Box) TrackCount() int {
 
 // AllTrackIDs returns all TrackIDs stored in this box
 func (b *Box) AllTrackIDs() ([]TrackID, error) {
-	var ids = make([]TrackID, 0, 128)
+	var ids = make([]TrackID, 0, 1024)
 
 	err := b.DB.View(func(tx *bolt.Tx) error {
 		bkt := tx.Bucket(jukeboxTrackBucket)
@@ -322,7 +333,9 @@ func (b *Box) RemoveTracks(ids []TrackID) error {
 			bkt.Delete(key)
 		}
 
+		b.jukeboxMu.Lock()
 		b.jukebox.removeTracks(ids)
+		b.jukeboxMu.Unlock()
 		return nil
 	})
 }
