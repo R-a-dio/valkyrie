@@ -14,14 +14,14 @@ import (
 // RequestHandler returns a http.Handler that uses the state given to handle
 // incoming track requests.
 func RequestHandler(s *State) http.Handler {
-	return &requestHandle{State: s}
+	return &requestHandler{State: s}
 }
 
 func sendJSON(w io.Writer, errno int, s string) {
 	fmt.Fprintf(w, `{"response": "%s", "errno": %d}`, s, errno)
 }
 
-type requestHandle struct {
+type requestHandler struct {
 	*State
 	requestMutex sync.Mutex
 }
@@ -31,7 +31,7 @@ type requestHandle struct {
 // We do not do authentication or authorization checks, this is left to the client. Request can be
 // either a GET or POST with parameters `track` and `identifier`, where `track` is the track number
 // to be requested, and `identifier` the unique identification used for the user (IP Address, hostname, etc)
-func (h *requestHandle) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *requestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !h.Conf().RequestsEnabled {
 		sendJSON(w, 1200, "error: requests are currently disabled")
 		return
