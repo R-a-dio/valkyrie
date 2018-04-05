@@ -16,8 +16,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Wessie/hanyuu/database"
-	"github.com/Wessie/hanyuu/streamer/audio"
+	"github.com/R-a-dio/valkyrie/database"
+	"github.com/R-a-dio/valkyrie/streamer/audio"
 )
 
 var (

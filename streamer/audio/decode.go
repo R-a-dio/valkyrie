@@ -28,7 +28,6 @@ func DecodeFile(path string) (*PCMBuffer, error) {
 		} else {
 			buf.Close()
 		}
-		fmt.Println("closed ffmpeg")
 	}()
 
 	return buf, nil

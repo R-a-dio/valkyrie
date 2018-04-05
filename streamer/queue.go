@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Wessie/hanyuu/database"
-	"github.com/Wessie/hanyuu/streamer/audio"
+	"github.com/R-a-dio/valkyrie/database"
+	"github.com/R-a-dio/valkyrie/streamer/audio"
 )
 
 // queueMinimumLength is the minimum amount of songs required to be

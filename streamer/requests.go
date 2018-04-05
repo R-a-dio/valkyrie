@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Wessie/hanyuu/database"
+	"github.com/R-a-dio/valkyrie/database"
 )
 
 // RequestHandler returns a http.Handler that uses the state given to handle

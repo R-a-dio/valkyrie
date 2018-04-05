@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
-	"github.com/Wessie/hanyuu/database"
+	"github.com/R-a-dio/valkyrie/database"
 	_ "github.com/go-sql-driver/mysql" // only support mysql/mariadb for now
 	"github.com/jmoiron/sqlx"
 )

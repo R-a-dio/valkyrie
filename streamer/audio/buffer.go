@@ -7,6 +7,12 @@ import (
 	"sync/atomic"
 )
 
+type AudioFormat struct {
+	ChannelCount   int
+	BytesPerSample int
+	SampleRate     int
+}
+
 func NewBuffer(initialSize int) *Buffer {
 	var b = Buffer{
 		mu:   new(sync.RWMutex),

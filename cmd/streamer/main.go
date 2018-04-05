@@ -10,7 +10,7 @@ import (
 	// _ "expvar"
 	_ "net/http/pprof"
 
-	"github.com/Wessie/hanyuu/streamer"
+	"github.com/R-a-dio/valkyrie/streamer"
 )
 
 func main() {
@@ -28,14 +28,12 @@ func main() {
 		return
 	}
 
-	fmt.Println("gracefulled")
-
 	// we're expecting files from an old process
 	if *graceful {
+		fmt.Println("graceful: attempting graceful restart")
 		file := os.NewFile(3, "listener")
 		l, err := net.FileListener(file)
 		if err != nil {
-			// file.Close()
 			fmt.Println("graceful: new: failed to inherit socket:", err)
 		}
 		if err = file.Close(); err != nil {
@@ -45,7 +43,6 @@ func main() {
 		file = os.NewFile(4, "icecast")
 		conn, err := net.FileConn(file)
 		if err != nil {
-			// file.Close()
 			fmt.Println("graceful: new: failed to inherit conn:", err)
 		}
 		if err = file.Close(); err != nil {

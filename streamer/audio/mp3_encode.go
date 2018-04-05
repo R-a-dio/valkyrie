@@ -1,3 +1,5 @@
+// +build !nolame
+
 package audio
 
 /*
@@ -9,12 +11,6 @@ import (
 	"fmt"
 	"unsafe"
 )
-
-type AudioFormat struct {
-	ChannelCount   int
-	BytesPerSample int
-	SampleRate     int
-}
 
 type LAME struct {
 	flags *C.lame_global_flags
