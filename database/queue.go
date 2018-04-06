@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -34,6 +35,23 @@ type QueueEntry struct {
 
 	// fields not used by the database layer
 	EstimatedPlayTime time.Time
+}
+
+// MarshalJSON implements json.Marshaler
+func (q QueueEntry) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		IsRequest         bool
+		UserIdentifier    string
+		EstimatedPlayTime time.Time
+		Metadata          string
+		TrackID           TrackID
+	}{
+		IsRequest:         q.IsRequest,
+		UserIdentifier:    q.UserIdentifier,
+		EstimatedPlayTime: q.EstimatedPlayTime,
+		Metadata:          q.Track.Metadata,
+		TrackID:           q.Track.TrackID,
+	})
 }
 
 func QueueLoad(tx *sqlx.Tx) ([]QueueEntry, error) {

@@ -133,6 +133,19 @@ func (q *Queue) Save() error {
 	return err
 }
 
+// Entries returns a copy of all queue entries
+func (q *Queue) Entries() []database.QueueEntry {
+	q.mu.Lock()
+	all := make([]database.QueueEntry, len(q.l))
+
+	for i := range q.l {
+		all[i] = q.l[i]
+	}
+	q.mu.Unlock()
+
+	return all
+}
+
 // Peek returns the next track to be returned from Pop
 func (q *Queue) Peek() database.Track {
 	q.mu.Lock()

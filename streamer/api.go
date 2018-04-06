@@ -2,6 +2,7 @@ package streamer
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -10,6 +11,8 @@ import (
 	"os/exec"
 	"sync"
 	"sync/atomic"
+
+	"github.com/R-a-dio/valkyrie/database"
 )
 
 // ListenAndServe serves a HTTP API for the state given on the address
@@ -18,9 +21,10 @@ func ListenAndServe(s *State) error {
 	h := &streamHandler{State: s}
 	mux := http.NewServeMux()
 	// streamer handler
-	mux.Handle("/", h)
+	mux.Handle("/", http.HandlerFunc(h.actionHandler))
 	// request handler
 	mux.Handle("/request", RequestHandler(s))
+	mux.Handle("/info", http.HandlerFunc(h.statusHandler))
 
 	// debug symbols
 	mux.HandleFunc("/debug/pprof/", pprof.Index)
@@ -60,9 +64,22 @@ type streamHandler struct {
 	*State
 }
 
-func (h *streamHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// when you change api signature here, make sure to also adjust it in the
-	// api package and below in the graceful handlers
+func (h *streamHandler) statusHandler(w http.ResponseWriter, r *http.Request) {
+	var info = struct {
+		Queue   []database.QueueEntry `json:"queue"`
+		Running bool                  `json:"running"`
+	}{
+		Queue:   h.queue.Entries(),
+		Running: atomic.LoadInt32(&h.streamer.started) == 1,
+	}
+
+	w.Header().Add("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(info)
+}
+
+func (h *streamHandler) actionHandler(w http.ResponseWriter, r *http.Request) {
+	// when you change api signature here, make sure to also adjust it below
+	// in the graceful handlers
 	//
 	// supported actions:
 	// 	"?action=start"

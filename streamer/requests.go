@@ -2,7 +2,6 @@ package streamer
 
 import (
 	"fmt"
-	"io"
 	"net/http"
 	"strconv"
 	"sync"
@@ -17,7 +16,8 @@ func RequestHandler(s *State) http.Handler {
 	return &requestHandler{State: s}
 }
 
-func sendJSON(w io.Writer, errno int, s string) {
+func sendJSON(w http.ResponseWriter, errno int, s string) {
+	w.Header().Add("Content-Type", "application/json")
 	fmt.Fprintf(w, `{"response": "%s", "errno": %d}`, s, errno)
 }
 
