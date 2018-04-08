@@ -499,7 +499,7 @@ func (s *Streamer) encoderRun(ctx context.Context) error {
 			return nil
 		}
 
-		for {
+		for enc != nil {
 			n, err := r.Read(pcmBuf)
 			if err != nil && err != io.EOF {
 				// unknown error, wait for next track
@@ -512,10 +512,10 @@ func (s *Streamer) encoderRun(ctx context.Context) error {
 
 			mp3Buf, err = enc.Encode(pcmBuf[:n])
 			if err != nil {
-				// lame error
+				// lame error, flush internal buffer and handle it normally
+				mp3Buf = enc.Flush()
 				enc.Close()
 				enc = nil
-				break
 			}
 
 			_, err = st.mp3.Write(mp3Buf)

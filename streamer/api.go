@@ -66,8 +66,8 @@ type streamHandler struct {
 
 func (h *streamHandler) statusHandler(w http.ResponseWriter, r *http.Request) {
 	var info = struct {
-		Queue   []database.QueueEntry `json:"queue"`
-		Running bool                  `json:"running"`
+		Queue   []database.QueueEntry
+		Running bool
 	}{
 		Queue:   h.queue.Entries(),
 		Running: atomic.LoadInt32(&h.streamer.started) == 1,
