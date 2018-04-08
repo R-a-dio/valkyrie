@@ -440,8 +440,12 @@ func (s *Streamer) encoderRun(ctx context.Context) error {
 	// encoder instance, need to call Close when done with it
 	var enc *audio.LAME
 	defer func() {
+		// cleanup both our encoder and last mp3 track if we're exiting
 		if enc != nil {
 			enc.Close()
+		}
+		if st.mp3 != nil {
+			st.mp3.Close()
 		}
 	}()
 
@@ -459,9 +463,6 @@ func (s *Streamer) encoderRun(ctx context.Context) error {
 		select {
 		case st = <-s.preloadQueue:
 		case <-ctx.Done():
-			if st.mp3 != nil {
-				st.mp3.Close()
-			}
 			return nil
 		}
 
@@ -483,7 +484,6 @@ func (s *Streamer) encoderRun(ctx context.Context) error {
 
 			atomic.AddInt64(&s.encoderLength, -int64(st.mp3.Length()-progress))
 			progress = st.mp3.Length()
-
 			leftover = nil
 		}
 
@@ -568,12 +568,7 @@ func (s *Streamer) preloadTracks(ctx context.Context) error {
 
 		trace("starting: %s", t.Metadata)
 		buf, err := audio.DecodeFile(path)
-		if err != nil {
-			trace("skipping: %s", t.Metadata)
-			s.queue.Pop()
-			goto again
-		}
-		if buf.Error() != nil {
+		if err != nil || buf.Error() != nil {
 			trace("skipping: %s", t.Metadata)
 			s.queue.Pop()
 			goto again
