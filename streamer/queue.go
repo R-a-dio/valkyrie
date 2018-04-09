@@ -146,19 +146,45 @@ func (q *Queue) Entries() []database.QueueEntry {
 	return all
 }
 
+func (q *Queue) peek() database.Track {
+	if len(q.l) == 0 {
+		return database.NoTrack
+	}
+
+	// refresh our in-memory track with database info, something might've
+	// changed between the time we got queued, and the time we're being used.
+	return q.refreshTrack(q.l[0].Track)
+}
+
 // Peek returns the next track to be returned from Pop
 func (q *Queue) Peek() database.Track {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
-	if len(q.l) == 0 {
-		return database.NoTrack
+	return q.peek()
+}
+
+// PeekTrack returns the track positioned after the track given or next track
+// if track is not in queue
+func (q *Queue) PeekTrack(t database.Track) database.Track {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	var found bool
+	for _, qt := range q.l {
+		if found {
+			return q.refreshTrack(qt.Track)
+		}
+
+		if qt.Track.EqualTo(t) {
+			found = true
+		}
 	}
 
-	t := q.l[0].Track
+	return q.peek()
+}
 
-	// refresh our in-memory track with database info, something might've
-	// changed between the time we got queued, and the time we're being used.
+func (q *Queue) refreshTrack(t database.Track) database.Track {
 	nt, err := database.GetTrack(q.db, t.TrackID)
 	if err != nil {
 		// we just return our original in-memory version if the database query
@@ -167,7 +193,7 @@ func (q *Queue) Peek() database.Track {
 	}
 
 	// since we probe for a duration if length is zero, we have to copy it from
-	// the track we already had in memory
+	// the track we already had
 	if nt.Length == 0 {
 		nt.Length = t.Length
 	}
@@ -199,6 +225,20 @@ func (q *Queue) PopTrack(t database.Track) {
 	if e.Track.EqualTo(t) {
 		q.pop()
 	}
+}
+
+// RemoveTrack removes the first occurence of the track given from the queue
+func (q *Queue) RemoveTrack(t database.Track) {
+	q.mu.Lock()
+	for i, qt := range q.l {
+		if !qt.Track.EqualTo(t) {
+			continue
+		}
+
+		q.l = append(q.l[:i], q.l[i+1:]...)
+		break
+	}
+	q.mu.Unlock()
 }
 
 // pop pops a track from the queue, before calling pop you have to hold q.mu
