@@ -21,7 +21,7 @@ func ListenAndServe(s *State) error {
 	h := &streamHandler{State: s}
 	mux := http.NewServeMux()
 	// streamer handler
-	mux.Handle("/", http.HandlerFunc(h.actionHandler))
+	mux.Handle("/do", http.HandlerFunc(h.actionHandler))
 	// request handler
 	mux.Handle("/request", RequestHandler(s))
 	mux.Handle("/info", http.HandlerFunc(h.statusHandler))
@@ -45,7 +45,7 @@ func ListenAndServe(s *State) error {
 		}
 		s.httplistener = listener
 		// not expecting a poke
-		close(h.gracefulWait)
+		close(h.graceful.wait)
 	} else {
 		// we inherited a listener, so expect a poke
 		fmt.Println("graceful: new: expecting poke")
@@ -121,13 +121,14 @@ func (h *streamHandler) actionHandler(w http.ResponseWriter, r *http.Request) {
 	case "disable":
 		requestState = false
 	default:
-		http.Error(w, http.StatusText(400), 400)
-		return
+		requestState = h.Conf().RequestsEnabled
 	}
 
 	c := h.Conf()
 	c.RequestsEnabled = requestState
 	h.StoreConf(c)
+
+	http.Error(w, http.StatusText(200), 200)
 }
 
 // gracefulRestart tries to spawn a new process to take over from the current
@@ -166,7 +167,15 @@ func (h *streamHandler) gracefulRestartHandler(w http.ResponseWriter, r *http.Re
 		}
 	}
 
-	if i, ok := h.streamer.conn.(*net.TCPConn); ok {
+	// conn of the streamer is set concurrently, so we have to lock to retrieve
+	// it, this is technically a logic race because the conn might change
+	// between our read and the actual restart, but we have no way to deal with
+	// that problem.
+	h.graceful.mu.Lock()
+	conn := h.graceful._conn
+	h.graceful.mu.Unlock()
+
+	if i, ok := conn.(*net.TCPConn); ok {
 		fd, err := i.File()
 		files[1] = fd
 		if err != nil {
@@ -237,5 +246,5 @@ func (h *streamHandler) gracefulPokeHandler(w http.ResponseWriter, r *http.Reque
 
 	// close our waiting channel, this will unblock anyone waiting on the
 	// previous process to exit.
-	close(h.gracefulWait)
+	close(h.graceful.wait)
 }

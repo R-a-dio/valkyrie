@@ -50,9 +50,12 @@ func main() {
 		}
 
 		s.GracefulSetup(l, conn)
-
 		// only start the streamer right away if we're restarting ourselves
 		s.StartStreamer()
+	} else {
+		// nothing to graceful with, but we have to setup the mechanisms to
+		// avoid issues so pass nils
+		s.GracefulSetup(nil, nil)
 	}
 
 	fmt.Println(s.Conf())

@@ -6,12 +6,13 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"runtime/debug"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -26,53 +27,26 @@ var (
 	httpUnauthorized = []byte("HTTP/1.0 401 Unauthorized")
 )
 
-// ZeroStreamerTrack is a zero'd track
-var ZeroStreamerTrack StreamerTrack
-
-type StreamerTrack struct {
-	pcm   *audio.PCMBuffer
-	mp3   *audio.MP3Buffer
-	track database.Track
-
-	once *sync.Once
-}
-
-func (st StreamerTrack) String() string {
-	return fmt.Sprintf("<%s>", st.track.Metadata)
-}
-
+// Streamer represents a single icecast stream
 type Streamer struct {
-	// started is set when Start is called and unset when (Force)Stop is called
-	// it avoids multiple start or stop calls
+	// started is set if we're currently running
 	started int32
-	// forceDone is set when ForceStop is called and unset when Start is called
-	// 	it prompts the data sending to icecast to stop right away instead of
-	// 	waiting on track end.
+	// stopping is set if we're in the progress of stopping
+	stopping int32
+	// forceDone is set when we want an immediate shutdown, instead of waiting
+	// on work to finish before shutdown
 	forceDone int32
-	// the audio duration send to the encoder but not yet retrieved on the
-	// other end of it as encoded audio
-	encoderLength int64 // atomic time.Duration
 
-	// State is our shared state across several components
+	// State shared between queue and streamer
 	*State
-	// AudioFormat that we're dealing with, in terms of PCM audio data
+	// Format of the PCM audio data
 	AudioFormat audio.AudioFormat
-
-	// channels to communicate between our goroutines
-	preloadNext   chan struct{}
-	preloadQueue  chan StreamerTrack
-	encoderQueue  chan StreamerTrack
-	icecastQueue  chan StreamerTrack
-	metadataQueue chan StreamerTrack
 
 	// sync primitives
 	wg     sync.WaitGroup
 	cancel context.CancelFunc
-	// error returned by any of our goroutines, returned by Wait/Stop
-	err error
 
-	// connection used for icecast
-	conn net.Conn
+	err error
 }
 
 // NewStreamer returns a new streamer using the state given
@@ -90,178 +64,402 @@ func NewStreamer(state *State) (*Streamer, error) {
 	return s, nil
 }
 
-func (s *Streamer) makeChannels() {
-	s.preloadNext = make(chan struct{})
-	s.preloadQueue = make(chan StreamerTrack)
-	s.encoderQueue = make(chan StreamerTrack)
-	s.icecastQueue = make(chan StreamerTrack)
-	s.metadataQueue = make(chan StreamerTrack)
-}
-
-// Start starts the streamer, streamer will be shutdown if the context passed
-// is canceled.
-func (s *Streamer) Start(parentCtx context.Context) {
+// Start starts the streamer with the context given, Start is a noop if
+// already started
+func (s *Streamer) Start(ctx context.Context) {
 	if !atomic.CompareAndSwapInt32(&s.started, 0, 1) {
-		fmt.Println("streamer is already running")
+		// we're already running
+		log.Println("streamer.start: already running")
 		return
 	}
 
-	var ctx context.Context
-	ctx, s.cancel = context.WithCancel(parentCtx)
+	// reset our state, use atomics for these since they are read by the
+	// HTTP server sometimes
+	atomic.StoreInt32(&s.forceDone, 0)
+	atomic.StoreInt32(&s.stopping, 0)
 
-	// reset sync primitives
+	s.err = nil
 	s.wg = sync.WaitGroup{}
 	var once sync.Once
-	atomic.StoreInt32(&s.forceDone, 0)
-	// reset channels
-	s.makeChannels()
-	// reset error
-	s.err = nil
 
-	callFn := func(fn func(context.Context) error) {
+	ctx, s.cancel = context.WithCancel(ctx)
+
+	pipeline := []pipelineFunc{
+		s.headTask,
+		s.queueFiles,
+		s.decodeFiles,
+		s.encodeToMP3,
+		s.streamToIcecast,
+		s.metadataToIcecast,
+		s.tailTask,
+	}
+
+	callFunc := func(fn pipelineFunc, task streamerTask) {
 		defer s.wg.Done()
-		if err := fn(ctx); err != nil {
+		err := fn(task)
+		if err != nil {
+			log.Printf("streamer: pipeline error: %s\n", err)
 			once.Do(func() {
 				s.err = err
-				fmt.Println("streamer exiting:", err)
 				s.cancel()
 			})
 		}
-
-		fmt.Println("finished:", fn)
 	}
 
-	methods := []func(context.Context) error{
-		s.metadataSend,
-		s.icecastWrite,
-		s.encoderRun,
-		s.preloadTracks,
-	}
+	log.Println("streamer.start: setting up pipeline")
+	var task = streamerTask{Context: ctx}
+	var ch chan streamerTrack
+	var start = make(chan streamerTrack)
 
-	for _, fn := range methods {
+	task.in = start
+	for n, fn := range pipeline {
+		if n < len(pipeline)-1 {
+			ch = make(chan streamerTrack)
+			task.out = ch
+		} else {
+			task.out = start
+		}
+
 		s.wg.Add(1)
-		go callFn(fn)
+		go callFunc(fn, task)
+
+		task.in = ch
 	}
+
+	log.Println("streamer.start: starting pipeline")
+	// and kickstart the head
+	start <- streamerTrack{}
 }
 
-// Stop stops the streamer and waits for it to complete, returns any errors
-// encountered
+func (s *Streamer) stop(force bool, graceful bool) error {
+	// set force unconditionally, since arguments might change between two
+	// stop calls (first stop with force=false, second with force=true)
+	if force {
+		log.Println("streamer.stop: stopping with force=true")
+		atomic.StoreInt32(&s.forceDone, 1)
+	}
+
+	if !atomic.CompareAndSwapInt32(&s.stopping, 0, 1) {
+		// we're already trying to stop or have already stopped
+		log.Println("streamer.stop: already stopping")
+		return nil
+	}
+
+	s.cancel()
+	log.Println("streamer.stop: waiting on completion")
+	s.wg.Wait()
+	// we now know we're not running anymore, so update our state
+	atomic.StoreInt32(&s.started, 0)
+
+	if !graceful {
+		// TODO: cleanup resources
+	}
+
+	log.Println("streamer.stop: finished")
+	return s.err
+}
+
+// Stop stops the streamer, but waits until the current track is done
 func (s *Streamer) Stop() error {
 	return s.stop(false, false)
 }
 
-// ForceStop stops the streamer and interrupts any loops running
+// ForceStop stops the streamer and tries to stop as soon as possible
 func (s *Streamer) ForceStop() error {
 	return s.stop(true, false)
 }
 
-func (s *Streamer) stop(force bool, restart bool) error {
-	if !atomic.CompareAndSwapInt32(&s.started, 1, 0) {
-		fmt.Println("streamer not running")
-		return nil
-	}
-	s.cancel()
-	if force {
-		atomic.StoreInt32(&s.forceDone, 1)
-	}
-	s.wg.Wait()
-
-	// clean up our icecast connection if it's still open
-	if !restart && s.conn != nil {
-		s.conn.Close()
-	}
-	return s.err
-}
-
-// Wait waits for the streamer to be stopped by either calling Stop or an error
-// occuring
+// Wait waits for the streamer to stop running; either by an error occuring or
+// by someone else calling Stop or ForceStop.
 func (s *Streamer) Wait() error {
 	s.wg.Wait()
 	return s.err
 }
 
-func (s *Streamer) metadataSend(ctx context.Context) error {
-	// metaurl creates the required URL using StreamURL as base
-	metaurl := func(meta string) (string, error) {
-		uri, err := url.Parse(s.Conf().StreamURL)
-		if err != nil {
-			return "", err
+type pipelineFunc func(streamerTask) error
+
+type streamerTrack struct {
+	filepath string
+	track    database.Track
+	pcm      *audio.PCMBuffer
+	mp3      *audio.MP3Buffer
+
+	once *sync.Once
+}
+
+type streamerTask struct {
+	context.Context
+
+	in  <-chan streamerTrack
+	out chan<- streamerTrack
+}
+
+func (t streamerTrack) String() string {
+	return fmt.Sprintf("<%s>", t.track.Metadata)
+}
+
+// errored should be called when a recoverable error occurs when handling
+// a track. Calling errored implies you're skipping the current track and start
+// work on the next track
+func (s *Streamer) errored(task streamerTask, track streamerTrack) {
+	track.once.Do(func() {
+		log.Printf("streamer.errored: on track %s\n", track)
+		s.queue.RemoveTrack(track.track)
+
+		select {
+		case task.out <- streamerTrack{}:
+		case <-task.Done():
 		}
+	})
+}
 
-		q := url.Values{}
-		q.Set("mode", "updinfo")
-		q.Set("mount", uri.Path)
-		q.Set("charset", "utf8")
-		q.Set("song", meta)
+// finished should only be called by the tailTask, use errored instead if
+// you need to skip a track
+func (s *Streamer) finished(task streamerTask, track streamerTrack) {
+	track.once.Do(func() {
+		log.Printf("streamer.finished: on track %s\n", track)
+		s.queue.PopTrack(track.track)
 
-		uri.Path = "/admin/metadata"
-		uri.RawQuery = q.Encode()
+		select {
+		case task.out <- streamerTrack{}:
+		case <-task.Done():
+		}
+	})
+}
 
-		return uri.String(), nil
-	}
-
-	// backoff timer, we set the timer when a request fails and we want to
-	// retry it in a little bit
-	var backoff = time.NewTimer(time.Hour)
-	backoff.Stop()
-	// the amount of times we've failed a request, we use this value to increase
-	// the delay between requests
-	var backoffCount int
-
-	var st StreamerTrack
-
+// headTask is the function running at the start of the pipeline
+func (s *Streamer) headTask(task streamerTask) error {
 	for {
 		select {
-		case <-backoff.C:
-			backoffCount *= 2
-		case st = <-s.metadataQueue:
-			backoffCount = 1
-			backoff.Stop()
-		case <-ctx.Done():
+		case <-task.in:
+		case <-task.Done():
 			return nil
 		}
 
-		// protect against the initial timer firing
-		if st == ZeroStreamerTrack {
-			continue
+		track := streamerTrack{
+			once: new(sync.Once),
 		}
 
 		select {
-		case <-backoff.C:
-		default:
+		case task.out <- track:
+		case <-task.Done():
+			return nil
 		}
 
-		fmt.Println("sending metadata:", st)
-		uri, err := metaurl(st.track.Metadata)
-		if err != nil {
-			// StreamURL is invalid
-			return err
+	}
+}
+
+// tailTask is the function running at the end of the pipeline
+func (s *Streamer) tailTask(task streamerTask) error {
+	for {
+		var track streamerTrack
+
+		select {
+		case track = <-task.in:
+		case <-task.Done():
+			return nil
 		}
 
-		req, err := http.NewRequest("GET", uri, nil)
-		if err != nil {
-			// request creation failed, either wrong method or URL invalid
-			return err
+		s.finished(task, track)
+	}
+}
+
+func (s *Streamer) queueFiles(task streamerTask) error {
+	var last streamerTrack
+	for {
+		var track streamerTrack
+
+		select {
+		case track = <-task.in:
+		case <-task.Done():
+			return nil
 		}
-		req = req.WithContext(ctx)
 
-		req.Header.Set("User-Agent", s.Conf().UserAgent)
+		track.track = s.queue.PeekTrack(last.track)
+		if track.track == database.NoTrack {
+			return ErrEmptyQueue
+		}
 
-		resp, err := http.DefaultClient.Do(req)
+		track.filepath = filepath.Join(s.Conf().MusicPath, track.track.FilePath)
+
+		select {
+		case task.out <- track:
+		case <-task.Done():
+			return nil
+		}
+
+		last = track
+	}
+}
+
+func (s *Streamer) decodeFiles(task streamerTask) error {
+	for {
+		var err error
+		var track streamerTrack
+
+		select {
+		case track = <-task.in:
+		case <-task.Done():
+			return nil
+		}
+
+		track.pcm, err = audio.DecodeFile(track.filepath)
 		if err != nil {
-			backoff.Reset(time.Second * 2 * time.Duration(backoffCount))
-		} else {
-			resp.Body.Close()
+			s.errored(task, track)
+			continue
+		}
+		track.mp3 = audio.NewMP3Buffer()
+
+		select {
+		case task.out <- track:
+		case <-task.Done():
+			return nil
+		}
+
+		// wait for decode completion, the error is not important because it
+		// will also be returned on reading calls, so it will show up in the
+		// next function in the pipeline
+		_ = track.pcm.Wait()
+		// set the expected length of the mp3 output
+		track.mp3.SetCap(track.pcm.Length())
+	}
+}
+
+func (s *Streamer) encodeToMP3(task streamerTask) error {
+	var pcmbuf = make([]byte, 1024*16)
+	var mp3buf []byte
+	var enc *audio.LAME
+	var err error
+
+	defer func() {
+		// free our encoder when we're exiting
+		if enc != nil {
+			_ = enc.Close()
+		}
+	}()
+
+	for {
+		var track streamerTrack
+
+		select {
+		case track = <-task.in:
+		case <-task.Done():
+			return nil
+		}
+
+		// handle any leftover data we overwrote into the previous track buffer
+		if len(mp3buf) > 0 {
+			_, err = track.mp3.Write(mp3buf)
+			if err != nil {
+				// we've just started a new track, so we shouldn't be getting
+				// any kind of error from the buffer, if this does occur however
+				// we're going to assume something is wrong and skip this track
+				s.errored(task, track)
+				continue
+			}
+		}
+
+		pcm := track.pcm.Reader()
+		// clear the pcm buffer reference so that it can be gc'd sooner,
+		// the rest of the pipeline does not need it anymore
+		track.pcm = nil
+
+		// send over the track concurrently so that we can encode the track
+		// before it starts playing
+		send := make(chan bool)
+
+		go func() {
+			select {
+			case task.out <- track:
+				send <- false
+			case <-task.Done():
+				send <- true
+			}
+		}()
+
+		// end our encoding when either an error occurs or we reach the
+		// the end of the track, both are communicated with an error
+		for err == nil {
+			// create a new encoder if we don't have one, this is either at the
+			// start of our run, or after an error was returned by the encoder
+			if enc == nil {
+				enc, err = audio.NewLAME(s.AudioFormat)
+				if err != nil {
+					// not being able to initialize the encoder is a fatal
+					// error, so return completely
+					return err
+				}
+			}
+
+			var n int
+			n, err = pcm.Read(pcmbuf)
+			if err != nil && n == 0 {
+				break
+			}
+
+			mp3buf, err = enc.Encode(pcmbuf[:n])
+			if err != nil {
+				// code at time of writing guarantees we either get data or an
+				// error, and never both. But we check for it to be sure
+				if mp3buf != nil {
+					// TODO: log warning
+				}
+				// encoding error, we should try flushing the encoder buffers
+				// and handling the data that was still in there
+				mp3buf = enc.Flush()
+				// now set the encoder to nil so we can make a new one at the
+				// start of the next iteration
+				_ = enc.Close()
+				enc = nil
+			}
+
+			_, err = track.mp3.Write(mp3buf)
+		}
+
+		_ = track.mp3.Close()
+		// the buffer used only accepts data that makes a full mp3 frame, and
+		// keeps an internal buffer for data that started a frame but didn't
+		// finish it yet. Since we're going to swap to a different buffer after
+		// the track is done, we need to carry over this internal buffer to the
+		// next one.
+		mp3buf = track.mp3.BufferBytes()
+
+		// -- HACK --
+		// do a little trick to force the compiler to clear our reader variable
+		// so that we don't keep it in memory longer than needed, this is all
+		// the audio data stored in pcm
+		pcm = nil
+		fmt.Fprint(ioutil.Discard, pcm)
+		go func() {
+			time.Sleep(time.Second)
+			debug.FreeOSMemory()
+		}()
+		// -- END HACK --
+
+		// now wait for the track to have been send to the next function in
+		// the pipeline. We get a true back if done was called on the task
+		if <-send {
+			return nil
 		}
 	}
 }
 
-// icecastRequest sets up a TCP connection to an icecast-like server and returns
-// a net.Conn ready to receive audio data.
-func (s *Streamer) icecastRequest() (net.Conn, error) {
+func (s *Streamer) newIcecastConn(streamurl string) (conn net.Conn, err error) {
+	defer func() {
+		// we want to set the graceful conn to whatever we return here, there
+		// is no point in keeping a broken conn in there, so also do it on
+		// error paths
+		s.graceful.setConn(conn)
+	}()
+
+	// check if there is a connection waiting from a previous process
+	if conn = <-s.graceful.conn; conn != nil {
+		return conn, nil
+	}
+
 	var buf = new(bytes.Buffer)
 
-	uri, err := url.Parse(s.Conf().StreamURL)
+	uri, err := url.Parse(streamurl)
 	if err != nil {
 		return nil, err
 	}
@@ -296,7 +494,7 @@ func (s *Streamer) icecastRequest() (net.Conn, error) {
 	}
 
 	// now we connect and write our request
-	conn, err := net.Dial("tcp", uri.Host)
+	conn, err = net.Dial("tcp", uri.Host)
 	//conn, err := net.DialTimeout("tcp", uri.Host, time.Second*5)
 	if err != nil {
 		return nil, err
@@ -327,284 +525,157 @@ func (s *Streamer) icecastRequest() (net.Conn, error) {
 	return conn, nil
 }
 
-func (s *Streamer) icecastWrite(ctx context.Context) error {
+func (s *Streamer) streamToIcecast(task streamerTask) error {
 	var buf = make([]byte, 1024*16)
-
-	var bufferEnd time.Time            // time point of when our buffer ends
-	var bufferLength = time.Second * 2 // buffer length we want to acquire
-
-	var st StreamerTrack
-	var mr *audio.MP3BufferReader
-
-	// send initial preload request
-	select {
-	case s.preloadNext <- struct{}{}:
-	case <-ctx.Done():
-		return nil
-	}
+	var bufferEnd time.Time
+	var bufferLen = time.Second * 2
+	var track streamerTrack
+	var conn net.Conn
 
 	for {
 		select {
-		case st = <-s.icecastQueue:
-			// create our reader
-			mr = st.mp3.Reader()
-		case <-ctx.Done():
+		case track = <-task.in:
+		case <-task.Done():
 			return nil
-		}
-		fmt.Println(st.pcm)
-		// we do a second select here because the select above selects at
-		// random when both channels are ready, so we eliminate that by using
-		// a single-case select
-		select {
-		case <-ctx.Done():
-			return nil
-		default:
 		}
 
 		select {
-		case <-s.gracefulWait:
-		case <-ctx.Done():
+		case task.out <- track:
+		case <-task.Done():
 			return nil
 		}
 
-		s.clearTrack(ctx, st)
-
-		// send our metadata to the server async
-		select {
-		case s.metadataQueue <- st:
-		case <-ctx.Done():
-			return nil
-		}
-
+		var mp3 = track.mp3.Reader()
 		var progress time.Duration
-		for atomic.LoadInt32(&s.forceDone) == 0 {
-			var n int
-			var err error
+		var err error
 
-			// if we don't have a connection, create one. When a write errors
-			// to a conn we try and create a new one; But fail if the initial
-			// creation errors
-			if s.conn == nil {
-				s.conn, err = s.icecastRequest()
+		for atomic.LoadInt32(&s.forceDone) == 0 {
+			if conn == nil {
+				conn, err = s.newIcecastConn(s.Conf().StreamURL)
 				if err != nil {
 					return err
 				}
 
-				// also want to resend metadata if we disconnected
+				// since we have a new connection, send the metadata again
 				select {
-				case s.metadataQueue <- st:
-				case <-ctx.Done():
+				case task.out <- track:
+				case <-task.Done():
 					return nil
 				}
 			}
 
-			n, err = mr.Read(buf)
-			if err != nil && err != io.EOF {
-				fmt.Println("icecast reading error:", err)
-				break
-			}
-			if err == io.EOF && n == 0 {
-				// end of file and no bytes read
+			n, err := mp3.Read(buf)
+			if err != nil && n == 0 {
 				break
 			}
 
+			// calculate the amount of audio data we're sending over the
+			// connection, we want to sleep if we've send enough data
 			if bufferEnd.Before(time.Now()) {
 				bufferEnd = time.Now()
 			}
-			bufferEnd = bufferEnd.Add(mr.Progress() - progress)
-			progress = mr.Progress()
+			bufferEnd = bufferEnd.Add(mp3.Progress() - progress)
+			progress = mp3.Progress()
 
-			_, err = s.conn.Write(buf[:n])
+			_, err = conn.Write(buf[:n])
 			if err != nil {
-				if werr, ok := err.(net.Error); ok {
-					fmt.Println(werr, werr.Temporary(), werr.Timeout())
-				}
-				fmt.Println("icecast write error:", err, n)
-				s.conn.Close()
-				s.conn = nil
+				conn = nil
 				break
 			}
 
-			//fmt.Printf("%s: %s\r", st.track.Metadata, time.Until(bufferEnd)-bufferLength)
-			time.Sleep(time.Until(bufferEnd) - bufferLength)
+			// sleep while the audio data we've already send is above
+			// bufferLen duration
+			time.Sleep(time.Until(bufferEnd) - bufferLen)
 		}
 	}
 }
 
-func (s *Streamer) encoderRun(ctx context.Context) error {
-	var st StreamerTrack
-	var pcmBuf = make([]byte, 1024*16)
-	var mp3Buf []byte
-	var leftover []byte
-
-	// encoder instance, need to call Close when done with it
-	var enc *audio.LAME
-	defer func() {
-		// cleanup both our encoder and last mp3 track if we're exiting
-		if enc != nil {
-			enc.Close()
-		}
-		if st.mp3 != nil {
-			st.mp3.Close()
-		}
-	}()
-
-	for {
-		var err error
-
-		// initialize encoder if we have none
-		if enc == nil {
-			enc, err = audio.NewLAME(s.AudioFormat)
-			if err != nil {
-				return err
-			}
-		}
-
-		select {
-		case st = <-s.preloadQueue:
-		case <-ctx.Done():
-			return nil
-		}
-
-		var progress time.Duration // progress in the current track
-
-		// check if we have leftover bytes from the previous track
-		if len(leftover) > 0 {
-			_, err = st.mp3.Write(leftover)
-			if err != nil {
-				// this is the start of the track and there should never be
-				// an ErrBufferFull returned, and if it does we ignore this
-				// track and use the leftover bytes on the next track instead
-				//
-				// however, we haven't send the track to the next user yet, so
-				// we need to clear the track ourselves.
-				s.clearTrack(ctx, st)
-				continue
-			}
-
-			atomic.AddInt64(&s.encoderLength, -int64(st.mp3.Length()-progress))
-			progress = st.mp3.Length()
-			leftover = nil
-		}
-
-		var r = st.pcm.Reader()
-		// remove the pcm buffer from the track, so we don't keep it in memory
-		st.pcm = nil
-
-		// send the song to the icecast-sending routine after we've handled
-		// leftovers, since there might be a broken track
-		select {
-		case s.icecastQueue <- st:
-		case <-ctx.Done():
-			return nil
-		}
-
-		for enc != nil {
-			n, err := r.Read(pcmBuf)
-			if err != nil && err != io.EOF {
-				// unknown error, wait for next track
-				break
-			}
-			if err == io.EOF && n == 0 {
-				// end of track
-				break
-			}
-
-			mp3Buf, err = enc.Encode(pcmBuf[:n])
-			if err != nil {
-				// lame error, flush internal buffer and handle it normally
-				mp3Buf = enc.Flush()
-				enc.Close()
-				enc = nil
-			}
-
-			_, err = st.mp3.Write(mp3Buf)
-
-			atomic.AddInt64(&s.encoderLength, -int64(st.mp3.Length()-progress))
-			progress = st.mp3.Length()
-
-			if err != nil {
-				// either we reached the end of the track, or an unknown error
-				// occured in the buffer
-				break
-			}
-		}
-
-		st.mp3.Close()
-		leftover = st.mp3.BufferBytes()
-
-		r = nil // discard our PCM reader, it keeps a lot of memory alive
-		fmt.Fprint(ioutil.Discard, r)
-	}
-}
-
-func (s *Streamer) preloadTracks(ctx context.Context) error {
-	trace := func(s string, x ...interface{}) {
-		s = fmt.Sprintf("preloader: %s\n", s)
-		fmt.Printf(s, x...)
-	}
-
-	trace("started")
-	defer trace("stopped")
-
-	for {
-		trace("waiting")
-		var st StreamerTrack
-
-		select {
-		case <-s.preloadNext:
-			trace("running")
-		case <-ctx.Done():
-			return nil
-		}
-
-	again:
-		t := s.queue.Peek()
-		if t == database.NoTrack {
-			return ErrEmptyQueue
-		}
-
-		path := filepath.Join(s.Conf().MusicPath, t.FilePath)
-
-		trace("starting: %s", t.Metadata)
-		buf, err := audio.DecodeFile(path)
-		if err != nil || buf.Error() != nil {
-			trace("skipping: %s", t.Metadata)
-			s.queue.Pop()
-			goto again
-		}
-
-		st = StreamerTrack{
-			pcm:   buf,
-			mp3:   audio.NewMP3Buffer(),
-			track: t,
-			once:  new(sync.Once),
-		}
-
-		trace("started: %s", t.Metadata)
-		select {
-		case s.preloadQueue <- st:
-		case <-ctx.Done():
-			return nil
-		}
-
-		// wait for decoding to be finished
-		err = buf.Wait()
+func (s *Streamer) metadataToIcecast(task streamerTask) error {
+	// metaurl creates the required URL using StreamURL as base
+	metaurl := func(meta string) (string, error) {
+		uri, err := url.Parse(s.Conf().StreamURL)
 		if err != nil {
-			trace("wait error: %s", err)
+			return "", err
 		}
-		// set expected length of the output buffer
-		st.mp3.SetCap(buf.Length())
-	}
-}
 
-func (s *Streamer) clearTrack(ctx context.Context, st StreamerTrack) {
-	st.once.Do(func() {
-		s.queue.PopTrack(st.track)
+		q := url.Values{}
+		q.Set("mode", "updinfo")
+		q.Set("mount", uri.Path)
+		q.Set("charset", "utf8")
+		q.Set("song", meta)
+
+		uri.Path = "/admin/metadata"
+		uri.RawQuery = q.Encode()
+
+		return uri.String(), nil
+	}
+
+	// backoff timer, we set the timer when a request fails and we want to
+	// retry it in a little bit
+	var backoff = time.NewTimer(time.Hour)
+	backoff.Stop()
+	// the amount of times we've failed a request, we use this value to increase
+	// the delay between requests
+	var backoffCount int
+	var track streamerTrack
+
+	for {
+		select {
+		case <-backoff.C:
+			backoffCount *= 2
+		case track = <-task.in:
+			backoffCount = 1
+			backoff.Stop()
+		case <-task.Done():
+			return nil
+		}
+
+		// protect against the initial timer firing
+		if track == (streamerTrack{}) {
+			continue
+		}
+
+		// only send the track ahead the first time around
+		if backoffCount == 1 {
+			select {
+			case task.out <- track:
+			case <-task.Done():
+				return nil
+			}
+		}
 
 		select {
-		case s.preloadNext <- struct{}{}:
-		case <-ctx.Done():
+		case <-backoff.C:
+		default:
 		}
-	})
+
+		uri, err := metaurl(track.track.Metadata)
+		if err != nil {
+			// StreamURL is invalid
+			return err
+		}
+
+		req, err := http.NewRequest("GET", uri, nil)
+		if err != nil {
+			// request creation failed, either wrong method or URL invalid
+			return err
+		}
+		// use a timeout so we don't hang on a request for ages
+		ctx, cancel := context.WithTimeout(task.Context, time.Second*5)
+		req = req.WithContext(ctx)
+
+		req.Header.Set("User-Agent", s.Conf().UserAgent)
+
+		resp, err := http.DefaultClient.Do(req)
+		cancel()
+		if err != nil || resp.StatusCode != 200 {
+			log.Printf("streamer.metadata: failed to send: %s", err)
+			// try again if the request failed
+			backoff.Reset(time.Second * 2 * time.Duration(backoffCount))
+		}
+
+		if err == nil {
+			resp.Body.Close()
+		}
+	}
 }

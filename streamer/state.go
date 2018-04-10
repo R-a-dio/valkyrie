@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -33,13 +34,34 @@ type State struct {
 	httpserver   *http.Server
 	httplistener net.Listener
 
-	gracefulWait chan struct{}
+	graceful graceful
+}
+
+type graceful struct {
+	mu    sync.Mutex
+	wait  chan struct{}
+	conn  chan net.Conn
+	_conn net.Conn
 }
 
 // GracefulSetup sets up re-used sockets from a previous process
 func (s *State) GracefulSetup(l net.Listener, c net.Conn) {
 	s.httplistener = l
-	s.streamer.conn = c
+
+	s.graceful.wait = make(chan struct{})
+	s.graceful.conn = make(chan net.Conn, 1)
+	go func() {
+		<-s.graceful.wait
+		s.graceful.conn <- c
+		close(s.graceful.conn)
+	}()
+}
+
+// setConn sets the connection to be passed along when restarted
+func (g *graceful) setConn(c net.Conn) {
+	g.mu.Lock()
+	g._conn = c
+	g.mu.Unlock()
 }
 
 // Conf returns the current active configuration
@@ -101,8 +123,6 @@ func (s *State) StartStreamer() {
 // NewState initializes a state struct with all the required items
 func NewState(configPath string) (*State, error) {
 	var s State
-
-	s.gracefulWait = make(chan struct{})
 
 	f, err := os.Open(configPath)
 	if err != nil {
