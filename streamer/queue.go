@@ -88,13 +88,17 @@ func (q *Queue) Add(t database.Track) {
 //
 // Before calling addEntry you should lock q.mu
 func (q *Queue) addEntry(e database.QueueEntry) {
-	// try to fix our length if none was known
-	if e.Track.Length == 0 {
-		fmt.Println("queue: probing for duration")
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-		path := filepath.Join(q.Conf().MusicPath, e.Track.FilePath)
-		e.Track.Length, _ = audio.ProbeDuration(ctx, path)
-		cancel()
+	// our database length is inaccurate due to human streamers adjusting
+	// them when a song plays, so instead try to find the duration ourselves
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	path := filepath.Join(q.Conf().MusicPath, e.Track.FilePath)
+	length, err := audio.ProbeDuration(ctx, path)
+	cancel()
+	if err == nil {
+		// only use the result if there was no error
+		e.Track.Length = length
+	} else {
+		fmt.Println("queue: probe error:", err)
 	}
 
 	// TODO: make this use relative times from Now
