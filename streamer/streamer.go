@@ -111,6 +111,7 @@ func (s *Streamer) Start(ctx context.Context) {
 	var ch chan streamerTrack
 	var start = make(chan streamerTrack)
 
+	task._head = &task
 	task.in = start
 	for n, fn := range pipeline {
 		if n < len(pipeline)-1 {
@@ -192,6 +193,8 @@ type streamerTask struct {
 
 	in  <-chan streamerTrack
 	out chan<- streamerTrack
+
+	_head *streamerTask
 }
 
 func (t streamerTrack) String() string {
@@ -202,26 +205,16 @@ func (t streamerTrack) String() string {
 // a track. Calling errored implies you're skipping the current track and start
 // work on the next track
 func (s *Streamer) errored(task streamerTask, track streamerTrack) {
+	if task._head == nil {
+		panic("errored called with nil head")
+	}
+
 	track.once.Do(func() {
 		log.Printf("streamer.errored: on track %s\n", track)
 		s.queue.RemoveTrack(track.track)
 
 		select {
-		case task.out <- streamerTrack{}:
-		case <-task.Done():
-		}
-	})
-}
-
-// finished should only be called by the tailTask, use errored instead if
-// you need to skip a track
-func (s *Streamer) finished(task streamerTask, track streamerTrack) {
-	track.once.Do(func() {
-		log.Printf("streamer.finished: on track %s\n", track)
-		s.queue.PopTrack(track.track)
-
-		select {
-		case task.out <- streamerTrack{}:
+		case task._head.out <- streamerTrack{}:
 		case <-task.Done():
 		}
 	})
@@ -245,7 +238,6 @@ func (s *Streamer) headTask(task streamerTask) error {
 		case <-task.Done():
 			return nil
 		}
-
 	}
 }
 
@@ -260,7 +252,15 @@ func (s *Streamer) tailTask(task streamerTask) error {
 			return nil
 		}
 
-		s.finished(task, track)
+		track.once.Do(func() {
+			log.Printf("streamer.tail: on track %s\n", track)
+			s.queue.PopTrack(track.track)
+
+			select {
+			case task.out <- streamerTrack{}:
+			case <-task.Done():
+			}
+		})
 	}
 }
 
