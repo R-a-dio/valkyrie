@@ -34,12 +34,12 @@ func ListenAndServe(s *State) error {
 	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 
 	conf := s.Conf()
-	server := &http.Server{Addr: conf.InterfaceAddr, Handler: mux}
+	server := &http.Server{Addr: conf.Streamer.Addr, Handler: mux}
 	s.httpserver = server
 
 	if s.httplistener == nil {
-		fmt.Println("http: listening on:", conf.InterfaceAddr)
-		listener, err := net.Listen("tcp", conf.InterfaceAddr)
+		fmt.Println("http: listening on:", conf.Streamer.Addr)
+		listener, err := net.Listen("tcp", conf.Streamer.Addr)
 		if err != nil {
 			return err
 		}
@@ -121,11 +121,11 @@ func (h *streamHandler) actionHandler(w http.ResponseWriter, r *http.Request) {
 	case "disable":
 		requestState = false
 	default:
-		requestState = h.Conf().RequestsEnabled
+		requestState = h.Conf().Streamer.RequestsEnabled
 	}
 
 	c := h.Conf()
-	c.RequestsEnabled = requestState
+	c.Streamer.RequestsEnabled = requestState
 	h.StoreConf(c)
 
 	http.Error(w, http.StatusText(200), 200)

@@ -1,0 +1,14 @@
+# example configuration file, does not include options that have a default value
+musicpath = "/path/to/music/dir"
+templatedir = "/path/to/template/files"
+
+[database]
+# https://github.com/go-sql-driver/mysql#dsn-data-source-name for details
+DSN = username:password@protocol(address)/dbname?param=value
+
+[streamer]
+streamurl = "http://username:password@stream:80/mount.mp3"
+
+[irc]
+server = "irc.rizon.net"
+channels = ["#test"]

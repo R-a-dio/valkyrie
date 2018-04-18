@@ -3,31 +3,20 @@ package streamer
 import (
 	"context"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"os"
 	"sync"
-	"sync/atomic"
 	"time"
 
-	"github.com/BurntSushi/toml"
-	"github.com/R-a-dio/valkyrie/database"
+	"github.com/R-a-dio/valkyrie/config"
 	_ "github.com/go-sql-driver/mysql" // only support mysql/mariadb for now
 	"github.com/jmoiron/sqlx"
 )
 
-var DefaultConfig = Config{
-	UserAgent:        "hanyuu/2.0",
-	UserRequestDelay: time.Hour * 2,
-	RequestsEnabled:  false,
-	TemplateDir:      "templates/",
-	InterfaceAddr:    ":4545",
-}
-
 type State struct {
-	db     *sqlx.DB
-	config atomic.Value
+	db *sqlx.DB
+	config.AtomicGlobal
 
 	queue        *Queue
 	streamer     *Streamer
@@ -64,16 +53,6 @@ func (g *graceful) setConn(c net.Conn) {
 	g.mu.Unlock()
 }
 
-// Conf returns the current active configuration
-func (s *State) Conf() Config {
-	return s.config.Load().(Config)
-}
-
-// StoreConf changes the active configuration
-func (s *State) StoreConf(c Config) {
-	s.config.Store(c)
-}
-
 func (s *State) Shutdown() {
 	fmt.Println("streamer error:", s.streamer.ForceStop())
 	fmt.Println("queue    error:", s.queue.Save())
@@ -81,21 +60,6 @@ func (s *State) Shutdown() {
 	fmt.Println("httpserv error:", s.httpserver.Close())
 	fmt.Println("finished closing")
 	time.Sleep(time.Millisecond * 250)
-}
-
-// LoadConf loads a configuration file from reader r and changes the active
-// configuration.
-func (s *State) LoadConf(r io.Reader) error {
-	var c = DefaultConfig
-
-	m, err := toml.DecodeReader(r, &c)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("undecoded keys:", m.Undecoded())
-	s.StoreConf(c)
-	return nil
 }
 
 func (s *State) loadDatabase() (err error) {
@@ -131,7 +95,8 @@ func NewState(configPath string) (*State, error) {
 	defer f.Close()
 
 	fmt.Println("startup: loading configuration")
-	if err = s.LoadConf(f); err != nil {
+	s.AtomicGlobal, err = config.LoadAtomic(f)
+	if err != nil {
 		return nil, err
 	}
 
@@ -151,18 +116,4 @@ func NewState(configPath string) (*State, error) {
 	}
 
 	return &s, nil
-}
-
-type Config struct {
-	UserAgent string
-	StreamURL string
-	MusicPath string
-
-	UserRequestDelay time.Duration
-	RequestsEnabled  bool
-
-	Database database.Config
-
-	TemplateDir   string
-	InterfaceAddr string
 }

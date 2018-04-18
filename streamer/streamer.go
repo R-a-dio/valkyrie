@@ -551,7 +551,7 @@ func (s *Streamer) streamToIcecast(task streamerTask) error {
 
 		for atomic.LoadInt32(&s.forceDone) == 0 {
 			if conn == nil {
-				conn, err = s.newIcecastConn(s.Conf().StreamURL)
+				conn, err = s.newIcecastConn(s.Conf().Streamer.StreamURL)
 				if err != nil {
 					return err
 				}
@@ -593,7 +593,7 @@ func (s *Streamer) streamToIcecast(task streamerTask) error {
 func (s *Streamer) metadataToIcecast(task streamerTask) error {
 	// metaurl creates the required URL using StreamURL as base
 	metaurl := func(meta string) (string, error) {
-		uri, err := url.Parse(s.Conf().StreamURL)
+		uri, err := url.Parse(s.Conf().Streamer.StreamURL)
 		if err != nil {
 			return "", err
 		}
