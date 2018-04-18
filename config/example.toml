@@ -4,7 +4,8 @@ templatedir = "/path/to/template/files"
 
 [database]
 # https://github.com/go-sql-driver/mysql#dsn-data-source-name for details
-DSN = username:password@protocol(address)/dbname?param=value
+# it is required to pass param `parseTime=true` to the driver currently
+DSN = "username:password@protocol(address)/dbname?param=value&parseTime=true"
 
 [streamer]
 streamurl = "http://username:password@stream:80/mount.mp3"

@@ -22,6 +22,10 @@ import (
 )
 
 var (
+	bufferMP3Size = 1024 * 32 // about 1.3 seconds of audio
+	bufferPCMSize = 1024 * 64 // about 0.4 seconds of audio
+)
+var (
 	httpOK           = []byte("HTTP/1.0 200 OK")
 	httpMountInUse   = []byte("HTTP/1.0 403 Mountpoint in use")
 	httpUnauthorized = []byte("HTTP/1.0 401 Unauthorized")
@@ -326,7 +330,7 @@ func (s *Streamer) decodeFiles(task streamerTask) error {
 }
 
 func (s *Streamer) encodeToMP3(task streamerTask) error {
-	var pcmbuf = make([]byte, 1024*16)
+	var pcmbuf = make([]byte, bufferPCMSize)
 	var mp3buf []byte
 	var enc *audio.LAME
 	var err error
@@ -526,7 +530,7 @@ func (s *Streamer) newIcecastConn(streamurl string) (conn net.Conn, err error) {
 }
 
 func (s *Streamer) streamToIcecast(task streamerTask) error {
-	var buf = make([]byte, 1024*16)
+	var buf = make([]byte, bufferMP3Size)
 	var bufferEnd time.Time
 	var bufferLen = time.Second * 2
 	var track streamerTrack
