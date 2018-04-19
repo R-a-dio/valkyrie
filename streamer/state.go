@@ -53,6 +53,13 @@ func (g *graceful) setConn(c net.Conn) {
 	g.mu.Unlock()
 }
 
+func (g *graceful) clearConn() {
+	g.mu.Lock()
+	_ = g._conn.Close()
+	g._conn = nil
+	g.mu.Unlock()
+}
+
 func (s *State) Shutdown() {
 	fmt.Println("streamer error:", s.streamer.ForceStop())
 	fmt.Println("queue    error:", s.queue.Save())

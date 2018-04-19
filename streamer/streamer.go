@@ -157,7 +157,7 @@ func (s *Streamer) stop(force bool, graceful bool) error {
 	atomic.StoreInt32(&s.started, 0)
 
 	if !graceful {
-		// TODO: cleanup resources
+		s.graceful.clearConn()
 	}
 
 	log.Println("streamer.stop: finished")
@@ -198,6 +198,7 @@ type streamerTask struct {
 	in  <-chan streamerTrack
 	out chan<- streamerTrack
 
+	// _head is the task for the headTask, used to signal errors to the front
 	_head *streamerTask
 }
 
