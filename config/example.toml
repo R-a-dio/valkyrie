@@ -13,3 +13,4 @@ streamurl = "http://username:password@stream:80/mount.mp3"
 [irc]
 server = "irc.rizon.net"
 channels = ["#test"]
+nick = "dev-valkyrie"

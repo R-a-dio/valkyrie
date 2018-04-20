@@ -11,6 +11,12 @@ type IRC struct {
 	Addr string
 	// Server is the address of the irc server to connect to
 	Server string
+	// Nick is the nickname to use
+	Nick string
+	// NickPassword is the nickserv password if any
+	NickPassword string
 	// Channels is the channels to join
 	Channels []string
+	// AllowFlood determines if flood protection is off or on
+	AllowFlood bool
 }
