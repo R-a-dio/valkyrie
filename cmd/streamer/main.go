@@ -14,8 +14,6 @@ import (
 )
 
 func main() {
-	flag.StringVar(&streamer.DefaultConfig.TemplateDir, "templatedir",
-		streamer.DefaultConfig.TemplateDir, "directory containing html templates")
 	configPath := flag.String("conf", "hanyuu.toml",
 		"filepath to configuration file")
 	graceful := flag.Bool("graceful", false, "internal use only")
