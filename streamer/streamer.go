@@ -519,11 +519,12 @@ func (s *Streamer) newIcecastConn(streamurl string) (conn net.Conn, err error) {
 	}
 
 	// parse response for errors
-	if bytes.HasPrefix(b, httpUnauthorized) {
+	switch {
+	case bytes.HasPrefix(b, httpUnauthorized):
 		return nil, errors.New("connection error: wrong password")
-	} else if bytes.HasPrefix(b, httpMountInUse) {
+	case bytes.HasPrefix(b, httpMountInUse):
 		return nil, errors.New("connection error: mount in use")
-	} else if !bytes.HasPrefix(b, httpOK) {
+	case !bytes.HasPrefix(b, httpOK):
 		return nil, errors.New("connection error: unknown error:\n" + string(b))
 	}
 
