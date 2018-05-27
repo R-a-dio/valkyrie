@@ -93,22 +93,9 @@ func (h *streamHandler) Status(ctx context.Context, _ *pb.Null) (*pb.StatusRespo
 	return &resp, nil
 }
 
-func (h *streamHandler) actionHandler(w http.ResponseWriter, r *http.Request) {
-	// request action
-	var requestState bool
-
-	switch r.Form.Get("request") {
-	case "enable":
-		requestState = true
-	case "disable":
-		requestState = false
-	default:
-		requestState = h.Conf().Streamer.RequestsEnabled
-	}
-
+func (h *streamHandler) SetRequestable(ctx context.Context, b *pb.Bool) (*pb.Null, error) {
 	c := h.Conf()
-	c.Streamer.RequestsEnabled = requestState
+	c.Streamer.RequestsEnabled = b.Bool
 	h.StoreConf(c)
-
-	http.Error(w, http.StatusText(200), 200)
+	return nil, nil
 }

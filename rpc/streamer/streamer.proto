@@ -7,9 +7,14 @@ service Streamer {
     rpc Stop(StopRequest) returns (Null);
     rpc Status(Null) returns (StatusResponse);
     rpc RequestTrack(TrackRequest) returns (RequestResponse);
+    rpc SetRequestable(Bool) returns (Null);
 }
 
 message Null {}
+
+message Bool {
+    bool bool = 1;
+}
 
 message StopRequest {
     bool force_stop = 1;
