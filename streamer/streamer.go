@@ -19,6 +19,7 @@ import (
 
 	"github.com/R-a-dio/valkyrie/database"
 	"github.com/R-a-dio/valkyrie/streamer/audio"
+	"github.com/cenkalti/backoff"
 )
 
 var (
@@ -538,6 +539,17 @@ func (s *Streamer) streamToIcecast(task streamerTask) error {
 	var track streamerTrack
 	var conn net.Conn
 
+	// setup helpers for backoff handling of the icecast connection
+	var newConn = func() error {
+		c, err := s.newIcecastConn(s.Conf().Streamer.StreamURL)
+		if err != nil {
+			return err
+		}
+		conn = c // move c to method scope if no error occured
+	}
+	var b backoff.BackOff = backoff.NewExponentialBackOff()
+	b = backoff.WithContext(b, task.Context)
+
 	for {
 		select {
 		case track = <-task.in:
@@ -557,7 +569,7 @@ func (s *Streamer) streamToIcecast(task streamerTask) error {
 
 		for atomic.LoadInt32(&s.forceDone) == 0 {
 			if conn == nil {
-				conn, err = s.newIcecastConn(s.Conf().Streamer.StreamURL)
+				err = backoff.Retry(newConn, b)
 				if err != nil {
 					return err
 				}
@@ -650,6 +662,8 @@ func (s *Streamer) metadataToIcecast(task streamerTask) error {
 			}
 		}
 
+		// a backoff signal could be send before we managed to stop it above
+		// so try to receive a value to clear the channel for later use
 		select {
 		case <-backoff.C:
 		default:
