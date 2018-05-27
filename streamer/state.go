@@ -3,10 +3,8 @@ package streamer
 import (
 	"context"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/R-a-dio/valkyrie/config"
@@ -18,46 +16,9 @@ type State struct {
 	db *sqlx.DB
 	config.AtomicGlobal
 
-	queue        *Queue
-	streamer     *Streamer
-	httpserver   *http.Server
-	httplistener net.Listener
-
-	graceful graceful
-}
-
-type graceful struct {
-	mu    sync.Mutex
-	wait  chan struct{}
-	conn  chan net.Conn
-	_conn net.Conn
-}
-
-// GracefulSetup sets up re-used sockets from a previous process
-func (s *State) GracefulSetup(l net.Listener, c net.Conn) {
-	s.httplistener = l
-
-	s.graceful.wait = make(chan struct{})
-	s.graceful.conn = make(chan net.Conn, 1)
-	go func() {
-		<-s.graceful.wait
-		s.graceful.conn <- c
-		close(s.graceful.conn)
-	}()
-}
-
-// setConn sets the connection to be passed along when restarted
-func (g *graceful) setConn(c net.Conn) {
-	g.mu.Lock()
-	g._conn = c
-	g.mu.Unlock()
-}
-
-func (g *graceful) clearConn() {
-	g.mu.Lock()
-	_ = g._conn.Close()
-	g._conn = nil
-	g.mu.Unlock()
+	queue      *Queue
+	streamer   *Streamer
+	httpserver *http.Server
 }
 
 func (s *State) Shutdown() {

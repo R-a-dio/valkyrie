@@ -137,7 +137,7 @@ func (s *Streamer) Start(ctx context.Context) {
 	start <- streamerTrack{}
 }
 
-func (s *Streamer) stop(force bool, graceful bool) error {
+func (s *Streamer) stop(force bool) error {
 	// set force unconditionally, since arguments might change between two
 	// stop calls (first stop with force=false, second with force=true)
 	if force {
@@ -157,22 +157,18 @@ func (s *Streamer) stop(force bool, graceful bool) error {
 	// we now know we're not running anymore, so update our state
 	atomic.StoreInt32(&s.started, 0)
 
-	if !graceful {
-		s.graceful.clearConn()
-	}
-
 	log.Println("streamer.stop: finished")
 	return s.err
 }
 
 // Stop stops the streamer, but waits until the current track is done
 func (s *Streamer) Stop() error {
-	return s.stop(false, false)
+	return s.stop(false)
 }
 
 // ForceStop stops the streamer and tries to stop as soon as possible
 func (s *Streamer) ForceStop() error {
-	return s.stop(true, false)
+	return s.stop(true)
 }
 
 // Wait waits for the streamer to stop running; either by an error occuring or
@@ -451,18 +447,6 @@ func (s *Streamer) encodeToMP3(task streamerTask) error {
 }
 
 func (s *Streamer) newIcecastConn(streamurl string) (conn net.Conn, err error) {
-	defer func() {
-		// we want to set the graceful conn to whatever we return here, there
-		// is no point in keeping a broken conn in there, so also do it on
-		// error paths
-		s.graceful.setConn(conn)
-	}()
-
-	// check if there is a connection waiting from a previous process
-	if conn = <-s.graceful.conn; conn != nil {
-		return conn, nil
-	}
-
 	var buf = new(bytes.Buffer)
 
 	uri, err := url.Parse(streamurl)
@@ -546,6 +530,7 @@ func (s *Streamer) streamToIcecast(task streamerTask) error {
 			return err
 		}
 		conn = c // move c to method scope if no error occured
+		return nil
 	}
 	var b backoff.BackOff = backoff.NewExponentialBackOff()
 	b = backoff.WithContext(b, task.Context)
