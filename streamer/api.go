@@ -2,7 +2,6 @@ package streamer
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -11,7 +10,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/R-a-dio/valkyrie/database"
 	pb "github.com/R-a-dio/valkyrie/rpc/streamer"
 )
 
@@ -33,7 +31,8 @@ func ListenAndServe(s *State) error {
 
 	conf := s.Conf()
 	server := &http.Server{Addr: conf.Streamer.Addr, Handler: mux}
-	s.httpserver = server
+
+	s.Closer("http", server.Close)
 
 	fmt.Println("http: listening on:", conf.Streamer.Addr)
 	l, err := net.Listen("tcp", conf.Streamer.Addr)
@@ -49,19 +48,6 @@ type streamHandler struct {
 	*State
 
 	requestMutex sync.Mutex
-}
-
-func (h *streamHandler) statusHandler(w http.ResponseWriter, r *http.Request) {
-	var info = struct {
-		Queue   []database.QueueEntry
-		Running bool
-	}{
-		Queue:   h.queue.Entries(),
-		Running: atomic.LoadInt32(&h.streamer.started) == 1,
-	}
-
-	w.Header().Add("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(info)
 }
 
 func (h *streamHandler) Start(ctx context.Context, _ *pb.Null) (*pb.Null, error) {
