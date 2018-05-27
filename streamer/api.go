@@ -11,20 +11,20 @@ import (
 	"os/exec"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/R-a-dio/valkyrie/database"
+	pb "github.com/R-a-dio/valkyrie/rpc/streamer"
 )
 
 // ListenAndServe serves a HTTP API for the state given on the address
 // configured in the state configuration.
 func ListenAndServe(s *State) error {
 	h := &streamHandler{State: s}
+	rpcServer := pb.NewStreamerServer(h, nil)
 	mux := http.NewServeMux()
-	// streamer handler
-	mux.Handle("/do", http.HandlerFunc(h.actionHandler))
-	// request handler
-	mux.Handle("/request", RequestHandler(s))
-	mux.Handle("/info", http.HandlerFunc(h.statusHandler))
+	// rpc server path
+	mux.Handle(pb.StreamerPathPrefix, rpcServer)
 
 	// debug symbols
 	mux.HandleFunc("/debug/pprof/", pprof.Index)
@@ -62,6 +62,8 @@ type streamHandler struct {
 	// indicates if we're expecting a graceful poke
 	gracefulPoke int32
 	*State
+
+	requestMutex sync.Mutex
 }
 
 func (h *streamHandler) statusHandler(w http.ResponseWriter, r *http.Request) {
@@ -75,6 +77,35 @@ func (h *streamHandler) statusHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Add("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(info)
+}
+
+func (h *streamHandler) Start(ctx context.Context, _ *pb.Null) (*pb.Null, error) {
+	h.streamer.Start(context.Background())
+	return nil, nil
+}
+
+func (h *streamHandler) Stop(ctx context.Context, r *pb.StopRequest) (*pb.Null, error) {
+	if r.ForceStop {
+		return nil, h.streamer.ForceStop()
+	}
+	return nil, h.streamer.Stop()
+}
+
+func (h *streamHandler) Status(ctx context.Context, _ *pb.Null) (*pb.StatusResponse, error) {
+	var resp pb.StatusResponse
+	resp.Running = atomic.LoadInt32(&h.streamer.started) == 1
+
+	for _, e := range h.queue.Entries() {
+		resp.Queue = append(resp.Queue, &pb.QueueEntry{
+			IsRequest:         e.IsRequest,
+			UserIdentifier:    e.UserIdentifier,
+			EstimatedPlayTime: e.EstimatedPlayTime.Format(time.RFC3339Nano),
+			TrackId:           int64(e.Track.ID),
+			TrackTags:         e.Track.Metadata,
+		})
+	}
+
+	return &resp, nil
 }
 
 func (h *streamHandler) actionHandler(w http.ResponseWriter, r *http.Request) {

@@ -1,29 +1,21 @@
 package streamer
 
 import (
+	"context"
 	"fmt"
-	"net/http"
-	"strconv"
-	"sync"
 	"time"
 
+	"github.com/twitchtv/twirp"
+
 	"github.com/R-a-dio/valkyrie/database"
+	pb "github.com/R-a-dio/valkyrie/rpc/streamer"
 )
 
-// RequestHandler returns a http.Handler that uses the state given to handle
-// incoming track requests.
-func RequestHandler(s *State) http.Handler {
-	return &requestHandler{State: s}
-}
-
-func sendJSON(w http.ResponseWriter, errno int, s string) {
-	w.Header().Add("Content-Type", "application/json")
-	fmt.Fprintf(w, `{"response": "%s", "errno": %d}`, s, errno)
-}
-
-type requestHandler struct {
-	*State
-	requestMutex sync.Mutex
+func requestResponse(success bool, msg string) (*pb.RequestResponse, error) {
+	return &pb.RequestResponse{
+		Success: success,
+		Msg:     msg,
+	}, nil
 }
 
 // HandleRequest is the entry point to add requests to the streamer queue.
@@ -31,29 +23,19 @@ type requestHandler struct {
 // We do not do authentication or authorization checks, this is left to the client. Request can be
 // either a GET or POST with parameters `track` and `identifier`, where `track` is the track number
 // to be requested, and `identifier` the unique identification used for the user (IP Address, hostname, etc)
-func (h *requestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *streamHandler) RequestTrack(ctx context.Context, r *pb.TrackRequest) (*pb.RequestResponse, error) {
 	if !h.Conf().Streamer.RequestsEnabled {
-		sendJSON(w, 1200, "error: requests are currently disabled")
-		return
+		return requestResponse(false, "requests are currently disabled")
 	}
 
-	// Parse our request into usable form
-	if err := r.ParseForm(); err != nil {
-		sendJSON(w, 1210, "query error: invalid request")
-		return
+	if r.Identifier == "" {
+		return nil, twirp.RequiredArgumentError("identifier")
 	}
 
-	userID := r.Form.Get("identifier")
-	if userID == "" {
-		sendJSON(w, 1211,
-			"query error: invalid parameter: identifier not valid")
-		return
-	}
-
-	trackID, err := strconv.Atoi(r.Form.Get("track"))
-	if err != nil {
-		sendJSON(w, 1212, "query error: invalid parameter: track not a number")
-		return
+	if r.Track == 0 {
+		return nil, twirp.RequiredArgumentError("track")
+	} else if r.Track < 0 {
+		return nil, twirp.InvalidArgumentError("track", "track can't be negative")
 	}
 
 	// once we start using database state, we need to avoid other requests
@@ -63,70 +45,57 @@ func (h *requestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	tx, err := h.db.Beginx()
 	if err != nil {
-		sendJSON(w, 1000,
-			"database error: please return later, or complain in IRC")
-		return
+		return nil, twirp.InternalErrorWith(err)
 	}
-	defer tx.Commit()
+	defer tx.Rollback()
 
 	// turn userID into a time of when this user last requested a song
-	userLastRequest, err := database.UserRequestTime(tx, userID)
+	userLastRequest, err := database.UserRequestTime(tx, r.Identifier)
 	if err != nil {
-		fmt.Println("request: userrequesttime:", err)
-		sendJSON(w, 1000,
-			"database error: please return later, or complain in IRC")
-		return
+		return nil, twirp.InternalErrorWith(err)
 	}
 
 	fmt.Println("ulastrequest:", userLastRequest)
 	fmt.Println("delay:", userLastRequest.Add(h.Conf().UserRequestDelay))
 	fmt.Println("now:", time.Now())
+
 	// now we're going to check if the user is allowed to request
-	if !userLastRequest.IsZero() &&
-		userLastRequest.Add(h.Conf().UserRequestDelay).After(time.Now()) {
-		sendJSON(w, 1201,
-			"error: you need to wait longer before requesting again")
-		return
+	withDelay := userLastRequest.Add(h.Conf().UserRequestDelay)
+	if !userLastRequest.IsZero() && withDelay.After(time.Now()) {
+		return requestResponse(false, "you need to wait longer before requesting again")
 	}
 
 	// turn trackid into a usable DatabaseSong
-	track, err := database.GetTrack(tx, database.TrackID(trackID))
+	track, err := database.GetTrack(tx, database.TrackID(r.Track))
 	if err != nil {
-		fmt.Println("request: gettrack:", err)
-		sendJSON(w, 1000,
-			"database error: please return later, or complain in IRC")
-		return
+		return nil, twirp.InternalErrorWith(err)
 	}
 	// now we're going to check if the song can be requested
 	if !track.Usable {
-		sendJSON(w, 1202, "request error: this song can't be requested")
-		return
+		return requestResponse(false, "this song can't be requested")
 	}
 	// check if song timeout has expired
 	if track.LastPlayed.Add(track.RequestDelay).After(time.Now()) {
-		sendJSON(w, 1203,
-			"error: you need to wait longer before requesting this song")
-		return
+		return requestResponse(false,
+			"you need to wait longer before requesting this song")
 	}
 
 	// update the database to represent the request
-	err = database.UpdateUserRequestTime(tx, userID, userLastRequest.IsZero())
+	err = database.UpdateUserRequestTime(tx, r.Identifier, userLastRequest.IsZero())
 	if err != nil {
-		fmt.Println("request: updateuserrequesttime:", err)
-		sendJSON(w, 1000,
-			"database error: please return later, or complain in IRC")
-		return
+		return nil, twirp.InternalErrorWith(err)
 	}
-	err = database.UpdateTrackRequestTime(tx, database.TrackID(trackID))
+	err = database.UpdateTrackRequestTime(tx, database.TrackID(r.Track))
 	if err != nil {
-		fmt.Println("request: updatetrackrequesttime:", err)
-		sendJSON(w, 1000,
-			"database error: please return later, or complain in IRC")
-		return
+		return nil, twirp.InternalErrorWith(err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return nil, twirp.InternalErrorWith(err)
 	}
 
 	// send the song to the queue
-	h.queue.AddRequest(track, userID)
-
-	sendJSON(w, 0, "success: thank you for making your request!")
+	h.queue.AddRequest(track, r.Identifier)
+	return requestResponse(true, "thank you for making your request!")
 }

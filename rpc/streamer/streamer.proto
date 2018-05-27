@@ -1,0 +1,45 @@
+syntax = "proto3";
+package radio.internal.streamer;
+option go_package = "streamer";
+
+service Streamer {
+    rpc Start(Null) returns (Null);
+    rpc Stop(StopRequest) returns (Null);
+    rpc Status(Null) returns (StatusResponse);
+    rpc RequestTrack(TrackRequest) returns (RequestResponse);
+}
+
+message Null {}
+
+message StopRequest {
+    bool force_stop = 1;
+}
+
+message QueueEntry {
+    // is_request indicates if this was a request made by a human
+    bool is_request = 1;
+    // user_identifier is the way we identify the user that added this to the
+    // queue; This can be anything that uniquely identifies a user
+    string user_identifier = 2;
+    // estimated_play_time is the estimated time for this track to be played
+    string estimated_play_time = 3;
+    // track_id is the id used in the database table
+    int64 track_id = 4;
+    // track_tags is a short `artist - title` field
+    string track_tags = 5;
+}
+
+message StatusResponse {
+    bool running = 1;
+    repeated QueueEntry queue = 2;
+}
+
+message TrackRequest {
+    string identifier = 1;
+    int64 track = 2;
+}
+
+message RequestResponse {
+    bool success = 1;
+    string msg = 2;
+}
