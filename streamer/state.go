@@ -1,6 +1,7 @@
 package streamer
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
@@ -63,7 +64,9 @@ func (s *State) loadQueue() (err error) {
 
 func (s *State) loadStreamer() (err error) {
 	s.streamer, err = NewStreamer(s)
-	s.Closer("streamer", s.streamer.ForceStop)
+	s.Closer("streamer", func() error {
+		return s.streamer.ForceStop(context.Background())
+	})
 	return err
 }
 

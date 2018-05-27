@@ -57,9 +57,9 @@ func (h *streamHandler) Start(ctx context.Context, _ *pb.Null) (*pb.Null, error)
 
 func (h *streamHandler) Stop(ctx context.Context, r *pb.StopRequest) (*pb.Null, error) {
 	if r.ForceStop {
-		return nil, h.streamer.ForceStop()
+		return nil, h.streamer.ForceStop(ctx)
 	}
-	return nil, h.streamer.Stop()
+	return nil, h.streamer.Stop(ctx)
 }
 
 func (h *streamHandler) Status(ctx context.Context, _ *pb.Null) (*pb.StatusResponse, error) {

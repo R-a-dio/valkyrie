@@ -48,7 +48,9 @@ type Streamer struct {
 	AudioFormat audio.AudioFormat
 
 	// sync primitives
-	wg     sync.WaitGroup
+	wg sync.WaitGroup
+	// wgDone gets closed when wg.Wait returns
+	wgDone chan struct{}
 	cancel context.CancelFunc
 
 	err error
@@ -85,6 +87,7 @@ func (s *Streamer) Start(ctx context.Context) {
 
 	s.err = nil
 	s.wg = sync.WaitGroup{}
+	s.wgDone = make(chan struct{})
 	var once sync.Once
 
 	ctx, s.cancel = context.WithCancel(ctx)
@@ -133,18 +136,20 @@ func (s *Streamer) Start(ctx context.Context) {
 	}
 
 	log.Println("streamer.start: starting pipeline")
+	go func() {
+		defer s.cancel()
+		defer close(s.wgDone)
+		s.wg.Wait()
+
+		// we now know we're not running anymore, so update our state
+		atomic.StoreInt32(&s.started, 0)
+	}()
 	// and kickstart the head
 	start <- streamerTrack{}
 }
 
-func (s *Streamer) stop(force bool) error {
-	// set force unconditionally, since arguments might change between two
-	// stop calls (first stop with force=false, second with force=true)
-	if force {
-		log.Println("streamer.stop: stopping with force=true")
-		atomic.StoreInt32(&s.forceDone, 1)
-	}
-
+// Stop stops the streamer, but waits until the current track is done
+func (s *Streamer) Stop(ctx context.Context) error {
 	if !atomic.CompareAndSwapInt32(&s.stopping, 0, 1) {
 		// we're already trying to stop or have already stopped
 		log.Println("streamer.stop: already stopping")
@@ -153,22 +158,23 @@ func (s *Streamer) stop(force bool) error {
 
 	s.cancel()
 	log.Println("streamer.stop: waiting on completion")
-	s.wg.Wait()
-	// we now know we're not running anymore, so update our state
-	atomic.StoreInt32(&s.started, 0)
+	select {
+	case <-ctx.Done():
+	case <-s.wgDone:
+	}
 
 	log.Println("streamer.stop: finished")
 	return s.err
 }
 
-// Stop stops the streamer, but waits until the current track is done
-func (s *Streamer) Stop() error {
-	return s.stop(false)
-}
-
 // ForceStop stops the streamer and tries to stop as soon as possible
-func (s *Streamer) ForceStop() error {
-	return s.stop(true)
+func (s *Streamer) ForceStop(ctx context.Context) error {
+	// set force unconditionally, since arguments might change between two
+	// stop calls (first stop with force=false, second with force=true)
+	log.Println("streamer.stop: stopping with force=true")
+	atomic.StoreInt32(&s.forceDone, 1)
+
+	return s.Stop(ctx)
 }
 
 // Wait waits for the streamer to stop running; either by an error occuring or
