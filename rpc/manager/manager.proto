@@ -1,0 +1,59 @@
+syntax = "proto3";
+package radio.internal.manager;
+option go_package = "manager";
+
+service Manager {
+    // Status returns the current status
+    rpc Status(StatusRequest) returns (StatusResponse);
+    rpc SetUser(User) returns (User);
+    rpc SetSong(Song) returns (Song);
+    rpc SetBotConfig(BotConfig) returns (BotConfig);
+    rpc SetThread(Thread) returns (Thread);
+    rpc SetListenerInfo(ListenerInfo) returns (ListenerInfo);
+}
+
+message StatusRequest {}
+
+message StatusResponse {
+    User user = 1;
+    Song song = 2;
+
+    ListenerInfo listener_info = 3;
+    Thread thread = 4;
+    BotConfig bot_config = 5;
+}
+
+message Song {
+    // song identifier
+    int32 id = 1;
+    // short metadata
+    string metadata = 2;
+    // song start time in unix epoch
+    uint64 start_time = 3;
+    // song end time in unix epoch, can be inaccurate
+    uint64 end_time = 4;
+    // database track identifier
+    int32 track_id = 5;
+}
+    
+message Thread {
+    // thread string, most of the time an URL
+    string thread = 1;
+}
+
+message BotConfig {
+    bool requests_enabled = 1;
+}
+
+message User {
+    // user identifier
+    int32 id = 1;
+    // user nickname, this is only a display-name
+    string nickname = 2;
+    // indicates if this user is a robot or not
+    bool is_robot = 3;
+}
+
+message ListenerInfo {
+    int64 count = 1;
+}
