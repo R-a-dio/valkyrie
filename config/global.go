@@ -36,6 +36,7 @@ type Global struct {
 	Database Database
 	Streamer Streamer
 	IRC      IRC
+	Status   Status
 }
 
 // Load loads a configuration from the reader given
