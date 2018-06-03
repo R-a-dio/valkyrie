@@ -22,6 +22,25 @@ import (
 	"github.com/cenkalti/backoff"
 )
 
+const (
+	// ConnectionRetryMaxInterval indicates the maximum interval to retry icecast
+	// connections
+	ConnectionRetryMaxInterval = time.Second * 2
+	// ConnectionRetryMaxElapsedTime indicates how long to try retry before
+	// erroring out completely. Set to 0 means it never errors out
+	ConnectionRetryMaxElapsedTime = time.Second * 0
+)
+
+// NewConnectionBackoff returns a new backoff set to the intended configuration
+// for connection retrying
+func NewConnectionBackoff() backoff.BackOff {
+	b := backoff.NewExponentialBackOff()
+	b.InitialInterval = time.Millisecond * 250
+	b.MaxInterval = ConnectionRetryMaxInterval
+	b.MaxElapsedTime = ConnectionRetryMaxElapsedTime
+	return b
+}
+
 var (
 	bufferMP3Size = 1024 * 32 // about 1.3 seconds of audio
 	bufferPCMSize = 1024 * 64 // about 0.4 seconds of audio
@@ -538,8 +557,8 @@ func (s *Streamer) streamToIcecast(task streamerTask) error {
 		conn = c // move c to method scope if no error occured
 		return nil
 	}
-	var b backoff.BackOff = backoff.NewExponentialBackOff()
-	b = backoff.WithContext(b, task.Context)
+	var backOff = NewConnectionBackoff()
+	backOff = backoff.WithContext(backOff, task.Context)
 
 	for {
 		select {
@@ -560,7 +579,7 @@ func (s *Streamer) streamToIcecast(task streamerTask) error {
 
 		for atomic.LoadInt32(&s.forceDone) == 0 {
 			if conn == nil {
-				err = backoff.Retry(newConn, b)
+				err = backoff.Retry(newConn, backOff)
 				if err != nil {
 					return err
 				}
@@ -619,45 +638,40 @@ func (s *Streamer) metadataToIcecast(task streamerTask) error {
 		return uri.String(), nil
 	}
 
-	// backoff timer, we set the timer when a request fails and we want to
-	// retry it in a little bit
-	var backoff = time.NewTimer(time.Hour)
-	backoff.Stop()
-	// the amount of times we've failed a request, we use this value to increase
-	// the delay between requests
-	var backoffCount int
+	// for retrying the metadata request
+	var boff = NewConnectionBackoff()
+	boff = backoff.WithContext(boff, task.Context)
+
+	var boffCh <-chan time.Time
+	var retrying bool
 	var track streamerTrack
 
 	for {
+		// only set the channel when we're actually in need of retrying our
+		// previous track, otherwise we have no need for a backoff
+		if retrying {
+			boffCh = time.After(boff.NextBackOff())
+		} else {
+			boffCh = nil
+		}
+
 		select {
-		case <-backoff.C:
-			backoffCount *= 2
+		case <-boffCh:
 		case track = <-task.in:
-			backoffCount = 1
-			backoff.Stop()
+			retrying = false
+			boff.Reset()
 		case <-task.Done():
 			return nil
 		}
 
-		// protect against the initial timer firing
-		if track == (streamerTrack{}) {
-			continue
-		}
-
-		// only send the track ahead the first time around
-		if backoffCount == 1 {
+		// only send to the next part of the pipeline if we're not retrying
+		// an operation
+		if !retrying {
 			select {
 			case task.out <- track:
 			case <-task.Done():
 				return nil
 			}
-		}
-
-		// a backoff signal could be send before we managed to stop it above
-		// so try to receive a value to clear the channel for later use
-		select {
-		case <-backoff.C:
-		default:
 		}
 
 		uri, err := metaurl(track.track.Metadata)
@@ -681,10 +695,10 @@ func (s *Streamer) metadataToIcecast(task streamerTask) error {
 		cancel()
 		if err != nil || resp.StatusCode != 200 {
 			log.Printf("streamer.metadata: failed to send: %s", err)
-			// try again if the request failed
-			backoff.Reset(time.Second * 2 * time.Duration(backoffCount))
+			// try and retry the operation in a little while
+			retrying = true
 		}
-
+		// make sure we close the body if we get a non-200 status
 		if err == nil {
 			resp.Body.Close()
 		}
