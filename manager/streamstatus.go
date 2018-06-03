@@ -5,24 +5,39 @@ import (
 	"log"
 	"time"
 
+	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/database"
 	pb "github.com/R-a-dio/valkyrie/rpc/manager"
+	"github.com/cenkalti/backoff"
 )
 
 type StreamStatus struct {
 	*State
 
-	api pb.Manager
+	// api is our entrypoint to the in-process status api
+	api *api
 }
 
 func (ss *StreamStatus) Listen(ctx context.Context) error {
-	var l *Listener
+	var lnr *Listener
 	var err error
 	var lastMetadata string
+	var newListener = func() error {
+		l, err := NewListener(ctx, ss.Conf().Status.StreamURL)
+		if err != nil {
+			return err
+		}
+		lnr = l // move l to method scope
+		return nil
+	}
+
+	var songCh = make(chan *pb.Song)
+	var boff = config.NewConnectionBackoff()
+	boff = backoff.WithContext(boff, ctx)
 
 	for {
-		if l == nil {
-			l, err = NewListener(ctx, ss.Conf().Status.StreamURL)
+		if lnr == nil {
+			err = backoff.Retry(newListener, boff)
 			if err != nil {
 				return err
 			}
@@ -31,56 +46,70 @@ func (ss *StreamStatus) Listen(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return nil
-		case err = <-l.FatalErr:
+		case err = <-lnr.FatalErr:
 			log.Println("metadata connection error:", err)
-			l = nil
-		case err = <-l.MetaErr:
+			lnr = nil
+		case err = <-lnr.MetaErr:
 			log.Println("metadata parsing error:", err)
-		case meta := <-l.Meta:
+		case meta := <-lnr.Meta:
 			song := meta["StreamTitle"]
 			if song == "" {
 				continue
 			}
 
-			var online = true
-			// look if the metadata we received is one of the known fallback
-			// names; when the main mount goes down we also get moved to the
-			// fallback so try to detect that
-			for _, fallback := range ss.Conf().Status.FallbackNames {
-				if song == fallback {
-					online = false
-					break
-				}
+			online := ss.isOnline(song)
+			// nothing to do if we've identified to be on the fallback mount
+			// or we've received the same metadata as before
+			if !online || lastMetadata == song {
+				lastMetadata = song
+				continue
 			}
 
-			// TODO: add new esong entries to the database as needed
-			if online && lastMetadata != song {
-				pbSong, err := ss.createProtoSong(song)
-				if err != nil {
-					// TODO: figure out what to do on error
-				} else {
-					ss.api.SetSong(ctx, pbSong)
-				}
-			}
-
+			// TODO: handle goroutine cleanup
+			go ss.resolveMetadata(songCh, song)
 			lastMetadata = song
+		case pbSong := <-songCh:
+			ss.api.SetSong(ctx, pbSong)
 		}
 	}
 }
 
-func (ss *StreamStatus) createProtoSong(metadata string) (*pb.Song, error) {
+// isOnline compares the string passed in to the configuration set in
+// status.fallbacknames. returns false if a match is found.
+//
+// We assume that having a metadata equal to the fallback metadata means the
+// main mount is offline
+func (ss *StreamStatus) isOnline(meta string) bool {
+	var online = true
+	for _, fallback := range ss.Conf().Status.FallbackNames {
+		online = meta != fallback && online
+	}
+	return online
+}
+
+func (ss *StreamStatus) resolveMetadata(ch chan *pb.Song, metadata string) {
+	track, err := database.ResolveMetadataBasic(ss.db, metadata)
+	if err != nil {
+		// TODO: retry
+		return
+	}
+
 	var s pb.Song
 	var start = time.Now()
 
-	track, err := database.ResolveMetadataBasic(ss.db, metadata)
-	if err != nil {
-		return nil, err
-	}
-
-	s.Metadata = track.Metadata
+	s.Metadata = metadata
 	s.StartTime = uint64(start.Unix())
 	s.EndTime = uint64(start.Add(track.Length).Unix())
 	s.Id = int32(track.ID)
 	s.TrackId = int32(track.TrackID)
-	return &s, nil
+
+	select {
+	// TODO: handle goroutine cleanup
+	// case <-ctx.Done():
+	case ch <- &s:
+	}
+}
+
+func (ss *StreamStatus) createProtoSong(metadata string) (*pb.Song, error) {
+
 }

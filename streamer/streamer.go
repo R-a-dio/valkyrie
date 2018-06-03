@@ -17,29 +17,11 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/database"
 	"github.com/R-a-dio/valkyrie/streamer/audio"
 	"github.com/cenkalti/backoff"
 )
-
-const (
-	// ConnectionRetryMaxInterval indicates the maximum interval to retry icecast
-	// connections
-	ConnectionRetryMaxInterval = time.Second * 2
-	// ConnectionRetryMaxElapsedTime indicates how long to try retry before
-	// erroring out completely. Set to 0 means it never errors out
-	ConnectionRetryMaxElapsedTime = time.Second * 0
-)
-
-// NewConnectionBackoff returns a new backoff set to the intended configuration
-// for connection retrying
-func NewConnectionBackoff() backoff.BackOff {
-	b := backoff.NewExponentialBackOff()
-	b.InitialInterval = time.Millisecond * 250
-	b.MaxInterval = ConnectionRetryMaxInterval
-	b.MaxElapsedTime = ConnectionRetryMaxElapsedTime
-	return b
-}
 
 var (
 	bufferMP3Size = 1024 * 32 // about 1.3 seconds of audio
@@ -557,7 +539,7 @@ func (s *Streamer) streamToIcecast(task streamerTask) error {
 		conn = c // move c to method scope if no error occured
 		return nil
 	}
-	var backOff = NewConnectionBackoff()
+	var backOff = config.NewConnectionBackoff()
 	backOff = backoff.WithContext(backOff, task.Context)
 
 	for {
@@ -639,7 +621,7 @@ func (s *Streamer) metadataToIcecast(task streamerTask) error {
 	}
 
 	// for retrying the metadata request
-	var boff = NewConnectionBackoff()
+	var boff = config.NewConnectionBackoff()
 	boff = backoff.WithContext(boff, task.Context)
 
 	var boffCh <-chan time.Time
