@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"sync"
+	"time"
 )
 
 const maxMetadataLength = 255 * 16
@@ -19,16 +21,14 @@ const MetaBufSize = 1
 type Listener struct {
 	ctx    context.Context
 	cancel context.CancelFunc
-	err    chan error
 
-	// FatalErr receives any fatal error that occurs, the Listener stops
-	// running when one of these occurs.
+	mu  sync.Mutex // protects err
+	err error
+
+	// Err receives any error that is unrecoverable by the listener
 	//
-	// Close returns the same error as received on FatalErr
-	FatalErr chan error
-	// MetaErr receives any errors that occur
-	// while parsing metadata from the stream
-	MetaErr chan error
+	// Close returns the same error as received on Err
+	Err chan error
 	// Meta receives the metadata parsed from the stream.
 	//
 	// Both Meta and MetaErr buffer up to MetaBufSize
@@ -40,11 +40,8 @@ type Listener struct {
 //
 func NewListener(ctx context.Context, streamurl string) (*Listener, error) {
 	var l Listener
-	l.MetaErr = make(chan error, MetaBufSize)
 	l.Meta = make(chan map[string]string, MetaBufSize)
-
-	l.FatalErr = make(chan error, 1)
-	l.err = make(chan error, 1)
+	l.Err = make(chan error, 1)
 	l.ctx, l.cancel = context.WithCancel(ctx)
 
 	req, err := http.NewRequest("GET", streamurl, nil)
@@ -84,8 +81,10 @@ func NewListener(ctx context.Context, streamurl string) (*Listener, error) {
 			err = nil
 		}
 
-		l.FatalErr <- err
-		l.err <- err
+		l.mu.Lock()
+		l.err = err
+		l.mu.Unlock()
+		l.Err <- err
 	}()
 
 	return &l, nil
@@ -94,7 +93,9 @@ func NewListener(ctx context.Context, streamurl string) (*Listener, error) {
 // Close closes the listener and returns any error that occured
 func (l *Listener) Close() error {
 	l.cancel()
-	return <-l.err
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.err
 }
 
 func (l *Listener) parseResponse(metasize int, src io.Reader) error {
@@ -135,22 +136,16 @@ func (l *Listener) parseResponse(metasize int, src io.Reader) error {
 		}
 
 		// now parse the metadata
-		meta, err = parseMetadata(buf[:length])
-		if err != nil {
-			select {
-			case l.MetaErr <- err:
-			default:
-			}
-		} else {
-			select {
-			case l.Meta <- meta:
-			default:
-			}
+		meta = parseMetadata(buf[:length])
+
+		select {
+		case l.Meta <- meta:
+		case <-time.After(time.Second):
 		}
 	}
 }
 
-func parseMetadata(b []byte) (map[string]string, error) {
+func parseMetadata(b []byte) map[string]string {
 	var meta = make(map[string]string, 2)
 
 	// trim any padding nul bytes and insert a trailing semicolon if one
@@ -184,7 +179,7 @@ func parseMetadata(b []byte) (map[string]string, error) {
 		meta[key] = value
 	}
 
-	return meta, nil
+	return meta
 }
 
 func findSequence(seq []byte, a, b byte) ([]byte, string) {

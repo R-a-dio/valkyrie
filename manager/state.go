@@ -46,9 +46,12 @@ func (s *State) Shutdown() {
 func (s *State) loadDatabase() (err error) {
 	conf := s.Conf()
 
-	s.db, err = sqlx.Open(conf.Database.DriverName, conf.Database.DSN)
+	s.db, err = sqlx.Connect(conf.Database.DriverName, conf.Database.DSN)
+	if err != nil {
+		return err
+	}
 	s.Closer("database", s.db.Close)
-	return s.db.Ping()
+	return nil
 }
 
 // NewState initializes a state struct with all the required items
