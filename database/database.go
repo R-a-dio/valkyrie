@@ -10,6 +10,7 @@ import (
 // Handler is the interface passed to database accessing functions and should
 // only be created by a call to Handle
 type Handler interface {
+	internal()
 	ext
 	Commit() error
 	Rollback() error
@@ -90,3 +91,5 @@ func (h handle) Rollback() error {
 	}
 	return h.tx.Rollback()
 }
+
+func (h handle) internal() {}

@@ -88,8 +88,9 @@ func (ss *StreamStatus) isOnline(meta string) bool {
 }
 
 func (ss *StreamStatus) resolveMetadata(ch chan *pb.Song, metadata string) {
-	track, err := database.ResolveMetadataBasic(ss.db, metadata)
-	if err != nil {
+	h := database.Handle(context.TODO(), ss.db)
+	track, err := database.ResolveMetadataBasic(h, metadata)
+	if err != nil && err != database.ErrTrackNotFound {
 		// TODO: retry
 		return
 	}
@@ -108,8 +109,4 @@ func (ss *StreamStatus) resolveMetadata(ch chan *pb.Song, metadata string) {
 	// case <-ctx.Done():
 	case ch <- &s:
 	}
-}
-
-func (ss *StreamStatus) createProtoSong(metadata string) (*pb.Song, error) {
-
 }

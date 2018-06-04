@@ -43,14 +43,15 @@ func (h *streamHandler) RequestTrack(ctx context.Context, r *pb.TrackRequest) (*
 	h.requestMutex.Lock()
 	defer h.requestMutex.Unlock()
 
-	tx, err := h.db.Beginx()
+	hl := database.Handle(ctx, h.db)
+	hl, err := database.BeginTx(hl)
 	if err != nil {
 		return nil, twirp.InternalErrorWith(err)
 	}
-	defer tx.Rollback()
+	defer hl.Rollback()
 
 	// turn userID into a time of when this user last requested a song
-	userLastRequest, err := database.UserRequestTime(tx, r.Identifier)
+	userLastRequest, err := database.UserRequestTime(hl, r.Identifier)
 	if err != nil {
 		return nil, twirp.InternalErrorWith(err)
 	}
@@ -66,7 +67,7 @@ func (h *streamHandler) RequestTrack(ctx context.Context, r *pb.TrackRequest) (*
 	}
 
 	// turn trackid into a usable DatabaseSong
-	track, err := database.GetTrack(tx, database.TrackID(r.Track))
+	track, err := database.GetTrack(hl, database.TrackID(r.Track))
 	if err != nil {
 		return nil, twirp.InternalErrorWith(err)
 	}
@@ -81,16 +82,16 @@ func (h *streamHandler) RequestTrack(ctx context.Context, r *pb.TrackRequest) (*
 	}
 
 	// update the database to represent the request
-	err = database.UpdateUserRequestTime(tx, r.Identifier, userLastRequest.IsZero())
+	err = database.UpdateUserRequestTime(hl, r.Identifier, userLastRequest.IsZero())
 	if err != nil {
 		return nil, twirp.InternalErrorWith(err)
 	}
-	err = database.UpdateTrackRequestTime(tx, database.TrackID(r.Track))
+	err = database.UpdateTrackRequestTime(hl, database.TrackID(r.Track))
 	if err != nil {
 		return nil, twirp.InternalErrorWith(err)
 	}
 
-	err = tx.Commit()
+	err = hl.Commit()
 	if err != nil {
 		return nil, twirp.InternalErrorWith(err)
 	}

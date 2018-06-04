@@ -110,11 +110,6 @@ func (q *Queue) addEntry(e database.QueueEntry) {
 
 // Save saves the queue to the database
 func (q *Queue) Save() error {
-	tx, err := q.db.Beginx()
-	if err != nil {
-		return err
-	}
-
 	q.mu.Lock()
 	// recalculate playtime estimates, because we could have been sitting idle
 	// and that would mean the queue drifts away
@@ -127,12 +122,8 @@ func (q *Queue) Save() error {
 	}
 	q.totalLength = length
 
-	err = database.QueueSave(tx, q.l)
-	if err != nil {
-		tx.Rollback()
-	} else {
-		err = tx.Commit()
-	}
+	h := database.Handle(context.TODO(), q.db)
+	err := database.QueueSave(h, q.l)
 	q.mu.Unlock()
 	return err
 }
@@ -189,7 +180,8 @@ func (q *Queue) PeekTrack(t database.Track) database.Track {
 }
 
 func (q *Queue) refreshTrack(t database.Track) database.Track {
-	nt, err := database.GetTrack(q.db, t.TrackID)
+	h := database.Handle(context.TODO(), q.db)
+	nt, err := database.GetTrack(h, t.TrackID)
 	if err != nil {
 		// we just return our original in-memory version if the database query
 		// failed to complete
@@ -258,7 +250,9 @@ func (q *Queue) pop() database.Track {
 	q.totalLength -= e.Track.Length
 
 	go func() {
-		database.UpdateTrackPlayTime(q.db, e.Track.TrackID)
+		// TODO: make all calls use the same transaction
+		h := database.Handle(context.TODO(), q.db)
+		database.UpdateTrackPlayTime(h, e.Track.TrackID)
 		q.populate()
 		q.Save()
 	}()
@@ -266,14 +260,9 @@ func (q *Queue) pop() database.Track {
 }
 
 func (q *Queue) load() error {
-	tx, err := q.db.Beginx()
+	h := database.Handle(context.TODO(), q.db)
+	queue, err := database.QueueLoad(h)
 	if err != nil {
-		return err
-	}
-
-	queue, err := database.QueueLoad(tx)
-	if err != nil {
-		tx.Rollback()
 		return err
 	}
 
@@ -283,7 +272,7 @@ func (q *Queue) load() error {
 	}
 	q.mu.Unlock()
 
-	return tx.Commit()
+	return nil
 }
 
 func (q *Queue) populate() error {
@@ -308,13 +297,14 @@ func (q *Queue) populate() error {
 		return nil
 	}
 
-	tx, err := q.db.Beginx()
+	h := database.Handle(context.TODO(), q.db)
+	h, err := database.BeginTx(h)
 	if err != nil {
 		return err
 	}
-	defer tx.Commit()
+	defer h.Rollback()
 
-	candidates, err := database.QueuePopulate(tx)
+	candidates, err := database.QueuePopulate(h)
 	if err != nil {
 		return err
 	}
@@ -346,13 +336,13 @@ func (q *Queue) populate() error {
 			continue
 		}
 
-		t, err := database.GetTrack(tx, tid)
+		t, err := database.GetTrack(h, tid)
 		if err != nil {
 			fmt.Println("queue: populate: track error:", err)
 			continue
 		}
 
-		if err = database.QueueUpdateTrack(tx, tid); err != nil {
+		if err = database.QueueUpdateTrack(h, tid); err != nil {
 			fmt.Println("queue: populate: update error:", err)
 			continue
 		}
@@ -368,5 +358,5 @@ func (q *Queue) populate() error {
 		return errors.New("not enough songs in queue")
 	}
 
-	return nil
+	return h.Commit()
 }
