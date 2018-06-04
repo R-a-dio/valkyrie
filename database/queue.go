@@ -54,14 +54,14 @@ func (q QueueEntry) MarshalJSON() ([]byte, error) {
 	})
 }
 
-func QueueLoad(tx *sqlx.Tx) ([]QueueEntry, error) {
+func QueueLoad(h Handler) ([]QueueEntry, error) {
 	var databaseQueue = []struct {
 		TrackID   TrackID
 		UID       sql.NullString
 		IsRequest int
 	}{}
 
-	err := tx.Select(&databaseQueue, queryQueueLoad)
+	err := sqlx.Select(h, &databaseQueue, queryQueueLoad)
 	if err != nil {
 		fmt.Println("select")
 		return nil, err
@@ -69,7 +69,7 @@ func QueueLoad(tx *sqlx.Tx) ([]QueueEntry, error) {
 
 	queue := make([]QueueEntry, 0, len(databaseQueue))
 	for _, qi := range databaseQueue {
-		t, err := GetTrack(tx, qi.TrackID)
+		t, err := GetTrack(h, qi.TrackID)
 		if err != nil {
 			fmt.Println("gettrack")
 			return nil, err
@@ -85,9 +85,9 @@ func QueueLoad(tx *sqlx.Tx) ([]QueueEntry, error) {
 	return queue, nil
 }
 
-func QueuePopulate(tx *sqlx.Tx) ([]TrackID, error) {
+func QueuePopulate(h Handler) ([]TrackID, error) {
 	var candidates = []TrackID{}
-	err := tx.Select(&candidates, queryQueuePopulate)
+	err := sqlx.Select(h, &candidates, queryQueuePopulate)
 	if err != nil {
 		return nil, err
 	}
@@ -98,16 +98,16 @@ func QueuePopulate(tx *sqlx.Tx) ([]TrackID, error) {
 	return candidates, nil
 }
 
-func QueueUpdateTrack(tx *sqlx.Tx, tid TrackID) error {
-	_, err := tx.Exec(queryQueueUpdateLastRequested, tid)
+func QueueUpdateTrack(h Handler, tid TrackID) error {
+	_, err := h.Exec(queryQueueUpdateLastRequested, tid)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func QueueSave(tx *sqlx.Tx, queue []QueueEntry) error {
-	_, err := tx.Exec(queryQueueDelete)
+func QueueSave(h Handler, queue []QueueEntry) error {
+	_, err := h.Exec(queryQueueDelete)
 	if err != nil {
 		return err
 	}
@@ -118,7 +118,7 @@ func QueueSave(tx *sqlx.Tx, queue []QueueEntry) error {
 			isRequest = 1
 		}
 
-		_, err := tx.Exec(queryQueueSave, e.Track.TrackID, e.EstimatedPlayTime,
+		_, err := h.Exec(queryQueueSave, e.Track.TrackID, e.EstimatedPlayTime,
 			e.UserIdentifier, isRequest, e.Track.Metadata,
 			e.Track.Length/time.Second, i+1)
 		if err != nil {

@@ -9,13 +9,13 @@ import (
 )
 
 // UserRequestTime returns the time of last request by this user.
-func UserRequestTime(tx *sqlx.Tx, user string) (time.Time, error) {
+func UserRequestTime(h Handler, user string) (time.Time, error) {
 	var t time.Time
 
 	query := "SELECT time FROM requesttime WHERE ip=? LIMIT 1;"
 	//query := "SELECT time FROM requesttime WHERE identifier=? LIMIT 1;"
 
-	err := tx.Get(&t, query, user)
+	err := sqlx.Get(h, &t, query, user)
 	if err == sql.ErrNoRows {
 		err = nil
 	}
@@ -26,7 +26,7 @@ func UserRequestTime(tx *sqlx.Tx, user string) (time.Time, error) {
 // UpdateUserRequestTime updates the last request time of the given user
 // to the current time and date. The `update` parameter if true performs an
 // UPDATE query, or an INSERT if false.
-func UpdateUserRequestTime(tx *sqlx.Tx, user string, update bool) error {
+func UpdateUserRequestTime(h Handler, user string, update bool) error {
 	var query string
 	if update {
 		query = "INSERT INTO requesttime (ip, time) VALUES (?, NOW());"
@@ -36,7 +36,7 @@ func UpdateUserRequestTime(tx *sqlx.Tx, user string, update bool) error {
 		//query = "UPDATE requesttime SET time=NOW() WHERE identifier=?;"
 	}
 
-	_, err := tx.Exec(query, user)
+	_, err := h.Exec(query, user)
 	return err
 }
 

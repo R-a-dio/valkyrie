@@ -84,8 +84,9 @@ func (t Track) EqualTo(o Track) bool {
 	return t.TrackID == o.TrackID
 }
 
-func (t Track) Refresh(tx sqlx.Queryer) (Track, error) {
-	return GetTrack(tx, t.TrackID)
+// Refresh returns a new Track with the latest database information
+func (t Track) Refresh(h Handler) (Track, error) {
+	return GetTrack(h, t.TrackID)
 }
 
 type tmpTrack struct {
@@ -94,7 +95,7 @@ type tmpTrack struct {
 }
 
 // AllTracks returns all tracks in the database
-func AllTracks(tx sqlx.Queryer) ([]Track, error) {
+func AllTracks(h Handler) ([]Track, error) {
 	var tmps = []tmpTrack{}
 
 	var query = `
@@ -103,7 +104,7 @@ func AllTracks(tx sqlx.Queryer) ([]Track, error) {
 	tags, accepter AS acceptor, lasteditor, priority, usable, lastrequested,
 	requestcount FROM tracks LEFT JOIN esong ON tracks.hash = esong.hash;`
 
-	err := sqlx.Select(tx, &tmps, query)
+	err := sqlx.Select(h, &tmps, query)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +130,7 @@ func resolveTmpTrack(tmp tmpTrack) Track {
 
 // GetTrack returns a *Track based on the trackid given.
 // returns ErrTrackNotFound if the id does not exist.
-func GetTrack(tx sqlx.Queryer, id TrackID) (Track, error) {
+func GetTrack(h Handler, id TrackID) (Track, error) {
 	// we create a temporary struct to handle NULL values returned by
 	// the query, both Length and Song.ID can be NULL due to the LEFT JOIN
 	// not necessarily having an entry in the `esong` table.
@@ -144,7 +145,7 @@ func GetTrack(tx sqlx.Queryer, id TrackID) (Track, error) {
 	requestcount FROM tracks LEFT JOIN esong ON tracks.hash = esong.hash WHERE 
 	tracks.id=?;`
 
-	err := sqlx.Get(tx, &tmp, query, id)
+	err := sqlx.Get(h, &tmp, query, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			err = ErrTrackNotFound
@@ -159,19 +160,19 @@ func GetTrack(tx sqlx.Queryer, id TrackID) (Track, error) {
 // and increases the time between requests for the song.
 //
 // TODO: don't hardcode requestcount and priority increments?
-func UpdateTrackRequestTime(tx sqlx.Execer, id TrackID) error {
+func UpdateTrackRequestTime(h Handler, id TrackID) error {
 	var query = `UPDATE tracks SET lastrequested=NOW(),
 	requestcount=requestcount+2, priority=priority+1 WHERE id=?;`
 
-	_, err := tx.Exec(query, id)
+	_, err := h.Exec(query, id)
 	return err
 }
 
 // UpdateTrackPlayTime updates the time the track given was last played
-func UpdateTrackPlayTime(tx sqlx.Execer, id TrackID) error {
+func UpdateTrackPlayTime(h Handler, id TrackID) error {
 	var query = `UPDATE tracks SET lastplayed=NOW() WHERE id=?;`
 
-	_, err := tx.Exec(query, id)
+	_, err := h.Exec(query, id)
 	return err
 }
 
@@ -181,7 +182,7 @@ func UpdateTrackPlayTime(tx sqlx.Execer, id TrackID) error {
 //		esong.id
 //		esong.len
 // 		tracks.id
-func ResolveMetadataBasic(tx sqlx.Queryer, metadata string) (Track, error) {
+func ResolveMetadataBasic(h Handler, metadata string) (Track, error) {
 	hash := NewSongHash(metadata)
 
 	var tmp tmpTrack
@@ -190,7 +191,7 @@ func ResolveMetadataBasic(tx sqlx.Queryer, metadata string) (Track, error) {
 	SELECT tracks.id AS track_id, esong.id AS song_id, esong.len AS length
 	FROM esong LEFT JOIN tracks ON esong.hash = tracks.hash WHERE esong.hash=?;`
 
-	err := sqlx.Get(tx, &tmp, query, hash)
+	err := sqlx.Get(h, &tmp, query, hash)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			err = ErrTrackNotFound
