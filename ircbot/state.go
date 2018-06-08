@@ -118,5 +118,6 @@ func (s *State) loadClient() (err error) {
 
 func (s *State) loadIRCHandlers() (err error) {
 	RegisterCommonHandlers(s)
+	s.client.Handlers.Add(girc.PRIVMSG, parseCommand) // parse.go
 	return
 }
