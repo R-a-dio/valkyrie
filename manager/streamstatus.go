@@ -5,10 +5,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/database"
 	pb "github.com/R-a-dio/valkyrie/rpc/manager"
-	"github.com/cenkalti/backoff"
 )
 
 type StreamStatus struct {
@@ -69,16 +67,13 @@ func (ss *StreamStatus) handleSong(ctx context.Context, song string) {
 	var start = time.Now()
 
 	h := database.Handle(ctx, ss.db)
-	resolve := func() (err error) {
+	err := h.Retry(nil, func(h database.Handler) (err error) {
 		track, err = database.ResolveMetadataBasic(h, song)
 		if err != nil && err != database.ErrTrackNotFound {
 			return err
 		}
 		return nil
-	}
-
-	dbBackoff := config.NewDatabaseBackoff()
-	err := backoff.Retry(resolve, dbBackoff)
+	})
 	if err != nil {
 		log.Println("status: failed database:", err)
 	}

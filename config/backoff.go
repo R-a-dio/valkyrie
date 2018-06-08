@@ -21,10 +21,16 @@ const (
 // for local connection retrying, for connections going to non-local addresses
 // don't use this
 func NewConnectionBackoff() backoff.BackOff {
-	b := backoff.NewExponentialBackOff()
-	b.InitialInterval = initialInterval
-	b.MaxInterval = ConnectionRetryMaxInterval
-	b.MaxElapsedTime = ConnectionRetryMaxElapsedTime
+	b := &backoff.ExponentialBackOff{
+		RandomizationFactor: backoff.DefaultRandomizationFactor,
+		Multiplier:          backoff.DefaultMultiplier,
+		Clock:               backoff.SystemClock,
+		// fields we use non-default
+		InitialInterval: initialInterval,
+		MaxInterval:     ConnectionRetryMaxInterval,
+		MaxElapsedTime:  ConnectionRetryMaxElapsedTime,
+	}
+	b.Reset()
 	return b
 }
 
@@ -40,9 +46,15 @@ const (
 // NewDatabaseBackoff returns a new backoff set to the intended configuration
 // for database retrying
 func NewDatabaseBackoff() backoff.BackOff {
-	b := backoff.NewExponentialBackOff()
-	b.InitialInterval = initialInterval
-	b.MaxInterval = DatabaseRetryMaxInterval
-	b.MaxElapsedTime = DatabaseRetryMaxElapsedTime
+	b := &backoff.ExponentialBackOff{
+		RandomizationFactor: backoff.DefaultRandomizationFactor,
+		Multiplier:          backoff.DefaultMultiplier,
+		Clock:               backoff.SystemClock,
+		// fields we use non-default
+		InitialInterval: initialInterval,
+		MaxInterval:     DatabaseRetryMaxInterval,
+		MaxElapsedTime:  DatabaseRetryMaxElapsedTime,
+	}
+	b.Reset()
 	return b
 }

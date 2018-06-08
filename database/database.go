@@ -3,17 +3,24 @@ package database
 import (
 	"context"
 	"database/sql"
+	"time"
 
+	"github.com/R-a-dio/valkyrie/config"
+	"github.com/cenkalti/backoff"
 	"github.com/jmoiron/sqlx"
 )
 
 // Handler is the interface passed to database accessing functions and should
 // only be created by a call to Handle
 type Handler interface {
-	internal()
 	ext
 	Commit() error
 	Rollback() error
+
+	// Retry allows retrying a database operation with automated backing off if
+	// multiple retries are needed. The exact values are defined in the config
+	// package
+	Retry(n func(error, time.Duration), fn func(Handler) error) error
 }
 
 type ext interface {
@@ -92,4 +99,8 @@ func (h handle) Rollback() error {
 	return h.tx.Rollback()
 }
 
-func (h handle) internal() {}
+func (h handle) Retry(n func(error, time.Duration), fn func(Handler) error) error {
+	return backoff.RetryNotify(func() error {
+		return fn(h)
+	}, config.NewDatabaseBackoff(), n)
+}

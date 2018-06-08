@@ -131,13 +131,13 @@ func (s *Streamer) Start(ctx context.Context) {
 		}
 
 		s.wg.Add(1)
-		go callFunc(fn, task)
+		go callFunc(fn, task) // SHOULD exit on context cancellation
 
 		task.in = ch
 	}
 
 	log.Println("streamer.start: starting pipeline")
-	go func() {
+	go func() { // exit on wg done
 		defer s.cancel()
 		defer close(s.wgDone)
 		s.wg.Wait()
@@ -377,7 +377,7 @@ func (s *Streamer) encodeToMP3(task streamerTask) error {
 		// before it starts playing
 		send := make(chan bool)
 
-		go func() {
+		go func() { // exit with context cancellation or task finish
 			select {
 			case task.out <- track:
 				send <- false
@@ -439,7 +439,7 @@ func (s *Streamer) encodeToMP3(task streamerTask) error {
 		// the audio data stored in pcm
 		pcm = nil
 		fmt.Fprint(ioutil.Discard, pcm)
-		go func() {
+		go func() { // exit on task finish
 			time.Sleep(time.Second)
 			debug.FreeOSMemory()
 		}()
