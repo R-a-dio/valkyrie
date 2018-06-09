@@ -32,8 +32,10 @@ type Global struct {
 	// TemplateDir is the path where html templates are stored for the HTTP
 	// frontends
 	TemplateDir string
-
+	// Database contains the configuration to connect to the SQL database
 	Database Database
+
+	// Fields below are part of components
 	Streamer Streamer
 	IRC      IRC
 	Status   Status
