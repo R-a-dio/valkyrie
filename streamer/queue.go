@@ -297,14 +297,13 @@ func (q *Queue) populate() error {
 		return nil
 	}
 
-	h := database.Handle(context.TODO(), q.db)
-	h, err := database.BeginTx(h)
+	tx, err := database.HandleTx(context.TODO(), q.db)
 	if err != nil {
 		return err
 	}
-	defer h.Rollback()
+	defer tx.Rollback()
 
-	candidates, err := database.QueuePopulate(h)
+	candidates, err := database.QueuePopulate(tx)
 	if err != nil {
 		return err
 	}
@@ -336,13 +335,13 @@ func (q *Queue) populate() error {
 			continue
 		}
 
-		t, err := database.GetTrack(h, tid)
+		t, err := database.GetTrack(tx, tid)
 		if err != nil {
 			fmt.Println("queue: populate: track error:", err)
 			continue
 		}
 
-		if err = database.QueueUpdateTrack(h, tid); err != nil {
+		if err = database.QueueUpdateTrack(tx, tid); err != nil {
 			fmt.Println("queue: populate: update error:", err)
 			continue
 		}
@@ -358,5 +357,5 @@ func (q *Queue) populate() error {
 		return errors.New("not enough songs in queue")
 	}
 
-	return h.Commit()
+	return tx.Commit()
 }

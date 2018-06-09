@@ -13,9 +13,8 @@ import (
 // Handler is the interface passed to database accessing functions and should
 // only be created by a call to Handle
 type Handler interface {
-	ext
-	Commit() error
-	Rollback() error
+	sqlx.Execer
+	sqlx.Queryer
 
 	// Retry allows retrying a database operation with automated backing off if
 	// multiple retries are needed. The exact values are defined in the config
@@ -23,9 +22,16 @@ type Handler interface {
 	Retry(n func(error, time.Duration), fn func(Handler) error) error
 }
 
-type ext interface {
-	sqlx.Execer
-	sqlx.Queryer
+// HandlerTx is a database handler that is used for transactions
+type HandlerTx interface {
+	Handler
+
+	// Commit commits the transaction
+	Commit() error
+	// Rollback aborts the transaction
+	Rollback() error
+	// Tx returns the underlying transaction
+	Tx() *sqlx.Tx
 }
 
 type extContext interface {
@@ -36,67 +42,89 @@ type extContext interface {
 // Handle creates a handler with the ctx and db given
 func Handle(ctx context.Context, db *sqlx.DB) Handler {
 	return handle{
+		ext: db,
 		db:  db,
-		tx:  nil,
 		ctx: ctx,
 	}
 }
 
+// HandleTx creates a HandlerTx from the ctx and db given
+func HandleTx(ctx context.Context, db *sqlx.DB) (HandlerTx, error) {
+	return BeginTx(Handle(ctx, db))
+}
+
 // BeginTx begins a transaction on the handler given
-func BeginTx(hh Handler) (Handler, error) {
+func BeginTx(h Handler) (HandlerTx, error) {
 	var err error
-	// TODO: find a way to have this be testable aswell?
-	h := hh.(handle)
-	h.tx, err = h.db.BeginTxx(h.ctx, nil)
-	return h, err
-}
+	var hh handle
 
-type handle struct {
-	db  *sqlx.DB
-	tx  *sqlx.Tx
-	ctx context.Context
-}
-
-var _ Handler = handle{}
-
-func (h handle) getTx() extContext {
-	if h.db == nil {
-		panic("sanity: getTx called with nil db")
+	// dig out the handle value of the Handler we got
+	switch a := h.(type) {
+	case handle:
+		hh = a
+	case handleTx:
+		hh = a.handle
+	default:
+		panic("unknown Handler implementation passed to BeginTx")
 	}
-	if h.tx == nil {
-		return h.db
-	}
-	return h.tx
+
+	var htx handleTx
+	htx.handle = hh
+	htx.tx, err = htx.db.BeginTxx(htx.ctx, nil)
+	// set ext on our handle so that it now uses the transaction
+	htx.ext = htx.tx
+	return htx, err
 }
 
-func (h handle) Exec(query string, args ...interface{}) (sql.Result, error) {
-	return h.getTx().ExecContext(h.ctx, query, args...)
+// handleTx is a handle that implements transactions on top of handle
+type handleTx struct {
+	handle
+	tx *sqlx.Tx
 }
 
-func (h handle) Query(query string, args ...interface{}) (*sql.Rows, error) {
-	return h.getTx().QueryContext(h.ctx, query, args...)
-}
-
-func (h handle) Queryx(query string, args ...interface{}) (*sqlx.Rows, error) {
-	return h.getTx().QueryxContext(h.ctx, query, args...)
-}
-
-func (h handle) QueryRowx(query string, args ...interface{}) *sqlx.Row {
-	return h.getTx().QueryRowxContext(h.ctx, query, args...)
-}
-
-func (h handle) Commit() error {
+func (h handleTx) Commit() error {
 	if h.tx == nil {
 		panic("sanity: Commit called with nil tx")
 	}
 	return h.tx.Commit()
 }
 
-func (h handle) Rollback() error {
+func (h handleTx) Rollback() error {
 	if h.tx == nil {
 		panic("sanity: Rollback called with nil tx")
 	}
 	return h.tx.Rollback()
+}
+
+func (h handleTx) Tx() *sqlx.Tx {
+	return h.tx
+}
+
+var _ HandlerTx = handleTx{}
+
+type handle struct {
+	// ext is the field used when actually performing queries
+	ext extContext
+	db  *sqlx.DB
+	ctx context.Context
+}
+
+var _ Handler = handle{}
+
+func (h handle) Exec(query string, args ...interface{}) (sql.Result, error) {
+	return h.ext.ExecContext(h.ctx, query, args...)
+}
+
+func (h handle) Query(query string, args ...interface{}) (*sql.Rows, error) {
+	return h.ext.QueryContext(h.ctx, query, args...)
+}
+
+func (h handle) Queryx(query string, args ...interface{}) (*sqlx.Rows, error) {
+	return h.ext.QueryxContext(h.ctx, query, args...)
+}
+
+func (h handle) QueryRowx(query string, args ...interface{}) *sqlx.Row {
+	return h.ext.QueryRowxContext(h.ctx, query, args...)
 }
 
 func (h handle) Retry(n func(error, time.Duration), fn func(Handler) error) error {
