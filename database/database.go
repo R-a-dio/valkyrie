@@ -7,8 +7,18 @@ import (
 
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/cenkalti/backoff"
+	_ "github.com/go-sql-driver/mysql" // mariadb
 	"github.com/jmoiron/sqlx"
 )
+
+// Component connects to the database configured in the state given
+func Component(s *config.State) (config.StateDefer, error) {
+	var conf = s.Conf().Database
+	var err error
+
+	s.DB, err = sqlx.Connect(conf.DriverName, conf.DSN)
+	return s.DB.Close, err
+}
 
 // Handler is the interface passed to database accessing functions and should
 // only be created by a call to Handle

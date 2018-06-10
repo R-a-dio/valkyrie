@@ -44,7 +44,9 @@ type Streamer struct {
 	forceDone int32
 
 	// State shared between queue and streamer
-	*State
+	*config.State
+	// queue used by the streamer
+	queue *Queue
 	// Format of the PCM audio data
 	AudioFormat audio.AudioFormat
 
@@ -58,9 +60,10 @@ type Streamer struct {
 }
 
 // NewStreamer returns a new streamer using the state given
-func NewStreamer(state *State) (*Streamer, error) {
+func NewStreamer(state *config.State, queue *Queue) (*Streamer, error) {
 	var s = &Streamer{
 		State: state,
+		queue: queue,
 	}
 
 	s.AudioFormat = audio.AudioFormat{

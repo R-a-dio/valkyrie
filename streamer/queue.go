@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"math/rand"
 	"path/filepath"
 	"sync"
 	"time"
 
+	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/database"
 	"github.com/R-a-dio/valkyrie/streamer/audio"
 )
@@ -27,32 +29,31 @@ var ErrEmptyQueue = errors.New("empty queue")
 
 // NewQueue returns a ready to use Queue instance, restoring
 // state from the database before returning.
-func NewQueue(s *State) (*Queue, error) {
+func NewQueue(s *config.State) (*Queue, error) {
 	var q = &Queue{
 		State:            s,
 		nextSongEstimate: time.Now(),
 	}
 
-	fmt.Println("queue: loading")
+	log.Println("queue: loading")
 	if err := q.load(); err != nil {
-		fmt.Println("load failure")
+		log.Printf("queue: loading error: %s\n", err)
 		return nil, err
 	}
 
-	fmt.Println("queue: populating")
+	log.Println("queue: populating")
 	if err := q.populate(); err != nil {
-		fmt.Println("queue: populate error:", err)
+		log.Printf("queue: populate error: %s\n", err)
 		return nil, err
 	}
 
-	fmt.Println("queue: finished")
-	s.queue = q
+	log.Println("queue: finished initializing")
 	return q, nil
 }
 
 // Queue is the queue of tracks for the streamer
 type Queue struct {
-	*State
+	*config.State
 
 	mu               sync.Mutex
 	l                []database.QueueEntry
@@ -122,7 +123,7 @@ func (q *Queue) Save() error {
 	}
 	q.totalLength = length
 
-	h := database.Handle(context.TODO(), q.db)
+	h := database.Handle(context.TODO(), q.DB)
 	err := database.QueueSave(h, q.l)
 	q.mu.Unlock()
 	return err
@@ -180,7 +181,7 @@ func (q *Queue) PeekTrack(t database.Track) database.Track {
 }
 
 func (q *Queue) refreshTrack(t database.Track) database.Track {
-	h := database.Handle(context.TODO(), q.db)
+	h := database.Handle(context.TODO(), q.DB)
 	nt, err := database.GetTrack(h, t.TrackID)
 	if err != nil {
 		// we just return our original in-memory version if the database query
@@ -251,7 +252,7 @@ func (q *Queue) pop() database.Track {
 
 	go func() {
 		// TODO: make all calls use the same transaction
-		h := database.Handle(context.TODO(), q.db)
+		h := database.Handle(context.TODO(), q.DB)
 		database.UpdateTrackPlayTime(h, e.Track.TrackID)
 		q.populate()
 		q.Save()
@@ -260,7 +261,7 @@ func (q *Queue) pop() database.Track {
 }
 
 func (q *Queue) load() error {
-	h := database.Handle(context.TODO(), q.db)
+	h := database.Handle(context.TODO(), q.DB)
 	queue, err := database.QueueLoad(h)
 	if err != nil {
 		return err
@@ -297,7 +298,7 @@ func (q *Queue) populate() error {
 		return nil
 	}
 
-	tx, err := database.HandleTx(context.TODO(), q.db)
+	tx, err := database.HandleTx(context.TODO(), q.DB)
 	if err != nil {
 		return err
 	}

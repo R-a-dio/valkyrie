@@ -2,13 +2,31 @@ package config
 
 import (
 	"log"
+	"os"
 
 	"github.com/jmoiron/sqlx"
 )
 
+// Component loads the configuration file given
+func Component(path string) StateStart {
+	return func(s *State) (StateDefer, error) {
+		f, err := os.Open(path)
+		if err != nil {
+			return nil, err
+		}
+		defer f.Close()
+
+		s.AtomicGlobal, err = LoadAtomic(f)
+		if err != nil {
+			return nil, err
+		}
+
+		return nil, nil
+	}
+}
+
 type State struct {
 	AtomicGlobal
-
 	DB *sqlx.DB
 
 	defers []stateDefer

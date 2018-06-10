@@ -2,21 +2,23 @@ package streamer
 
 import (
 	"context"
-	"fmt"
-	"net"
 	"net/http"
 	"net/http/pprof"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/R-a-dio/valkyrie/config"
 	pb "github.com/R-a-dio/valkyrie/rpc/streamer"
 )
 
-// ListenAndServe serves a HTTP API for the state given on the address
-// configured in the state configuration.
-func ListenAndServe(s *State) error {
-	h := &streamHandler{State: s}
+// NewHTTPServer returns a http server with RPC API handler and debug handlers
+func NewHTTPServer(s *config.State, streamer *Streamer) (*http.Server, error) {
+	h := &streamHandler{
+		State:    s,
+		streamer: streamer,
+	}
+
 	rpcServer := pb.NewStreamerServer(h, nil)
 	mux := http.NewServeMux()
 	// rpc server path
@@ -32,21 +34,13 @@ func ListenAndServe(s *State) error {
 	conf := s.Conf()
 	server := &http.Server{Addr: conf.Streamer.Addr, Handler: mux}
 
-	s.Closer("http", server.Close)
-
-	fmt.Println("http: listening on:", conf.Streamer.Addr)
-	l, err := net.Listen("tcp", conf.Streamer.Addr)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("http: serving")
-	return server.Serve(l)
+	return server, nil
 }
 
 type streamHandler struct {
-	*State
+	*config.State
 
+	streamer     *Streamer
 	requestMutex sync.Mutex
 }
 
@@ -66,7 +60,7 @@ func (h *streamHandler) Status(ctx context.Context, _ *pb.Null) (*pb.StatusRespo
 	var resp pb.StatusResponse
 	resp.Running = atomic.LoadInt32(&h.streamer.started) == 1
 
-	for _, e := range h.queue.Entries() {
+	for _, e := range h.streamer.queue.Entries() {
 		resp.Queue = append(resp.Queue, &pb.QueueEntry{
 			IsRequest:         e.IsRequest,
 			UserIdentifier:    e.UserIdentifier,
