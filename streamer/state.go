@@ -51,17 +51,17 @@ func HTTPComponent(errCh chan<- error, streamer *Streamer) config.StateStart {
 func Component(errCh chan<- error) config.StateStart {
 	return func(s *config.State) (config.StateDefer, error) {
 		var queue *Queue
-		err := s.Start("streamer-queue", QueueComponent(&queue))
-		if err != nil {
-			return nil, err
-		}
 
 		streamer, err := NewStreamer(s, queue)
 		if err != nil {
 			return nil, err
 		}
 
-		err = s.Start("streamer-http", HTTPComponent(errCh, streamer))
+		err = s.Load(
+			QueueComponent(&queue),
+			HTTPComponent(errCh, streamer),
+		)
+
 		return func() error {
 			return streamer.ForceStop(context.Background())
 		}, err

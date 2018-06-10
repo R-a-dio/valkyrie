@@ -35,7 +35,13 @@ type State struct {
 	defers []stateDefer
 }
 
-func componentName(fn StateStart) string {
+// StateStart is a function that can start a component in the program, if
+// the component has resources to cleanup it should return a non-nil StateDefer
+// to be called when State.Shutdown is called. The returned StateDefer is only
+// used if a nil error is returned.
+type StateStart func(*State) (StateDefer, error)
+
+func (fn StateStart) String() string {
 	p := reflect.ValueOf(fn).Pointer()
 	fullname := runtime.FuncForPC(p).Name()
 	// handle closure names, these have ".funcN" added to their full name
@@ -58,12 +64,6 @@ func componentName(fn StateStart) string {
 	return pkgName + "-" + fnName
 }
 
-// StateStart is a function that can start a component in the program, if
-// the component has resources to cleanup it should return a non-nil StateDefer
-// to be called when State.Shutdown is called. The returned StateDefer is only
-// used if a nil error is returned.
-type StateStart func(*State) (StateDefer, error)
-
 // StateDefer is a function that is registered to be called when State.Shutdown
 // is called, and should be used by components to clean up resources
 type StateDefer func() error
@@ -78,8 +78,7 @@ type stateDefer struct {
 // and function names
 func (s *State) Load(components ...StateStart) error {
 	for _, fn := range components {
-		name := componentName(fn)
-		if err := s.Start(name, fn); err != nil {
+		if err := s.Start(fn); err != nil {
 			return err
 		}
 	}
@@ -88,16 +87,18 @@ func (s *State) Load(components ...StateStart) error {
 }
 
 // Start starts a component and calls Defer if a StateDefer is returned
-func (s *State) Start(component string, fn StateStart) error {
+func (s *State) Start(fn StateStart) error {
 	defr, err := fn(s)
+	if defr != nil {
+		// always register a returned defer before error check
+		s.Defer(fn.String(), defr)
+	}
 	if err != nil {
-		log.Printf("state: start: %s: error: %s\n", component, err)
+		log.Printf("state: start: %s: error: %s\n", fn, err)
 		return err
 	}
-	if defr != nil {
-		s.Defer(component, defr)
-	}
-	log.Printf("state: start: %s: complete\n", component)
+
+	log.Printf("state: start: %s: complete\n", fn)
 	return nil
 }
 
@@ -120,16 +121,9 @@ func (s *State) Shutdown() []error {
 		defer func(i int, c stateDefer) {
 			if err := c.fn(); err != nil {
 				errs = append(errs, err)
-				log.Printf("state: shutdown: [%d/%d] %s: error: %s\n",
-					i, len(s.defers), // print current index and total indices
-					c.component,
-					err,
-				)
+				log.Printf("state: shutdown: %s: error: %s\n", c.component, err)
 			} else {
-				log.Printf("state: shutdown: [%d/%d] %s: complete\n",
-					i, len(s.defers), // print current index and total indices
-					c.component,
-				)
+				log.Printf("state: shutdown: %s: complete\n", c.component)
 			}
 		}(i, c)
 	}

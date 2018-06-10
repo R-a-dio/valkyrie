@@ -154,13 +154,20 @@ func (s *Streamer) Start(ctx context.Context) {
 
 // Stop stops the streamer, but waits until the current track is done
 func (s *Streamer) Stop(ctx context.Context) error {
+	if atomic.LoadInt32(&s.started) == 0 {
+		// we're not running
+		log.Println("streamer.stop: not running")
+		return nil
+	}
 	if !atomic.CompareAndSwapInt32(&s.stopping, 0, 1) {
 		// we're already trying to stop or have already stopped
 		log.Println("streamer.stop: already stopping")
 		return nil
 	}
 
-	s.cancel()
+	if s.cancel != nil {
+		s.cancel()
+	}
 	log.Println("streamer.stop: waiting on completion")
 	select {
 	case <-ctx.Done():
