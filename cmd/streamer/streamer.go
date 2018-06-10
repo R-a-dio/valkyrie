@@ -15,25 +15,16 @@ func main() {
 	configPath := flag.String("conf", "hanyuu.toml", "filepath to configuration file")
 	flag.Parse()
 
+	var errCh = make(chan error, 2)
 	var state config.State
 	defer state.Shutdown()
 
-	err := state.Start("config", config.Component(*configPath))
+	err := state.Load(
+		config.Component(*configPath),
+		database.Component,
+		streamer.Component(errCh),
+	)
 	if err != nil {
-		log.Printf("init: config error: %s\n", err)
-		return
-	}
-
-	err = state.Start("database", database.Component)
-	if err != nil {
-		log.Printf("init: database error: %s\n", err)
-		return
-	}
-
-	errCh := make(chan error, 2)
-	err = state.Start("streamer", streamer.Component(errCh))
-	if err != nil {
-		log.Printf("init: streamer error: %s\n", err)
 		return
 	}
 

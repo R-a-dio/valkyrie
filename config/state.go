@@ -3,6 +3,9 @@ package config
 import (
 	"log"
 	"os"
+	"reflect"
+	"runtime"
+	"strings"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -32,6 +35,29 @@ type State struct {
 	defers []stateDefer
 }
 
+func componentName(fn StateStart) string {
+	p := reflect.ValueOf(fn).Pointer()
+	fullname := runtime.FuncForPC(p).Name()
+	// handle closure names, these have ".funcN" added to their full name
+	fullname = strings.TrimRight(fullname, "1234567890")
+	fullname = strings.TrimSuffix(fullname, ".func")
+
+	// find the function name
+	i := strings.LastIndex(fullname, ".")
+	pkgName, fnName := fullname[:i], fullname[i+1:]
+
+	i = strings.LastIndex(pkgName, "/")
+	pkgName = strings.ToLower(pkgName[i+1:])
+
+	// if the function is only named Component we only use the package name
+	if fnName == "Component" {
+		return pkgName
+	}
+
+	fnName = strings.ToLower(strings.TrimSuffix(fnName, "Component"))
+	return pkgName + "-" + fnName
+}
+
 // StateStart is a function that can start a component in the program, if
 // the component has resources to cleanup it should return a non-nil StateDefer
 // to be called when State.Shutdown is called. The returned StateDefer is only
@@ -46,6 +72,19 @@ type StateDefer func() error
 type stateDefer struct {
 	component string
 	fn        StateDefer
+}
+
+// Load calls Start on given components, component names are extracted from the package
+// and function names
+func (s *State) Load(components ...StateStart) error {
+	for _, fn := range components {
+		name := componentName(fn)
+		if err := s.Start(name, fn); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // Start starts a component and calls Defer if a StateDefer is returned
@@ -74,7 +113,7 @@ func (s *State) Defer(component string, fn StateDefer) {
 // errors that were encountered
 func (s *State) Shutdown() []error {
 	var errs []error
-	log.Println("state: shutdown: starting")
+	log.Println("state: shutdown")
 	defer log.Println("state: shutdown: finished")
 
 	for i, c := range s.defers {
