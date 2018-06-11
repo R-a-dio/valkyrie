@@ -1,6 +1,6 @@
 syntax = "proto3";
 package radio.internal.streamer;
-option go_package = "streamer";
+option go_package = "github.com/R-a-dio/valkyrie/rpc/streamer";
 
 service Streamer {
     rpc Start(Null) returns (Null);
