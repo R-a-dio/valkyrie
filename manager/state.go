@@ -1,86 +1,82 @@
 package manager
 
 import (
-	"fmt"
-	"os"
-	"time"
-
-	"github.com/jmoiron/sqlx"
+	"net"
+	"net/http"
+	"sync"
 
 	"github.com/R-a-dio/valkyrie/config"
+	"github.com/R-a-dio/valkyrie/rpc/irc"
+	pb "github.com/R-a-dio/valkyrie/rpc/manager"
+	"github.com/R-a-dio/valkyrie/rpc/streamer"
 )
 
-// State is a global-type application state, and is passed around all loaded
-// components as a shared root
-type State struct {
-	db *sqlx.DB
-
-	config.AtomicGlobal
-	closers []stateCloser
-}
-
-type stateCloser struct {
-	component string
-	fn        func() error
-}
-
-// Closer registers a function to be called when Shutdown is called on this
-// state instance, functions are called in LIFO order similar to defer
-func (s *State) Closer(component string, fn func() error) {
-	s.closers = append(s.closers, stateCloser{component, fn})
-}
-
-// Shutdown stops all components using this state
-func (s *State) Shutdown() {
-	fmt.Println("starting: shutting down")
-	for i := len(s.closers) - 1; i >= 0; i-- {
-		c := s.closers[i]
-		if err := c.fn(); err != nil {
-			fmt.Printf("shutdown error [%d]: %s: %s\n", i, c.component, err)
-		}
-	}
-	fmt.Println("finished: shutting down")
-	time.Sleep(time.Millisecond * 250)
-}
-
-func (s *State) loadDatabase() (err error) {
-	conf := s.Conf()
-
-	s.db, err = sqlx.Connect(conf.Database.DriverName, conf.Database.DSN)
-	if err != nil {
-		return err
-	}
-	s.Closer("database", s.db.Close)
-	return nil
-}
-
-// NewState initializes a state struct with all the required items
-func NewState(configPath string) (*State, error) {
-	var s State
-	var err error
-	// shutdown the things we've loaded already when an error occurs
-	defer func() {
+// HTTPComponent calls NewHTTPServer and starts serving requests with the
+// returned net/http server
+func HTTPComponent(errCh chan<- error, m *Manager) config.StateStart {
+	return func(s *config.State) (config.StateDefer, error) {
+		srv, err := NewHTTPServer(m)
 		if err != nil {
-			s.Shutdown()
+			return nil, err
 		}
-	}()
 
-	f, err := os.Open(configPath)
-	if err != nil {
-		return nil, err
+		ln, err := net.Listen("tcp", srv.Addr)
+		if err != nil {
+			return nil, err
+		}
+
+		go func() {
+			err := srv.Serve(ln)
+			if err != nil {
+				errCh <- err
+			}
+		}()
+		return srv.Close, nil
 	}
-	defer f.Close()
+}
 
-	fmt.Println("startup: loading configuration")
-	s.AtomicGlobal, err = config.LoadAtomic(f)
-	if err != nil {
-		return nil, err
+func Component(errCh chan<- error) config.StateStart {
+	return func(s *config.State) (config.StateDefer, error) {
+		m, err := NewManager(s)
+		if err != nil {
+			return nil, err
+		}
+
+		err = s.Load(
+			ListenerComponent(m),
+
+			HTTPComponent(errCh, m),
+		)
+
+		return m.Close, err
+	}
+}
+
+type Manager struct {
+	*config.State
+
+	// RPC clients to other processes
+	client struct {
+		irc      irc.Bot
+		streamer streamer.Streamer
+	}
+	// mu protects status and its contents
+	mu     sync.Mutex
+	status *pb.StatusResponse
+}
+
+func NewManager(state *config.State) (*Manager, error) {
+	m := Manager{
+		State:  state,
+		status: new(pb.StatusResponse),
 	}
 
-	fmt.Println("startup: loading database")
-	if err = s.loadDatabase(); err != nil {
-		return nil, err
-	}
+	m.client.irc = irc.NewBotProtobufClient(state.Conf().IRC.Addr, http.DefaultClient)
+	m.client.streamer = streamer.NewStreamerProtobufClient(state.Conf().Streamer.Addr, http.DefaultClient)
 
-	return &s, nil
+	return &m, nil
+}
+
+func (m *Manager) Close() error {
+	return nil
 }

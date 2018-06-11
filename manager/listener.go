@@ -5,100 +5,125 @@ import (
 	"context"
 	"errors"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
-	"sync"
 	"time"
+
+	"github.com/R-a-dio/valkyrie/config"
+	pb "github.com/R-a-dio/valkyrie/rpc/manager"
 )
 
 const maxMetadataLength = 255 * 16
 
-// MetaBufSize is the amount of buffered values in the Listener channels
-const MetaBufSize = 1
+// ListenerComponent runs a stream listener until cancelled
+func ListenerComponent(m *Manager) config.StateStart {
+	return func(s *config.State) (config.StateDefer, error) {
+		ln, err := NewListener(s, m)
+		if err != nil {
+			return nil, err
+		}
 
-// Listener implements an icecast MP3 listener that discards audio data and
-// only exposes stream metadata through the channels given
-type Listener struct {
-	ctx    context.Context
-	cancel context.CancelFunc
-
-	mu  sync.Mutex // protects err
-	err error
-
-	// Err receives any error that is unrecoverable by the listener
-	//
-	// Close returns the same error as received on Err
-	Err chan error
-	// Meta receives the metadata parsed from the stream.
-	//
-	// Both Meta and MetaErr buffer up to MetaBufSize
-	// values before discarding values;
-	Meta chan map[string]string
+		return ln.Shutdown, nil
+	}
 }
 
-// NewListener creates a new Listener that tries to listen to the url given.
-//
-func NewListener(ctx context.Context, streamurl string) (*Listener, error) {
-	var l Listener
-	l.Meta = make(chan map[string]string, MetaBufSize)
-	l.Err = make(chan error, 1)
-	l.ctx, l.cancel = context.WithCancel(ctx)
+// Listener listens to an icecast mp3 stream with interleaved song metadata
+type Listener struct {
+	*config.State
+	// done is closed when run exits, and indicates this listener instance stopped running
+	done chan struct{}
+	// cancel is called when Shutdown is called and cancels all operations started by run
+	cancel context.CancelFunc
 
-	req, err := http.NewRequest("GET", streamurl, nil)
+	// manager is an RPC client to the status manager
+	manager pb.Manager
+
+	// prevSong is the last song we got from the stream
+	prevSong string
+}
+
+// NewListener creates a listener and starts running in the background immediately
+func NewListener(s *config.State, m pb.Manager) (*Listener, error) {
+	ln := Listener{
+		State:   s,
+		manager: m,
+		done:    make(chan struct{}),
+	}
+
+	var ctx context.Context
+	ctx, ln.cancel = context.WithCancel(context.Background())
+	go func() {
+		defer ln.cancel()
+		defer close(ln.done)
+		ln.run(ctx)
+	}()
+
+	return &ln, nil
+}
+
+// Shutdown signals the listener to stop running, and waits for it to exit
+func (ln *Listener) Shutdown() error {
+	ln.cancel()
+	<-ln.done
+	return nil
+}
+
+func (ln *Listener) run(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		conn, metasize, err := ln.newConn(ctx)
+		if err != nil {
+			// TODO: don't return
+			return
+		}
+
+		err = ln.parseResponse(ctx, metasize, conn)
+		if err != nil {
+			// log the error, and try reconnecting
+			log.Printf("manager-listener: connection error: %s\n", err)
+		}
+	}
+}
+
+func (ln *Listener) newConn(ctx context.Context) (io.ReadCloser, int, error) {
+	uri := ln.Conf().Status.StreamURL
+
+	req, err := http.NewRequest("GET", uri, nil)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	// we don't want to re-use connections for the audio stream
 	req.Close = true
 	// we want interleaved metadata so we have to ask for it
 	req.Header.Add("Icy-MetaData", "1")
-	req = req.WithContext(l.ctx)
+	req = req.WithContext(ctx)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
+
 	if resp.StatusCode != 200 {
 		resp.Body.Close()
-		return nil, errors.New("listener: request error: " + resp.Status)
+		return nil, 0, errors.New("listener: request error: " + resp.Status)
 	}
 
 	metasize, err := strconv.Atoi(resp.Header.Get("icy-metaint"))
 	if err != nil {
-		return nil, err
+		resp.Body.Close()
+		return nil, 0, err
 	}
 
-	go func() {
-		// cancel our internal context once we're done
-		defer l.cancel()
-		// close the body after we're done parseing metadata from it
-		defer resp.Body.Close()
-
-		err := l.parseResponse(metasize, resp.Body)
-		if err == context.Canceled {
-			// we use cancel internally to stop parseResponse; So don't
-			// expose that internal error to the user
-			err = nil
-		}
-
-		l.mu.Lock()
-		l.err = err
-		l.mu.Unlock()
-		l.Err <- err
-	}()
-
-	return &l, nil
+	return resp.Body, metasize, nil
 }
 
-// Close closes the listener and returns any error that occured
-func (l *Listener) Close() error {
-	l.cancel()
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return l.err
-}
-
-func (l *Listener) parseResponse(metasize int, src io.Reader) error {
+func (ln *Listener) parseResponse(ctx context.Context, metasize int, src io.Reader) error {
 	r := bufio.NewReader(src)
 
 	var meta map[string]string
@@ -138,11 +163,38 @@ func (l *Listener) parseResponse(metasize int, src io.Reader) error {
 		// now parse the metadata
 		meta = parseMetadata(buf[:length])
 
-		select {
-		case l.Meta <- meta:
-		case <-time.After(time.Second):
+		song := meta["StreamTitle"]
+		if song == "" || ln.isFallback(song) {
+			continue
+		}
+
+		if song == ln.prevSong {
+			continue
+		}
+
+		s := pb.Song{
+			Metadata:  song,
+			StartTime: uint64(time.Now().Unix()),
+		}
+
+		go func() {
+			_, err := ln.manager.SetSong(ctx, &s)
+			if err != nil {
+				log.Printf("manager-listener: error setting song: %s\n", err)
+			}
+		}()
+	}
+}
+
+// isFallback checks if the meta passed in matches one of the known fallback
+// mountpoint meta as defined with `fallbacknames` in configuration file
+func (ln *Listener) isFallback(meta string) bool {
+	for _, fallback := range ln.Conf().Status.FallbackNames {
+		if fallback == meta {
+			return true
 		}
 	}
+	return false
 }
 
 func parseMetadata(b []byte) map[string]string {

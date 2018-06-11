@@ -13,6 +13,9 @@ import (
 // NoTrack is the zero-value of Track, used when a track was not found
 var NoTrack = Track{}
 
+// NoSong is the zero-value of Song, used when no valid song was found
+var NoSong = Song{}
+
 // ErrTrackNotFound is returned if a track is not found in the database
 var ErrTrackNotFound = errors.New("unknown track id")
 
@@ -49,6 +52,46 @@ type Song struct {
 	Length time.Duration
 	// LastPlayed is the last time this song played on stream
 	LastPlayed time.Time
+}
+
+// CreateSong inserts a new row into the song database table and returns a Track
+// containing the new data.
+func CreateSong(h HandlerTx, metadata string) (Track, error) {
+	// we only accept a tx handler because we potentially do multiple queries
+	var query = `
+	INSERT INTO esong (meta, hash, hash_link) VALUES (?, ?, ?)`
+	hash := NewSongHash(metadata)
+
+	_, err := h.Exec(query, metadata, hash, hash)
+	if err != nil {
+		return NoTrack, err
+	}
+
+	return GetSongFromHash(h, hash)
+}
+
+// GetSongFromHash retrieves a track using the hash given. It uses the esong table as
+// primary join and will return ErrTrackNotFound if the hash only exists in the tracks
+// table
+func GetSongFromHash(h Handler, hash SongHash) (Track, error) {
+	var tmp tmpTrack
+
+	var query = `
+	SELECT tracks.id AS trackid, esong.id AS id, esong.hash AS hash,
+	len AS nulllength, lastplayed, artist, track AS title, album, path AS filepath,
+	tags, accepter AS acceptor, lasteditor, priority, usable, lastrequested,
+	requestcount FROM tracks RIGHT JOIN esong ON tracks.hash = esong.hash WHERE 
+	esong.hash=?;`
+
+	err := sqlx.Get(h, &tmp, query, hash)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			err = ErrTrackNotFound
+		}
+		return NoTrack, err
+	}
+
+	return resolveTmpTrack(tmp), nil
 }
 
 // TrackID is the songs identifier as found in the streamers database.
@@ -128,7 +171,7 @@ func resolveTmpTrack(tmp tmpTrack) Track {
 	return t
 }
 
-// GetTrack returns a *Track based on the trackid given.
+// GetTrack returns a track based on the id given.
 // returns ErrTrackNotFound if the id does not exist.
 func GetTrack(h Handler, id TrackID) (Track, error) {
 	// we create a temporary struct to handle NULL values returned by
