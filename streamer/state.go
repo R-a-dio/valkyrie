@@ -15,6 +15,7 @@ func QueueComponent(q **Queue) config.StateStart {
 		if err != nil {
 			return nil, err
 		}
+
 		*q = nq
 		return nq.Save, nil
 	}
@@ -52,18 +53,21 @@ func Component(errCh chan<- error) config.StateStart {
 	return func(s *config.State) (config.StateDefer, error) {
 		var queue *Queue
 
-		streamer, err := NewStreamer(s, queue)
+		err := s.Load(QueueComponent(&queue))
 		if err != nil {
 			return nil, err
 		}
 
-		err = s.Load(
-			QueueComponent(&queue),
-			HTTPComponent(errCh, streamer),
-		)
-
-		return func() error {
+		streamer, err := NewStreamer(s, queue)
+		if err != nil {
+			return nil, err
+		}
+		deferFn := func() error {
+			// TODO: use other context?
 			return streamer.ForceStop(context.Background())
-		}, err
+		}
+
+		err = s.Load(HTTPComponent(errCh, streamer))
+		return deferFn, err
 	}
 }

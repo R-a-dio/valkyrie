@@ -17,7 +17,10 @@ func Component(s *config.State) (config.StateDefer, error) {
 	var err error
 
 	s.DB, err = sqlx.Connect(conf.DriverName, conf.DSN)
-	return s.DB.Close, err
+	if err != nil {
+		return nil, err
+	}
+	return s.DB.Close, nil
 }
 
 // Handler is the interface passed to database accessing functions and should

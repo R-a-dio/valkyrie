@@ -35,7 +35,7 @@ func (h *streamHandler) RequestTrack(ctx context.Context, r *pb.TrackRequest) (*
 	if r.Track == 0 {
 		return nil, twirp.RequiredArgumentError("track")
 	} else if r.Track < 0 {
-		return nil, twirp.InvalidArgumentError("track", "track can't be negative")
+		return nil, twirp.InvalidArgumentError("track", "negative number found")
 	}
 
 	// once we start using database state, we need to avoid other requests

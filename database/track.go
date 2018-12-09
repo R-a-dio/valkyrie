@@ -70,6 +70,12 @@ func CreateSong(h HandlerTx, metadata string) (Track, error) {
 	return GetSongFromHash(h, hash)
 }
 
+// GetSongFromMetadata is a convenience function that calls NewSongHash
+// and GetSongFromHash for you
+func GetSongFromMetadata(h Handler, metadata string) (Track, error) {
+	return GetSongFromHash(h, NewSongHash(metadata))
+}
+
 // GetSongFromHash retrieves a track using the hash given. It uses the esong table as
 // primary join and will return ErrTrackNotFound if the hash only exists in the tracks
 // table
@@ -78,10 +84,10 @@ func GetSongFromHash(h Handler, hash SongHash) (Track, error) {
 
 	var query = `
 	SELECT tracks.id AS trackid, esong.id AS id, esong.hash AS hash,
-	len AS nulllength, lastplayed, artist, track AS title, album, path AS filepath,
+	len AS nulllength, eplay.dt AS lastplayed, artist, track AS title, album, path AS filepath,
 	tags, accepter AS acceptor, lasteditor, priority, usable, lastrequested,
-	requestcount FROM tracks RIGHT JOIN esong ON tracks.hash = esong.hash WHERE 
-	esong.hash=?;`
+	requestcount FROM tracks RIGHT JOIN esong ON tracks.hash = esong.hash JOIN eplay ON
+	esong.id = eplay.isong WHERE esong.hash=? ORDER BY eplay.dt LIMIT 1;`
 
 	err := sqlx.Get(h, &tmp, query, hash)
 	if err != nil {
