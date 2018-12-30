@@ -2,6 +2,7 @@ package manager
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"net/http/pprof"
 	"time"
@@ -91,6 +92,7 @@ func (m *Manager) SetSong(ctx context.Context, s *pb.Song) (*pb.Song, error) {
 	old, m.status.Song = m.status.Song, s
 	m.mu.Unlock()
 
+	log.Printf("manager: set song: \"%s\" (%s)\n", track.Metadata, track.Length)
 	// announce the new song on irc
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)

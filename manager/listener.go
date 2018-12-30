@@ -79,8 +79,14 @@ func (ln *Listener) run(ctx context.Context) {
 
 		conn, metasize, err := ln.newConn(ctx)
 		if err != nil {
-			// TODO: don't return
-			return
+			log.Printf("manager-listener: connecting error: %s\n", err)
+			// wait a bit before retrying the connection
+			select {
+			case <-ctx.Done():
+			case <-time.After(time.Second * 2):
+			}
+
+			continue
 		}
 
 		err = ln.parseResponse(ctx, metasize, conn)
