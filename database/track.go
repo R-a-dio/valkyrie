@@ -3,11 +3,15 @@ package database
 import (
 	"crypto/sha1"
 	"database/sql"
-	"errors"
+	"database/sql/driver"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+	"github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
+	"github.com/pkg/errors"
 )
 
 // NoTrack is the zero-value of Track, used when a track was not found
@@ -37,7 +41,19 @@ type SongHash string
 
 // NewSongHash generates a new SongHash for the metadata passed in
 func NewSongHash(metadata string) SongHash {
+	metadata = strings.TrimSpace(strings.ToLower(metadata))
 	return SongHash(fmt.Sprintf("%x", sha1.Sum([]byte(metadata))))
+}
+
+// Value implements sql/driver.Valuer
+func (s SongHash) Value() (driver.Value, error) {
+	return string(s), nil
+}
+
+// Scan implements sql.Scanner
+func (s *SongHash) Scan(src interface{}) error {
+	*s = SongHash(string(src.([]byte)))
+	return nil
 }
 
 // Song represents a song not in the streamers database
@@ -58,13 +74,12 @@ type Song struct {
 // containing the new data.
 func CreateSong(h HandlerTx, metadata string) (Track, error) {
 	// we only accept a tx handler because we potentially do multiple queries
-	var query = `
-	INSERT INTO esong (meta, hash, hash_link) VALUES (?, ?, ?)`
+	var query = `INSERT INTO esong (meta, hash, hash_link, len) VALUES (?, ?, ?, ?)`
 	hash := NewSongHash(metadata)
 
-	_, err := h.Exec(query, metadata, hash, hash)
+	_, err := h.Exec(query, metadata, hash, hash, 0)
 	if err != nil {
-		return NoTrack, err
+		return NoTrack, errors.WithStack(err)
 	}
 
 	return GetSongFromHash(h, hash)
@@ -80,24 +95,27 @@ func GetSongFromMetadata(h Handler, metadata string) (Track, error) {
 // primary join and will return ErrTrackNotFound if the hash only exists in the tracks
 // table
 func GetSongFromHash(h Handler, hash SongHash) (Track, error) {
-	var tmp tmpTrack
+	var tmp databaseTrack
 
 	var query = `
-	SELECT tracks.id AS trackid, esong.id AS id, esong.hash AS hash,
-	len AS nulllength, eplay.dt AS lastplayed, artist, track AS title, album, path AS filepath,
+	SELECT tracks.id AS trackid, esong.id AS id, esong.hash AS hash, esong.meta AS metadata,
+	len AS length, eplay.dt AS lastplayed, artist, track, album, path,
 	tags, accepter AS acceptor, lasteditor, priority, usable, lastrequested,
-	requestcount FROM tracks RIGHT JOIN esong ON tracks.hash = esong.hash JOIN eplay ON
+	requestcount FROM tracks RIGHT JOIN esong ON tracks.hash = esong.hash LEFT JOIN eplay ON
 	esong.id = eplay.isong WHERE esong.hash=? ORDER BY eplay.dt LIMIT 1;`
 
 	err := sqlx.Get(h, &tmp, query, hash)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			err = ErrTrackNotFound
+		} else {
+			err = errors.WithStack(err)
 		}
 		return NoTrack, err
 	}
 
-	return resolveTmpTrack(tmp), nil
+	spew.Dump(tmp)
+	return tmp.ToTrack(), nil
 }
 
 // TrackID is the songs identifier as found in the streamers database.
@@ -138,43 +156,92 @@ func (t Track) Refresh(h Handler) (Track, error) {
 	return GetTrack(h, t.TrackID)
 }
 
-type tmpTrack struct {
-	NullLength sql.NullInt64
-	Track
+// databaseTrack is the type used to communicate with the database
+type databaseTrack struct {
+	// Hash is shared between tracks and esong
+	Hash SongHash
+	// LastPlayed is shared between tracks and eplay
+	LastPlayed mysql.NullTime
+
+	// esong fields
+	ID       sql.NullInt64
+	Length   sql.NullInt64
+	Metadata sql.NullString
+
+	// tracks fields
+	TrackID       sql.NullInt64
+	Artist        sql.NullString
+	Track         sql.NullString
+	Album         sql.NullString
+	Path          sql.NullString
+	Tags          sql.NullString
+	Priority      sql.NullInt64
+	LastRequested mysql.NullTime
+	Usable        sql.NullInt64
+	Acceptor      sql.NullString
+	LastEditor    sql.NullString
+
+	RequestCount    sql.NullInt64
+	NeedReplacement sql.NullInt64
+}
+
+func (dt databaseTrack) ToTrack() Track {
+	metadata := dt.Metadata.String
+	if dt.Track.String != "" && dt.Artist.String != "" {
+		metadata = fmt.Sprintf("%s - %s", dt.Artist.String, dt.Track.String)
+	} else if dt.Track.String != "" {
+		metadata = dt.Track.String
+	}
+
+	return Track{
+		Song: Song{
+			ID:         SongID(dt.ID.Int64),
+			Hash:       dt.Hash,
+			Metadata:   metadata,
+			Length:     time.Second * time.Duration(dt.Length.Int64),
+			LastPlayed: dt.LastPlayed.Time,
+		},
+
+		TrackID:  TrackID(dt.TrackID.Int64),
+		Artist:   dt.Artist.String,
+		Title:    dt.Track.String,
+		Album:    dt.Album.String,
+		FilePath: dt.Path.String,
+		Tags:     dt.Tags.String,
+
+		Acceptor:   dt.Acceptor.String,
+		LastEditor: dt.LastEditor.String,
+
+		Priority: int(dt.Priority.Int64),
+		Usable:   dt.Usable.Int64 == 1,
+
+		LastRequested: dt.LastRequested.Time,
+		RequestCount:  int(dt.RequestCount.Int64),
+		RequestDelay:  calculateRequestDelay(int(dt.RequestCount.Int64)),
+	}
 }
 
 // AllTracks returns all tracks in the database
 func AllTracks(h Handler) ([]Track, error) {
-	var tmps = []tmpTrack{}
+	var tmps = []databaseTrack{}
 
 	var query = `
 	SELECT tracks.id AS trackid, esong.id AS id, tracks.hash AS hash,
-	len AS nulllength, lastplayed, artist, track AS title, album, path AS filepath,
+	len AS length, lastplayed, artist, track, album, path,
 	tags, accepter AS acceptor, lasteditor, priority, usable, lastrequested,
 	requestcount FROM tracks LEFT JOIN esong ON tracks.hash = esong.hash;`
 
 	err := sqlx.Select(h, &tmps, query)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 
 	var tracks = make([]Track, len(tmps))
 	for i, tmp := range tmps {
-		tracks[i] = resolveTmpTrack(tmp)
+		tracks[i] = tmp.ToTrack()
 	}
 
 	return tracks, nil
-}
-
-// converts a tmpTrack into a full fledged Track
-func resolveTmpTrack(tmp tmpTrack) Track {
-	// handle the potential NULL fields now, and unwrap our Track
-	t := tmp.Track
-	t.Length = time.Second * time.Duration(tmp.NullLength.Int64)
-	// handle fields that were not filled in by the query
-	t.RequestDelay = calculateRequestDelay(t.RequestCount)
-	t.Metadata = fmt.Sprintf("%s - %s", t.Artist, t.Title)
-	return t
 }
 
 // GetTrack returns a track based on the id given.
@@ -185,11 +252,11 @@ func GetTrack(h Handler, id TrackID) (Track, error) {
 	// not necessarily having an entry in the `esong` table.
 	// Song.ID is handled by the SongID type implementing sql.Scanner, but
 	// we don't want a separate type for Length, so we're doing it separately.
-	var tmp tmpTrack
+	var tmp databaseTrack
 
 	var query = `
 	SELECT tracks.id AS trackid, esong.id AS id, tracks.hash AS hash,
-	len AS nulllength, lastplayed, artist, track AS title, album, path AS filepath,
+	len AS length, lastplayed, artist, track AS title, album, path,
 	tags, accepter AS acceptor, lasteditor, priority, usable, lastrequested,
 	requestcount FROM tracks LEFT JOIN esong ON tracks.hash = esong.hash WHERE 
 	tracks.id=?;`
@@ -198,11 +265,13 @@ func GetTrack(h Handler, id TrackID) (Track, error) {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			err = ErrTrackNotFound
+		} else {
+			err = errors.WithStack(err)
 		}
 		return NoTrack, err
 	}
 
-	return resolveTmpTrack(tmp), nil
+	return tmp.ToTrack(), nil
 }
 
 // UpdateTrackRequestTime updates the time the track given was last requested
@@ -214,7 +283,7 @@ func UpdateTrackRequestTime(h Handler, id TrackID) error {
 	requestcount=requestcount+2, priority=priority+1 WHERE id=?;`
 
 	_, err := h.Exec(query, id)
-	return err
+	return errors.WithStack(err)
 }
 
 // UpdateTrackPlayTime updates the time the track given was last played
@@ -222,7 +291,7 @@ func UpdateTrackPlayTime(h Handler, id TrackID) error {
 	var query = `UPDATE tracks SET lastplayed=NOW() WHERE id=?;`
 
 	_, err := h.Exec(query, id)
-	return err
+	return errors.WithStack(err)
 }
 
 // ResolveMetadataBasic resolves the metadata to return the most basic
@@ -234,24 +303,27 @@ func UpdateTrackPlayTime(h Handler, id TrackID) error {
 func ResolveMetadataBasic(h Handler, metadata string) (Track, error) {
 	hash := NewSongHash(metadata)
 
-	var tmp tmpTrack
+	var tmp databaseTrack
 
 	var query = `
-	SELECT tracks.id AS track_id, esong.id AS song_id, esong.len AS length
+	SELECT tracks.id AS trackid, esong.id AS id, esong.len AS length
 	FROM esong LEFT JOIN tracks ON esong.hash = tracks.hash WHERE esong.hash=?;`
 
 	err := sqlx.Get(h, &tmp, query, hash)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			err = ErrTrackNotFound
+		} else {
+			err = errors.WithStack(err)
 		}
 		return NoTrack, err
 	}
 
 	// we have the metadata, because we take it as parameter, so overwrite
 	// whatever resolve gives us, because it might be empty
-	t := resolveTmpTrack(tmp)
+	t := tmp.ToTrack()
 	t.Metadata = metadata
+	t.Hash = hash
 
 	return t, nil
 }
