@@ -10,13 +10,43 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// Component loads the configuration file given
-func Component(path string) StateStart {
+// Errors is a slice of multiple config-file errors
+type Errors []error
+
+func (e Errors) Error() string {
+	s := "config: error opening file:"
+	if len(e) == 1 {
+		return s + e[0].Error()
+	}
+
+	for _, err := range e {
+		s += "\n" + err.Error()
+	}
+
+	return s
+}
+
+// Component loads the configuration files given, in order they are given and using the
+// one that succeeds first
+func Component(paths ...string) StateStart {
 	return func(s *State) (StateDefer, error) {
-		f, err := os.Open(path)
-		if err != nil {
-			return nil, err
+		var f *os.File
+		var err error
+		var errs Errors
+
+		for _, path := range paths {
+			f, err = os.Open(path)
+			if err == nil {
+				break
+			}
+
+			errs = append(errs, err)
 		}
+
+		if f == nil {
+			return nil, errs
+		}
+
 		defer f.Close()
 
 		s.AtomicGlobal, err = LoadAtomic(f)
@@ -28,8 +58,12 @@ func Component(path string) StateStart {
 	}
 }
 
+// State is the root state object containing both the full configuration object and an
+// active database/sql/(sqlx) DB instance.
 type State struct {
+	// AtomicGlobal contains the root configuration instance
 	AtomicGlobal
+	// DB is a sqlx DB instance if `database.Component` has been loaded, otherwise nil
 	DB *sqlx.DB
 
 	defers []stateDefer

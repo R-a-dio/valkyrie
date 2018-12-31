@@ -12,10 +12,14 @@ import (
 	"github.com/R-a-dio/valkyrie/database"
 )
 
+// RootComponent is the root of execution and is passed an error channel to be used
+// to send out-of-bound errors on. The process will exit if an error is received.
 type RootComponent func(chan<- error) config.StateStart
 
 var components = map[string]RootComponent{}
 
+// AddComponent adds a component with the name given to the executable. The component
+// will be executed when called like `hanyuu {name}`
 func AddComponent(name string, component RootComponent) {
 	name = strings.ToLower(name)
 	if _, ok := components[name]; ok {
@@ -28,6 +32,7 @@ func AddComponent(name string, component RootComponent) {
 func main() {
 	configPath := flag.String("conf", "hanyuu.toml", "filepath to configuration file")
 	flag.Parse()
+	alternatePath := os.Getenv("HANYUU_CONFIG")
 
 	componentName := flag.Arg(0)
 	if componentName == "" {
@@ -46,7 +51,7 @@ func main() {
 	defer state.Shutdown()
 
 	err := state.Load(
-		config.Component(*configPath),
+		config.Component(*configPath, alternatePath),
 		database.Component,
 		root(errCh),
 	)
