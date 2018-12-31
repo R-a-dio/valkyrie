@@ -55,5 +55,5 @@ message User {
 }
 
 message ListenerInfo {
-    int64 count = 1;
+    int64 listeners = 1;
 }
