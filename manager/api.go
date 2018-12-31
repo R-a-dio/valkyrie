@@ -88,11 +88,21 @@ func (m *Manager) SetSong(ctx context.Context, s *pb.Song) (*pb.Song, error) {
 	s.EndTime = s.StartTime + uint64(track.Length/time.Second)
 
 	var old *pb.Song
+	var oldStart, newStart int64
+
 	m.mu.Lock()
 	old, m.status.Song = m.status.Song, s
+	// record listener count at start and end of song
+	oldStart, newStart = m.songStartListenerCount, m.status.ListenerInfo.Listeners
+	m.songStartListenerCount = newStart
 	m.mu.Unlock()
 
-	log.Printf("manager: set song: \"%s\" (%s)\n", track.Metadata, track.Length)
+	ldiff := newStart - oldStart
+	if newStart > 10 && oldStart > 10 {
+		// TODO: input eplay row
+	}
+
+	log.Printf("manager: set song: \"%s\" (%s [%d])\n", track.Metadata, track.Length, ldiff)
 	// announce the new song on irc
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)

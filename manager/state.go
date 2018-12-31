@@ -60,15 +60,23 @@ type Manager struct {
 		irc      irc.Bot
 		streamer streamer.Streamer
 	}
-	// mu protects status and its contents
+	// mu protects the fields below and their contents
 	mu     sync.Mutex
 	status *pb.StatusResponse
+	// listener count at the start of a song
+	songStartListenerCount int64
 }
 
 func NewManager(state *config.State) (*Manager, error) {
 	m := Manager{
-		State:  state,
-		status: new(pb.StatusResponse),
+		State: state,
+		status: &pb.StatusResponse{
+			User:         new(pb.User),
+			Song:         new(pb.Song),
+			ListenerInfo: new(pb.ListenerInfo),
+			Thread:       new(pb.Thread),
+			BotConfig:    new(pb.BotConfig),
+		},
 	}
 
 	m.client.irc = irc.NewBotProtobufClient(state.Conf().IRC.Addr, http.DefaultClient)
