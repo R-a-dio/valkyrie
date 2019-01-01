@@ -18,6 +18,7 @@ var DefaultGlobal = Global{
 	Database: DefaultDatabase,
 	Streamer: DefaultStreamer,
 	IRC:      DefaultIRC,
+	Status:   DefaultStatus,
 }
 
 // Global represents a full configuration file of this project, each tool part

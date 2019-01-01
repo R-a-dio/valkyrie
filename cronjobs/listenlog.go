@@ -17,7 +17,7 @@ func ListenLog(errCh chan<- error) config.StateStart {
 	return func(s *config.State) (config.StateDefer, error) {
 		go func() {
 			m := manager.NewManagerProtobufClient(
-				s.Conf().Streamer.Addr, http.DefaultClient)
+				s.Conf().Status.Addr, http.DefaultClient)
 
 			status, err := m.Status(context.TODO(), &manager.StatusRequest{})
 			if err != nil {

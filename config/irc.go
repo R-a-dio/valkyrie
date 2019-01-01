@@ -2,7 +2,7 @@ package config
 
 // DefaultIRC contains the default values of the irc bot configuration
 var DefaultIRC = IRC{
-	Addr: ":4550",
+	Addr: ":4444",
 }
 
 // IRC contains all the fields only relevant to the irc bot

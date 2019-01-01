@@ -1,7 +1,16 @@
 package config
 
+// DefaultStatus contains the default values of the manager configuration
+var DefaultStatus = Status{
+	Addr: ":4646",
+}
+
+// Status contains all fields relevant to the manager
 type Status struct {
-	StreamURL       string
-	LoadBalancerURL string
-	FallbackNames   []string
+	// Addr is the address for the HTTP API
+	Addr string
+	// StreamURL is the url to listen to the mp3 stream
+	StreamURL string
+
+	FallbackNames []string
 }

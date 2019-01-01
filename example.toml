@@ -2,6 +2,9 @@
 musicpath = "/path/to/music/dir"
 templatedir = "/path/to/template/files"
 
+[status]
+streamurl = "http://stream:80/mount.mp3"
+
 [database]
 # https://github.com/go-sql-driver/mysql#dsn-data-source-name for details
 # it is required to pass param `parseTime=true` to the driver currently
