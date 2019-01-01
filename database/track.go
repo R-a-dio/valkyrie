@@ -327,3 +327,13 @@ func ResolveMetadataBasic(h Handler, metadata string) (Track, error) {
 
 	return t, nil
 }
+
+// InsertPlayedSong inserts a row into the eplay table with the arguments given
+//
+// ldiff can be nil to indicate no listener data was available
+func InsertPlayedSong(h Handler, id SongID, start time.Time, ldiff *int64) error {
+	var query = `INSERT INTO eplay (isong, dt, ldiff) VALUES (?, ?, ?);`
+
+	_, err := h.Exec(query, id, start, ldiff)
+	return errors.WithStack(err)
+}
