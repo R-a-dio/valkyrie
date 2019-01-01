@@ -56,6 +56,7 @@ func main() {
 		root(errCh),
 	)
 	if err != nil {
+		log.Printf("load error: %s", err)
 		return
 	}
 
@@ -64,8 +65,10 @@ func main() {
 
 	select {
 	case <-signalCh:
-		log.Printf("shutdown: interrupt signal received: shutting down")
+		log.Printf("shutdown: interrupt signal received")
 	case err := <-errCh:
-		log.Printf("shutdown: http server error: %s\n", err)
+		if err != nil {
+			log.Printf("shutdown: error: %s\n", err)
+		}
 	}
 }

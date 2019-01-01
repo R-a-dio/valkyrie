@@ -66,13 +66,14 @@ func (m *Manager) SetSong(ctx context.Context, s *pb.Song) (*pb.Song, error) {
 	}
 	defer tx.Rollback()
 
+	// find information about the passed song from the database
 	track, err := database.ResolveMetadataBasic(tx, s.Metadata)
 	if err != nil && err != database.ErrTrackNotFound {
 		return nil, twirp.InternalErrorWith(err)
 	}
 
+	// if we don't have this song in the database create a new entry for it
 	if track.ID == 0 {
-		// this is a new song we haven't seen before, so create a new entry
 		track, err = database.CreateSong(tx, s.Metadata)
 		if err != nil {
 			return nil, twirp.InternalErrorWith(err)
@@ -83,6 +84,7 @@ func (m *Manager) SetSong(ctx context.Context, s *pb.Song) (*pb.Song, error) {
 		return nil, twirp.InternalErrorWith(err)
 	}
 
+	// now move our database knowledge into the status Song type
 	s.Id = int32(track.ID)
 	s.TrackId = int32(track.TrackID)
 	s.EndTime = s.StartTime + uint64(track.Length/time.Second)
@@ -90,25 +92,63 @@ func (m *Manager) SetSong(ctx context.Context, s *pb.Song) (*pb.Song, error) {
 	var old *pb.Song
 	var oldStart, newStart int64
 
+	// critical section to swap with the previous song
 	m.mu.Lock()
 	old, m.status.Song = m.status.Song, s
-	// record listener count at start and end of song
+
+	// also record listener count at start and end of a song
 	oldStart, newStart = m.songStartListenerCount, m.status.ListenerInfo.Listeners
 	m.songStartListenerCount = newStart
 	m.mu.Unlock()
 
-	ldiff := newStart - oldStart
-	if newStart > 10 && oldStart > 10 {
-		// TODO: input eplay row
-	}
+	log.Printf("manager: set song: \"%s\" (%s)\n", track.Metadata, track.Length)
 
-	log.Printf("manager: set song: \"%s\" (%s [%d])\n", track.Metadata, track.Length, ldiff)
-	// announce the new song on irc
+	// announce the song title on IRC
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-		m.client.irc.AnnounceSong(ctx, s)
-		cancel()
+		defer cancel()
+
+		_, err := m.client.irc.AnnounceSong(ctx, s)
+		if err != nil {
+			log.Printf("manager: unable to announce song: %s", err)
+			return
+		}
+
+		return
 	}()
+
+	// record listener differential in eplay;
+	// but only if we have above 10 listeners to deal with fallback switches
+	// and other server issues
+	var ldiff *int64
+	if newStart > 10 && oldStart > 10 {
+		diff := newStart - oldStart
+		ldiff = &diff
+	}
+
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+		defer cancel()
+
+		tx, err := database.HandleTx(ctx, m.DB)
+		if err != nil {
+			log.Printf("manager: unable to insert play history: %s", err)
+			return
+		}
+
+		start := time.Unix(int64(s.StartTime), 0)
+
+		err = database.InsertPlayedSong(tx, database.SongID(s.Id), start, ldiff)
+		if err != nil {
+			tx.Rollback()
+			log.Printf("manager: unable to insert play history: %s", err)
+			return
+		}
+
+		tx.Commit()
+		return
+	}()
+	// TODO: input eplay
 
 	return old, nil
 }
