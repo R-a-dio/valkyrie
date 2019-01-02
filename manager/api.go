@@ -128,10 +128,15 @@ func (m *Manager) SetSong(ctx context.Context, new *pb.Song) (*pb.Song, error) {
 }
 
 func (m *Manager) handlePreviousSong(tx database.HandlerTx, prev *pb.Song, listenerDiff *int64) error {
+	// protect against zero-d Song's
+	if prev.StartTime == 0 || prev.TrackId == 0 {
+		return nil
+	}
+
 	startTime := time.Unix(int64(prev.StartTime), 0)
 
 	// insert an entry that the previous song just played
-	err := database.InsertPlayedSong(tx, database.SongID(prev.Id), startTime, listenerDiff)
+	err := database.InsertPlayedSong(tx, database.SongID(prev.Id), listenerDiff)
 	if err != nil {
 		log.Printf("manager: unable to insert play history: %s", err)
 		return err
