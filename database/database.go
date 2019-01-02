@@ -11,18 +11,6 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// Component connects to the database configured in the state given
-func Component(s *config.State) (config.StateDefer, error) {
-	var conf = s.Conf().Database
-	var err error
-
-	s.DB, err = sqlx.Connect(conf.DriverName, conf.DSN)
-	if err != nil {
-		return nil, err
-	}
-	return s.DB.Close, nil
-}
-
 // Handler is the interface passed to database accessing functions and should
 // only be created by a call to Handle
 type Handler interface {

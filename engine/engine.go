@@ -10,9 +10,9 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// State is the root state object containing both the full configuration object and an
+// Engine is the root state object containing both the full configuration object and an
 // active database/sql/(sqlx) DB instance.
-type State struct {
+type Engine struct {
 	// AtomicGlobal contains the root configuration instance
 	config.AtomicGlobal
 	// DB is a sqlx DB instance if `database.Component` has been loaded, otherwise nil
@@ -23,9 +23,9 @@ type State struct {
 
 // StartFn is a function that can start a component in the program, if
 // the component has resources to cleanup it should return a non-nil DeferFn
-// to be called when State.Shutdown is called. The returned DeferFn is only
+// to be called when Engine.Shutdown is called. The returned DeferFn is only
 // used if a nil error is returned.
-type StartFn func(*State) (DeferFn, error)
+type StartFn func(*Engine) (DeferFn, error)
 
 func (fn StartFn) String() string {
 	p := reflect.ValueOf(fn).Pointer()
@@ -62,9 +62,9 @@ type deferFn struct {
 
 // Load calls Start on given components, component names are extracted from the package
 // and function names
-func (s *State) Load(components ...StartFn) error {
+func (e *Engine) Load(components ...StartFn) error {
 	for _, fn := range components {
-		if err := s.Start(fn); err != nil {
+		if err := e.Start(fn); err != nil {
 			return err
 		}
 	}
@@ -73,11 +73,11 @@ func (s *State) Load(components ...StartFn) error {
 }
 
 // Start starts a component and calls Defer if a DeferFn is returned
-func (s *State) Start(fn StartFn) error {
-	deferFn, err := fn(s)
+func (e *Engine) Start(fn StartFn) error {
+	deferFn, err := fn(e)
 	if deferFn != nil {
 		// always register a returned defer before error check
-		s.Defer(fn.String(), deferFn)
+		e.Defer(fn.String(), deferFn)
 	}
 	if err != nil {
 		log.Printf("engine: start: %s: error: %s\n", fn, err)
@@ -92,18 +92,18 @@ func (s *State) Start(fn StartFn) error {
 //
 // Defer works similar to the defer statement, and calls functions in LIFO order,
 // the component string is used in logging
-func (s *State) Defer(componentName string, fn DeferFn) {
-	s.defers = append(s.defers, deferFn{componentName, fn})
+func (e *Engine) Defer(componentName string, fn DeferFn) {
+	e.defers = append(e.defers, deferFn{componentName, fn})
 }
 
 // Shutdown calls all deferred functions added by calling Defer and returns any
 // errors that were encountered
-func (s *State) Shutdown() []error {
+func (e *Engine) Shutdown() []error {
 	var errs []error
 	log.Println("engine: shutdown")
 	defer log.Println("engine: shutdown: finished")
 
-	for i, c := range s.defers {
+	for i, c := range e.defers {
 		defer func(i int, c deferFn) {
 			if err := c.fn(); err != nil {
 				errs = append(errs, err)

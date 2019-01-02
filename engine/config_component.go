@@ -25,7 +25,7 @@ func (e Errors) Error() string {
 // ConfigComponent loads the configuration files given, in order they are given and
 // using the file that succeeds to open first
 func ConfigComponent(paths ...string) StartFn {
-	return func(s *State) (DeferFn, error) {
+	return func(e *Engine) (DeferFn, error) {
 		var f *os.File
 		var err error
 		var errs Errors
@@ -45,7 +45,7 @@ func ConfigComponent(paths ...string) StartFn {
 
 		defer f.Close()
 
-		s.AtomicGlobal, err = config.LoadAtomic(f)
+		e.AtomicGlobal, err = config.LoadAtomic(f)
 		if err != nil {
 			return nil, err
 		}
