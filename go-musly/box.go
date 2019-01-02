@@ -1,3 +1,5 @@
+// +build musly
+
 package musly
 
 /*
