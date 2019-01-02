@@ -2,7 +2,7 @@
 musicpath = "/path/to/music/dir"
 templatedir = "/path/to/template/files"
 
-[status]
+[manager]
 streamurl = "http://stream:80/mount.mp3"
 
 [database]

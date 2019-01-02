@@ -98,7 +98,7 @@ func (ln *Listener) run(ctx context.Context) {
 }
 
 func (ln *Listener) newConn(ctx context.Context) (io.ReadCloser, int, error) {
-	uri := ln.Conf().Status.StreamURL
+	uri := ln.Conf().Manager.StreamURL
 
 	req, err := http.NewRequest("GET", uri, nil)
 	if err != nil {
@@ -195,7 +195,7 @@ func (ln *Listener) parseResponse(ctx context.Context, metasize int, src io.Read
 // isFallback checks if the meta passed in matches one of the known fallback
 // mountpoint meta as defined with `fallbacknames` in configuration file
 func (ln *Listener) isFallback(meta string) bool {
-	for _, fallback := range ln.Conf().Status.FallbackNames {
+	for _, fallback := range ln.Conf().Manager.FallbackNames {
 		if fallback == meta {
 			return true
 		}

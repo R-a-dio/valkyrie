@@ -19,7 +19,7 @@ var DefaultGlobal = Global{
 	Database: DefaultDatabase,
 	Streamer: DefaultStreamer,
 	IRC:      DefaultIRC,
-	Status:   DefaultStatus,
+	Manager:  DefaultManager,
 }
 
 // Global represents a full configuration file of this project, each tool part
@@ -40,7 +40,7 @@ type Global struct {
 	// Fields below are part of components
 	Streamer Streamer
 	IRC      IRC
-	Status   Status
+	Manager  Manager
 }
 
 // Load loads a configuration from the reader given

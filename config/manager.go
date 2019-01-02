@@ -2,13 +2,13 @@ package config
 
 import "github.com/R-a-dio/valkyrie/rpc/manager"
 
-// DefaultStatus contains the default values of the manager configuration
-var DefaultStatus = Status{
+// DefaultManager contains the default values of the manager configuration
+var DefaultManager = Manager{
 	Addr: ":4646",
 }
 
-// Status contains all fields relevant to the manager
-type Status struct {
+// Manager contains all fields relevant to the manager
+type Manager struct {
 	// Addr is the address for the HTTP API
 	Addr string
 	// StreamURL is the url to listen to the mp3 stream
@@ -17,7 +17,7 @@ type Status struct {
 	FallbackNames []string
 }
 
-func (s Status) TwirpClient() manager.Manager {
-	addr, client := PrepareTwirpClient(s.Addr)
+func (m Manager) TwirpClient() manager.Manager {
+	addr, client := PrepareTwirpClient(m.Addr)
 	return manager.NewManagerProtobufClient(addr, client)
 }

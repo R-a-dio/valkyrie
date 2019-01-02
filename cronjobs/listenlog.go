@@ -15,7 +15,7 @@ const insertLog = `INSERT INTO listenlog (listeners, dj) VALUES (?, ?);`
 func ListenLog(errCh chan<- error) config.StateStart {
 	return func(s *config.State) (config.StateDefer, error) {
 		go func() {
-			m := s.Conf().Status.TwirpClient()
+			m := s.Conf().Manager.TwirpClient()
 
 			status, err := m.Status(context.TODO(), &manager.StatusRequest{})
 			if err != nil {
