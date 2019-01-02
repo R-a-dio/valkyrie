@@ -55,10 +55,13 @@ func NewQueue(s *config.State) (*Queue, error) {
 type Queue struct {
 	*config.State
 
-	mu               sync.Mutex
-	l                []database.QueueEntry
+	mu sync.Mutex
+	// l is the in-memory representation of the queue
+	l []database.QueueEntry
+	// nextSongEstimate is the estimated start-time of the next song
 	nextSongEstimate time.Time
-	totalLength      time.Duration
+	// totalLength is the length of all songs in the queue summed
+	totalLength time.Duration
 }
 
 // AddRequest adds a track to the queue as requested by uid
@@ -168,6 +171,7 @@ func (q *Queue) PeekTrack(t database.Track) database.Track {
 
 	var found bool
 	for _, qt := range q.l {
+		// we're returning the track that comes after track `t`
 		if found {
 			return q.refreshTrack(qt.Track)
 		}
