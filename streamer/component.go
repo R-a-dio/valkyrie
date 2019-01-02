@@ -4,14 +4,14 @@ import (
 	"context"
 	"net"
 
-	"github.com/R-a-dio/valkyrie/config"
+	"github.com/R-a-dio/valkyrie/engine"
 )
 
 // QueueComponent loads a queue from the database configured and sets q to the
 // new queue if no error occured
-func QueueComponent(q **Queue) config.StateStart {
-	return func(s *config.State) (config.StateDefer, error) {
-		nq, err := NewQueue(s)
+func QueueComponent(q **Queue) engine.StartFn {
+	return func(e *engine.Engine) (engine.DeferFn, error) {
+		nq, err := NewQueue(e)
 		if err != nil {
 			return nil, err
 		}
@@ -23,9 +23,9 @@ func QueueComponent(q **Queue) config.StateStart {
 
 // HTTPComponent calls NewHTTPServer and starts serving requests with the
 // returned net/http server
-func HTTPComponent(errCh chan<- error, streamer *Streamer) config.StateStart {
-	return func(s *config.State) (config.StateDefer, error) {
-		srv, err := NewHTTPServer(s, streamer)
+func HTTPComponent(errCh chan<- error, streamer *Streamer) engine.StartFn {
+	return func(e *engine.Engine) (engine.DeferFn, error) {
+		srv, err := NewHTTPServer(e, streamer)
 		if err != nil {
 			return nil, err
 		}
@@ -49,16 +49,16 @@ func HTTPComponent(errCh chan<- error, streamer *Streamer) config.StateStart {
 // used to send any potential http server error
 //
 // Component calls QueueComponent and HTTPComponent for you
-func Component(errCh chan<- error) config.StateStart {
-	return func(s *config.State) (config.StateDefer, error) {
+func Component(errCh chan<- error) engine.StartFn {
+	return func(e *engine.Engine) (engine.DeferFn, error) {
 		var queue *Queue
 
-		err := s.Load(QueueComponent(&queue))
+		err := e.Load(QueueComponent(&queue))
 		if err != nil {
 			return nil, err
 		}
 
-		streamer, err := NewStreamer(s, queue)
+		streamer, err := NewStreamer(e, queue)
 		if err != nil {
 			return nil, err
 		}
@@ -67,7 +67,7 @@ func Component(errCh chan<- error) config.StateStart {
 			return streamer.ForceStop(context.Background())
 		}
 
-		err = s.Load(HTTPComponent(errCh, streamer))
+		err = e.Load(HTTPComponent(errCh, streamer))
 		return deferFn, err
 	}
 }

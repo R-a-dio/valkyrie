@@ -4,7 +4,7 @@ import (
 	"net"
 	"sync"
 
-	"github.com/R-a-dio/valkyrie/config"
+	"github.com/R-a-dio/valkyrie/engine"
 	"github.com/R-a-dio/valkyrie/rpc/irc"
 	pb "github.com/R-a-dio/valkyrie/rpc/manager"
 	"github.com/R-a-dio/valkyrie/rpc/streamer"
@@ -12,8 +12,8 @@ import (
 
 // HTTPComponent calls NewHTTPServer and starts serving requests with the
 // returned net/http server
-func HTTPComponent(errCh chan<- error, m *Manager) config.StateStart {
-	return func(s *config.State) (config.StateDefer, error) {
+func HTTPComponent(errCh chan<- error, m *Manager) engine.StartFn {
+	return func(e *engine.Engine) (engine.DeferFn, error) {
 		srv, err := NewHTTPServer(m)
 		if err != nil {
 			return nil, err
@@ -34,14 +34,14 @@ func HTTPComponent(errCh chan<- error, m *Manager) config.StateStart {
 	}
 }
 
-func Component(errCh chan<- error) config.StateStart {
-	return func(s *config.State) (config.StateDefer, error) {
-		m, err := NewManager(s)
+func Component(errCh chan<- error) engine.StartFn {
+	return func(e *engine.Engine) (engine.DeferFn, error) {
+		m, err := NewManager(e)
 		if err != nil {
 			return nil, err
 		}
 
-		err = s.Load(
+		err = e.Load(
 			ListenerComponent(m),
 
 			HTTPComponent(errCh, m),
@@ -51,8 +51,20 @@ func Component(errCh chan<- error) config.StateStart {
 	}
 }
 
+// ListenerComponent runs a stream listener until cancelled
+func ListenerComponent(m *Manager) engine.StartFn {
+	return func(e *engine.Engine) (engine.DeferFn, error) {
+		ln, err := NewListener(e, m)
+		if err != nil {
+			return nil, err
+		}
+
+		return ln.Shutdown, nil
+	}
+}
+
 type Manager struct {
-	*config.State
+	*engine.Engine
 
 	// RPC clients to other processes
 	client struct {
@@ -66,9 +78,9 @@ type Manager struct {
 	songStartListenerCount int64
 }
 
-func NewManager(state *config.State) (*Manager, error) {
+func NewManager(e *engine.Engine) (*Manager, error) {
 	m := Manager{
-		State: state,
+		Engine: e,
 		status: &pb.StatusResponse{
 			User:         new(pb.User),
 			Song:         new(pb.Song),
@@ -78,8 +90,8 @@ func NewManager(state *config.State) (*Manager, error) {
 		},
 	}
 
-	m.client.irc = state.Conf().IRC.TwirpClient()
-	m.client.streamer = state.Conf().Streamer.TwirpClient()
+	m.client.irc = e.Conf().IRC.TwirpClient()
+	m.client.streamer = e.Conf().Streamer.TwirpClient()
 
 	return &m, nil
 }

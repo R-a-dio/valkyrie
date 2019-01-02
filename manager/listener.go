@@ -10,27 +10,15 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/R-a-dio/valkyrie/config"
+	"github.com/R-a-dio/valkyrie/engine"
 	pb "github.com/R-a-dio/valkyrie/rpc/manager"
 )
 
 const maxMetadataLength = 255 * 16
 
-// ListenerComponent runs a stream listener until cancelled
-func ListenerComponent(m *Manager) config.StateStart {
-	return func(s *config.State) (config.StateDefer, error) {
-		ln, err := NewListener(s, m)
-		if err != nil {
-			return nil, err
-		}
-
-		return ln.Shutdown, nil
-	}
-}
-
 // Listener listens to an icecast mp3 stream with interleaved song metadata
 type Listener struct {
-	*config.State
+	*engine.Engine
 	// done is closed when run exits, and indicates this listener instance stopped running
 	done chan struct{}
 	// cancel is called when Shutdown is called and cancels all operations started by run
@@ -44,9 +32,9 @@ type Listener struct {
 }
 
 // NewListener creates a listener and starts running in the background immediately
-func NewListener(s *config.State, m pb.Manager) (*Listener, error) {
+func NewListener(e *engine.Engine, m pb.Manager) (*Listener, error) {
 	ln := Listener{
-		State:   s,
+		Engine:  e,
 		manager: m,
 		done:    make(chan struct{}),
 	}

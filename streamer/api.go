@@ -8,14 +8,14 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/R-a-dio/valkyrie/config"
+	"github.com/R-a-dio/valkyrie/engine"
 	pb "github.com/R-a-dio/valkyrie/rpc/streamer"
 )
 
 // NewHTTPServer returns a http server with RPC API handler and debug handlers
-func NewHTTPServer(s *config.State, streamer *Streamer) (*http.Server, error) {
+func NewHTTPServer(e *engine.Engine, streamer *Streamer) (*http.Server, error) {
 	h := &streamHandler{
-		State:    s,
+		Engine:   e,
 		streamer: streamer,
 	}
 
@@ -31,14 +31,14 @@ func NewHTTPServer(s *config.State, streamer *Streamer) (*http.Server, error) {
 	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 
-	conf := s.Conf()
+	conf := e.Conf()
 	server := &http.Server{Addr: conf.Streamer.Addr, Handler: mux}
 
 	return server, nil
 }
 
 type streamHandler struct {
-	*config.State
+	*engine.Engine
 
 	streamer     *Streamer
 	requestMutex sync.Mutex

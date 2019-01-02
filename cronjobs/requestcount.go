@@ -5,8 +5,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/database"
+	"github.com/R-a-dio/valkyrie/engine"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -23,10 +23,10 @@ const (
 
 // RequestCount drops the requestcount of all tracks by 1 if they have not been
 // requested within the specified duration.
-func RequestCount(errCh chan<- error) config.StateStart {
-	return func(s *config.State) (config.StateDefer, error) {
+func RequestCount(errCh chan<- error) engine.StartFn {
+	return func(e *engine.Engine) (engine.DeferFn, error) {
 		go func() {
-			h, err := database.HandleTx(context.TODO(), s.DB)
+			h, err := database.HandleTx(context.TODO(), e.DB)
 			if err != nil {
 				errCh <- err
 				return

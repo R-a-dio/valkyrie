@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/database"
+	"github.com/R-a-dio/valkyrie/engine"
 	"github.com/R-a-dio/valkyrie/streamer/audio"
 )
 
@@ -29,9 +29,9 @@ var ErrEmptyQueue = errors.New("empty queue")
 
 // NewQueue returns a ready to use Queue instance, restoring
 // state from the database before returning.
-func NewQueue(s *config.State) (*Queue, error) {
+func NewQueue(e *engine.Engine) (*Queue, error) {
 	var q = &Queue{
-		State:            s,
+		Engine:           e,
 		nextSongEstimate: time.Now(),
 	}
 
@@ -53,7 +53,7 @@ func NewQueue(s *config.State) (*Queue, error) {
 
 // Queue is the queue of tracks for the streamer
 type Queue struct {
-	*config.State
+	*engine.Engine
 
 	mu sync.Mutex
 	// l is the in-memory representation of the queue

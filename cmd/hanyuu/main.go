@@ -8,13 +8,12 @@ import (
 	"os/signal"
 	"strings"
 
-	"github.com/R-a-dio/valkyrie/config"
-	"github.com/R-a-dio/valkyrie/database"
+	"github.com/R-a-dio/valkyrie/engine"
 )
 
 // RootComponent is the root of execution and is passed an error channel to be used
 // to send out-of-bound errors on. The process will exit if an error is received.
-type RootComponent func(chan<- error) config.StateStart
+type RootComponent func(chan<- error) engine.StartFn
 
 var components = map[string]RootComponent{}
 
@@ -47,12 +46,12 @@ func main() {
 	}
 
 	var errCh = make(chan error, 2)
-	var state config.State
-	defer state.Shutdown()
+	var e engine.Engine
+	defer e.Shutdown()
 
-	err := state.Load(
-		config.Component(*configPath, alternatePath),
-		database.Component,
+	err := e.Load(
+		engine.ConfigComponent(*configPath, alternatePath),
+		engine.DatabaseComponent,
 		root(errCh),
 	)
 	if err != nil {
