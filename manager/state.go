@@ -2,7 +2,6 @@ package manager
 
 import (
 	"net"
-	"net/http"
 	"sync"
 
 	"github.com/R-a-dio/valkyrie/config"
@@ -79,8 +78,8 @@ func NewManager(state *config.State) (*Manager, error) {
 		},
 	}
 
-	m.client.irc = irc.NewBotProtobufClient(state.Conf().IRC.Addr, http.DefaultClient)
-	m.client.streamer = streamer.NewStreamerProtobufClient(state.Conf().Streamer.Addr, http.DefaultClient)
+	m.client.irc = state.Conf().IRC.TwirpClient()
+	m.client.streamer = state.Conf().Streamer.TwirpClient()
 
 	return &m, nil
 }

@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"io"
+	"net/http"
 	"sync/atomic"
 	"time"
 
@@ -90,4 +91,29 @@ func (ag AtomicGlobal) Conf() Global {
 // StoreConf stores a new global configuration
 func (ag AtomicGlobal) StoreConf(g Global) {
 	ag.config.Store(g)
+}
+
+// PrepareTwirpClient prepares a HTTP client and an usable address string for creating
+// a twirp client
+func PrepareTwirpClient(addr string) (fullAddr string, client HTTPClient) {
+	// TODO: check if we want to implement our own HTTPClient
+	client = http.DefaultClient
+
+	// our addr can either be 'ip:port' or ':port' but twirp expects http(s)://ip:port
+	if len(addr) == 0 {
+		panic("invalid address passed to PrepareTwirpClient: empty string")
+	}
+
+	if addr[0] == ':' {
+		fullAddr = "http://localhost" + addr
+	} else {
+		fullAddr = "http://" + addr
+	}
+
+	return fullAddr, client
+}
+
+// HTTPClient interface used by twirp to fulfill requests
+type HTTPClient interface {
+	Do(req *http.Request) (*http.Response, error)
 }

@@ -1,5 +1,7 @@
 package config
 
+import "github.com/R-a-dio/valkyrie/rpc/irc"
+
 // DefaultIRC contains the default values of the irc bot configuration
 var DefaultIRC = IRC{
 	Addr: ":4444",
@@ -19,4 +21,10 @@ type IRC struct {
 	Channels []string
 	// AllowFlood determines if flood protection is off or on
 	AllowFlood bool
+}
+
+// TwirpClient returns an usable twirp client for the irc bot
+func (i IRC) TwirpClient() irc.Bot {
+	addr, client := PrepareTwirpClient(i.Addr)
+	return irc.NewBotProtobufClient(addr, client)
 }

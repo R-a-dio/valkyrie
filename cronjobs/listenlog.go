@@ -2,7 +2,6 @@ package cronjobs
 
 import (
 	"context"
-	"net/http"
 
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/database"
@@ -16,8 +15,7 @@ const insertLog = `INSERT INTO listenlog (listeners, dj) VALUES (?, ?);`
 func ListenLog(errCh chan<- error) config.StateStart {
 	return func(s *config.State) (config.StateDefer, error) {
 		go func() {
-			m := manager.NewManagerProtobufClient(
-				s.Conf().Status.Addr, http.DefaultClient)
+			m := s.Conf().Status.TwirpClient()
 
 			status, err := m.Status(context.TODO(), &manager.StatusRequest{})
 			if err != nil {

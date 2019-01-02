@@ -1,5 +1,7 @@
 package config
 
+import "github.com/R-a-dio/valkyrie/rpc/manager"
+
 // DefaultStatus contains the default values of the manager configuration
 var DefaultStatus = Status{
 	Addr: ":4646",
@@ -13,4 +15,9 @@ type Status struct {
 	StreamURL string
 
 	FallbackNames []string
+}
+
+func (s Status) TwirpClient() manager.Manager {
+	addr, client := PrepareTwirpClient(s.Addr)
+	return manager.NewManagerProtobufClient(addr, client)
 }
