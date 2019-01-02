@@ -138,7 +138,7 @@ func (m *Manager) handlePreviousSong(tx database.HandlerTx, prev *pb.Song, liste
 	}
 
 	if prev.StartTime == prev.EndTime {
-		length := time.Now().Sub(startTime)
+		length := time.Since(startTime)
 
 		return database.UpdateSongLength(tx, database.SongID(prev.Id), length)
 	}
