@@ -337,3 +337,12 @@ func InsertPlayedSong(h Handler, id SongID, start time.Time, ldiff *int64) error
 	_, err := h.Exec(query, id, start, ldiff)
 	return errors.WithStack(err)
 }
+
+// UpdateSongLength updates the length for the ID given, length is rounded to seconds
+func UpdateSongLength(h Handler, id SongID, length time.Duration) error {
+	var query = "UPDATE esong SET len=? WHERE id=?;"
+
+	len := int(length / time.Second)
+	_, err := h.Exec(query, len, id)
+	return errors.WithStack(err)
+}
