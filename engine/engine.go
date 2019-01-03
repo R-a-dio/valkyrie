@@ -2,9 +2,12 @@ package engine
 
 import (
 	"log"
+	"os"
+	"os/signal"
 	"reflect"
 	"runtime"
 	"strings"
+	"syscall"
 
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/jmoiron/sqlx"
@@ -69,6 +72,41 @@ func (e *Engine) Load(components ...StartFn) error {
 		}
 	}
 
+	return nil
+}
+
+// Run calls Load on the given components, and then waits for an error or
+// signal to interrupt the program. Upon return, Shutdown is called
+func (e *Engine) Run(errCh chan error, components ...StartFn) error {
+	err := e.Load(components...)
+
+	// defer before the error check so we run all defer functions of the
+	// components that were successfully initialized
+	defer e.Shutdown()
+	if err != nil {
+		log.Printf("shutdown: load error: %s", err)
+		return err
+	}
+
+	signalCh := make(chan os.Signal, 2)
+	signal.Notify(signalCh, os.Interrupt, syscall.SIGHUP)
+
+	select {
+	case sig := <-signalCh:
+		switch sig {
+		case os.Interrupt:
+			log.Printf("shutdown: SIGINT received")
+		case syscall.SIGHUP:
+			log.Printf("shutdown: SIGHUP received")
+
+			// TODO: reload
+		}
+	case err := <-errCh:
+		if err != nil {
+			log.Printf("shutdown: error: %s", err)
+			return err
+		}
+	}
 	return nil
 }
 

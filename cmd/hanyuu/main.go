@@ -3,9 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"os"
-	"os/signal"
 	"strings"
 
 	"github.com/R-a-dio/valkyrie/engine"
@@ -47,27 +45,14 @@ func main() {
 
 	var errCh = make(chan error, 2)
 	var e engine.Engine
-	defer e.Shutdown()
 
-	err := e.Load(
+	err := e.Run(errCh,
 		engine.ConfigComponent(*configPath, alternatePath),
 		engine.DatabaseComponent,
 		root(errCh),
 	)
 	if err != nil {
-		log.Printf("load error: %s", err)
-		return
+		os.Exit(1)
 	}
-
-	signalCh := make(chan os.Signal, 2)
-	signal.Notify(signalCh, os.Interrupt)
-
-	select {
-	case <-signalCh:
-		log.Printf("shutdown: interrupt signal received")
-	case err := <-errCh:
-		if err != nil {
-			log.Printf("shutdown: error: %s\n", err)
-		}
-	}
+	os.Exit(0)
 }
