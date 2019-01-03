@@ -91,14 +91,13 @@ func (e *Engine) Run(errCh chan error, components ...StartFn) error {
 	signalCh := make(chan os.Signal, 2)
 	signal.Notify(signalCh, os.Interrupt, syscall.SIGHUP)
 
-	loop:
 	for {
 		select {
 		case sig := <-signalCh:
 			switch sig {
 			case os.Interrupt:
 				log.Printf("shutdown: SIGINT received")
-				break loop
+				return nil
 			case syscall.SIGHUP:
 				log.Printf("SIGHUP received: reload not implemented")
 
@@ -107,12 +106,10 @@ func (e *Engine) Run(errCh chan error, components ...StartFn) error {
 		case err := <-errCh:
 			if err != nil {
 				log.Printf("shutdown: error: %s", err)
-				return err
 			}
-			break loop
+			return err
 		}
 	}
-	return nil
 }
 
 // Start starts a component and calls Defer if a DeferFn is returned
