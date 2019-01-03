@@ -91,20 +91,25 @@ func (e *Engine) Run(errCh chan error, components ...StartFn) error {
 	signalCh := make(chan os.Signal, 2)
 	signal.Notify(signalCh, os.Interrupt, syscall.SIGHUP)
 
-	select {
-	case sig := <-signalCh:
-		switch sig {
-		case os.Interrupt:
-			log.Printf("shutdown: SIGINT received")
-		case syscall.SIGHUP:
-			log.Printf("shutdown: SIGHUP received")
+	loop:
+	for {
+		select {
+		case sig := <-signalCh:
+			switch sig {
+			case os.Interrupt:
+				log.Printf("shutdown: SIGINT received")
+				break loop
+			case syscall.SIGHUP:
+				log.Printf("SIGHUP received: reload not implemented")
 
-			// TODO: reload
-		}
-	case err := <-errCh:
-		if err != nil {
-			log.Printf("shutdown: error: %s", err)
-			return err
+				// TODO: reload
+			}
+		case err := <-errCh:
+			if err != nil {
+				log.Printf("shutdown: error: %s", err)
+				return err
+			}
+			break loop
 		}
 	}
 	return nil
