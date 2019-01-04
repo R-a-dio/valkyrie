@@ -2,64 +2,79 @@ package ircbot
 
 import (
 	"log"
-	"os"
 	"time"
 
-	"github.com/R-a-dio/valkyrie/config"
-	"github.com/jmoiron/sqlx"
+	"github.com/R-a-dio/valkyrie/engine"
 	"github.com/lrstanley/girc"
 )
 
-type State struct {
-	config.AtomicGlobal
+type Bot struct {
+	*engine.Engine
 
-	client *girc.Client
-	db     *sqlx.DB
+	c *girc.Client
+	// finished is closed when runClient returns
+	finished chan struct{}
 }
 
-func NewState(configPath string) (*State, error) {
-	var s State
+func (b *Bot) Shutdown() error {
+	b.c.Close()
 
-	f, err := os.Open(configPath)
-	if err != nil {
-		return nil, err
-	}
-
-	log.Println("start: loading configuration")
-	s.AtomicGlobal, err = config.LoadAtomic(f)
-	if err != nil {
-		return nil, err
-	}
-
-	log.Println("start: loading database")
-	if err = s.loadDatabase(); err != nil {
-		return nil, err
-	}
-
-	log.Println("start: loading irc client")
-	if err = s.loadClient(); err != nil {
-		return nil, err
-	}
-
-	log.Println("start: loading irc handlers")
-	if err = s.loadIRCHandlers(); err != nil {
-		return nil, err
-	}
-
-	return &s, nil
+	<-b.finished
+	// TODO: implement error return from connect
+	return nil
 }
 
-// RunClient connects the irc client and tries to keep it connected until
+func Component(errCh chan<- error) engine.StartFn {
+	return func(e *engine.Engine) (engine.DeferFn, error) {
+		var ircConf girc.Config
+		c := e.Conf()
+
+		ircConf.Server = c.IRC.Server
+		ircConf.Nick = c.IRC.Nick
+		ircConf.User = c.IRC.Nick
+		ircConf.Name = c.IRC.Nick
+		ircConf.SSL = true
+		ircConf.Port = 6697
+		ircConf.AllowFlood = c.IRC.AllowFlood
+		ircConf.RecoverFunc = girc.DefaultRecoverHandler
+		ircConf.Version = c.UserAgent
+
+		b := &Bot{
+			Engine:   e,
+			finished: make(chan struct{}),
+			c:        girc.New(ircConf),
+		}
+
+		err := e.Load(
+			b.HandlerComponent(RegisterCommonHandlers),
+		)
+
+		go b.runClient()
+
+		return b.Shutdown, err
+	}
+}
+
+func (b *Bot) HandlerComponent(fn func(*Bot, *girc.Client) error) engine.StartFn {
+	return func(e *engine.Engine) (engine.DeferFn, error) {
+		return nil, fn(b, b.c)
+	}
+}
+
+// runClient connects the irc client and tries to keep it connected until
 // Shutdown is called
-func (s *State) RunClient() error {
+func (b *Bot) runClient() error {
+	defer close(b.finished)
+
+	// TODO: use backoff package out of config
 	var connectTime time.Time
 	var backoffCount = 1
 
 	for {
-		log.Println("client: connecting to:", s.client.Config.Server)
+		log.Println("client: connecting to:", b.c.Config.Server)
 
 		connectTime = time.Now()
-		err := s.client.Connect()
+		err := b.c.Connect()
 		if err == nil {
 			// connect gives us a nil if it returned because of a matching
 			// close call on the client; this means we want to shutdown
@@ -79,44 +94,4 @@ func (s *State) RunClient() error {
 
 		time.Sleep(time.Second * 5 * time.Duration(backoffCount))
 	}
-}
-
-// Shutdown closes all things associated with this state, should be called
-// before program exit
-func (s *State) Shutdown() {
-	log.Println("shutdown: closing irc client")
-	s.client.Close()
-	log.Println("shutdown: error:", s.db.Close())
-	//s.httpserver.Close()
-	log.Println("shutdown: finished")
-}
-
-func (s *State) loadDatabase() (err error) {
-	conf := s.Conf()
-
-	s.db, err = sqlx.Open(conf.Database.DriverName, conf.Database.DSN)
-	return err
-}
-
-func (s *State) loadClient() (err error) {
-	var c girc.Config
-	conf := s.Conf()
-
-	c.Server = conf.IRC.Server
-	c.Nick = conf.IRC.Nick
-	c.User = c.Nick
-	c.Name = c.Nick
-	c.SSL = true
-	c.Port = 6697
-	c.AllowFlood = conf.IRC.AllowFlood
-	c.RecoverFunc = girc.DefaultRecoverHandler
-	c.Version = conf.UserAgent
-
-	s.client = girc.New(c)
-	return nil
-}
-
-func (s *State) loadIRCHandlers() (err error) {
-	RegisterCommonHandlers(s)
-	return
 }

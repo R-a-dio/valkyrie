@@ -1,26 +1,28 @@
 package ircbot
 
-import "github.com/lrstanley/girc"
+import (
+	"github.com/lrstanley/girc"
+)
+
+// RegisterCommonHandlers registers non-command handlers that are required for a
+// functional client
+func RegisterCommonHandlers(b *Bot, c *girc.Client) error {
+	ch := CommonHandlers{b}
+	c.Handlers.Add(girc.CONNECTED, ch.AuthenticateWithNickServ)
+	c.Handlers.Add(girc.CONNECTED, ch.JoinDefaultChannels)
+	return nil
+}
 
 // CommonHandlers groups all handlers that should always be registered to
 // function as basic irc bot
 type CommonHandlers struct {
-	*State
+	*Bot
 }
 
-// RegisterCommonHandlers registers all common handlers with the client
-// associated with the state given
-func RegisterCommonHandlers(s *State) {
-	h := CommonHandlers{s}
-	h.client.Handlers.Add(girc.CONNECTED, h.AuthenticateNickServ)
-	h.client.Handlers.Add(girc.CONNECTED, h.JoinDefaultChannels)
-}
-
-// AuthenticateNickServ tries to authenticate with nickserv with the password
+// AuthenticateWithNickServ tries to authenticate with nickserv with the password
 // configured
-func (h CommonHandlers) AuthenticateNickServ(c *girc.Client, _ girc.Event) {
+func (h CommonHandlers) AuthenticateWithNickServ(c *girc.Client, _ girc.Event) {
 	conf := h.Conf()
-
 	if conf.IRC.NickPassword != "" {
 		c.Cmd.Messagef("nickserv", "id %s", conf.IRC.NickPassword)
 	}
