@@ -5,11 +5,14 @@ import (
 	"time"
 
 	"github.com/R-a-dio/valkyrie/engine"
+	"github.com/R-a-dio/valkyrie/rpc/manager"
 	"github.com/lrstanley/girc"
 )
 
 type Bot struct {
 	*engine.Engine
+
+	manager manager.Manager
 
 	c *girc.Client
 	// finished is closed when runClient returns
@@ -41,12 +44,14 @@ func Component(errCh chan<- error) engine.StartFn {
 
 		b := &Bot{
 			Engine:   e,
+			manager:  c.Manager.TwirpClient(),
 			finished: make(chan struct{}),
 			c:        girc.New(ircConf),
 		}
 
 		err := e.Load(
 			b.HandlerComponent(RegisterCommonHandlers),
+			b.HandlerComponent(RegisterCommandHandlers),
 		)
 
 		go b.runClient()
