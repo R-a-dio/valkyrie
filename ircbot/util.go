@@ -7,9 +7,9 @@ import (
 	"time"
 )
 
-// pluralf returns fmt.Sprintf(format, amount) but returns the string without its last
+// Pluralf returns fmt.Sprintf(format, amount) but returns the string without its last
 // character when amount == 1
-func pluralf(format string, amount int64) string {
+func Pluralf(format string, amount int64) string {
 	s := fmt.Sprintf(format, amount)
 	if amount == 1 {
 		return s[:len(s)-1]
@@ -17,10 +17,10 @@ func pluralf(format string, amount int64) string {
 	return s
 }
 
-// formatDayDuration formats a Duration similar to Duration.String except it adds a day
+// FormatDayDuration formats a Duration similar to Duration.String except it adds a day
 // value on the front if required. Such that instead of the form "72h3m0.5s" this returns
 // "3d3m0.5s"
-func formatDayDuration(t time.Duration) string {
+func FormatDayDuration(t time.Duration) string {
 	if t < day {
 		return t.String()
 	}
@@ -29,9 +29,9 @@ func formatDayDuration(t time.Duration) string {
 	return fmt.Sprintf("%dd%s", wholeDays/day, t-wholeDays)
 }
 
-// formatPlaybackDuration formats a Duration in the form mm:ss where mm are minutes and
+// FormatPlaybackDuration formats a Duration in the form mm:ss where mm are minutes and
 // ss are seconds.
-func formatPlaybackDuration(t time.Duration) string {
+func FormatPlaybackDuration(t time.Duration) string {
 	minutes := t.Truncate(time.Minute)
 	seconds := t - minutes
 
@@ -56,7 +56,7 @@ var (
 	}
 )
 
-func formatLongDuration(t time.Duration) string {
+func FormatLongDuration(t time.Duration) string {
 	if t <= 0 {
 		return "Never before"
 	}
@@ -72,7 +72,7 @@ func formatLongDuration(t time.Duration) string {
 		t -= c
 		c /= d
 
-		res = append(res, pluralf(longDurationFmt[i], int64(c)))
+		res = append(res, Pluralf(longDurationFmt[i], int64(c)))
 	}
 
 	return strings.Join(res, " ")

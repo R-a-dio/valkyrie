@@ -1,16 +1,15 @@
 package ircbot
 
 import (
-	"context"
-	"fmt"
-	"time"
+	"log"
+	"regexp"
 
-	"github.com/R-a-dio/valkyrie/database"
-	"github.com/R-a-dio/valkyrie/rpc/manager"
 	"github.com/lrstanley/girc"
 )
 
 var (
+	// rePrefix is prefixed to all the below regex at runtime
+	rePrefix          = "^[.!@]"
 	reNowPlaying      = "n(ow)?p(laying)?$"
 	reLastPlayed      = "l(ast)?p(layed)?$"
 	reQueue           = "q(ueue)?$"
@@ -30,68 +29,104 @@ var (
 	reTrackTags       = "tags( (?P<TrackID>[0-9]+))?"
 )
 
+// UserError is an error that includes a message suitable for the user
+//
+// a UserError returned from a handler is send to the user that invoked it
+type UserError interface {
+	error
+	UserError() string
+}
+
+type userError struct {
+	err error
+	msg string
+}
+
+func (u userError) Error() string {
+	return u.err.Error()
+}
+
+func (u userError) UserError() string {
+	return u.msg
+}
+
+// NewUserError returns a new error with the given msg for the user
+func NewUserError(err error, msg string) error {
+	return userError{err, msg}
+}
+
+type HandlerFn func(Event) (CommandFn, error)
+
+type RegexHandler struct {
+	regex string
+	fn    HandlerFn
+}
+
+func NewRegexHandlers(bot *Bot, handlers ...RegexHandler) RegexHandlers {
+	h := RegexHandlers{
+		bot:      bot,
+		cache:    make([]*regexp.Regexp, len(handlers)),
+		handlers: handlers,
+	}
+
+	for i, handler := range handlers {
+		h.cache[i] = regexp.MustCompile(rePrefix + handler.regex)
+	}
+
+	return h
+}
+
+type RegexHandlers struct {
+	bot      *Bot
+	cache    []*regexp.Regexp
+	handlers []RegexHandler
+}
+
+func (rh RegexHandlers) Execute(c *girc.Client, e girc.Event) {
+	s := e.Trailing
+
+	for i, re := range rh.cache {
+		match := FindNamedSubmatches(re, s)
+		if match == nil {
+			continue
+		}
+
+		event := Event{
+			bot: rh.bot,
+			c:   c,
+			e:   e,
+			a:   match,
+		}
+
+		fn, err := rh.handlers[i].fn(event)
+		if err != nil {
+			if uerr, ok := err.(UserError); ok {
+				c.Cmd.Notice(e.Source.Name, uerr.UserError())
+			} else {
+				log.Println("handler error:", err)
+			}
+
+			return
+		}
+
+		fn(c, e)
+		return
+	}
+}
+
+var reHandlers = []RegexHandler{
+	{reNowPlaying, NowPlaying},
+	{reTrackTags, TrackTags},
+}
+
 func RegisterCommandHandlers(b *Bot, c *girc.Client) error {
-	h := CommandHandlers{b}
-	c.Handlers.Add(girc.PRIVMSG, h.NowPlaying)
+	c.Handlers.AddHandler(girc.PRIVMSG, NewRegexHandlers(b, reHandlers...))
 	return nil
 }
 
-type CommandHandlers struct {
-	*Bot
-}
-
-func (h CommandHandlers) NowPlaying(c *girc.Client, e girc.Event) {
-	// TODO: move out of handler
-	if e.Trailing != "test!np" {
-		return
-	}
-
-	// TODO above
-
-	message := "Now playing:{red} '%s' {clear}[%s/%s](%d listeners), %s, %s, {red}LP:{clear} %s"
-
-	status, err := h.manager.Status(context.TODO(), new(manager.StatusRequest))
-	if err != nil {
-		fmt.Println("status:", err)
-		return
-	}
-
-	db := database.Handle(context.TODO(), h.DB)
-	track, err := database.GetSongFromMetadata(db, status.Song.Metadata)
-	if err != nil {
-		fmt.Println("track:", err)
-		return
-	}
-
-	var lastPlayedDiff time.Duration
-	if !track.LastPlayed.IsZero() {
-		lastPlayedDiff = time.Since(track.LastPlayed)
-	}
-
-	var songPosition time.Duration
-	var songLength time.Duration
-
-	{
-		start := time.Unix(int64(status.Song.StartTime), 0)
-		end := time.Unix(int64(status.Song.EndTime), 0)
-
-		songPosition = time.Since(start)
-		songLength = end.Sub(start)
-	}
-
-	var favoriteCount int64
-	var playedCount int64
-
-	message = girc.Fmt(message)
-	message = fmt.Sprintf(message,
-		status.Song.Metadata,
-		formatPlaybackDuration(songPosition), formatPlaybackDuration(songLength),
-		status.ListenerInfo.Listeners,
-		pluralf("%d faves", favoriteCount),
-		pluralf("played %d times", playedCount),
-		formatLongDuration(lastPlayedDiff),
-	)
-
-	c.Cmd.Message(e.Params[0], message)
-	return
+type Event struct {
+	bot *Bot
+	e   girc.Event
+	c   *girc.Client
+	a   Arguments
 }

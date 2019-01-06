@@ -12,7 +12,7 @@ import (
 type Bot struct {
 	*engine.Engine
 
-	manager manager.Manager
+	Manager manager.Manager
 
 	c *girc.Client
 	// finished is closed when runClient returns
@@ -44,7 +44,7 @@ func Component(errCh chan<- error) engine.StartFn {
 
 		b := &Bot{
 			Engine:   e,
-			manager:  c.Manager.TwirpClient(),
+			Manager:  c.Manager.TwirpClient(),
 			finished: make(chan struct{}),
 			c:        girc.New(ircConf),
 		}
