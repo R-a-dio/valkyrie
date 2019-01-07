@@ -12,9 +12,14 @@ import (
 
 // nowPlaying is a tiny layer around nowPlayingImpl to give it a signature the RegexHandler
 // expects
-func nowPlaying(echo RespondPublic, status *manager.StatusResponse, db database.Handler, track CurrentTrack) CommandFn {
+func nowPlaying(e Event, echo RespondPublic) CommandFn {
 	return func() error {
-		message, args, err := nowPlayingMessage(status, db, track)()
+		fn, err :=  NowPlayingMessage(e)
+		if err != nil {
+			return err
+		}
+
+		message, args, err := fn()
 		if err != nil {
 			return err
 		}
@@ -24,8 +29,12 @@ func nowPlaying(echo RespondPublic, status *manager.StatusResponse, db database.
 	}
 }
 
+// messageFn is a function that returns a string and arguments ready to be passed to
+// any of the fmt.*f functions
 type messageFn func() (msg string, args []interface{}, err error)
 
+// nowPlayingMessage implements the internals for both the NowPlaying command and
+// Bot.AnnounceSong for the API
 func nowPlayingMessage(status *manager.StatusResponse, db database.Handler, track CurrentTrack) messageFn {
 	return func() (string, []interface{}, error) {
 		message := "Now playing:{red} '%s' {clear}[%s/%s](%s), %s, %s, {green}LP:{clear} %s"

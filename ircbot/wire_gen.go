@@ -23,18 +23,7 @@ func NowPlaying(event Event) (CommandFn, error) {
 	client := WithClient(event)
 	gircEvent := WithIRCEvent(event)
 	respondPublic := WithRespondPublic(client, gircEvent)
-	bot := WithBot(event)
-	statusResponse, err := WithManagerStatus(bot)
-	if err != nil {
-		return nil, err
-	}
-	db := WithDB(bot)
-	handler := WithDatabase(db)
-	currentTrack, err := WithCurrentTrack(handler, statusResponse)
-	if err != nil {
-		return nil, err
-	}
-	commandFn := nowPlaying(respondPublic, statusResponse, handler, currentTrack)
+	commandFn := nowPlaying(event, respondPublic)
 	return commandFn, nil
 }
 
