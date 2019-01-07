@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/R-a-dio/valkyrie/database"
 	"github.com/R-a-dio/valkyrie/rpc/manager"
 	"github.com/lrstanley/girc"
@@ -23,7 +22,7 @@ var Providers = wire.NewSet(
 	WithIRCEvent,
 
 	WithDatabase,
-	WithDatabaseTx,
+	//WithDatabaseTx, // TODO: find a way to handle Commit/Rollback
 	WithManagerStatus,
 
 	WithArguments,
@@ -37,7 +36,7 @@ var Providers = wire.NewSet(
 	WithRespondPublic,
 )
 
-type CommandFn func(*girc.Client, girc.Event) error   
+type CommandFn func() error
 
 type Arguments map[string]string
 
@@ -80,10 +79,9 @@ type ArgumentTrack struct {
 
 // WithArgumentTrack returns the track specified by the argument 'TrackID'
 func WithArgumentTrack(h database.Handler, a Arguments) (ArgumentTrack, error) {
-	spew.Dump(a)
 	id := a["TrackID"] 
 	if id == "" {
-		return ArgumentTrack{}, errors.New("no trackid found in arguments")
+		return ArgumentTrack{}, errors.New("no TrackID found in arguments")
 	}
 
 	tid, err := strconv.Atoi(id)

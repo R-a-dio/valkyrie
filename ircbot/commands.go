@@ -98,24 +98,48 @@ func (rh RegexHandlers) Execute(c *girc.Client, e girc.Event) {
 			a:   match,
 		}
 
+		// create our handler
 		fn, err := rh.handlers[i].fn(event)
+		if err != nil {
+			if uerr, ok := err.(UserError); ok {
+				c.Cmd.Notice(e.Source.Name, uerr.UserError())
+			} else {
+				log.Println("provider error:", err)
+			}
+			return
+		}
+
+		// execute our handler
+		err = fn()
 		if err != nil {
 			if uerr, ok := err.(UserError); ok {
 				c.Cmd.Notice(e.Source.Name, uerr.UserError())
 			} else {
 				log.Println("handler error:", err)
 			}
-
-			return
 		}
 
-		fn(c, e)
 		return
 	}
 }
 
 var reHandlers = []RegexHandler{
 	{reNowPlaying, NowPlaying},
+	{reLastPlayed, LastPlayed},
+	{reQueue, StreamerQueue},
+	{reQueueLength, StreamerQueueLength},
+	{reDJ, StreamerUserInfo},
+	{reFave, FaveTrack},
+	{reFaveList, FaveList},
+	{reThread, ThreadURL},
+	{reTopic, ChannelTopic},
+	{reKill, KillStreamer},
+	{reRandomRequest, RandomTrackRequest},
+	{reLuckyRequest, LuckyTrackRequest},
+	{reSearch, SearchTrack},
+	{reRequest, RequestTrack},
+	{reLastRequestInfo, LastRequestInfo},
+	{reTrackInfo, TrackInfo},
 	{reTrackTags, TrackTags},
 }
 
@@ -126,7 +150,7 @@ func RegisterCommandHandlers(b *Bot, c *girc.Client) error {
 
 type Event struct {
 	bot *Bot
-	e   girc.Event
 	c   *girc.Client
+	e   girc.Event
 	a   Arguments
 }

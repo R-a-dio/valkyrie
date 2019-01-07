@@ -1,18 +1,15 @@
 package ircbot
 
 import (
-	"log"
 	"time"
 
 	"github.com/R-a-dio/valkyrie/rpc/manager"
-	"github.com/lrstanley/girc"
 )
 
 func nowPlaying(echo RespondPublic, status *manager.StatusResponse, track CurrentTrack) CommandFn {
-	return func(c *girc.Client, e girc.Event) error {
-		message := "Now playing:{red} '%s' {clear}[%s/%s](%d listeners), %s, %s, {red}LP:{clear} %s"
+	return func() error {
+		message := "Now playing:{red} '%s' {clear}[%s/%s](%s), %s, %s, {red}LP:{clear} %s"
 
-		log.Println(track.LastPlayed)
 		var lastPlayedDiff time.Duration
 		if !track.LastPlayed.IsZero() {
 			lastPlayedDiff = time.Since(track.LastPlayed)
@@ -35,7 +32,7 @@ func nowPlaying(echo RespondPublic, status *manager.StatusResponse, track Curren
 		echo(message,
 			status.Song.Metadata,
 			FormatPlaybackDuration(songPosition), FormatPlaybackDuration(songLength),
-			status.ListenerInfo.Listeners,
+			Pluralf("%d listeners", status.ListenerInfo.Listeners),
 			Pluralf("%d faves", favoriteCount),
 			Pluralf("played %d times", playedCount),
 			FormatLongDuration(lastPlayedDiff),
@@ -62,7 +59,7 @@ func lastRequestInfo() CommandFn     { return nil }
 func trackInfo() CommandFn           { return nil }
 
 func trackTags(echo Respond, track ArgumentOrCurrentTrack) CommandFn {
-	return func(c *girc.Client, e girc.Event) error {
+	return func() error {
 		message := "{clear}Title: {red}%s {clear}Album: {red}%s {clear}Faves: {red}%d {clear}Plays: {red}%d {clear}Tags: {red}%s"
 
 		var favoriteCount int64
