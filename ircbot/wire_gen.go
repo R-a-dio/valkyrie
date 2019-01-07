@@ -8,7 +8,6 @@ package ircbot
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/R-a-dio/valkyrie/database"
 	"github.com/R-a-dio/valkyrie/rpc/manager"
 	"github.com/R-a-dio/valkyrie/rpc/streamer"
@@ -37,6 +36,22 @@ func NowPlaying(event Event) (CommandFn, error) {
 	}
 	commandFn := nowPlaying(respondPublic, statusResponse, handler, currentTrack)
 	return commandFn, nil
+}
+
+func NowPlayingMessage(event Event) (messageFn, error) {
+	bot := WithBot(event)
+	statusResponse, err := WithManagerStatus(bot)
+	if err != nil {
+		return nil, err
+	}
+	db := WithDB(bot)
+	handler := WithDatabase(db)
+	currentTrack, err := WithCurrentTrack(handler, statusResponse)
+	if err != nil {
+		return nil, err
+	}
+	ircbotMessageFn := nowPlayingMessage(statusResponse, handler, currentTrack)
+	return ircbotMessageFn, nil
 }
 
 func KillStreamer(event Event) (CommandFn, error) {
@@ -229,19 +244,13 @@ func WithRespond(c *girc.Client, e girc.Event) Respond {
 
 func WithRespondPrivate(c *girc.Client, e girc.Event) RespondPrivate {
 	return func(message string, args ...interface{}) {
-		message = girc.Fmt(message)
-		message = fmt.Sprintf(message, args...)
-
-		c.Cmd.Notice(e.Source.Name, message)
+		c.Cmd.Notice(e.Source.Name, Fmt(message, args...))
 	}
 }
 
 func WithRespondPublic(c *girc.Client, e girc.Event) RespondPublic {
 	return func(message string, args ...interface{}) {
-		message = girc.Fmt(message)
-		message = fmt.Sprintf(message, args...)
-
-		c.Cmd.Message(e.Params[0], message)
+		c.Cmd.Message(e.Params[0], Fmt(message, args...))
 	}
 }
 

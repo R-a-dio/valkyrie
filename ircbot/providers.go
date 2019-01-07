@@ -5,7 +5,6 @@ package ircbot
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strconv"
 
 	"github.com/R-a-dio/valkyrie/database"
@@ -161,19 +160,13 @@ func WithRespond(c *girc.Client, e girc.Event) Respond {
 
 func WithRespondPrivate(c *girc.Client, e girc.Event) RespondPrivate {
 	return func(message string, args ...interface{}) {
-		message = girc.Fmt(message)
-		message = fmt.Sprintf(message, args...)
-
-		c.Cmd.Notice(e.Source.Name, message)
+		c.Cmd.Notice(e.Source.Name, Fmt(message, args...))
 	}
 }
 
 func WithRespondPublic(c *girc.Client, e girc.Event) RespondPublic {
 	return func(message string, args ...interface{}) {
-		message = girc.Fmt(message)
-		message = fmt.Sprintf(message, args...)
-
-		c.Cmd.Message(e.Params[0], message)
+		c.Cmd.Message(e.Params[0], Fmt(message, args...))
 	}
 }
 
@@ -183,6 +176,11 @@ func WithRespondPublic(c *girc.Client, e girc.Event) RespondPublic {
 
 func NowPlaying(Event) (CommandFn, error) {
 	wire.Build(Providers, nowPlaying)
+	return nil, nil
+}
+
+func NowPlayingMessage(Event) (messageFn, error) {
+	wire.Build(Providers, nowPlayingMessage)
 	return nil, nil
 }
 
@@ -265,5 +263,3 @@ func TrackTags(Event) (CommandFn, error) {
 	wire.Build(Providers, trackTags)
 	return nil, nil
 }
-
-

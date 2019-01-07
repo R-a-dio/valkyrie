@@ -19,6 +19,8 @@ type IRC struct {
 	NickPassword string
 	// Channels is the channels to join
 	Channels []string
+	// MainChannel is the channel for announceing songs
+	MainChannel string
 	// AllowFlood determines if flood protection is off or on
 	AllowFlood bool
 }

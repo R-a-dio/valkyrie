@@ -10,8 +10,24 @@ import (
 	"github.com/lrstanley/girc"
 )
 
+// nowPlaying is a tiny layer around nowPlayingImpl to give it a signature the RegexHandler
+// expects
 func nowPlaying(echo RespondPublic, status *manager.StatusResponse, db database.Handler, track CurrentTrack) CommandFn {
 	return func() error {
+		message, args, err := nowPlayingMessage(status, db, track)()
+		if err != nil {
+			return err
+		}
+
+		echo(message, args...)
+		return nil
+	}
+}
+
+type messageFn func() (msg string, args []interface{}, err error)
+
+func nowPlayingMessage(status *manager.StatusResponse, db database.Handler, track CurrentTrack) messageFn {
+	return func() (string, []interface{}, error) {
 		message := "Now playing:{red} '%s' {clear}[%s/%s](%s), %s, %s, {green}LP:{clear} %s"
 
 		var lastPlayedDiff time.Duration
@@ -33,16 +49,16 @@ func nowPlaying(echo RespondPublic, status *manager.StatusResponse, db database.
 		favoriteCount, _ := track.FaveCount(db)
 		playedCount, _ := track.PlayedCount(db)
 
-		echo(message,
+		args := []interface{}{
 			status.Song.Metadata,
 			FormatPlaybackDuration(songPosition), FormatPlaybackDuration(songLength),
 			Pluralf("%d listeners", status.ListenerInfo.Listeners),
 			Pluralf("%d faves", favoriteCount),
 			Pluralf("played %d times", playedCount),
 			FormatLongDuration(lastPlayedDiff),
-		)
+		}
 
-		return nil
+		return message, args, nil
 	}
 }
 

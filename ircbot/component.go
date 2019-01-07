@@ -2,6 +2,7 @@ package ircbot
 
 import (
 	"log"
+	"net"
 	"time"
 
 	"github.com/R-a-dio/valkyrie/engine"
@@ -54,6 +55,7 @@ func Component(errCh chan<- error) engine.StartFn {
 		}
 
 		err := e.Load(
+			HTTPComponent(errCh, b),
 			b.HandlerComponent(RegisterCommonHandlers),
 			b.HandlerComponent(RegisterCommandHandlers),
 		)
@@ -102,5 +104,29 @@ func (b *Bot) runClient() error {
 		}
 
 		time.Sleep(time.Second * 5 * time.Duration(backoffCount))
+	}
+}
+
+// HTTPComponent calls NewHTTPServer and starts serving requests with the
+// returned net/http server
+func HTTPComponent(errCh chan<- error, b *Bot) engine.StartFn {
+	return func(e *engine.Engine) (engine.DeferFn, error) {
+		srv, err := NewHTTPServer(b)
+		if err != nil {
+			return nil, err
+		}
+
+		ln, err := net.Listen("tcp", srv.Addr)
+		if err != nil {
+			return nil, err
+		}
+
+		go func() {
+			err := srv.Serve(ln)
+			if err != nil {
+				errCh <- err
+			}
+		}()
+		return srv.Close, nil
 	}
 }

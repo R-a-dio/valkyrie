@@ -5,7 +5,15 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/lrstanley/girc"
 )
+
+// Fmt passes the message to girc.Fmt and then calls fmt.Sprintf with arguments given
+func Fmt(message string, args ...interface{}) string {
+	message = girc.Fmt(message)
+	return fmt.Sprintf(message, args...)
+}
 
 // Pluralf returns fmt.Sprintf(format, amount) but returns the string without its last
 // character when amount == 1
