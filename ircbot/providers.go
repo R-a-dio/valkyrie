@@ -247,7 +247,7 @@ func SearchTrack(Event) (CommandFn, error) {
 }
 
 func RequestTrack(Event) (CommandFn, error) {
-	//wire.Build(Providers, requestTrack)
+	wire.Build(Providers, requestTrack)
 	return nil, nil
 }
 

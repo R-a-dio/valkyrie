@@ -47,6 +47,23 @@ func KillStreamer(event Event) (CommandFn, error) {
 	return commandFn, nil
 }
 
+func RequestTrack(event Event) (CommandFn, error) {
+	client := WithClient(event)
+	gircEvent := WithIRCEvent(event)
+	respond := WithRespond(client, gircEvent)
+	bot := WithBot(event)
+	streamer := WithStreamer(bot)
+	db := WithDB(bot)
+	handler := WithDatabase(db)
+	arguments := WithArguments(event)
+	argumentTrack, err := WithArgumentTrack(handler, arguments)
+	if err != nil {
+		return nil, err
+	}
+	commandFn := requestTrack(respond, streamer, gircEvent, argumentTrack)
+	return commandFn, nil
+}
+
 func TrackTags(event Event) (CommandFn, error) {
 	client := WithClient(event)
 	gircEvent := WithIRCEvent(event)
@@ -279,11 +296,6 @@ func LuckyTrackRequest(Event) (CommandFn, error) {
 }
 
 func SearchTrack(Event) (CommandFn, error) {
-
-	return nil, nil
-}
-
-func RequestTrack(Event) (CommandFn, error) {
 
 	return nil, nil
 }

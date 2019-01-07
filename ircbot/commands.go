@@ -102,12 +102,17 @@ func NewRegexHandlers(bot *Bot, handlers ...RegexHandler) RegexHandlers {
 	return h
 }
 
+// RegexHandlers is a collection of handlers that are triggered based on a regular
+// expression.
+//
+// An IRC events last parameter is used to match against.
 type RegexHandlers struct {
 	bot      *Bot
 	cache    []*regexp.Regexp
 	handlers []RegexHandler
 }
 
+// Execute implements girc.Handler
 func (rh RegexHandlers) Execute(c *girc.Client, e girc.Event) {
 	s := e.Trailing
 
@@ -166,10 +171,15 @@ var reHandlers = []RegexHandler{
 }
 
 func RegisterCommandHandlers(b *Bot, c *girc.Client) error {
-	c.Handlers.AddHandler(girc.PRIVMSG, NewRegexHandlers(b, reHandlers...))
+	h := NewRegexHandlers(b, reHandlers...)
+	// while RegexHandlers is a girc.Handler, girc does not expose a way to register said
+	// interface as background handler; so we pass the method bound to AddBg instead
+	c.Handlers.AddBg(girc.PRIVMSG, h.Execute)
 	return nil
 }
 
+// Event is a collection of parameters to handler functions, fields of Event are exposed
+// to handlers by dependency injection and you should never depend on Event directly
 type Event struct {
 	bot *Bot
 	c   *girc.Client

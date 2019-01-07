@@ -7,11 +7,12 @@ import (
 	"github.com/R-a-dio/valkyrie/database"
 	"github.com/R-a-dio/valkyrie/rpc/manager"
 	"github.com/R-a-dio/valkyrie/rpc/streamer"
+	"github.com/lrstanley/girc"
 )
 
 func nowPlaying(echo RespondPublic, status *manager.StatusResponse, db database.Handler, track CurrentTrack) CommandFn {
 	return func() error {
-		message := "Now playing:{red} '%s' {clear}[%s/%s](%s), %s, %s, {red}LP:{clear} %s"
+		message := "Now playing:{red} '%s' {clear}[%s/%s](%s), %s, %s, {green}LP:{clear} %s"
 
 		var lastPlayedDiff time.Duration
 		if !track.LastPlayed.IsZero() {
@@ -69,9 +70,26 @@ func killStreamer(s streamer.Streamer, a Arguments) CommandFn {
 func randomTrackRequest() CommandFn { return nil }
 func luckyTrackRequest() CommandFn  { return nil }
 func searchTrack() CommandFn        { return nil }
-func requestTrack() CommandFn       { return nil }
-func lastRequestInfo() CommandFn    { return nil }
-func trackInfo() CommandFn          { return nil }
+
+func requestTrack(echo Respond, s streamer.Streamer, e girc.Event, track ArgumentTrack) CommandFn {
+	return func() error {
+		req := &streamer.TrackRequest{
+			Identifier: e.Source.Host,
+			Track:      int64(track.TrackID),
+		}
+
+		resp, err := s.RequestTrack(context.TODO(), req)
+		if err != nil {
+			return err
+		}
+
+		echo(resp.Msg)
+		return nil
+	}
+}
+
+func lastRequestInfo() CommandFn { return nil }
+func trackInfo() CommandFn       { return nil }
 
 func trackTags(echo Respond, db database.Handler, track ArgumentOrCurrentTrack) CommandFn {
 	return func() error {
