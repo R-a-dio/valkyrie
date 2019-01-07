@@ -4,11 +4,12 @@ import (
 	"context"
 	"time"
 
+	"github.com/R-a-dio/valkyrie/database"
 	"github.com/R-a-dio/valkyrie/rpc/manager"
 	"github.com/R-a-dio/valkyrie/rpc/streamer"
 )
 
-func nowPlaying(echo RespondPublic, status *manager.StatusResponse, track CurrentTrack) CommandFn {
+func nowPlaying(echo RespondPublic, status *manager.StatusResponse, db database.Handler, track CurrentTrack) CommandFn {
 	return func() error {
 		message := "Now playing:{red} '%s' {clear}[%s/%s](%s), %s, %s, {red}LP:{clear} %s"
 
@@ -28,8 +29,8 @@ func nowPlaying(echo RespondPublic, status *manager.StatusResponse, track Curren
 			songLength = end.Sub(start)
 		}
 
-		var favoriteCount int64
-		var playedCount int64
+		favoriteCount, _ := track.FaveCount(db)
+		playedCount, _ := track.PlayedCount(db)
 
 		echo(message,
 			status.Song.Metadata,
@@ -72,12 +73,12 @@ func requestTrack() CommandFn       { return nil }
 func lastRequestInfo() CommandFn    { return nil }
 func trackInfo() CommandFn          { return nil }
 
-func trackTags(echo Respond, track ArgumentOrCurrentTrack) CommandFn {
+func trackTags(echo Respond, db database.Handler, track ArgumentOrCurrentTrack) CommandFn {
 	return func() error {
 		message := "{clear}Title: {red}%s {clear}Album: {red}%s {clear}Faves: {red}%d {clear}Plays: {red}%d {clear}Tags: {red}%s"
 
-		var favoriteCount int64
-		var playedCount int64
+		favoriteCount, _ := track.FaveCount(db)
+		playedCount, _ := track.PlayedCount(db)
 
 		echo(message,
 			track.Metadata,

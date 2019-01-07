@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
@@ -70,6 +69,24 @@ type Song struct {
 	LastPlayed time.Time
 }
 
+// PlayedCount returns the amount of times this song has been played
+func (s Song) PlayedCount(h Handler) (int64, error) {
+	var query = `SELECT count(*) FROM eplay WHERE isong=?;`
+	var playedCount int64
+
+	err := sqlx.Get(h, &playedCount, query, s.ID)
+	return playedCount, errors.WithStack(err)
+}
+
+// FaveCount returns the amount of faves this song has
+func (s Song) FaveCount(h Handler) (int64, error) {
+	var query = `SELECT count(*) FROM efave WHERE isong=?;`
+	var faveCount int64
+
+	err := sqlx.Get(h, &faveCount, query, s.ID)
+	return faveCount, errors.WithStack(err)
+}
+
 // CreateSong inserts a new row into the song database table and returns a Track
 // containing the new data.
 func CreateSong(h HandlerTx, metadata string) (Track, error) {
@@ -102,7 +119,7 @@ func GetSongFromHash(h Handler, hash SongHash) (Track, error) {
 	len AS length, eplay.dt AS lastplayed, artist, track, album, path,
 	tags, accepter AS acceptor, lasteditor, priority, usable, lastrequested,
 	requestcount FROM tracks RIGHT JOIN esong ON tracks.hash = esong.hash LEFT JOIN eplay ON
-	esong.id = eplay.isong WHERE esong.hash=? ORDER BY eplay.dt LIMIT 1;`
+	esong.id = eplay.isong WHERE esong.hash=? ORDER BY eplay.dt DESC LIMIT 1;`
 
 	err := sqlx.Get(h, &tmp, query, hash)
 	if err != nil {
@@ -114,7 +131,6 @@ func GetSongFromHash(h Handler, hash SongHash) (Track, error) {
 		return NoTrack, err
 	}
 
-	spew.Dump(tmp)
 	return tmp.ToTrack(), nil
 }
 
@@ -256,7 +272,7 @@ func GetTrack(h Handler, id TrackID) (Track, error) {
 
 	var query = `
 	SELECT tracks.id AS trackid, esong.id AS id, tracks.hash AS hash,
-	len AS length, lastplayed, artist, track AS title, album, path,
+	len AS length, lastplayed, artist, track, album, path,
 	tags, accepter AS acceptor, lasteditor, priority, usable, lastrequested,
 	requestcount FROM tracks LEFT JOIN esong ON tracks.hash = esong.hash WHERE 
 	tracks.id=?;`

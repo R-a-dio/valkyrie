@@ -17,20 +17,23 @@ import (
 )
 
 var Providers = wire.NewSet(
+	// provided by Event contents
 	WithBot,
 	WithDB,
 	WithClient,
 	WithIRCEvent,
 
+ 	// database access providers
 	WithDatabase,
 	//WithDatabaseTx, // TODO: find a way to handle Commit/Rollback
 
+	// RPC clients that we support
 	WithStreamer,
 	WithManager,
 	WithManagerStatus,
- 
-	WithArguments,
 
+	// Providers that use IRC state
+	WithArguments,
 	WithCurrentTrack,
 	WithArgumentTrack,
 	WithArgumentOrCurrentTrack,
@@ -42,8 +45,11 @@ var Providers = wire.NewSet(
 
 type CommandFn func() error
 
+// Arguments is a map of key:value pairs from the named capturing groups used in
+// the regular expression used for the command
 type Arguments map[string]string
 
+// Bool returns true if the key exists and is non-empty
 func (a Arguments) Bool(key string) bool {
 	return a[key] != ""
 }

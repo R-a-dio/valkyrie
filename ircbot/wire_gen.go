@@ -35,7 +35,7 @@ func NowPlaying(event Event) (CommandFn, error) {
 	if err != nil {
 		return nil, err
 	}
-	commandFn := nowPlaying(respondPublic, statusResponse, currentTrack)
+	commandFn := nowPlaying(respondPublic, statusResponse, handler, currentTrack)
 	return commandFn, nil
 }
 
@@ -63,13 +63,14 @@ func TrackTags(event Event) (CommandFn, error) {
 	if err != nil {
 		return nil, err
 	}
-	commandFn := trackTags(respond, argumentOrCurrentTrack)
+	commandFn := trackTags(respond, handler, argumentOrCurrentTrack)
 	return commandFn, nil
 }
 
 // providers.go:
 
 var Providers = wire.NewSet(
+
 	WithBot,
 	WithDB,
 	WithClient,
@@ -82,7 +83,6 @@ var Providers = wire.NewSet(
 	WithManagerStatus,
 
 	WithArguments,
-
 	WithCurrentTrack,
 	WithArgumentTrack,
 	WithArgumentOrCurrentTrack,
@@ -94,8 +94,11 @@ var Providers = wire.NewSet(
 
 type CommandFn func() error
 
+// Arguments is a map of key:value pairs from the named capturing groups used in
+// the regular expression used for the command
 type Arguments map[string]string
 
+// Bool returns true if the key exists and is non-empty
 func (a Arguments) Bool(key string) bool {
 	return a[key] != ""
 }
