@@ -10,6 +10,7 @@ import (
 
 	"github.com/R-a-dio/valkyrie/database"
 	"github.com/R-a-dio/valkyrie/rpc/manager"
+	"github.com/R-a-dio/valkyrie/rpc/streamer"
 	"github.com/lrstanley/girc"
 	"github.com/google/wire"
 	"github.com/jmoiron/sqlx"
@@ -23,8 +24,11 @@ var Providers = wire.NewSet(
 
 	WithDatabase,
 	//WithDatabaseTx, // TODO: find a way to handle Commit/Rollback
-	WithManagerStatus,
 
+	WithStreamer,
+	WithManager,
+	WithManagerStatus,
+ 
 	WithArguments,
 
 	WithCurrentTrack,
@@ -39,6 +43,10 @@ var Providers = wire.NewSet(
 type CommandFn func() error
 
 type Arguments map[string]string
+
+func (a Arguments) Bool(key string) bool {
+	return a[key] != ""
+}
 
 func WithBot(e Event) *Bot {
 	return e.bot
@@ -60,8 +68,16 @@ func WithArguments(e Event) Arguments {
 	return e.a
 }
 
+func WithStreamer(bot *Bot) streamer.Streamer {
+	return bot.streamer
+}
+
+func WithManager(bot *Bot) manager.Manager {
+	return bot.manager
+}
+
 func WithManagerStatus(bot *Bot) (*manager.StatusResponse, error) {
-	return bot.Manager.Status(context.TODO(), new(manager.StatusRequest))
+	return bot.manager.Status(context.TODO(), new(manager.StatusRequest))
 }
 
 func WithDatabase(db *sqlx.DB) database.Handler {
@@ -205,7 +221,7 @@ func ChannelTopic(Event) (CommandFn, error) {
 }
 
 func KillStreamer(Event) (CommandFn, error) {
-	//wire.Build(Providers, killStreamer)
+	wire.Build(Providers, killStreamer)
 	return nil, nil
 }
 

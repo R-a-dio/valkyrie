@@ -1,9 +1,11 @@
 package ircbot
 
 import (
+	"context"
 	"time"
 
 	"github.com/R-a-dio/valkyrie/rpc/manager"
+	"github.com/R-a-dio/valkyrie/rpc/streamer"
 )
 
 func nowPlaying(echo RespondPublic, status *manager.StatusResponse, track CurrentTrack) CommandFn {
@@ -50,13 +52,25 @@ func faveTrack() CommandFn           { return nil }
 func faveList() CommandFn            { return nil }
 func threadURL() CommandFn           { return nil }
 func channelTopic() CommandFn        { return nil }
-func killStreamer() CommandFn        { return nil }
-func randomTrackRequest() CommandFn  { return nil }
-func luckyTrackRequest() CommandFn   { return nil }
-func searchTrack() CommandFn         { return nil }
-func requestTrack() CommandFn        { return nil }
-func lastRequestInfo() CommandFn     { return nil }
-func trackInfo() CommandFn           { return nil }
+
+func killStreamer(s streamer.Streamer, a Arguments) CommandFn {
+	return func() error {
+		// TODO: implement authorization
+		req := &streamer.StopRequest{
+			ForceStop: a.Bool("force"),
+		}
+
+		_, err := s.Stop(context.TODO(), req)
+		return err
+	}
+}
+
+func randomTrackRequest() CommandFn { return nil }
+func luckyTrackRequest() CommandFn  { return nil }
+func searchTrack() CommandFn        { return nil }
+func requestTrack() CommandFn       { return nil }
+func lastRequestInfo() CommandFn    { return nil }
+func trackInfo() CommandFn          { return nil }
 
 func trackTags(echo Respond, track ArgumentOrCurrentTrack) CommandFn {
 	return func() error {

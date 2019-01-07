@@ -34,12 +34,14 @@ var (
 // a UserError returned from a handler is send to the user that invoked it
 type UserError interface {
 	error
+	Public() bool
 	UserError() string
 }
 
 type userError struct {
-	err error
-	msg string
+	err    error
+	msg    string
+	public bool
 }
 
 func (u userError) Error() string {
@@ -50,9 +52,33 @@ func (u userError) UserError() string {
 	return u.msg
 }
 
+func (u userError) Public() bool {
+	return u.public
+}
+
 // NewUserError returns a new error with the given msg for the user
 func NewUserError(err error, msg string) error {
-	return userError{err, msg}
+	return userError{err, msg, false}
+}
+
+// NewPublicError returns a new error with the given msg for the public channel
+func NewPublicError(err error, msg string) error {
+	return userError{err, msg, true}
+}
+
+func checkUserError(c *girc.Client, e girc.Event, err error) bool {
+	uerr, ok := err.(UserError)
+	if !ok {
+		return false
+	}
+
+	if uerr.Public() {
+		c.Cmd.Message(e.Params[0], uerr.UserError())
+	} else {
+		c.Cmd.Notice(e.Source.Name, uerr.UserError())
+	}
+
+	return true
 }
 
 type HandlerFn func(Event) (CommandFn, error)
@@ -101,9 +127,7 @@ func (rh RegexHandlers) Execute(c *girc.Client, e girc.Event) {
 		// create our handler
 		fn, err := rh.handlers[i].fn(event)
 		if err != nil {
-			if uerr, ok := err.(UserError); ok {
-				c.Cmd.Notice(e.Source.Name, uerr.UserError())
-			} else {
+			if !checkUserError(c, e, err) {
 				log.Println("provider error:", err)
 			}
 			return
@@ -112,9 +136,7 @@ func (rh RegexHandlers) Execute(c *girc.Client, e girc.Event) {
 		// execute our handler
 		err = fn()
 		if err != nil {
-			if uerr, ok := err.(UserError); ok {
-				c.Cmd.Notice(e.Source.Name, uerr.UserError())
-			} else {
+			if !checkUserError(c, e, err) {
 				log.Println("handler error:", err)
 			}
 		}

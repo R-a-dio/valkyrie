@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"github.com/R-a-dio/valkyrie/database"
 	"github.com/R-a-dio/valkyrie/rpc/manager"
+	"github.com/R-a-dio/valkyrie/rpc/streamer"
 	"github.com/google/wire"
 	"github.com/jmoiron/sqlx"
 	"github.com/lrstanley/girc"
@@ -35,6 +36,14 @@ func NowPlaying(event Event) (CommandFn, error) {
 		return nil, err
 	}
 	commandFn := nowPlaying(respondPublic, statusResponse, currentTrack)
+	return commandFn, nil
+}
+
+func KillStreamer(event Event) (CommandFn, error) {
+	bot := WithBot(event)
+	streamer := WithStreamer(bot)
+	arguments := WithArguments(event)
+	commandFn := killStreamer(streamer, arguments)
 	return commandFn, nil
 }
 
@@ -68,6 +77,8 @@ var Providers = wire.NewSet(
 
 	WithDatabase,
 
+	WithStreamer,
+	WithManager,
 	WithManagerStatus,
 
 	WithArguments,
@@ -84,6 +95,10 @@ var Providers = wire.NewSet(
 type CommandFn func() error
 
 type Arguments map[string]string
+
+func (a Arguments) Bool(key string) bool {
+	return a[key] != ""
+}
 
 func WithBot(e Event) *Bot {
 	return e.bot
@@ -105,8 +120,16 @@ func WithArguments(e Event) Arguments {
 	return e.a
 }
 
+func WithStreamer(bot *Bot) streamer.Streamer {
+	return bot.streamer
+}
+
+func WithManager(bot *Bot) manager.Manager {
+	return bot.manager
+}
+
 func WithManagerStatus(bot *Bot) (*manager.StatusResponse, error) {
-	return bot.Manager.Status(context.TODO(), new(manager.StatusRequest))
+	return bot.manager.Status(context.TODO(), new(manager.StatusRequest))
 }
 
 func WithDatabase(db *sqlx.DB) database.Handler {
@@ -238,11 +261,6 @@ func ThreadURL(Event) (CommandFn, error) {
 }
 
 func ChannelTopic(Event) (CommandFn, error) {
-
-	return nil, nil
-}
-
-func KillStreamer(Event) (CommandFn, error) {
 
 	return nil, nil
 }

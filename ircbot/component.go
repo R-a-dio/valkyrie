@@ -6,13 +6,16 @@ import (
 
 	"github.com/R-a-dio/valkyrie/engine"
 	"github.com/R-a-dio/valkyrie/rpc/manager"
+	"github.com/R-a-dio/valkyrie/rpc/streamer"
 	"github.com/lrstanley/girc"
 )
 
 type Bot struct {
 	*engine.Engine
 
-	Manager manager.Manager
+	// rpc interfaces
+	manager manager.Manager
+	streamer streamer.Streamer
 
 	c *girc.Client
 	// finished is closed when runClient returns
@@ -44,8 +47,9 @@ func Component(errCh chan<- error) engine.StartFn {
 
 		b := &Bot{
 			Engine:   e,
-			Manager:  c.Manager.TwirpClient(),
-			finished: make(chan struct{}),
+			manager:  c.Manager.TwirpClient(),
+			streamer: c.Streamer.TwirpClient(),
+			finished: make(chan struct{}), 
 			c:        girc.New(ircConf),
 		}
 
