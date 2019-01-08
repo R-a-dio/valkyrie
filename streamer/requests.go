@@ -2,7 +2,6 @@ package streamer
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/twitchtv/twirp"
@@ -49,33 +48,34 @@ func (h *streamHandler) RequestTrack(ctx context.Context, r *pb.TrackRequest) (*
 	}
 	defer tx.Rollback()
 
-	// turn userID into a time of when this user last requested a song
+	// find the last time this user requested a song
 	userLastRequest, err := database.UserRequestTime(tx, r.Identifier)
 	if err != nil {
 		return nil, twirp.InternalErrorWith(err)
 	}
 
-	fmt.Println("ulastrequest:", userLastRequest)
-	fmt.Println("delay:", userLastRequest.Add(h.Conf().UserRequestDelay))
-	fmt.Println("now:", time.Now())
-
-	// now we're going to check if the user is allowed to request
+	// check if the user is allowed to request
 	withDelay := userLastRequest.Add(h.Conf().UserRequestDelay)
 	if !userLastRequest.IsZero() && withDelay.After(time.Now()) {
 		return requestResponse(false, "you need to wait longer before requesting again")
 	}
 
-	// turn trackid into a usable DatabaseSong
+	// find our track in the database
 	track, err := database.GetTrack(tx, database.TrackID(r.Track))
 	if err != nil {
+		if err == database.ErrTrackNotFound {
+			return requestResponse(false, "unknown track")
+		}
 		return nil, twirp.InternalErrorWith(err)
 	}
-	// now we're going to check if the song can be requested
+
+	// check if the track can be decoded by the streamer
 	if !track.Usable {
 		return requestResponse(false, "this song can't be requested")
 	}
-	// check if song timeout has expired
-	if track.LastPlayed.Add(track.RequestDelay).After(time.Now()) {
+	// check if the track wasn't recently played or requested
+	if time.Since(track.LastPlayed) < track.RequestDelay ||
+		time.Since(track.LastRequested) < track.RequestDelay {
 		return requestResponse(false,
 			"you need to wait longer before requesting this song")
 	}
