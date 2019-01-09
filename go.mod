@@ -7,9 +7,10 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/go-sql-driver/mysql v1.4.1
 	github.com/golang/protobuf v1.2.0
+	github.com/google/wire v0.2.0
 	github.com/grafov/m3u8 v0.6.1
 	github.com/jmoiron/sqlx v1.2.0
-	github.com/lrstanley/girc v0.0.0-20181224163243-a39e11bebbc8
+	github.com/lrstanley/girc v0.0.0-20190102153329-c1e59a02f488
 	github.com/pkg/errors v0.8.0
 	github.com/tcolgate/mp3 v0.0.0-20170426193717-e79c5a46d300
 	github.com/twitchtv/twirp v5.5.1+incompatible

@@ -35,6 +35,17 @@ func main() {
 	if componentName == "" {
 		fmt.Println("no component name given")
 		os.Exit(1)
+	} else if componentName == "version" {
+		/* uncomment when go version 1.12 lands
+		if info, ok := debug.ReadBuildInfo(); ok {
+			fmt.Printf("%s version %s\n", info.Path, info.Main.Version)
+			for _, mod := range info.Deps {
+				fmt.Printf("\tbuilt with %s version %s\n", mod.Path, mod.Version)
+			}
+		}
+		*/
+		fmt.Printf("(devel)\n")
+		return
 	}
 
 	root, ok := components[componentName]
