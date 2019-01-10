@@ -4,9 +4,9 @@ require (
 	github.com/BurntSushi/toml v0.3.1
 	github.com/boltdb/bolt v1.3.1
 	github.com/cenkalti/backoff v2.1.0+incompatible
-	github.com/davecgh/go-spew v1.1.1
 	github.com/go-sql-driver/mysql v1.4.1
 	github.com/golang/protobuf v1.2.0
+	github.com/google/subcommands v0.0.0-20181012225330-46f0354f6315
 	github.com/google/wire v0.2.0
 	github.com/grafov/m3u8 v0.6.1
 	github.com/jmoiron/sqlx v1.2.0

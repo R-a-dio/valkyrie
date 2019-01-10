@@ -7,6 +7,8 @@ import (
 	"os"
 
 	"github.com/R-a-dio/valkyrie/config"
+	"github.com/R-a-dio/valkyrie/ircbot"
+	"github.com/R-a-dio/valkyrie/manager"
 	"github.com/google/subcommands"
 )
 
@@ -91,10 +93,6 @@ var managerCmd = cmd{
 	execute: manager.Execute,
 }
 
-func executeManager(ctx context.Context, cfg config.Config) error {
-	return nil
-}
-
 // implements cmd for .../valkyrie/ircbot
 var ircCmd = cmd{
 	name:     "irc",
@@ -102,11 +100,7 @@ var ircCmd = cmd{
 	usage: `irc:
 	run the IRC bot.
 	`,
-	execute: executeIRCBot,
-}
-
-func executeIRCBot(ctx context.Context, cfg config.Config) error {
-	return nil
+	execute: ircbot.Execute,
 }
 
 func main() {
