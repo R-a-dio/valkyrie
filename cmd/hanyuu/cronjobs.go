@@ -1,23 +1,33 @@
 package main
 
 import (
-	"github.com/R-a-dio/valkyrie/cronjobs"
-	"github.com/R-a-dio/valkyrie/engine"
+	"context"
+
+	"github.com/R-a-dio/valkyrie/config"
 )
 
-func init() {
-	AddComponent("listenlog", CronjobComponent(cronjobs.ListenLog))
-	AddComponent("requestcount", CronjobComponent(cronjobs.RequestCount))
+var listenerLogCmd = cmd{
+	name:     "listenerlog",
+	synopsis: "log listener count to database.",
+	usage: `listenerlog:
+	log listener count to database.
+	`,
+	execute: executeListenerLog,
 }
 
-func CronjobComponent(fn func(*engine.Engine) error) func(chan<- error) engine.StartFn {
-	return func(errCh chan<- error) engine.StartFn {
-		return func(e *engine.Engine) (engine.DeferFn, error) {
-			go func() {
-				errCh <- fn(e)
-			}()
+func executeListenerLog(context.Context, config.Config) error {
+	return nil
+}
 
-			return nil, nil
-		}
-	}
+var requestCountCmd = cmd{
+	name:     "requestcount",
+	synopsis: "reduce request counter in database.",
+	usage: `requestcount:
+	reduce request counter in database.
+	`,
+	execute: executeRequestCount,
+}
+
+func executeRequestCount(context.Context, config.Config) error {
+	return nil
 }
