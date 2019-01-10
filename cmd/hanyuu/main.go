@@ -88,7 +88,7 @@ var managerCmd = cmd{
 	usage: `manager:
 	manages shared state between the different parts.
 	`,
-	execute: executeManager,
+	execute: manager.Execute,
 }
 
 func executeManager(ctx context.Context, cfg config.Config) error {
