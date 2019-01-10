@@ -1,12 +1,12 @@
-package cronjobs
+package jobs
 
 import (
 	"context"
 	"log"
 	"time"
 
+	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/database"
-	"github.com/R-a-dio/valkyrie/engine"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -21,10 +21,15 @@ const (
 				AND requestcount > 0;`
 )
 
-// RequestCount drops the requestcount of all tracks by 1 if they have not been
+// ExecuteRequestCount drops the requestcount of all tracks by 1 if they have not been
 // requested within the specified duration.
-func RequestCount(e *engine.Engine) error {
-	h, err := database.HandleTx(context.TODO(), e.DB)
+func ExecuteRequestCount(ctx context.Context, cfg config.Config) error {
+	db, err := database.Connect(cfg)
+	if err != nil {
+		return err
+	}
+
+	h, err := database.HandleTx(ctx, db)
 	if err != nil {
 		return err
 	}
