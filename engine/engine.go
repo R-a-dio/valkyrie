@@ -16,8 +16,8 @@ import (
 // Engine is the root state object containing both the full configuration object and an
 // active database/sql/(sqlx) DB instance.
 type Engine struct {
-	// AtomicGlobal contains the root configuration instance
-	config.AtomicGlobal
+	// Config is our configuration instance
+	config.Config
 	// DB is a sqlx DB instance if `database.Component` has been loaded, otherwise nil
 	DB *sqlx.DB
 

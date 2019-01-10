@@ -45,7 +45,7 @@ func ConfigComponent(paths ...string) StartFn {
 
 		defer f.Close()
 
-		e.AtomicGlobal, err = config.LoadAtomic(f)
+		e.Config, err = config.Load(f)
 		if err != nil {
 			return nil, err
 		}
