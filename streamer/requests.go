@@ -42,7 +42,7 @@ func (h *streamHandler) RequestTrack(ctx context.Context, r *pb.TrackRequest) (*
 	h.requestMutex.Lock()
 	defer h.requestMutex.Unlock()
 
-	tx, err := database.HandleTx(ctx, h.DB)
+	tx, err := database.HandleTx(ctx, h.queue.DB)
 	if err != nil {
 		return nil, twirp.InternalErrorWith(err)
 	}
@@ -55,7 +55,7 @@ func (h *streamHandler) RequestTrack(ctx context.Context, r *pb.TrackRequest) (*
 	}
 
 	// check if the user is allowed to request
-	withDelay := userLastRequest.Add(h.Conf().UserRequestDelay)
+	withDelay := userLastRequest.Add(time.Duration(h.Conf().UserRequestDelay))
 	if !userLastRequest.IsZero() && withDelay.After(time.Now()) {
 		return requestResponse(false, "you need to wait longer before requesting again")
 	}
@@ -95,6 +95,6 @@ func (h *streamHandler) RequestTrack(ctx context.Context, r *pb.TrackRequest) (*
 	}
 
 	// send the song to the queue
-	h.streamer.queue.AddRequest(track, r.Identifier)
+	h.queue.AddRequest(track, r.Identifier)
 	return requestResponse(true, "thank you for making your request!")
 }

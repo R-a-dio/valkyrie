@@ -3,10 +3,9 @@
 package main
 
 import (
-	"context"
-
-	"github.com/R-a-dio/valkyrie/config"
 	"github.com/google/subcommands"
+
+	"github.com/R-a-dio/valkyrie/streamer"
 )
 
 func init() {
@@ -19,9 +18,5 @@ var streamerCmd = cmd{
 	usage: `streamer:
 	Streams to a configured icecast server.
 	`,
-	execute: executeStreamer,
-}
-
-func executeStreamer(ctx context.Context, cfg config.Config) error {
-	return nil
+	execute: streamer.Execute,
 }
