@@ -8,6 +8,7 @@ import (
 
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/ircbot"
+	"github.com/R-a-dio/valkyrie/jobs"
 	"github.com/R-a-dio/valkyrie/manager"
 	"github.com/google/subcommands"
 )
@@ -101,6 +102,24 @@ var ircCmd = cmd{
 	run the IRC bot.
 	`,
 	execute: ircbot.Execute,
+}
+
+var listenerLogCmd = cmd{
+	name:     "listenerlog",
+	synopsis: "log listener count to database.",
+	usage: `listenerlog:
+	log listener count to database.
+	`,
+	execute: jobs.ExecuteListenerLog,
+}
+
+var requestCountCmd = cmd{
+	name:     "requestcount",
+	synopsis: "reduce request counter in database.",
+	usage: `requestcount:
+	reduce request counter in database.
+	`,
+	execute: jobs.ExecuteRequestCount,
 }
 
 func main() {
