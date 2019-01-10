@@ -11,6 +11,17 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+// Connect connects to the database configured in cfg
+func Connect(cfg config.Config) (*sqlx.DB, error) {
+	info := cfg.Conf().Database
+
+	db, err := sqlx.Connect(info.DriverName, info.DSN)
+	if err != nil {
+		return nil, err
+	}
+	return db, nil
+}
+
 // Handler is the interface passed to database accessing functions and should
 // only be created by a call to Handle
 type Handler interface {
