@@ -10,9 +10,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/database"
-	"github.com/R-a-dio/valkyrie/engine"
 	"github.com/R-a-dio/valkyrie/streamer/audio"
+	"github.com/jmoiron/sqlx"
 )
 
 // queueMinimumLength is the minimum amount of songs required to be
@@ -29,9 +30,15 @@ var ErrEmptyQueue = errors.New("empty queue")
 
 // NewQueue returns a ready to use Queue instance, restoring
 // state from the database before returning.
-func NewQueue(e *engine.Engine) (*Queue, error) {
+func NewQueue(cfg config.Config) (*Queue, error) {
+	db, err := database.Connect(cfg)
+	if err != nil {
+		return nil, err
+	}
+
 	var q = &Queue{
-		Engine:           e,
+		Config:           cfg,
+		DB:               db,
 		nextSongEstimate: time.Now(),
 	}
 
@@ -53,7 +60,8 @@ func NewQueue(e *engine.Engine) (*Queue, error) {
 
 // Queue is the queue of tracks for the streamer
 type Queue struct {
-	*engine.Engine
+	config.Config
+	DB *sqlx.DB
 
 	mu sync.Mutex
 	// l is the in-memory representation of the queue

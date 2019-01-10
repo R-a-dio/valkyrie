@@ -18,8 +18,7 @@ import (
 	"time"
 
 	"github.com/R-a-dio/valkyrie/config"
-	"github.com/R-a-dio/valkyrie/engine"
-	"github.com/R-a-dio/valkyrie/database" 
+	"github.com/R-a-dio/valkyrie/database"
 	"github.com/R-a-dio/valkyrie/streamer/audio"
 	"github.com/cenkalti/backoff"
 )
@@ -44,8 +43,7 @@ type Streamer struct {
 	// on work to finish before shutdown
 	forceDone int32
 
-	// State shared between queue and streamer
-	*engine.Engine
+	config.Config
 	// queue used by the streamer
 	queue *Queue
 	// Format of the PCM audio data
@@ -61,10 +59,10 @@ type Streamer struct {
 }
 
 // NewStreamer returns a new streamer using the state given
-func NewStreamer(e *engine.Engine, queue *Queue) (*Streamer, error) {
+func NewStreamer(cfg config.Config, queue *Queue) (*Streamer, error) {
 	var s = &Streamer{
-		Engine: e,
-		queue: queue,
+		Config: cfg,
+		queue:  queue,
 	}
 
 	s.AudioFormat = audio.AudioFormat{
