@@ -1,68 +1,137 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
-	"strings"
 
-	"github.com/R-a-dio/valkyrie/engine"
+	"github.com/R-a-dio/valkyrie/config"
+	"github.com/google/subcommands"
 )
 
-// RootComponent is the root of execution and is passed an error channel to be used
-// to send out-of-bound errors on. The process will exit if an error is received.
-type RootComponent func(chan<- error) engine.StartFn
+type cmd struct {
+	name     string
+	synopsis string
+	usage    string
+	setFlags func(*flag.FlagSet)
+	execute  func(context.Context, config.Config) error
+}
 
-var components = map[string]RootComponent{}
-
-// AddComponent adds a component with the name given to the executable. The component
-// will be executed when called like `hanyuu {name}`
-func AddComponent(name string, component RootComponent) {
-	name = strings.ToLower(name)
-	if _, ok := components[name]; ok {
-		panic("duplicate component found: " + name)
+func (c cmd) Name() string     { return c.name }
+func (c cmd) Synopsis() string { return c.synopsis }
+func (c cmd) Usage() string    { return c.usage }
+func (c cmd) SetFlags(f *flag.FlagSet) {
+	if c.setFlags != nil {
+		c.setFlags(f)
+	}
+}
+func (c cmd) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
+	cfg, err := config.LoadFile(configFile, configEnvFile)
+	if err != nil {
+		fmt.Println(err)
+		return subcommands.ExitFailure
 	}
 
-	components[name] = component
+	err = c.execute(ctx, cfg)
+	if err != nil {
+		fmt.Println(err)
+		return subcommands.ExitFailure
+	}
+	return subcommands.ExitSuccess
+}
+
+var versionCmd = cmd{
+	name:     "version",
+	synopsis: "display version information of executable.",
+	usage: `version:
+	display version information of executable.`,
+	execute: printVersion,
+}
+
+func printVersion(context.Context, config.Config) error {
+	/* uncomment when go version 1.12 lands
+	if info, ok := debug.ReadBuildInfo(); ok {
+		fmt.Printf("%s %s\n", info.Path, info.Main.Version)
+		for _, mod := range info.Deps {
+			fmt.Printf("\t%s %s\n", mod.Path, mod.Version)
+		}
+	}
+	*/
+	fmt.Printf("%s %s\n", "valkyrie", "(devel)")
+	return nil
+}
+
+// configEnvFile will be resolved to the environment variable given here
+var configEnvFile = "HANYUU_CONFIG"
+
+// configFile will be filled with the -config flag value
+var configFile string
+
+var configCmd = cmd{
+	name:     "config",
+	synopsis: "display current configuration.",
+	usage: `config:
+	display current configuration.
+	`,
+	execute: printConfig,
+}
+
+func printConfig(_ context.Context, cfg config.Config) error {
+	return cfg.Save(os.Stdout)
+}
+
+// implements cmd for .../valkyrie/manager
+var managerCmd = cmd{
+	name:     "manager",
+	synopsis: "manages shared state between the different parts.",
+	usage: `manager:
+	manages shared state between the different parts.
+	`,
+	execute: executeManager,
+}
+
+func executeManager(ctx context.Context, cfg config.Config) error {
+	return nil
+}
+
+// implements cmd for .../valkyrie/ircbot
+var ircCmd = cmd{
+	name:     "irc",
+	synopsis: "run the IRC bot.",
+	usage: `irc:
+	run the IRC bot.
+	`,
+	execute: executeIRCBot,
+}
+
+func executeIRCBot(ctx context.Context, cfg config.Config) error {
+	return nil
 }
 
 func main() {
-	configPath := flag.String("conf", "hanyuu.toml", "filepath to configuration file")
+	// setup configuration file as top-level flag
+	flag.StringVar(&configFile, "config", "hanyuu.toml", "filepath to configuration file")
+	// add all our top-level flags as important flags to subcommands
+	flag.VisitAll(func(f *flag.Flag) {
+		subcommands.ImportantFlag(f.Name)
+	})
+	subcommands.Register(subcommands.HelpCommand(), "")
+	subcommands.Register(subcommands.FlagsCommand(), "")
+	subcommands.Register(subcommands.CommandsCommand(), "")
+	subcommands.Register(versionCmd, "")
+	subcommands.Register(configCmd, "")
+	// streamerCmd is registered in streamer.go to avoid mandatory inclusion, since it
+	// depends on a C library (libmp3lame).
+	// 		subcommands.Register(streamerCmd, "")
+	subcommands.Register(managerCmd, "")
+	subcommands.Register(ircCmd, "")
+
+	subcommands.Register(listenerLogCmd, "jobs")
+	subcommands.Register(requestCountCmd, "jobs")
+
 	flag.Parse()
-	alternatePath := os.Getenv("HANYUU_CONFIG")
+	configEnvFile = os.Getenv(configEnvFile)
 
-	componentName := flag.Arg(0)
-	if componentName == "" {
-		fmt.Println("no component name given")
-		os.Exit(1)
-	} else if componentName == "version" {
-		/* uncomment when go version 1.12 lands
-		if info, ok := debug.ReadBuildInfo(); ok {
-			fmt.Printf("%s version %s\n", info.Path, info.Main.Version)
-			for _, mod := range info.Deps {
-				fmt.Printf("\tbuilt with %s version %s\n", mod.Path, mod.Version)
-			}
-		}
-		*/
-		fmt.Printf("(devel)\n")
-		return
-	}
-
-	root, ok := components[componentName]
-	if !ok {
-		fmt.Println("unknown component name given:", componentName)
-		os.Exit(1)
-	}
-
-	var errCh = make(chan error, 2)
-	var e engine.Engine
-
-	err := e.Run(errCh,
-		engine.ConfigComponent(*configPath, alternatePath),
-		engine.DatabaseComponent,
-		root(errCh),
-	)
-	if err != nil {
-		os.Exit(1)
-	}
+	os.Exit(int(subcommands.Execute(context.TODO())))
 }
