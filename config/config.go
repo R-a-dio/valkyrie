@@ -1,9 +1,14 @@
 package config
 
 import (
+	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"sync/atomic"
 	"time"
 
+	"github.com/BurntSushi/toml"
 	rpcirc "github.com/R-a-dio/valkyrie/rpc/irc"
 	rpcmanager "github.com/R-a-dio/valkyrie/rpc/manager"
 	rpcstreamer "github.com/R-a-dio/valkyrie/rpc/streamer"
@@ -12,7 +17,7 @@ import (
 // defaultConfig is the default configuration for this project
 var defaultConfig = config{
 	UserAgent:        "hanyuu/2.0",
-	UserRequestDelay: time.Hour * 1,
+	UserRequestDelay: Duration(time.Hour * 1),
 	TemplatePath:     "templates/",
 	MusicPath:        "",
 	Database: database{
@@ -43,7 +48,7 @@ type config struct {
 	// MusicPath is the prefix of music files in the database
 	MusicPath string
 	// UserRequestDelay is the delay between user requests
-	UserRequestDelay time.Duration
+	UserRequestDelay Duration
 	// TemplatePath is the path where html templates are stored for the HTTP
 	// frontends
 	TemplatePath string
@@ -140,4 +145,102 @@ func prepareTwirpClient(addr string) (fullAddr string, client httpClient) {
 // httpClient interface used by twirp to fulfill requests
 type httpClient interface {
 	Do(req *http.Request) (*http.Response, error)
+}
+
+// errors is a slice of multiple config-file errors
+type errors []error
+
+func (e errors) Error() string {
+	s := "config: error opening files:"
+	if len(e) == 1 {
+		return s + " " + e[0].Error()
+	}
+
+	for _, err := range e {
+		s += "\n" + err.Error()
+	}
+
+	return s
+}
+
+// Config is a type-safe wrapper around the config type
+type Config struct {
+	config *atomic.Value
+}
+
+// LoadFile loads a configuration file from the filename given
+func LoadFile(filenames ...string) (Config, error) {
+	var f *os.File
+	var err error
+	var errs errors
+
+	for _, filename := range filenames {
+		f, err = os.Open(filename)
+		if err == nil {
+			break
+		}
+
+		errs = append(errs, err)
+	}
+
+	if f == nil {
+		return Config{}, errs
+	}
+	defer f.Close()
+
+	return Load(f)
+}
+
+// Load loads a configuration file from the reader given, it expects TOML as input
+func Load(r io.Reader) (Config, error) {
+	var c = defaultConfig
+	m, err := toml.DecodeReader(r, &c)
+	if err != nil {
+		return Config{}, err
+	}
+
+	// print out keys that were found but don't have a destination
+	// TODO: error when this happens?
+	undec := m.Undecoded()
+	if len(undec) > 0 {
+		fmt.Println(undec)
+	}
+
+	var ac = Config{new(atomic.Value)}
+	ac.StoreConf(c)
+
+	return ac, nil
+}
+
+// Conf returns the configuration stored inside
+//
+// NOTE: Conf returns a shallow-copy of the config value stored inside; so do not edit
+// 		 any slices or maps that might be inside
+func (c Config) Conf() config {
+	return c.config.Load().(config)
+}
+
+// StoreConf stores the configuration passed
+func (c Config) StoreConf(new config) {
+	c.config.Store(new)
+}
+
+// Save writes the configuration to w in TOML format
+func (c Config) Save(w io.Writer) error {
+	return toml.NewEncoder(w).Encode(c.Conf())
+}
+
+// Duration is a time.Duration that supports Text(Un)Marshaler
+type Duration time.Duration
+
+// MarshalText implements encoding.TextMarshaler
+func (d Duration) MarshalText() ([]byte, error) {
+	return []byte(time.Duration(d).String()), nil
+}
+
+// UnmarshalText implements encoding.TextUnmarshaler
+func (d *Duration) UnmarshalText(text []byte) error {
+	n, err := time.ParseDuration(string(text))
+	*d = Duration(n)
+	return err
 }
