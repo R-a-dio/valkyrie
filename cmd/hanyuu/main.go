@@ -194,7 +194,10 @@ func executeCommand(ctx context.Context, errCh chan error) error {
 	// run our command in another goroutine so we can
 	// do signal handling on the main goroutine
 	go func() {
-		subcommands.Execute(ctx, errCh)
+		code := subcommands.Execute(ctx, errCh)
+		// send a fake error over the errCh, this is so subcommands that don't use our
+		// `cmd` type don't hang the process, mostly for internal subcommands we register
+		errCh <- WithStatusCode(nil, int(code))
 	}()
 
 	// handle our signals, we only exit when either the command finishes running and
