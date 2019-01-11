@@ -14,9 +14,9 @@ func init() {
 
 var streamerCmd = cmd{
 	name:     "streamer",
-	synopsis: "Streams to a configured icecast server.",
+	synopsis: "streams to a configured icecast server",
 	usage: `streamer:
-	Streams to a configured icecast server.
+	streams to a configured icecast server
 	`,
 	execute: streamer.Execute,
 }

@@ -49,9 +49,9 @@ func (c cmd) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{}) 
 
 var versionCmd = cmd{
 	name:     "version",
-	synopsis: "display version information of executable.",
+	synopsis: "display version information of executable",
 	usage: `version:
-	display version information of executable.`,
+	display version information of executable`,
 	execute: printVersion,
 }
 
@@ -76,9 +76,9 @@ var configFile string
 
 var configCmd = cmd{
 	name:     "config",
-	synopsis: "display current configuration.",
+	synopsis: "display current configuration",
 	usage: `config:
-	display current configuration.
+	display current configuration
 	`,
 	execute: printConfig,
 }
@@ -90,9 +90,9 @@ func printConfig(_ context.Context, cfg config.Config) error {
 // implements cmd for .../valkyrie/manager
 var managerCmd = cmd{
 	name:     "manager",
-	synopsis: "manages shared state between the different parts.",
+	synopsis: "manages shared state between the different parts",
 	usage: `manager:
-	manages shared state between the different parts.
+	manages shared state between the different parts
 	`,
 	execute: manager.Execute,
 }
@@ -100,27 +100,27 @@ var managerCmd = cmd{
 // implements cmd for .../valkyrie/ircbot
 var ircCmd = cmd{
 	name:     "irc",
-	synopsis: "run the IRC bot.",
+	synopsis: "run the IRC bot",
 	usage: `irc:
-	run the IRC bot.
+	run the IRC bot
 	`,
 	execute: ircbot.Execute,
 }
 
 var listenerLogCmd = cmd{
 	name:     "listenerlog",
-	synopsis: "log listener count to database.",
+	synopsis: "log listener count to database",
 	usage: `listenerlog:
-	log listener count to database.
+	log listener count to database
 	`,
 	execute: jobs.ExecuteListenerLog,
 }
 
 var requestCountCmd = cmd{
 	name:     "requestcount",
-	synopsis: "reduce request counter in database.",
+	synopsis: "reduce request counter in database",
 	usage: `requestcount:
-	reduce request counter in database.
+	reduce request counter in database
 	`,
 	execute: jobs.ExecuteRequestCount,
 }
