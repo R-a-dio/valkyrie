@@ -4,7 +4,10 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"log"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/ircbot"
@@ -29,18 +32,18 @@ func (c cmd) SetFlags(f *flag.FlagSet) {
 		c.setFlags(f)
 	}
 }
-func (c cmd) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
+func (c cmd) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
+	// extract extra arguments from the interface slice; it's fine if we panic here
+	// because that is an unrecoverable programmer error
+	errCh := args[0].(chan error)
+
 	cfg, err := config.LoadFile(configFile, configEnvFile)
 	if err != nil {
-		fmt.Println(err)
+		errCh <- err
 		return subcommands.ExitFailure
 	}
 
-	err = c.execute(ctx, cfg)
-	if err != nil {
-		fmt.Println(err)
-		return subcommands.ExitFailure
-	}
+	errCh <- c.execute(ctx, cfg)
 	return subcommands.ExitSuccess
 }
 
@@ -146,5 +149,94 @@ func main() {
 	flag.Parse()
 	configEnvFile = os.Getenv(configEnvFile)
 
-	os.Exit(int(subcommands.Execute(context.TODO())))
+	// exit code passed to os.Exit
+	var code int
+	// setup root context
+	ctx := context.Background()
+	// setup our error channel, we only use this channel if a nil error is returned by
+	// executeCommand; because if it is a non-nil error we know our cmd.Execute finished
+	// running; otherwise we have to wait for it to finish so we know it had the chance
+	// to clean up resources
+	errCh := make(chan error, 1)
+
+	// call into another function so that we can use defers
+	err := executeCommand(ctx, errCh)
+	if err == nil {
+		// executeCommand only returns nil when a signal asked us to stop running, this
+		// means the command running has already been notified to shutdown and we will
+		// wait for it to return
+		<-errCh
+	} else if exitErr, ok := err.(ExitError); ok {
+		// we've received an ExitError which indicates a (potentially) different
+		// failure exit code than the default
+		code = exitErr.StatusCode()
+	} else {
+		// normal non-nil error, we exit with the default failure exit code
+		code = 1
+	}
+
+	os.Exit(code)
+}
+
+// executeCommand runs subcommands.Execute and handles OS signals
+//
+// if someone is asking us to shutdown by sending us a SIGINT executeCommand
+// should (and does) return a nil error. Otherwise it should return the error given by
+// subcommands.Execute
+func executeCommand(ctx context.Context, errCh chan error) error {
+	// setup context that is passed to the command
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	signalCh := make(chan os.Signal, 2)
+	signal.Notify(signalCh, os.Interrupt, syscall.SIGHUP)
+
+	// run our command in another goroutine so we can
+	// do signal handling on the main goroutine
+	go func() {
+		subcommands.Execute(ctx, errCh)
+	}()
+
+	// handle our signals, we only exit when either the command finishes running and
+	// tells us about it through errCh; or when we receive a SIGINT from outside
+	for {
+		var sig os.Signal
+
+		select {
+		case sig = <-signalCh:
+		case err := <-errCh:
+			return err
+		}
+
+		switch sig {
+		case os.Interrupt:
+			log.Printf("SIGINT received")
+			return nil
+		case syscall.SIGHUP:
+			log.Printf("SIGHUP received: not implemented")
+			// TODO: implement this
+		}
+	}
+}
+
+// WithStatusCode returns an ExitError with the given status code
+func WithStatusCode(err error, code int) error {
+	return exitError{err, code}
+}
+
+// ExitError is an error that can carry a statuscode to be passed to os.Exit;
+type ExitError interface {
+	error
+	// StatusCode returns a status code to be passed to os.Exit
+	StatusCode() int
+}
+
+type exitError struct {
+	error
+	code int
+}
+
+// StatusCode returns a status code to be passed to os.Exit
+func (err exitError) StatusCode() int {
+	return err.code
 }
