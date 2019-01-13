@@ -2,6 +2,9 @@ package ircbot
 
 import (
 	"context"
+	"log"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/R-a-dio/valkyrie/database"
@@ -14,7 +17,7 @@ import (
 // expects
 func nowPlaying(e Event, echo RespondPublic) CommandFn {
 	return func() error {
-		fn, err :=  NowPlayingMessage(e)
+		fn, err := NowPlayingMessage(e)
 		if err != nil {
 			return err
 		}
@@ -77,12 +80,74 @@ func streamerQueueLength() CommandFn { return nil }
 func streamerUserInfo() CommandFn    { return nil }
 func faveTrack() CommandFn           { return nil }
 func faveList() CommandFn            { return nil }
-func threadURL() CommandFn           { return nil }
-func channelTopic() CommandFn        { return nil }
 
-func killStreamer(s streamer.Streamer, a Arguments) CommandFn {
+func threadURL(echo RespondPublic, args Arguments, m manager.Manager, op Access) CommandFn {
 	return func() error {
-		// TODO: implement authorization
+		thread := args["thread"]
+
+		if thread != "" && op {
+			_, err := m.SetThread(context.TODO(), &manager.Thread{Thread: thread})
+			if err != nil {
+				log.Println(err)
+				return nil
+			}
+		}
+
+		resp, err := m.Status(context.TODO(), new(manager.StatusRequest))
+		if err != nil {
+			log.Println(err)
+			return nil
+		}
+
+		echo("Thread: %s", resp.Thread.Thread)
+		return nil
+	}
+}
+
+var reTopicBit = regexp.MustCompile("(.*?r/)(.*)(/dio.*?)(.*)")
+
+func channelTopic(echo RespondPublic, args Arguments, c *girc.Client, e girc.Event) CommandFn {
+	return func() error {
+		channel := c.LookupChannel(e.Params[0])
+		if channel == nil {
+			log.Println("unknown channel in .topic")
+			// unknown channel?
+			return nil
+		}
+
+		newTopic := args["topic"]
+		if newTopic != "" && HasAccess(c, e) {
+			// we want to set the topic and have access for it
+			match := reTopicBit.FindAllStringSubmatch(channel.Topic, -1)
+			// a match is a [][]string of all matches, we only have one match so get rid
+			// of the outer slice
+			parts := match[0]
+			// regexp returns the full match as the first element, so we get rid of it
+			parts = parts[1:]
+			// now we replace the relevant bits between the forward slashes
+			parts[1] = Fmt("%s{orange}", newTopic)
+			// and now we can just merge them back together
+			newTopic = strings.Join(parts, "")
+
+			c.Cmd.Topic(channel.Name, newTopic)
+			return nil
+		}
+
+		// no access, or just want to know what the topic currently is
+		echo("Topic: %s", channel.Topic)
+		return nil
+	}
+}
+
+func killStreamer(s streamer.Streamer, a Arguments, op Access) CommandFn {
+	return func() error {
+		// TODO: this should use special caseing for streamers that don't have channel
+		// access
+		if !op {
+			return nil
+		}
+
+		// TODO: not everyone should be able to force kill
 		req := &streamer.StopRequest{
 			ForceStop: a.Bool("force"),
 		}

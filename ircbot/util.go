@@ -105,3 +105,23 @@ func FindNamedSubmatches(re *regexp.Regexp, s string) map[string]string {
 
 	return m
 }
+
+// HasAccess checks if the user that send the PRIVMSG to us has access +h or higher in
+// the channel it came from; HasAccess panics if the event is not PRIVMSG
+func HasAccess(c *girc.Client, e girc.Event) bool {
+	if e.Command != girc.PRIVMSG {
+		panic("HasAccess called with non-PRIVMSG event")
+	}
+
+	user := c.LookupUser(e.Source.Name)
+	if user == nil {
+		return false
+	}
+
+	perms, ok := user.Perms.Lookup(e.Params[0])
+	if !ok {
+		return false
+	}
+
+	return perms.IsAdmin() || perms.HalfOp
+}

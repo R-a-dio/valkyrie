@@ -43,11 +43,35 @@ func NowPlayingMessage(event Event) (messageFn, error) {
 	return ircbotMessageFn, nil
 }
 
+func ThreadURL(event Event) (CommandFn, error) {
+	client := WithClient(event)
+	gircEvent := WithIRCEvent(event)
+	respondPublic := WithRespondPublic(client, gircEvent)
+	arguments := WithArguments(event)
+	bot := WithBot(event)
+	manager := WithManager(bot)
+	access := WithAccess(client, gircEvent)
+	commandFn := threadURL(respondPublic, arguments, manager, access)
+	return commandFn, nil
+}
+
+func ChannelTopic(event Event) (CommandFn, error) {
+	client := WithClient(event)
+	gircEvent := WithIRCEvent(event)
+	respondPublic := WithRespondPublic(client, gircEvent)
+	arguments := WithArguments(event)
+	commandFn := channelTopic(respondPublic, arguments, client, gircEvent)
+	return commandFn, nil
+}
+
 func KillStreamer(event Event) (CommandFn, error) {
 	bot := WithBot(event)
 	streamer := WithStreamer(bot)
 	arguments := WithArguments(event)
-	commandFn := killStreamer(streamer, arguments)
+	client := WithClient(event)
+	gircEvent := WithIRCEvent(event)
+	access := WithAccess(client, gircEvent)
+	commandFn := killStreamer(streamer, arguments, access)
 	return commandFn, nil
 }
 
@@ -111,6 +135,8 @@ var Providers = wire.NewSet(
 	WithRespond,
 	WithRespondPrivate,
 	WithRespondPublic,
+
+	WithAccess,
 )
 
 type CommandFn func() error
@@ -243,6 +269,12 @@ func WithRespondPublic(c *girc.Client, e girc.Event) RespondPublic {
 	}
 }
 
+type Access bool
+
+func WithAccess(c *girc.Client, e girc.Event) Access {
+	return Access(HasAccess(c, e))
+}
+
 func LastPlayed(Event) (CommandFn, error) {
 
 	return nil, nil
@@ -269,16 +301,6 @@ func FaveTrack(Event) (CommandFn, error) {
 }
 
 func FaveList(Event) (CommandFn, error) {
-
-	return nil, nil
-}
-
-func ThreadURL(Event) (CommandFn, error) {
-
-	return nil, nil
-}
-
-func ChannelTopic(Event) (CommandFn, error) {
 
 	return nil, nil
 }

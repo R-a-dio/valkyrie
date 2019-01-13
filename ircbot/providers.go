@@ -10,9 +10,9 @@ import (
 	"github.com/R-a-dio/valkyrie/database"
 	"github.com/R-a-dio/valkyrie/rpc/manager"
 	"github.com/R-a-dio/valkyrie/rpc/streamer"
-	"github.com/lrstanley/girc"
 	"github.com/google/wire"
 	"github.com/jmoiron/sqlx"
+	"github.com/lrstanley/girc"
 )
 
 var Providers = wire.NewSet(
@@ -22,7 +22,7 @@ var Providers = wire.NewSet(
 	WithClient,
 	WithIRCEvent,
 
- 	// database access providers
+	// database access providers
 	WithDatabase,
 	//WithDatabaseTx, // TODO: find a way to handle Commit/Rollback
 
@@ -40,6 +40,8 @@ var Providers = wire.NewSet(
 	WithRespond,
 	WithRespondPrivate,
 	WithRespondPublic,
+
+	WithAccess,
 )
 
 type CommandFn func() error
@@ -100,7 +102,7 @@ type ArgumentTrack struct {
 
 // WithArgumentTrack returns the track specified by the argument 'TrackID'
 func WithArgumentTrack(h database.Handler, a Arguments) (ArgumentTrack, error) {
-	id := a["TrackID"] 
+	id := a["TrackID"]
 	if id == "" {
 		return ArgumentTrack{}, errors.New("no TrackID found in arguments")
 	}
@@ -109,24 +111,24 @@ func WithArgumentTrack(h database.Handler, a Arguments) (ArgumentTrack, error) {
 	if err != nil {
 		panic("non-numeric TrackID found from arguments: " + id)
 	}
-	
+
 	track, err := database.GetTrack(h, database.TrackID(tid))
 	return ArgumentTrack{track}, err
 }
 
 // CurrentTrack is a track that is currently being played on stream
-type CurrentTrack struct { 
+type CurrentTrack struct {
 	database.Track
 }
 
 // WithCurrentTrack returns the currently playing track
 func WithCurrentTrack(h database.Handler, s *manager.StatusResponse) (CurrentTrack, error) {
 	track, err := database.GetSongFromMetadata(h, s.Song.Metadata)
-	return CurrentTrack{track}, err 
+	return CurrentTrack{track}, err
 }
 
 type ArgumentOrCurrentTrack struct {
-	database.Track 
+	database.Track
 }
 
 // WithArgumentOrCurrentTrack combines WithArgumentTrack and WithCurrentTrack returning
@@ -168,6 +170,12 @@ func WithRespondPublic(c *girc.Client, e girc.Event) RespondPublic {
 	return func(message string, args ...interface{}) {
 		c.Cmd.Message(e.Params[0], Fmt(message, args...))
 	}
+}
+
+type Access bool
+
+func WithAccess(c *girc.Client, e girc.Event) Access {
+	return Access(HasAccess(c, e))
 }
 
 // ======================================
@@ -215,12 +223,12 @@ func FaveList(Event) (CommandFn, error) {
 }
 
 func ThreadURL(Event) (CommandFn, error) {
-	//wire.Build(Providers, threadURL)
+	wire.Build(Providers, threadURL)
 	return nil, nil
 }
 
 func ChannelTopic(Event) (CommandFn, error) {
-	//wire.Build(Providers, channelTopic)
+	wire.Build(Providers, channelTopic)
 	return nil, nil
 }
 
