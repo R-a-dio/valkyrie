@@ -72,7 +72,7 @@ func (m *Manager) SetSong(ctx context.Context, new *pb.Song) (*pb.Song, error) {
 	}
 
 	// if we don't have this song in the database create a new entry for it
-	if track.ID == 0 {
+	if track == nil {
 		track, err = database.CreateSong(tx, new.Metadata)
 		if err != nil {
 			return nil, twirp.InternalErrorWith(err)
@@ -122,7 +122,7 @@ func (m *Manager) SetSong(ctx context.Context, new *pb.Song) (*pb.Song, error) {
 	}
 
 	// announce the song over IRC
-	_, err = m.client.irc.AnnounceSong(ctx, new)
+	err = m.client.announce.AnnounceSong(radio.Song{Metadata: new.Metadata})
 	if err != nil {
 		// this isn't a critical error, so we do not return it if it occurs
 		log.Printf("manager: failed to announce song: %s", err)

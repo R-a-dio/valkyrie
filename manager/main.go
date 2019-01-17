@@ -5,9 +5,9 @@ import (
 	"net"
 	"sync"
 
+	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/database"
-	"github.com/R-a-dio/valkyrie/rpc/irc"
 	"github.com/R-a-dio/valkyrie/rpc/manager"
 	pb "github.com/R-a-dio/valkyrie/rpc/manager"
 	"github.com/R-a-dio/valkyrie/rpc/streamer"
@@ -71,7 +71,7 @@ func NewManager(cfg config.Config) (*Manager, error) {
 		},
 	}
 
-	m.client.irc = cfg.Conf().IRC.TwirpClient()
+	m.client.announce = cfg.Conf().IRC.TwirpClient()
 	m.client.streamer = cfg.Conf().Streamer.TwirpClient()
 	return &m, nil
 }
@@ -81,9 +81,9 @@ type Manager struct {
 	config.Config
 	DB *sqlx.DB
 
-	// RPC clients to other processes
+	// Other components
 	client struct {
-		irc      irc.Bot
+		announce radio.AnnounceService
 		streamer streamer.Streamer
 	}
 	// mu protects the fields below and their contents

@@ -73,7 +73,7 @@ type QueueService interface {
 	Remove(Song) error
 }
 
-type ChatService interface {
+type AnnounceService interface {
 	AnnounceSong(Song) error
 	AnnounceRequest(Song) error
 }
