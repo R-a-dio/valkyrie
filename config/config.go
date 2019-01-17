@@ -104,8 +104,8 @@ type irc struct {
 }
 
 // TwirpClient returns an usable twirp client for the irc bot
-func (i irc) TwirpClient() rpcirc.Bot {
-	return rpcirc.NewBotProtobufClient(prepareTwirpClient(i.Addr))
+func (i irc) TwirpClient() radio.AnnounceService {
+	return rpcirc.NewAnnounceService(prepareTwirpClient(i.Addr))
 }
 
 // manager contains all fields relevant to the manager
