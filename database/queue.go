@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	radio "github.com/R-a-dio/valkyrie"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -29,7 +30,7 @@ var (
 )
 
 type QueueEntry struct {
-	Track          Track
+	Track          radio.Song
 	IsRequest      bool
 	UserIdentifier string
 
@@ -44,7 +45,7 @@ func (q QueueEntry) MarshalJSON() ([]byte, error) {
 		UserIdentifier    string
 		EstimatedPlayTime time.Time
 		Metadata          string
-		TrackID           TrackID
+		TrackID           radio.TrackID
 	}{
 		IsRequest:         q.IsRequest,
 		UserIdentifier:    q.UserIdentifier,
@@ -56,7 +57,7 @@ func (q QueueEntry) MarshalJSON() ([]byte, error) {
 
 func QueueLoad(h Handler) ([]QueueEntry, error) {
 	var databaseQueue = []struct {
-		TrackID   TrackID
+		TrackID   radio.TrackID
 		UID       sql.NullString
 		IsRequest int
 	}{}
@@ -76,7 +77,7 @@ func QueueLoad(h Handler) ([]QueueEntry, error) {
 		}
 
 		queue = append(queue, QueueEntry{
-			Track:          t,
+			Track:          *t,
 			IsRequest:      qi.IsRequest != 0,
 			UserIdentifier: qi.UID.String,
 		})
@@ -85,8 +86,8 @@ func QueueLoad(h Handler) ([]QueueEntry, error) {
 	return queue, nil
 }
 
-func QueuePopulate(h Handler) ([]TrackID, error) {
-	var candidates = []TrackID{}
+func QueuePopulate(h Handler) ([]radio.TrackID, error) {
+	var candidates = []radio.TrackID{}
 	err := sqlx.Select(h, &candidates, queryQueuePopulate)
 	if err != nil {
 		return nil, err
@@ -98,7 +99,7 @@ func QueuePopulate(h Handler) ([]TrackID, error) {
 	return candidates, nil
 }
 
-func QueueUpdateTrack(h Handler, tid TrackID) error {
+func QueueUpdateTrack(h Handler, tid radio.TrackID) error {
 	_, err := h.Exec(queryQueueUpdateLastRequested, tid)
 	if err != nil {
 		return err
