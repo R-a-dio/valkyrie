@@ -17,8 +17,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
-	"github.com/R-a-dio/valkyrie/database"
 	"github.com/R-a-dio/valkyrie/streamer/audio"
 	"github.com/cenkalti/backoff"
 )
@@ -198,7 +198,7 @@ type pipelineFunc func(streamerTask) error
 
 type streamerTrack struct {
 	filepath string
-	track    database.Track
+	track    radio.Song
 	pcm      *audio.PCMBuffer
 	mp3      *audio.MP3Buffer
 
@@ -294,7 +294,7 @@ func (s *Streamer) queueFiles(task streamerTask) error {
 		}
 
 		track.track = s.queue.PeekTrack(last.track)
-		if track.track == database.NoTrack {
+		if track.track == (radio.Song{}) {
 			return ErrEmptyQueue
 		}
 

@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/database"
 	"github.com/R-a-dio/valkyrie/streamer/audio"
@@ -73,7 +74,7 @@ type Queue struct {
 }
 
 // AddRequest adds a track to the queue as requested by uid
-func (q *Queue) AddRequest(t database.Track, uid string) {
+func (q *Queue) AddRequest(t radio.Song, uid string) {
 	q.mu.Lock()
 	q.addEntry(database.QueueEntry{
 		Track:          t,
@@ -85,7 +86,7 @@ func (q *Queue) AddRequest(t database.Track, uid string) {
 }
 
 // Add adds a track to the queue
-func (q *Queue) Add(t database.Track) {
+func (q *Queue) Add(t radio.Song) {
 	q.mu.Lock()
 	q.addEntry(database.QueueEntry{
 		Track:          t,
@@ -153,9 +154,9 @@ func (q *Queue) Entries() []database.QueueEntry {
 	return all
 }
 
-func (q *Queue) peek() database.Track {
+func (q *Queue) peek() radio.Song {
 	if len(q.l) == 0 {
-		return database.NoTrack
+		return radio.Song{}
 	}
 
 	// refresh our in-memory track with database info, something might've
@@ -164,7 +165,7 @@ func (q *Queue) peek() database.Track {
 }
 
 // Peek returns the next track to be returned from Pop
-func (q *Queue) Peek() database.Track {
+func (q *Queue) Peek() radio.Song {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
@@ -173,7 +174,7 @@ func (q *Queue) Peek() database.Track {
 
 // PeekTrack returns the track positioned after the track given or next track
 // if track is not in queue
-func (q *Queue) PeekTrack(t database.Track) database.Track {
+func (q *Queue) PeekTrack(t radio.Song) radio.Song {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
@@ -192,7 +193,7 @@ func (q *Queue) PeekTrack(t database.Track) database.Track {
 	return q.peek()
 }
 
-func (q *Queue) refreshTrack(t database.Track) database.Track {
+func (q *Queue) refreshTrack(t radio.Song) radio.Song {
 	h := database.Handle(context.TODO(), q.DB)
 	nt, err := database.GetTrack(h, t.TrackID)
 	if err != nil {
@@ -207,11 +208,11 @@ func (q *Queue) refreshTrack(t database.Track) database.Track {
 		nt.Length = t.Length
 	}
 
-	return nt
+	return *nt
 }
 
 // Pop removes and returns the next track in the queue
-func (q *Queue) Pop() database.Track {
+func (q *Queue) Pop() radio.Song {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
@@ -220,7 +221,7 @@ func (q *Queue) Pop() database.Track {
 
 // PopTrack pops the next track if it's the track given; otherwise does
 // nothing.
-func (q *Queue) PopTrack(t database.Track) {
+func (q *Queue) PopTrack(t radio.Song) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
@@ -237,7 +238,7 @@ func (q *Queue) PopTrack(t database.Track) {
 }
 
 // RemoveTrack removes the first occurence of the track given from the queue
-func (q *Queue) RemoveTrack(t database.Track) {
+func (q *Queue) RemoveTrack(t radio.Song) {
 	q.mu.Lock()
 	for i, qt := range q.l {
 		if !qt.Track.EqualTo(t) {
@@ -251,9 +252,9 @@ func (q *Queue) RemoveTrack(t database.Track) {
 }
 
 // pop pops a track from the queue, before calling pop you have to hold q.mu
-func (q *Queue) pop() database.Track {
+func (q *Queue) pop() radio.Song {
 	if len(q.l) == 0 {
-		return database.NoTrack
+		return radio.Song{}
 	}
 
 	e := q.l[0]
@@ -361,7 +362,7 @@ func (q *Queue) populate() error {
 
 		addedCount++
 		q.addEntry(database.QueueEntry{
-			Track:          t,
+			Track:          *t,
 			UserIdentifier: "internal",
 		})
 	}

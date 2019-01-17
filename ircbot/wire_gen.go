@@ -8,6 +8,7 @@ package ircbot
 import (
 	"context"
 	"errors"
+	"github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/database"
 	"github.com/R-a-dio/valkyrie/rpc/manager"
 	"github.com/R-a-dio/valkyrie/rpc/streamer"
@@ -192,7 +193,7 @@ func WithDatabaseTx(db *sqlx.DB) (database.HandlerTx, error) {
 
 // ArgumentTrack is a track specified by user arguments
 type ArgumentTrack struct {
-	database.Track
+	radio.Song
 }
 
 // WithArgumentTrack returns the track specified by the argument 'TrackID'
@@ -207,23 +208,23 @@ func WithArgumentTrack(h database.Handler, a Arguments) (ArgumentTrack, error) {
 		panic("non-numeric TrackID found from arguments: " + id)
 	}
 
-	track, err := database.GetTrack(h, database.TrackID(tid))
-	return ArgumentTrack{track}, err
+	track, err := database.GetTrack(h, radio.TrackID(tid))
+	return ArgumentTrack{*track}, err
 }
 
 // CurrentTrack is a track that is currently being played on stream
 type CurrentTrack struct {
-	database.Track
+	radio.Song
 }
 
 // WithCurrentTrack returns the currently playing track
 func WithCurrentTrack(h database.Handler, s *manager.StatusResponse) (CurrentTrack, error) {
 	track, err := database.GetSongFromMetadata(h, s.Song.Metadata)
-	return CurrentTrack{track}, err
+	return CurrentTrack{*track}, err
 }
 
 type ArgumentOrCurrentTrack struct {
-	database.Track
+	radio.Song
 }
 
 // WithArgumentOrCurrentTrack combines WithArgumentTrack and WithCurrentTrack returning
@@ -231,13 +232,13 @@ type ArgumentOrCurrentTrack struct {
 func WithArgumentOrCurrentTrack(h database.Handler, a Arguments, s *manager.StatusResponse) (ArgumentOrCurrentTrack, error) {
 	trackA, err := WithArgumentTrack(h, a)
 	if err == nil {
-		return ArgumentOrCurrentTrack{trackA.Track}, err
+		return ArgumentOrCurrentTrack{trackA.Song}, err
 	} else if err == database.ErrTrackNotFound {
 		return ArgumentOrCurrentTrack{}, NewUserError(err, "track identifier does not exist")
 	}
 
 	trackC, err := WithCurrentTrack(h, s)
-	return ArgumentOrCurrentTrack{trackC.Track}, err
+	return ArgumentOrCurrentTrack{trackC.Song}, err
 }
 
 type Respond func(message string, args ...interface{})

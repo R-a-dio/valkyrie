@@ -6,6 +6,7 @@ import (
 
 	"github.com/twitchtv/twirp"
 
+	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/database"
 	pb "github.com/R-a-dio/valkyrie/rpc/streamer"
 )
@@ -61,7 +62,7 @@ func (h *streamHandler) RequestTrack(ctx context.Context, r *pb.TrackRequest) (*
 	}
 
 	// find our track in the database
-	track, err := database.GetTrack(tx, database.TrackID(r.Track))
+	track, err := database.GetTrack(tx, radio.TrackID(r.Track))
 	if err != nil {
 		if err == database.ErrTrackNotFound {
 			return requestResponse(false, "unknown track")
@@ -85,7 +86,7 @@ func (h *streamHandler) RequestTrack(ctx context.Context, r *pb.TrackRequest) (*
 	if err != nil {
 		return nil, twirp.InternalErrorWith(err)
 	}
-	err = database.UpdateTrackRequestTime(tx, database.TrackID(r.Track))
+	err = database.UpdateTrackRequestTime(tx, radio.TrackID(r.Track))
 	if err != nil {
 		return nil, twirp.InternalErrorWith(err)
 	}
@@ -95,6 +96,6 @@ func (h *streamHandler) RequestTrack(ctx context.Context, r *pb.TrackRequest) (*
 	}
 
 	// send the song to the queue
-	h.queue.AddRequest(track, r.Identifier)
+	h.queue.AddRequest(*track, r.Identifier)
 	return requestResponse(true, "thank you for making your request!")
 }

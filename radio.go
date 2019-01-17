@@ -115,6 +115,10 @@ type Song struct {
 	*DatabaseTrack
 }
 
+func (s Song) EqualTo(d Song) bool {
+	return s.ID == d.ID
+}
+
 // TrackID is a database track identifier
 type TrackID uint64
 

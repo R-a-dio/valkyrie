@@ -58,8 +58,8 @@ func nowPlayingMessage(status *manager.StatusResponse, db database.Handler, trac
 			songLength = end.Sub(start)
 		}
 
-		favoriteCount, _ := track.FaveCount(db)
-		playedCount, _ := track.PlayedCount(db)
+		favoriteCount, _ := database.SongFaveCount(db, track.Song)
+		playedCount, _ := database.SongPlayedCount(db, track.Song)
 
 		args := []interface{}{
 			status.Song.Metadata,
@@ -185,8 +185,8 @@ func trackTags(echo Respond, db database.Handler, track ArgumentOrCurrentTrack) 
 	return func() error {
 		message := "{clear}Title: {red}%s {clear}Album: {red}%s {clear}Faves: {red}%d {clear}Plays: {red}%d {clear}Tags: {red}%s"
 
-		favoriteCount, _ := track.FaveCount(db)
-		playedCount, _ := track.PlayedCount(db)
+		favoriteCount, _ := database.SongFaveCount(db, track.Song)
+		playedCount, _ := database.SongPlayedCount(db, track.Song)
 
 		echo(message,
 			track.Metadata,
