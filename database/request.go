@@ -2,7 +2,6 @@ package database
 
 import (
 	"database/sql"
-	"math"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -38,21 +37,4 @@ func UpdateUserRequestTime(h Handler, user string, update bool) error {
 
 	_, err := h.Exec(query, user)
 	return err
-}
-
-// calculateRequestDelay returns the delay between two requests of a song
-func calculateRequestDelay(requestCount int) time.Duration {
-	if requestCount > 30 {
-		requestCount = 30
-	}
-
-	var dur float64
-	if requestCount >= 0 && requestCount <= 7 {
-		dur = -11057*math.Pow(float64(requestCount), 2) +
-			172954*float64(requestCount) + 81720
-	} else {
-		dur = 599955*math.Exp(0.0372*float64(requestCount)) + 0.5
-	}
-
-	return time.Duration(time.Duration(dur/2) * time.Second)
 }
