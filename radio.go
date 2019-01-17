@@ -26,9 +26,6 @@ func CalculateRequestDelay(requestCount int) time.Duration {
 	return time.Duration(time.Duration(dur/2) * time.Second)
 }
 
-type StreamListener interface {
-}
-
 type Status struct {
 	User            User
 	Song            Song
@@ -44,28 +41,41 @@ type User struct {
 }
 
 type StreamInfo struct {
+	// Listeners is the current amount of stream listeners
 	Listeners int
+	// SongStart is the time at which the current song started playing
+	SongStart time.Time
+	// SongEnd is the expected time the current song stops playing
+	SongEnd time.Time
 }
 
-type Manager interface {
+type ManagerService interface {
 	Status() (Status, error)
 
 	UpdateUser(User) error
 	UpdateSong(Song) error
 	UpdateThread(thread string) error
-	UpdateStreamInfo(StreamInfo) error
+	UpdateListeners(int) error
 }
 
-type Streamer interface {
+type StreamerService interface {
 }
 
 type QueueService interface {
-	RequestSong() error
+	// AddSong adds the song given to the queue
+	AddSong(Song) error
+	// Peek returns the song that is queued after the song given
+	Peek(Song) (Song, error)
+	// Pop pops off the song given if it's the top-most song, otherwise ignores it
+	Pop(Song) error
+	// Remove removes the song given from the queue;  Remove should only remove
+	// the first occurence of the song
+	Remove(Song) error
 }
 
-type IRCBot interface {
-	AnnounceSong() error
-	AnnounceRequest() error
+type ChatService interface {
+	AnnounceSong(Song) error
+	AnnounceRequest(Song) error
 }
 
 // SongID is a songs identifier

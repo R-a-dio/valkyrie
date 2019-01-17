@@ -6,9 +6,9 @@ import (
 	"net"
 	"time"
 
+	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/database"
-	"github.com/R-a-dio/valkyrie/rpc/manager"
 	"github.com/R-a-dio/valkyrie/rpc/streamer"
 	"github.com/jmoiron/sqlx"
 	"github.com/lrstanley/girc"
@@ -89,8 +89,8 @@ type Bot struct {
 	config.Config
 	DB *sqlx.DB
 
-	// rpc interfaces
-	manager  manager.Manager
+	// interfaces to other components
+	manager  radio.ManagerService
 	streamer streamer.Streamer
 
 	c *girc.Client

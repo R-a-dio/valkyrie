@@ -10,7 +10,6 @@ import (
 	"errors"
 	"github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/database"
-	"github.com/R-a-dio/valkyrie/rpc/manager"
 	"github.com/R-a-dio/valkyrie/rpc/streamer"
 	"github.com/google/wire"
 	"github.com/jmoiron/sqlx"
@@ -30,17 +29,17 @@ func NowPlaying(event Event) (CommandFn, error) {
 
 func NowPlayingMessage(event Event) (messageFn, error) {
 	bot := WithBot(event)
-	statusResponse, err := WithManagerStatus(bot)
+	status, err := WithManagerStatus(bot)
 	if err != nil {
 		return nil, err
 	}
 	db := WithDB(bot)
 	handler := WithDatabase(db)
-	currentTrack, err := WithCurrentTrack(handler, statusResponse)
+	currentTrack, err := WithCurrentTrack(handler, status)
 	if err != nil {
 		return nil, err
 	}
-	ircbotMessageFn := nowPlayingMessage(statusResponse, handler, currentTrack)
+	ircbotMessageFn := nowPlayingMessage(status, handler, currentTrack)
 	return ircbotMessageFn, nil
 }
 
@@ -50,9 +49,9 @@ func ThreadURL(event Event) (CommandFn, error) {
 	respondPublic := WithRespondPublic(client, gircEvent)
 	arguments := WithArguments(event)
 	bot := WithBot(event)
-	manager := WithManager(bot)
+	managerService := WithManager(bot)
 	access := WithAccess(client, gircEvent)
-	commandFn := threadURL(respondPublic, arguments, manager, access)
+	commandFn := threadURL(respondPublic, arguments, managerService, access)
 	return commandFn, nil
 }
 
@@ -101,11 +100,11 @@ func TrackTags(event Event) (CommandFn, error) {
 	db := WithDB(bot)
 	handler := WithDatabase(db)
 	arguments := WithArguments(event)
-	statusResponse, err := WithManagerStatus(bot)
+	status, err := WithManagerStatus(bot)
 	if err != nil {
 		return nil, err
 	}
-	argumentOrCurrentTrack, err := WithArgumentOrCurrentTrack(handler, arguments, statusResponse)
+	argumentOrCurrentTrack, err := WithArgumentOrCurrentTrack(handler, arguments, status)
 	if err != nil {
 		return nil, err
 	}
@@ -175,12 +174,12 @@ func WithStreamer(bot *Bot) streamer.Streamer {
 	return bot.streamer
 }
 
-func WithManager(bot *Bot) manager.Manager {
+func WithManager(bot *Bot) radio.ManagerService {
 	return bot.manager
 }
 
-func WithManagerStatus(bot *Bot) (*manager.StatusResponse, error) {
-	return bot.manager.Status(context.TODO(), new(manager.StatusRequest))
+func WithManagerStatus(bot *Bot) (radio.Status, error) {
+	return bot.manager.Status()
 }
 
 func WithDatabase(db *sqlx.DB) database.Handler {
@@ -218,7 +217,7 @@ type CurrentTrack struct {
 }
 
 // WithCurrentTrack returns the currently playing track
-func WithCurrentTrack(h database.Handler, s *manager.StatusResponse) (CurrentTrack, error) {
+func WithCurrentTrack(h database.Handler, s radio.Status) (CurrentTrack, error) {
 	track, err := database.GetSongFromMetadata(h, s.Song.Metadata)
 	return CurrentTrack{*track}, err
 }
@@ -229,7 +228,7 @@ type ArgumentOrCurrentTrack struct {
 
 // WithArgumentOrCurrentTrack combines WithArgumentTrack and WithCurrentTrack returning
 // ArgumentTrack first if available
-func WithArgumentOrCurrentTrack(h database.Handler, a Arguments, s *manager.StatusResponse) (ArgumentOrCurrentTrack, error) {
+func WithArgumentOrCurrentTrack(h database.Handler, a Arguments, s radio.Status) (ArgumentOrCurrentTrack, error) {
 	trackA, err := WithArgumentTrack(h, a)
 	if err == nil {
 		return ArgumentOrCurrentTrack{trackA.Song}, err

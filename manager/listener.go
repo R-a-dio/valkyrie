@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"time"
 
+	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
-	pb "github.com/R-a-dio/valkyrie/rpc/manager"
 )
 
 const maxMetadataLength = 255 * 16
@@ -25,14 +25,14 @@ type Listener struct {
 	cancel context.CancelFunc
 
 	// manager is an RPC client to the status manager
-	manager pb.Manager
+	manager radio.ManagerService
 
 	// prevSong is the last song we got from the stream
 	prevSong string
 }
 
 // NewListener creates a listener and starts running in the background immediately
-func NewListener(ctx context.Context, cfg config.Config, m pb.Manager) *Listener {
+func NewListener(ctx context.Context, cfg config.Config, m radio.ManagerService) *Listener {
 	ln := Listener{
 		Config:  cfg,
 		manager: m,
@@ -165,13 +165,12 @@ func (ln *Listener) parseResponse(ctx context.Context, metasize int, src io.Read
 			continue
 		}
 
-		s := pb.Song{
-			Metadata:  song,
-			StartTime: uint64(time.Now().Unix()),
+		s := radio.Song{
+			Metadata: song,
 		}
 
 		go func() {
-			_, err := ln.manager.SetSong(ctx, &s)
+			err := ln.manager.UpdateSong(s)
 			if err != nil {
 				log.Printf("manager-listener: error setting song: %s\n", err)
 			}

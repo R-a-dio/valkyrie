@@ -5,7 +5,6 @@ import (
 
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/database"
-	"github.com/R-a-dio/valkyrie/rpc/manager"
 )
 
 const insertLog = `INSERT INTO listenlog (listeners, dj) VALUES (?, ?);`
@@ -20,13 +19,13 @@ func ExecuteListenerLog(ctx context.Context, cfg config.Config) error {
 
 	m := cfg.Conf().Manager.TwirpClient()
 
-	status, err := m.Status(ctx, &manager.StatusRequest{})
+	status, err := m.Status()
 	if err != nil {
 		return err
 	}
 
 	h := database.Handle(ctx, db)
-	_, err = h.Exec(insertLog, status.ListenerInfo.Listeners, status.User.Id)
+	_, err = h.Exec(insertLog, status.StreamInfo.Listeners, status.User.ID)
 	if err != nil {
 		return err
 	}

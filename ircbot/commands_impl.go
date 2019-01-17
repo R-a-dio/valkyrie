@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
+	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/database"
-	"github.com/R-a-dio/valkyrie/rpc/manager"
 	"github.com/R-a-dio/valkyrie/rpc/streamer"
 	"github.com/lrstanley/girc"
 )
@@ -38,7 +38,7 @@ type messageFn func() (msg string, args []interface{}, err error)
 
 // nowPlayingMessage implements the internals for both the NowPlaying command and
 // Bot.AnnounceSong for the API
-func nowPlayingMessage(status *manager.StatusResponse, db database.Handler, track CurrentTrack) messageFn {
+func nowPlayingMessage(status radio.Status, db database.Handler, track CurrentTrack) messageFn {
 	return func() (string, []interface{}, error) {
 		message := "Now playing:{red} '%s' {clear}[%s/%s](%s), %s, %s, {green}LP:{clear} %s"
 
@@ -51,8 +51,8 @@ func nowPlayingMessage(status *manager.StatusResponse, db database.Handler, trac
 		var songLength time.Duration
 
 		{
-			start := time.Unix(int64(status.Song.StartTime), 0)
-			end := time.Unix(int64(status.Song.EndTime), 0)
+			start := status.StreamInfo.SongStart
+			end := status.StreamInfo.SongEnd
 
 			songPosition = time.Since(start)
 			songLength = end.Sub(start)
@@ -64,7 +64,7 @@ func nowPlayingMessage(status *manager.StatusResponse, db database.Handler, trac
 		args := []interface{}{
 			status.Song.Metadata,
 			FormatPlaybackDuration(songPosition), FormatPlaybackDuration(songLength),
-			Pluralf("%d listeners", status.ListenerInfo.Listeners),
+			Pluralf("%d listeners", int64(status.StreamInfo.Listeners)),
 			Pluralf("%d faves", favoriteCount),
 			Pluralf("played %d times", playedCount),
 			FormatLongDuration(lastPlayedDiff),
@@ -81,25 +81,25 @@ func streamerUserInfo() CommandFn    { return nil }
 func faveTrack() CommandFn           { return nil }
 func faveList() CommandFn            { return nil }
 
-func threadURL(echo RespondPublic, args Arguments, m manager.Manager, op Access) CommandFn {
+func threadURL(echo RespondPublic, args Arguments, m radio.ManagerService, op Access) CommandFn {
 	return func() error {
 		thread := args["thread"]
 
 		if thread != "" && op {
-			_, err := m.SetThread(context.TODO(), &manager.Thread{Thread: thread})
+			err := m.UpdateThread(thread)
 			if err != nil {
 				log.Println(err)
 				return nil
 			}
 		}
 
-		resp, err := m.Status(context.TODO(), new(manager.StatusRequest))
+		resp, err := m.Status()
 		if err != nil {
 			log.Println(err)
 			return nil
 		}
 
-		echo("Thread: %s", resp.Thread.Thread)
+		echo("Thread: %s", resp.Thread)
 		return nil
 	}
 }
