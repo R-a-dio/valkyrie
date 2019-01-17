@@ -116,14 +116,9 @@ func (dt databaseTrack) ToSong() *radio.Song {
 		metadata = dt.Track.String
 	}
 
-	return &radio.Song{
-		ID:         radio.SongID(dt.ID.Int64),
-		Hash:       dt.Hash,
-		Metadata:   metadata,
-		Length:     time.Second * time.Duration(dt.Length.Int64),
-		LastPlayed: dt.LastPlayed.Time,
-
-		DatabaseTrack: &radio.DatabaseTrack{
+	var track *radio.DatabaseTrack
+	if dt.TrackID.Valid {
+		track = &radio.DatabaseTrack{
 			TrackID:  radio.TrackID(dt.TrackID.Int64),
 			Artist:   dt.Artist.String,
 			Title:    dt.Track.String,
@@ -140,7 +135,16 @@ func (dt databaseTrack) ToSong() *radio.Song {
 			LastRequested: dt.LastRequested.Time,
 			RequestCount:  int(dt.RequestCount.Int64),
 			RequestDelay:  radio.CalculateRequestDelay(int(dt.RequestCount.Int64)),
-		},
+		}
+	}
+
+	return &radio.Song{
+		ID:            radio.SongID(dt.ID.Int64),
+		Hash:          dt.Hash,
+		Metadata:      metadata,
+		Length:        time.Second * time.Duration(dt.Length.Int64),
+		LastPlayed:    dt.LastPlayed.Time,
+		DatabaseTrack: track,
 	}
 }
 
