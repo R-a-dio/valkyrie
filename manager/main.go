@@ -5,12 +5,13 @@ import (
 	"net"
 	"sync"
 
+	"github.com/R-a-dio/valkyrie/config"
+	"github.com/R-a-dio/valkyrie/database"
 	"github.com/R-a-dio/valkyrie/rpc/irc"
+	"github.com/R-a-dio/valkyrie/rpc/manager"
 	pb "github.com/R-a-dio/valkyrie/rpc/manager"
 	"github.com/R-a-dio/valkyrie/rpc/streamer"
 	"github.com/jmoiron/sqlx"
-	"github.com/R-a-dio/valkyrie/config"
-	"github.com/R-a-dio/valkyrie/database"
 )
 
 // Execute executes a manager with the context and configuration given; it returns with
@@ -21,7 +22,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 
-	ExecuteListener(ctx, cfg, m)
+	ExecuteListener(ctx, cfg, manager.NewWrapClient(m))
 
 	// setup a http server for our RPC API
 	srv, err := NewHTTPServer(m)
@@ -54,7 +55,7 @@ var ExecuteListener = NewListener
 // NewManager returns a manager ready for use
 func NewManager(cfg config.Config) (*Manager, error) {
 	db, err := database.Connect(cfg)
-	if err != nil{
+	if err != nil {
 		return nil, err
 	}
 

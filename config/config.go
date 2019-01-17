@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
+	radio "github.com/R-a-dio/valkyrie"
 	rpcirc "github.com/R-a-dio/valkyrie/rpc/irc"
 	rpcmanager "github.com/R-a-dio/valkyrie/rpc/manager"
 	rpcstreamer "github.com/R-a-dio/valkyrie/rpc/streamer"
@@ -118,8 +119,8 @@ type manager struct {
 	FallbackNames []string
 }
 
-func (m manager) TwirpClient() rpcmanager.Manager {
-	return rpcmanager.NewManagerProtobufClient(prepareTwirpClient(m.Addr))
+func (m manager) TwirpClient() radio.ManagerService {
+	return rpcmanager.NewClient(prepareTwirpClient(m.Addr))
 }
 
 // prepareTwirpClient prepares a http client and an usable address string for creating

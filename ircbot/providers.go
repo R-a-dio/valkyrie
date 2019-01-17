@@ -9,7 +9,6 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/database"
-	"github.com/R-a-dio/valkyrie/rpc/manager"
 	"github.com/R-a-dio/valkyrie/rpc/streamer"
 	"github.com/google/wire"
 	"github.com/jmoiron/sqlx"
@@ -80,12 +79,12 @@ func WithStreamer(bot *Bot) streamer.Streamer {
 	return bot.streamer
 }
 
-func WithManager(bot *Bot) manager.Manager {
+func WithManager(bot *Bot) radio.ManagerService {
 	return bot.manager
 }
 
-func WithManagerStatus(bot *Bot) (*manager.StatusResponse, error) {
-	return bot.manager.Status(context.TODO(), new(manager.StatusRequest))
+func WithManagerStatus(bot *Bot) (radio.Status, error) {
+	return bot.manager.Status()
 }
 
 func WithDatabase(db *sqlx.DB) database.Handler {
@@ -123,7 +122,7 @@ type CurrentTrack struct {
 }
 
 // WithCurrentTrack returns the currently playing track
-func WithCurrentTrack(h database.Handler, s *manager.StatusResponse) (CurrentTrack, error) {
+func WithCurrentTrack(h database.Handler, s radio.Status) (CurrentTrack, error) {
 	track, err := database.GetSongFromMetadata(h, s.Song.Metadata)
 	return CurrentTrack{*track}, err
 }
@@ -134,7 +133,7 @@ type ArgumentOrCurrentTrack struct {
 
 // WithArgumentOrCurrentTrack combines WithArgumentTrack and WithCurrentTrack returning
 // ArgumentTrack first if available
-func WithArgumentOrCurrentTrack(h database.Handler, a Arguments, s *manager.StatusResponse) (ArgumentOrCurrentTrack, error) {
+func WithArgumentOrCurrentTrack(h database.Handler, a Arguments, s radio.Status) (ArgumentOrCurrentTrack, error) {
 	trackA, err := WithArgumentTrack(h, a)
 	if err == nil {
 		return ArgumentOrCurrentTrack{trackA.Song}, err

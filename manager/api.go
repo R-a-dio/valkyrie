@@ -57,8 +57,6 @@ func (m *Manager) SetSong(ctx context.Context, new *pb.Song) (*pb.Song, error) {
 	switch { // required arguments check
 	case new.Metadata == "":
 		return nil, twirp.RequiredArgumentError("metadata")
-	case new.StartTime == 0:
-		return nil, twirp.RequiredArgumentError("start_time")
 	}
 
 	tx, err := database.HandleTx(ctx, m.DB)
@@ -81,9 +79,14 @@ func (m *Manager) SetSong(ctx context.Context, new *pb.Song) (*pb.Song, error) {
 		}
 	}
 
+	// we assume the song just started
+	new.StartTime = uint64(time.Now().Unix())
+
 	// now move our database knowledge into the status Song type
 	new.Id = int32(track.ID)
-	new.TrackId = int32(track.TrackID)
+	if track.DatabaseTrack != nil {
+		new.TrackId = int32(track.TrackID)
+	}
 	new.EndTime = new.StartTime + uint64(track.Length/time.Second)
 
 	var prev *pb.Song
