@@ -9,6 +9,7 @@ import (
 
 	"github.com/twitchtv/twirp"
 
+	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/database"
 	pb "github.com/R-a-dio/valkyrie/rpc/manager"
 	"github.com/golang/protobuf/proto"
@@ -136,7 +137,7 @@ func (m *Manager) handlePreviousSong(tx database.HandlerTx, prev *pb.Song, liste
 	startTime := time.Unix(int64(prev.StartTime), 0)
 
 	// insert an entry that the previous song just played
-	err := database.InsertPlayedSong(tx, database.SongID(prev.Id), listenerDiff)
+	err := database.InsertPlayedSong(tx, radio.SongID(prev.Id), listenerDiff)
 	if err != nil {
 		log.Printf("manager: unable to insert play history: %s", err)
 		return err
@@ -145,7 +146,7 @@ func (m *Manager) handlePreviousSong(tx database.HandlerTx, prev *pb.Song, liste
 	if prev.StartTime == prev.EndTime {
 		length := time.Since(startTime)
 
-		return database.UpdateSongLength(tx, database.SongID(prev.Id), length)
+		return database.UpdateSongLength(tx, radio.SongID(prev.Id), length)
 	}
 
 	return nil

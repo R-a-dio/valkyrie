@@ -5,6 +5,7 @@ import (
 	"log"
 	"time"
 
+	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/database"
 
@@ -35,7 +36,7 @@ func ExecuteRequestCount(ctx context.Context, cfg config.Config) error {
 	}
 	defer h.Rollback()
 
-	var ids = []database.TrackID{}
+	var ids = []radio.TrackID{}
 	err = sqlx.Select(h, &ids, selectRC, duration.Seconds())
 	if err != nil {
 		return err
