@@ -11,16 +11,16 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/database"
-	pb "github.com/R-a-dio/valkyrie/rpc/manager"
+	"github.com/R-a-dio/valkyrie/rpc"
 	"github.com/golang/protobuf/proto"
 )
 
 // NewHTTPServer sets up a net/http server ready to serve RPC requests
 func NewHTTPServer(m *Manager) (*http.Server, error) {
-	rpcServer := pb.NewManagerServer(m, nil)
+	rpcServer := rpc.NewManagerServer(m, nil)
 	mux := http.NewServeMux()
 	// rpc server path
-	mux.Handle(pb.ManagerPathPrefix, rpcServer)
+	mux.Handle(rpc.ManagerPathPrefix, rpcServer)
 
 	// debug symbols
 	mux.HandleFunc("/debug/pprof/", pprof.Index)
@@ -35,8 +35,8 @@ func NewHTTPServer(m *Manager) (*http.Server, error) {
 }
 
 // Status returns the current status of the radio
-func (m *Manager) Status(ctx context.Context, _ *pb.StatusRequest) (*pb.StatusResponse, error) {
-	var sr pb.StatusResponse
+func (m *Manager) Status(ctx context.Context, _ *rpc.StatusRequest) (*rpc.StatusResponse, error) {
+	var sr rpc.StatusResponse
 	m.mu.Lock()
 	proto.Merge(&sr, m.status)
 	m.mu.Unlock()
@@ -44,8 +44,8 @@ func (m *Manager) Status(ctx context.Context, _ *pb.StatusRequest) (*pb.StatusRe
 }
 
 // SetUser sets information about the current streamer
-func (m *Manager) SetUser(ctx context.Context, u *pb.User) (*pb.User, error) {
-	var old *pb.User
+func (m *Manager) SetUser(ctx context.Context, u *rpc.User) (*rpc.User, error) {
+	var old *rpc.User
 	m.mu.Lock()
 	old, m.status.User = m.status.User, u
 	m.mu.Unlock()
@@ -53,7 +53,7 @@ func (m *Manager) SetUser(ctx context.Context, u *pb.User) (*pb.User, error) {
 }
 
 // SetSong sets information about the currently playing song
-func (m *Manager) SetSong(ctx context.Context, new *pb.Song) (*pb.Song, error) {
+func (m *Manager) SetSong(ctx context.Context, new *rpc.Song) (*rpc.Song, error) {
 	switch { // required arguments check
 	case new.Metadata == "":
 		return nil, twirp.RequiredArgumentError("metadata")
@@ -89,7 +89,7 @@ func (m *Manager) SetSong(ctx context.Context, new *pb.Song) (*pb.Song, error) {
 	}
 	new.EndTime = new.StartTime + uint64(track.Length/time.Second)
 
-	var prev *pb.Song
+	var prev *rpc.Song
 	var listenerCountDiff *int64
 
 	// critical section to swap our new song with the previous one
@@ -131,7 +131,7 @@ func (m *Manager) SetSong(ctx context.Context, new *pb.Song) (*pb.Song, error) {
 	return prev, nil
 }
 
-func (m *Manager) handlePreviousSong(tx database.HandlerTx, prev *pb.Song, listenerDiff *int64) error {
+func (m *Manager) handlePreviousSong(tx database.HandlerTx, prev *rpc.Song, listenerDiff *int64) error {
 	// protect against zero-d Song's
 	if prev.StartTime == 0 || prev.TrackId == 0 {
 		return nil
@@ -156,8 +156,8 @@ func (m *Manager) handlePreviousSong(tx database.HandlerTx, prev *pb.Song, liste
 }
 
 // SetBotConfig sets options related to the automated streamer
-func (m *Manager) SetBotConfig(ctx context.Context, bc *pb.BotConfig) (*pb.BotConfig, error) {
-	var old *pb.BotConfig
+func (m *Manager) SetBotConfig(ctx context.Context, bc *rpc.BotConfig) (*rpc.BotConfig, error) {
+	var old *rpc.BotConfig
 	m.mu.Lock()
 	old, m.status.BotConfig = m.status.BotConfig, bc
 	m.mu.Unlock()
@@ -165,8 +165,8 @@ func (m *Manager) SetBotConfig(ctx context.Context, bc *pb.BotConfig) (*pb.BotCo
 }
 
 // SetThread sets the current thread information on the front page and chats
-func (m *Manager) SetThread(ctx context.Context, t *pb.Thread) (*pb.Thread, error) {
-	var old *pb.Thread
+func (m *Manager) SetThread(ctx context.Context, t *rpc.Thread) (*rpc.Thread, error) {
+	var old *rpc.Thread
 	m.mu.Lock()
 	old, m.status.Thread = m.status.Thread, t
 	m.mu.Unlock()
@@ -174,8 +174,8 @@ func (m *Manager) SetThread(ctx context.Context, t *pb.Thread) (*pb.Thread, erro
 }
 
 // SetListenerInfo sets the listener info part of status
-func (m *Manager) SetListenerInfo(ctx context.Context, li *pb.ListenerInfo) (*pb.ListenerInfo, error) {
-	var old *pb.ListenerInfo
+func (m *Manager) SetListenerInfo(ctx context.Context, li *rpc.ListenerInfo) (*rpc.ListenerInfo, error) {
+	var old *rpc.ListenerInfo
 	m.mu.Lock()
 	old, m.status.ListenerInfo = m.status.ListenerInfo, li
 	m.mu.Unlock()

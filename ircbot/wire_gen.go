@@ -10,7 +10,6 @@ import (
 	"errors"
 	"github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/database"
-	"github.com/R-a-dio/valkyrie/rpc/streamer"
 	"github.com/google/wire"
 	"github.com/jmoiron/sqlx"
 	"github.com/lrstanley/girc"
@@ -66,29 +65,19 @@ func ChannelTopic(event Event) (CommandFn, error) {
 
 func KillStreamer(event Event) (CommandFn, error) {
 	bot := WithBot(event)
-	streamer := WithStreamer(bot)
+	streamerService := WithStreamer(bot)
 	arguments := WithArguments(event)
 	client := WithClient(event)
 	gircEvent := WithIRCEvent(event)
 	access := WithAccess(client, gircEvent)
-	commandFn := killStreamer(streamer, arguments, access)
+	commandFn := killStreamer(streamerService, arguments, access)
 	return commandFn, nil
 }
 
 func RequestTrack(event Event) (CommandFn, error) {
-	client := WithClient(event)
-	gircEvent := WithIRCEvent(event)
-	respond := WithRespond(client, gircEvent)
 	bot := WithBot(event)
-	streamer := WithStreamer(bot)
-	db := WithDB(bot)
-	handler := WithDatabase(db)
-	arguments := WithArguments(event)
-	argumentTrack, err := WithArgumentTrack(handler, arguments)
-	if err != nil {
-		return nil, err
-	}
-	commandFn := requestTrack(respond, streamer, gircEvent, argumentTrack)
+	streamerService := WithStreamer(bot)
+	commandFn := requestTrack(streamerService)
 	return commandFn, nil
 }
 
@@ -170,7 +159,7 @@ func WithArguments(e Event) Arguments {
 	return e.a
 }
 
-func WithStreamer(bot *Bot) streamer.Streamer {
+func WithStreamer(bot *Bot) radio.StreamerService {
 	return bot.streamer
 }
 

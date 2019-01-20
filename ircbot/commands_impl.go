@@ -1,7 +1,6 @@
 package ircbot
 
 import (
-	"context"
 	"log"
 	"regexp"
 	"strings"
@@ -9,7 +8,6 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/database"
-	"github.com/R-a-dio/valkyrie/rpc/streamer"
 	"github.com/lrstanley/girc"
 )
 
@@ -139,7 +137,7 @@ func channelTopic(echo RespondPublic, args Arguments, c *girc.Client, e girc.Eve
 	}
 }
 
-func killStreamer(s streamer.Streamer, a Arguments, op Access) CommandFn {
+func killStreamer(s radio.StreamerService, a Arguments, op Access) CommandFn {
 	return func() error {
 		// TODO: this should use special caseing for streamers that don't have channel
 		// access
@@ -148,12 +146,7 @@ func killStreamer(s streamer.Streamer, a Arguments, op Access) CommandFn {
 		}
 
 		// TODO: not everyone should be able to force kill
-		req := &streamer.StopRequest{
-			ForceStop: a.Bool("force"),
-		}
-
-		_, err := s.Stop(context.TODO(), req)
-		return err
+		return s.Stop(a.Bool("force"))
 	}
 }
 
@@ -161,8 +154,8 @@ func randomTrackRequest() CommandFn { return nil }
 func luckyTrackRequest() CommandFn  { return nil }
 func searchTrack() CommandFn        { return nil }
 
-func requestTrack(echo Respond, s streamer.Streamer, e girc.Event, track ArgumentTrack) CommandFn {
-	return func() error {
+func requestTrack(s radio.StreamerService) CommandFn {
+	/*return func() error {
 		req := &streamer.TrackRequest{
 			Identifier: e.Source.Host,
 			Track:      int64(track.TrackID),
@@ -175,7 +168,8 @@ func requestTrack(echo Respond, s streamer.Streamer, e girc.Event, track Argumen
 
 		echo(resp.Msg)
 		return nil
-	}
+	}*/
+	return nil
 }
 
 func lastRequestInfo() CommandFn { return nil }

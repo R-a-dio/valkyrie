@@ -6,16 +6,15 @@ import (
 	"net/http/pprof"
 	"strings"
 
-	pb "github.com/R-a-dio/valkyrie/rpc/irc"
-	"github.com/R-a-dio/valkyrie/rpc/manager"
+	"github.com/R-a-dio/valkyrie/rpc"
 	"github.com/twitchtv/twirp"
 )
 
 func NewHTTPServer(b *Bot) (*http.Server, error) {
-	rpcServer := pb.NewBotServer(b, nil)
+	rpcServer := rpc.NewBotServer(b, nil)
 	mux := http.NewServeMux()
 	// rpc server path
-	mux.Handle(pb.BotPathPrefix, rpcServer)
+	mux.Handle(rpc.BotPathPrefix, rpcServer)
 
 	// debug symbols
 	mux.HandleFunc("/debug/pprof/", pprof.Index)
@@ -29,7 +28,7 @@ func NewHTTPServer(b *Bot) (*http.Server, error) {
 	return server, nil
 }
 
-func (b *Bot) AnnounceSong(ctx context.Context, song *manager.Song) (*pb.Null, error) {
+func (b *Bot) AnnounceSong(ctx context.Context, song *rpc.Song) (*rpc.Null, error) {
 	e := Event{
 		bot: b,
 		c:   b.c,
@@ -50,5 +49,5 @@ func (b *Bot) AnnounceSong(ctx context.Context, song *manager.Song) (*pb.Null, e
 	message = strings.Replace(message, "playing", "starting", 1)
 
 	b.c.Cmd.Message(b.Conf().IRC.MainChannel, Fmt(message, args...))
-	return new(pb.Null), nil
+	return new(rpc.Null), nil
 }

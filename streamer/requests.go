@@ -8,11 +8,11 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/database"
-	pb "github.com/R-a-dio/valkyrie/rpc/streamer"
+	"github.com/R-a-dio/valkyrie/rpc"
 )
 
-func requestResponse(success bool, msg string) (*pb.RequestResponse, error) {
-	return &pb.RequestResponse{
+func requestResponse(success bool, msg string) (*rpc.RequestResponse, error) {
+	return &rpc.RequestResponse{
 		Success: success,
 		Msg:     msg,
 	}, nil
@@ -23,7 +23,7 @@ func requestResponse(success bool, msg string) (*pb.RequestResponse, error) {
 // We do not do authentication or authorization checks, this is left to the client. Request can be
 // either a GET or POST with parameters `track` and `identifier`, where `track` is the track number
 // to be requested, and `identifier` the unique identification used for the user (IP Address, hostname, etc)
-func (h *streamHandler) RequestTrack(ctx context.Context, r *pb.TrackRequest) (*pb.RequestResponse, error) {
+func (h *streamHandler) RequestTrack(ctx context.Context, r *rpc.TrackRequest) (*rpc.RequestResponse, error) {
 	if !h.Conf().Streamer.RequestsEnabled {
 		return requestResponse(false, "requests are currently disabled")
 	}
