@@ -188,3 +188,22 @@ type DatabaseTrack struct {
 	RequestCount int
 	RequestDelay time.Duration
 }
+
+// Requestable returns wether this song can be requested by a user
+func (s *Song) Requestable() bool {
+	if s == nil || s.DatabaseTrack == nil {
+		return false
+	}
+	if s.RequestDelay == 0 {
+		// no delay set, so we can't really do a proper comparison below
+		return false
+	}
+	if time.Since(s.LastPlayed) < s.RequestDelay {
+		return false
+	}
+	if time.Since(s.LastRequested) < s.RequestDelay {
+		return false
+	}
+
+	return true
+}

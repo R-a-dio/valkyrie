@@ -1,6 +1,7 @@
 package ircbot
 
 import (
+	"fmt"
 	"log"
 	"regexp"
 	"strings"
@@ -80,9 +81,22 @@ func nowPlayingMessage(e Event) messageFn {
 func LastPlayed(e Event) error          { return nil }
 func StreamerQueue(e Event) error       { return nil }
 func StreamerQueueLength(e Event) error { return nil }
-func StreamerUserInfo(e Event) error    { return nil }
-func FaveTrack(e Event) error           { return nil }
-func FaveList(e Event) error            { return nil }
+
+func StreamerUserInfo(e Event) error {
+	return nil
+}
+
+func FaveTrack(e Event) error { return nil }
+
+func FaveList(e Event) error {
+	var nick = e.Source.Name
+	if n := e.Arguments["Nick"]; n != "" {
+		nick = n
+	}
+
+	e.Echo("Favorites are at: https://r-a-d.io/faves/%s", nick)
+	return nil
+}
 
 func ThreadURL(e Event) error {
 	thread := e.Arguments["thread"]
@@ -169,7 +183,57 @@ func RequestTrack(e Event) error {
 	return nil
 }
 
-func LastRequestInfo(e Event) error { return nil }
+func LastRequestInfo(e Event) error {
+	message := "%s last requested at {red}%s {clear}, which is {red}%s {clear} ago."
+
+	var host = e.Source.Host
+	var withArgument bool
+	if nick := e.Arguments["Nick"]; nick != "" {
+		u := e.Client.LookupUser(nick)
+		if u == nil {
+			return NewUserError(nil, "Unknown nickname or is not in the channel")
+		}
+
+		host = u.Host
+		withArgument = true
+	}
+
+	t, err := database.UserRequestTime(e.Database(), host)
+	if err != nil {
+		return err
+	}
+
+	if t.IsZero() {
+		if withArgument {
+			e.Echo("%s has never requested before", e.Arguments["Nick"])
+		} else {
+			e.Echo("You've never requested before")
+		}
+	}
+
+	// calculate if enough time has passed since the last request
+	canRequest := time.Since(t) >= time.Duration(e.Bot.Conf().UserRequestDelay)
+	if canRequest {
+		if withArgument {
+			message += fmt.Sprintf(" {green}%s can request", e.Arguments["Nick"])
+		} else {
+			message += " {green}You can request"
+		}
+	}
+
+	var name = "You"
+	if withArgument {
+		name = e.Arguments["Nick"]
+	}
+
+	e.Echo(message,
+		name,
+		t.Format("Jan 02, 15:04:05"),
+		FormatDayDuration(time.Since(t)),
+	)
+
+	return nil
+}
 
 func TrackInfo(e Event) error {
 	message := "ID: {red}%d {clear}" +

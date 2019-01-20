@@ -75,8 +75,7 @@ func (h *streamHandler) RequestTrack(ctx context.Context, r *rpc.TrackRequest) (
 		return requestResponse(false, "this song can't be requested")
 	}
 	// check if the track wasn't recently played or requested
-	if time.Since(track.LastPlayed) < track.RequestDelay ||
-		time.Since(track.LastRequested) < track.RequestDelay {
+	if !track.Requestable() {
 		return requestResponse(false,
 			"you need to wait longer before requesting this song")
 	}
