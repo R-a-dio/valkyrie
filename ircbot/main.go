@@ -73,8 +73,8 @@ func NewBot(cfg config.Config) (*Bot, error) {
 	b := &Bot{
 		Config:   cfg,
 		DB:       db,
-		manager:  c.Manager.TwirpClient(),
-		streamer: c.Streamer.TwirpClient(),
+		Manager:  c.Manager.TwirpClient(),
+		Streamer: c.Streamer.TwirpClient(),
 		c:        girc.New(ircConf),
 	}
 
@@ -89,8 +89,8 @@ type Bot struct {
 	DB *sqlx.DB
 
 	// interfaces to other components
-	manager  radio.ManagerService
-	streamer radio.StreamerService
+	Manager  radio.ManagerService
+	Streamer radio.StreamerService
 
 	c *girc.Client
 }

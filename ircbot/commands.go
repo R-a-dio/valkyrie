@@ -1,9 +1,14 @@
 package ircbot
 
 import (
+	"context"
+	"fmt"
 	"log"
 	"regexp"
+	"strconv"
 
+	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/database"
 	"github.com/lrstanley/girc"
 )
 
@@ -81,7 +86,7 @@ func checkUserError(c *girc.Client, e girc.Event, err error) bool {
 	return true
 }
 
-type HandlerFn func(Event) (CommandFn, error)
+type HandlerFn func(Event) error
 
 type RegexHandler struct {
 	regex string
@@ -123,27 +128,19 @@ func (rh RegexHandlers) Execute(c *girc.Client, e girc.Event) {
 		}
 
 		event := Event{
-			bot: rh.bot,
-			c:   c,
-			e:   e,
-			a:   match,
+			Event:     e,
+			Arguments: match,
+			Bot:       rh.bot,
+			Client:    c,
 		}
 
 		// create our handler
-		fn, err := rh.handlers[i].fn(event)
-		if err != nil {
-			if !checkUserError(c, e, err) {
-				log.Println("provider error:", err)
-			}
-			return
-		}
-
-		// execute our handler
-		err = fn()
+		err := rh.handlers[i].fn(event)
 		if err != nil {
 			if !checkUserError(c, e, err) {
 				log.Println("handler error:", err)
 			}
+			return
 		}
 
 		return
@@ -178,11 +175,76 @@ func RegisterCommandHandlers(b *Bot, c *girc.Client) error {
 	return nil
 }
 
+// Arguments is a map of key:value pairs from the named capturing groups used in
+// the regular expression used for the command
+type Arguments map[string]string
+
+// Bool returns true if the key exists and is non-empty
+func (a Arguments) Bool(key string) bool {
+	return a[key] != ""
+}
+
 // Event is a collection of parameters to handler functions, fields of Event are exposed
 // to handlers by dependency injection and you should never depend on Event directly
 type Event struct {
-	bot *Bot
-	c   *girc.Client
-	e   girc.Event
-	a   Arguments
+	girc.Event
+	Arguments Arguments
+
+	Bot    *Bot
+	Client *girc.Client
+}
+
+func (e Event) Echo(message string, args ...interface{}) {
+	switch e.Trailing[0] {
+	case '.', '!':
+		e.EchoPrivate(message, args...)
+	case '@':
+		e.EchoPublic(message, args...)
+	default:
+		panic("non-prefixed regular expression used")
+	}
+}
+
+func (e Event) EchoPrivate(message string, args ...interface{}) {
+	e.Client.Cmd.Notice(e.Source.Name, Fmt(message, args...))
+}
+
+func (e Event) EchoPublic(message string, args ...interface{}) {
+	e.Client.Cmd.Message(e.Params[0], Fmt(message, args...))
+}
+
+func (e Event) ArgumentTrack(key string) (*radio.Song, error) {
+	stringID := e.Arguments[key]
+	if stringID == "" {
+		return nil, fmt.Errorf("key '%s' not found in arguments", key)
+	}
+
+	id, err := strconv.Atoi(stringID)
+	if err != nil {
+		return nil, err
+	}
+
+	track, err := database.GetTrack(e.Database(), radio.TrackID(id))
+	if err == nil {
+		return track, nil
+	}
+
+	if err == database.ErrTrackNotFound {
+		return nil, NewUserError(err, "unknown track identifier")
+	}
+
+	return nil, err
+}
+
+func (e Event) CurrentTrack() (*radio.Song, error) {
+	status, err := e.Bot.Manager.Status()
+	if err != nil {
+		return nil, err
+	}
+
+	return database.GetSongFromMetadata(e.Database(), status.Song.Metadata)
+}
+
+func (e Event) Database() database.Handler {
+	return database.Handle(context.TODO(), e.Bot.DB)
 }

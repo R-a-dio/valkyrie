@@ -30,15 +30,11 @@ func NewHTTPServer(b *Bot) (*http.Server, error) {
 
 func (b *Bot) AnnounceSong(ctx context.Context, song *rpc.Song) (*rpc.Null, error) {
 	e := Event{
-		bot: b,
-		c:   b.c,
+		Bot:    b,
+		Client: b.c,
 	}
 
-	fn, err := NowPlayingMessage(e)
-	if err != nil {
-		return nil, twirp.InternalErrorWith(err)
-	}
-
+	fn := nowPlayingMessage(e)
 	message, args, err := fn()
 	if err != nil {
 		return nil, twirp.InternalErrorWith(err)
