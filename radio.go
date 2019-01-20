@@ -3,6 +3,7 @@ package radio
 import (
 	"crypto/sha1"
 	"database/sql/driver"
+	"encoding/hex"
 	"fmt"
 	"math"
 	"strings"
@@ -59,18 +60,40 @@ type ManagerService interface {
 }
 
 type StreamerService interface {
+	Start() error
+	Stop(force bool) error
+}
+
+// QueueSong is a Song used in the QueueService
+type QueueSong struct {
+	Song
+
+	// IsUserRequest should be true if this song was added to the queue
+	// by a third-party user
+	IsUserRequest bool
+	// UserIdentifier should be a way to identify the user that requested the song
+	UserIdentifier string
+	// ExpectedStartTime is the expected time this song will be played on stream
+	ExpectedStartTime time.Time
+}
+
+type QueueStorage interface {
+	Save(name string, queue []QueueSong) error
+	Load(name string) ([]QueueSong, error)
 }
 
 type QueueService interface {
-	// AddSong adds the song given to the queue
-	AddSong(Song) error
+	// Append adds the song given to the queue
+	Append(QueueSong) error
 	// Peek returns the song that is queued after the song given
-	Peek(Song) (Song, error)
+	Peek(QueueSong) (QueueSong, error)
 	// Pop pops off the song given if it's the top-most song, otherwise ignores it
-	Pop(Song) error
+	Pop(QueueSong) error
 	// Remove removes the song given from the queue;  Remove should only remove
 	// the first occurence of the song
-	Remove(Song) error
+	Remove(QueueSong) error
+	// All returns all songs in the queue
+	All() ([]QueueSong, error)
 }
 
 type AnnounceService interface {
@@ -91,23 +114,28 @@ func (s *SongID) Scan(src interface{}) error {
 }
 
 // SongHash is a sha1 hash
-type SongHash string
+type SongHash [sha1.Size]byte
 
 // NewSongHash generates a new SongHash for the metadata passed in
 func NewSongHash(metadata string) SongHash {
 	metadata = strings.TrimSpace(strings.ToLower(metadata))
-	return SongHash(fmt.Sprintf("%x", sha1.Sum([]byte(metadata))))
+	return SongHash(sha1.Sum([]byte(metadata)))
 }
 
 // Value implements sql/driver.Valuer
 func (s SongHash) Value() (driver.Value, error) {
-	return string(s), nil
+	return s.String(), nil
 }
 
 // Scan implements sql.Scanner
 func (s *SongHash) Scan(src interface{}) error {
-	*s = SongHash(string(src.([]byte)))
-	return nil
+	_, err := hex.Decode((*s)[:], src.([]byte))
+	return err
+}
+
+// String returns a hexadecimal representation of the song hash
+func (s SongHash) String() string {
+	return fmt.Sprintf("%x", s[:])
 }
 
 // Song is a song we've seen played on the stream
@@ -125,7 +153,13 @@ type Song struct {
 	*DatabaseTrack
 }
 
+// EqualTo returns s == d based on unique fields
 func (s Song) EqualTo(d Song) bool {
+	if s.ID == 0 || d.ID == 0 {
+		// zero means uninitialized and should never be equal
+		return false
+	}
+
 	return s.ID == d.ID
 }
 
