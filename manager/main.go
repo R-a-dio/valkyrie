@@ -8,9 +8,7 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/database"
-	"github.com/R-a-dio/valkyrie/rpc/manager"
-	pb "github.com/R-a-dio/valkyrie/rpc/manager"
-	"github.com/R-a-dio/valkyrie/rpc/streamer"
+	"github.com/R-a-dio/valkyrie/rpc"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -22,7 +20,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 
-	ExecuteListener(ctx, cfg, manager.NewWrapClient(m))
+	ExecuteListener(ctx, cfg, rpc.NewManagerServiceWrap(m))
 
 	// setup a http server for our RPC API
 	srv, err := NewHTTPServer(m)
@@ -62,12 +60,12 @@ func NewManager(cfg config.Config) (*Manager, error) {
 	m := Manager{
 		Config: cfg,
 		DB:     db,
-		status: &pb.StatusResponse{
-			User:         new(pb.User),
-			Song:         new(pb.Song),
-			ListenerInfo: new(pb.ListenerInfo),
-			Thread:       new(pb.Thread),
-			BotConfig:    new(pb.BotConfig),
+		status: &rpc.StatusResponse{
+			User:         new(rpc.User),
+			Song:         new(rpc.Song),
+			ListenerInfo: new(rpc.ListenerInfo),
+			Thread:       new(rpc.Thread),
+			BotConfig:    new(rpc.BotConfig),
 		},
 	}
 
@@ -84,11 +82,11 @@ type Manager struct {
 	// Other components
 	client struct {
 		announce radio.AnnounceService
-		streamer streamer.Streamer
+		streamer radio.StreamerService
 	}
 	// mu protects the fields below and their contents
 	mu     sync.Mutex
-	status *pb.StatusResponse
+	status *rpc.StatusResponse
 	// listener count at the start of a song
 	songStartListenerCount int64
 }

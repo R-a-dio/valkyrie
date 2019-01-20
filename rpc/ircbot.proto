@@ -1,0 +1,10 @@
+syntax = "proto3";
+package radio.rpc;
+option go_package = "github.com/R-a-dio/valkyrie/rpc";
+
+import "rpc/manager.proto";
+import "rpc/types.proto";
+
+service Bot {
+    rpc AnnounceSong(rpc.Song) returns (Null);
+}

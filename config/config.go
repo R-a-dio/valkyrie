@@ -10,9 +10,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	radio "github.com/R-a-dio/valkyrie"
-	rpcirc "github.com/R-a-dio/valkyrie/rpc/irc"
-	rpcmanager "github.com/R-a-dio/valkyrie/rpc/manager"
-	rpcstreamer "github.com/R-a-dio/valkyrie/rpc/streamer"
+	"github.com/R-a-dio/valkyrie/rpc"
 )
 
 // defaultConfig is the default configuration for this project
@@ -81,8 +79,8 @@ type streamer struct {
 }
 
 // TwirpClient returns an usable twirp client for the streamer
-func (s streamer) TwirpClient() rpcstreamer.Streamer {
-	return rpcstreamer.NewStreamerProtobufClient(prepareTwirpClient(s.Addr))
+func (s streamer) TwirpClient() radio.StreamerService {
+	return rpc.NewStreamerService(prepareTwirpClient(s.Addr))
 }
 
 // irc contains all the fields only relevant to the irc bot
@@ -105,7 +103,7 @@ type irc struct {
 
 // TwirpClient returns an usable twirp client for the irc bot
 func (i irc) TwirpClient() radio.AnnounceService {
-	return rpcirc.NewAnnounceService(prepareTwirpClient(i.Addr))
+	return rpc.NewAnnounceService(prepareTwirpClient(i.Addr))
 }
 
 // manager contains all fields relevant to the manager
@@ -120,7 +118,7 @@ type manager struct {
 }
 
 func (m manager) TwirpClient() radio.ManagerService {
-	return rpcmanager.NewClient(prepareTwirpClient(m.Addr))
+	return rpc.NewManagerService(prepareTwirpClient(m.Addr))
 }
 
 // prepareTwirpClient prepares a http client and an usable address string for creating

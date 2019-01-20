@@ -1,19 +1,14 @@
 syntax = "proto3";
-package radio.internal.streamer;
-option go_package = "github.com/R-a-dio/valkyrie/rpc/streamer";
+package radio.rpc;
+option go_package = "github.com/R-a-dio/valkyrie/rpc";
+
+import "rpc/types.proto";
 
 service Streamer {
     rpc Start(Null) returns (Null);
     rpc Stop(StopRequest) returns (Null);
-    rpc Status(Null) returns (StatusResponse);
     rpc RequestTrack(TrackRequest) returns (RequestResponse);
     rpc SetRequestable(Bool) returns (Null);
-}
-
-message Null {}
-
-message Bool {
-    bool bool = 1;
 }
 
 message StopRequest {
@@ -32,11 +27,6 @@ message QueueEntry {
     int64 track_id = 4;
     // track_tags is a short `artist - title` field
     string track_tags = 5;
-}
-
-message StatusResponse {
-    bool running = 1;
-    repeated QueueEntry queue = 2;
 }
 
 message TrackRequest {

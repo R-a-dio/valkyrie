@@ -9,7 +9,6 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/database"
-	"github.com/R-a-dio/valkyrie/rpc/streamer"
 	"github.com/google/wire"
 	"github.com/jmoiron/sqlx"
 	"github.com/lrstanley/girc"
@@ -75,7 +74,7 @@ func WithArguments(e Event) Arguments {
 	return e.a
 }
 
-func WithStreamer(bot *Bot) streamer.Streamer {
+func WithStreamer(bot *Bot) radio.StreamerService {
 	return bot.streamer
 }
 
