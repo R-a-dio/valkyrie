@@ -174,6 +174,11 @@ func LoadFile(filenames ...string) (Config, error) {
 	var errs errors
 
 	for _, filename := range filenames {
+		if filename == "" {
+			// just skip empty filenames to not clutter errors returned
+			continue
+		}
+
 		f, err = os.Open(filename)
 		if err == nil {
 			break

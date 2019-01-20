@@ -174,6 +174,9 @@ func main() {
 		// normal non-nil error, we exit with the default failure exit code
 		code = 1
 	}
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	os.Exit(code)
 }
