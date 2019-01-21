@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/database"
 )
 
@@ -78,7 +79,24 @@ func nowPlayingMessage(e Event) messageFn {
 	}
 }
 
-func LastPlayed(e Event) error          { return nil }
+func LastPlayed(e Event) error {
+	songs, err := database.GetLastPlayed(e.Database(), 0, 5)
+	if err != nil {
+		return err
+	}
+
+	message := "{green}Last Played:{clear} %s"
+	messageJoin := " {green}|{clear} "
+	onlyMetadata := make([]string, len(songs))
+	for i, song := range songs {
+		onlyMetadata[i] = song.Metadata
+	}
+
+	message = fmt.Sprintf(message, strings.Join(onlyMetadata, messageJoin))
+	e.EchoPublic(message)
+	return nil
+}
+
 func StreamerQueue(e Event) error       { return nil }
 func StreamerQueueLength(e Event) error { return nil }
 
@@ -86,7 +104,63 @@ func StreamerUserInfo(e Event) error {
 	return nil
 }
 
-func FaveTrack(e Event) error { return nil }
+func FaveTrack(e Event) error {
+	var song radio.Song
+
+	if e.Arguments.Bool("relative") {
+		// for when `last` is given as argument
+		songs, err := database.GetLastPlayed(e.Database(), 0, 1)
+		if err != nil {
+			return err
+		}
+		song = songs[0]
+	} else if e.Arguments.Bool("TrackID") {
+		// for when a track number is given as argument
+		s, err := e.ArgumentTrack("TrackID")
+		if err != nil {
+			return err
+		}
+		song = *s
+	} else {
+		// for when there is no argument given
+		s, err := e.CurrentTrack()
+		if err != nil {
+			return err
+		}
+		song = *s
+	}
+
+	// now check to see if we want to favorite or unfavorite something
+	var dbFunc = database.FaveSong
+	if e.Arguments.Bool("isNegative") {
+		dbFunc = database.UnfaveSong
+	}
+
+	changed, err := dbFunc(e.Database(), e.Source.Name, song)
+	if err != nil {
+		return err
+	}
+
+	// now we need the correct message based on the success of the query
+	// `changed` will be true if the database was changed
+	var message string
+	if e.Arguments.Bool("isNegative") {
+		if changed {
+			message = "{green}'%s'{clear} is removed from your favorites."
+		} else {
+			message = "You don't have {green}'%s'{clear} in your favorites."
+		}
+	} else {
+		if changed {
+			message = "Added {green}'%s'{clear} to your favorites."
+		} else {
+			message = "You already have {green}'%s'{clear} favorited."
+		}
+	}
+
+	e.EchoPrivate(message, song.Metadata)
+	return nil
+}
 
 func FaveList(e Event) error {
 	var nick = e.Source.Name
@@ -158,7 +232,20 @@ func KillStreamer(e Event) error {
 	}
 
 	// TODO: not everyone should be able to force kill
-	return e.Bot.Streamer.Stop(e.Arguments.Bool("force"))
+	err := e.Bot.Streamer.Stop(e.Arguments.Bool("force"))
+	if err != nil {
+		return NewUserError(err, "Something went wrong ;_;, trying again will only make it worse, hauu~")
+	}
+
+	status, err := e.Bot.Manager.Status()
+	if err != nil {
+		e.EchoPublic("Disconnecting after the current song")
+	} else {
+		e.EchoPublic("Disconnecting in about %s",
+			time.Until(status.StreamInfo.SongEnd))
+	}
+
+	return nil
 }
 
 func RandomTrackRequest(e Event) error { return nil }
@@ -191,7 +278,7 @@ func LastRequestInfo(e Event) error {
 	if nick := e.Arguments["Nick"]; nick != "" {
 		u := e.Client.LookupUser(nick)
 		if u == nil {
-			return NewUserError(nil, "Unknown nickname or is not in the channel")
+			return NewUserError(nil, "I don't know who that is")
 		}
 
 		host = u.Host
@@ -209,6 +296,7 @@ func LastRequestInfo(e Event) error {
 		} else {
 			e.Echo("You've never requested before")
 		}
+		return nil
 	}
 
 	// calculate if enough time has passed since the last request
@@ -217,7 +305,7 @@ func LastRequestInfo(e Event) error {
 		if withArgument {
 			message += fmt.Sprintf(" {green}%s can request", e.Arguments["Nick"])
 		} else {
-			message += " {green}You can request"
+			message += " {green}You can request!"
 		}
 	}
 

@@ -133,7 +133,7 @@ func (m *Manager) SetSong(ctx context.Context, new *rpc.Song) (*rpc.Song, error)
 
 func (m *Manager) handlePreviousSong(tx database.HandlerTx, prev *rpc.Song, listenerDiff *int64) error {
 	// protect against zero-d Song's
-	if prev.StartTime == 0 || prev.TrackId == 0 {
+	if prev.Id == 0 {
 		return nil
 	}
 

@@ -189,7 +189,7 @@ type DatabaseTrack struct {
 	RequestDelay time.Duration
 }
 
-// Requestable returns wether this song can be requested by a user
+// Requestable returns whether this song can be requested by a user
 func (s *Song) Requestable() bool {
 	if s == nil || s.DatabaseTrack == nil {
 		return false

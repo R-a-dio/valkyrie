@@ -273,3 +273,74 @@ func UpdateSongLength(h Handler, id radio.SongID, length time.Duration) error {
 	_, err := h.Exec(query, len, id)
 	return errors.WithStack(err)
 }
+
+func GetLastPlayed(h Handler, offset, amount int) ([]radio.Song, error) {
+	var query = `SELECT esong.id AS id, esong.meta AS metadata FROM esong
+		RIGHT JOIN eplay ON esong.id = eplay.isong ORDER BY eplay.dt DESC LIMIT ? OFFSET ?;`
+
+	var songs = make([]radio.Song, 0, amount)
+
+	err := sqlx.Select(h, &songs, query, amount, offset)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	return songs, nil
+}
+
+func FaveSong(h Handler, nick string, s radio.Song) (bool, error) {
+	var query = `SELECT enick.id AS id, EXISTS(SELECT efave.id FROM efave WHERE
+		inick=enick.id AND isong=?) AS hasfave FROM enick WHERE enick.nick=?;`
+
+	var info = struct {
+		ID      int64
+		HasFave bool
+	}{}
+
+	err := sqlx.Get(h, &info, query, s.ID, nick)
+	if err != nil {
+		return false, err
+	}
+
+	if info.HasFave {
+		return false, nil
+	}
+
+	if info.ID == 0 {
+		query = `INSERT INTO enick (nick) VALUES (?)`
+		res, err := h.Exec(query, nick)
+		if err != nil {
+			return false, err
+		}
+
+		info.ID, err = res.LastInsertId()
+		if err != nil {
+			panic("LastInsertId not supported")
+		}
+	}
+
+	query = `INSERT INTO efave (inick, isong) VALUES (?, ?)`
+	_, err = h.Exec(query, info.ID, s.ID)
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
+func UnfaveSong(h Handler, nick string, s radio.Song) (bool, error) {
+	var query = `DELETE efave FROM efave JOIN enick ON 
+	enick.id = efave.inick WHERE enick.nick=? AND efave.isong=?;`
+
+	res, err := h.Exec(query, nick, s.ID)
+	if err != nil {
+		return false, errors.WithStack(err)
+	}
+
+	n, err := res.RowsAffected()
+	if err != nil {
+		panic("RowsAffected not supported")
+	}
+
+	return n > 0, nil
+}
