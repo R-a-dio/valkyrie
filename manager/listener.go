@@ -157,12 +157,9 @@ func (ln *Listener) parseResponse(ctx context.Context, metasize int, src io.Read
 		meta = parseMetadata(buf[:length])
 
 		if len(meta) == 0 {
-			// TODO: evaluate if we want to error out if this occurs; the logic being
-			// that if we got send metadata but where unable to parse anything from it
-			// we've lost sync with the stream somehow and are now reading garbage and
-			// reconnecting might be the only option to fix this
-			log.Printf("listener: empty metadata")
-			continue
+			// fatal because it most likely means we've lost sync with the data
+			// stream and can't find our metadata anymore.
+			return errors.New("listener: empty metadata")
 		}
 
 		song := meta["StreamTitle"]
