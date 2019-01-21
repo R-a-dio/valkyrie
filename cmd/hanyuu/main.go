@@ -173,8 +173,7 @@ func main() {
 	} else {
 		// normal non-nil error, we exit with the default failure exit code
 		code = 1
-	}
-	if err != nil {
+		// print the error if it's a non-ExitError since it's probably important
 		fmt.Println(err)
 	}
 
