@@ -31,6 +31,7 @@ var defaultConfig = config{
 	IRC: irc{
 		Addr:       ":4444",
 		AllowFlood: false,
+		EnableEcho: true,
 	},
 	Manager: manager{
 		Addr:          ":4646",
@@ -99,6 +100,8 @@ type irc struct {
 	MainChannel string
 	// AllowFlood determines if flood protection is off or on
 	AllowFlood bool
+	// EnableEcho allows you to enable/disable IRC messages output
+	EnableEcho bool
 }
 
 // TwirpClient returns an usable twirp client for the irc bot

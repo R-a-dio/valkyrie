@@ -244,6 +244,8 @@ func UpdateSongLength(h Handler, id radio.SongID, length time.Duration) error {
 	return errors.WithStack(err)
 }
 
+// GetLastPlayed returns the songs that have recently played, indicated by the offset
+// given; returns up to the given amount of songs
 func GetLastPlayed(h Handler, offset, amount int) ([]radio.Song, error) {
 	var query = `SELECT esong.id AS id, esong.meta AS metadata FROM esong
 		RIGHT JOIN eplay ON esong.id = eplay.isong ORDER BY eplay.dt DESC LIMIT ? OFFSET ?;`
@@ -258,6 +260,7 @@ func GetLastPlayed(h Handler, offset, amount int) ([]radio.Song, error) {
 	return songs, nil
 }
 
+// FaveSong adds the nick given to the favorites of the song given
 func FaveSong(h Handler, nick string, s radio.Song) (bool, error) {
 	var query = `SELECT enick.id AS id, EXISTS(SELECT efave.id FROM efave WHERE
 		inick=enick.id AND isong=?) AS hasfave FROM enick WHERE enick.nick=?;`
@@ -307,6 +310,7 @@ func FaveSong(h Handler, nick string, s radio.Song) (bool, error) {
 	return true, err
 }
 
+// UnfaveSong removes the nick given from the favorites of the song given
 func UnfaveSong(h Handler, nick string, s radio.Song) (bool, error) {
 	var query = `DELETE efave FROM efave JOIN enick ON 
 	enick.id = efave.inick WHERE enick.nick=? AND efave.isong=?;`
@@ -330,4 +334,19 @@ func UnfaveSong(h Handler, nick string, s radio.Song) (bool, error) {
 		}
 	}
 	return n > 0, err
+}
+
+// GetSongFavorites returns all nicknames that have favorited the song id given
+func GetSongFavorites(h Handler, id radio.SongID) ([]string, error) {
+	var query = `SELECT enick.nick FROM efave JOIN enick ON
+	enick.id = efave.inick WHERE efave.isong=?`
+
+	var users []string
+
+	err := sqlx.Select(h, &users, query, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return users, nil
 }

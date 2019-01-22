@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net"
+	"os"
 	"time"
 
 	"github.com/cenkalti/backoff"
@@ -62,6 +63,9 @@ func NewBot(ctx context.Context, cfg config.Config) (*Bot, error) {
 	var ircConf girc.Config
 	c := cfg.Conf()
 
+	if c.IRC.EnableEcho {
+		ircConf.Out = os.Stdout
+	}
 	ircConf.Server = c.IRC.Server
 	ircConf.Nick = c.IRC.Nick
 	ircConf.User = c.IRC.Nick

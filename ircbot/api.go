@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/pprof"
+	"strings"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -66,6 +67,56 @@ func (b *Bot) AnnounceSong(ctx context.Context, a *rpc.SongAnnouncement) (*rpc.N
 
 	b.c.Cmd.Message(b.Conf().IRC.MainChannel, message)
 
-	// TODO: send fave notifications
+	if favoriteCount == 0 {
+		// save ourselves some work if there are no favorites
+		return new(rpc.Null), nil
+	}
+	usersWithFave, err := database.GetSongFavorites(db, song.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	// we only send notifications to people that are on the configured main channel
+	channel := b.c.LookupChannel(b.Conf().IRC.MainChannel)
+	if channel == nil {
+		// just exit early if we are not on the channel somehow
+		return new(rpc.Null), nil
+	}
+	// create a map of all the users so we get simpler and faster lookups
+	users := make(map[string]struct{}, len(channel.UserList))
+	for _, name := range channel.UserList {
+		users[name] = struct{}{}
+	}
+
+	// we can send a notice to up to 4 targets at once, so start by grouping the
+	// nicknames by 4, while checking if they're in the channel
+	var targets []string
+	var chunk = make([]string, 0, 4)
+	for _, name := range usersWithFave {
+		// check if the user is in the channel
+		if _, ok := users[name]; !ok {
+			continue
+		}
+
+		chunk = append(chunk, name)
+		if len(chunk) == 4 {
+			targets = append(targets, strings.Join(chunk, ","))
+			chunk = chunk[:0]
+		}
+	}
+	// handle leftovers in the last chunk
+	if len(chunk) > 0 {
+		targets = append(targets, strings.Join(chunk, ","))
+	}
+
+	// now send out the notices, we do this in another goroutine because it might
+	// take a while to send all messages
+	go func(metadata string) {
+		message := "Fave: %s is playing."
+		for _, chunk := range targets {
+			b.c.Cmd.Noticef(chunk, message, metadata)
+		}
+	}(a.Song.Metadata)
+
 	return new(rpc.Null), nil
 }
