@@ -262,7 +262,7 @@ func (e Event) ArgumentTrack(key string) (*radio.Song, error) {
 
 // CurrentTrack returns the currently playing song on the main stream configured
 func (e Event) CurrentTrack() (*radio.Song, error) {
-	status, err := e.Bot.Manager.Status()
+	status, err := e.Bot.Manager.Status(e.Context())
 	if err != nil {
 		return nil, err
 	}

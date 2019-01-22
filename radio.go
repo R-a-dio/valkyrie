@@ -1,6 +1,7 @@
 package radio
 
 import (
+	"context"
 	"crypto/sha1"
 	"database/sql/driver"
 	"encoding/hex"
@@ -51,17 +52,17 @@ type StreamInfo struct {
 }
 
 type ManagerService interface {
-	Status() (Status, error)
+	Status(context.Context) (Status, error)
 
-	UpdateUser(User) error
-	UpdateSong(Song) error
-	UpdateThread(thread string) error
-	UpdateListeners(int) error
+	UpdateUser(context.Context, User) error
+	UpdateSong(context.Context, Song) error
+	UpdateThread(ctx context.Context, thread string) error
+	UpdateListeners(context.Context, int) error
 }
 
 type StreamerService interface {
-	Start() error
-	Stop(force bool) error
+	Start(context.Context) error
+	Stop(ctx context.Context, force bool) error
 }
 
 // QueueSong is a Song used in the QueueService
@@ -78,27 +79,27 @@ type QueueSong struct {
 }
 
 type QueueStorage interface {
-	Save(name string, queue []QueueSong) error
-	Load(name string) ([]QueueSong, error)
+	Save(ctx context.Context, name string, queue []QueueSong) error
+	Load(ctx context.Context, name string) ([]QueueSong, error)
 }
 
 type QueueService interface {
 	// Append adds the song given to the queue
-	Append(QueueSong) error
+	Append(context.Context, QueueSong) error
 	// Peek returns the song that is queued after the song given
-	Peek(QueueSong) (QueueSong, error)
+	Peek(context.Context, QueueSong) (QueueSong, error)
 	// Pop pops off the song given if it's the top-most song, otherwise ignores it
-	Pop(QueueSong) error
+	Pop(context.Context, QueueSong) error
 	// Remove removes the song given from the queue;  Remove should only remove
 	// the first occurence of the song
-	Remove(QueueSong) error
+	Remove(context.Context, QueueSong) error
 	// All returns all songs in the queue
-	All() ([]QueueSong, error)
+	All(context.Context) ([]QueueSong, error)
 }
 
 type AnnounceService interface {
-	AnnounceSong(Song) error
-	AnnounceRequest(Song) error
+	AnnounceSong(context.Context, Song) error
+	AnnounceRequest(context.Context, Song) error
 }
 
 // SongID is a songs identifier

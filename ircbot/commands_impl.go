@@ -36,7 +36,7 @@ func nowPlayingMessage(e Event) messageFn {
 	return func() (string, []interface{}, error) {
 		message := "Now playing:{red} '%s' {clear}[%s/%s](%s), %s, %s, {green}LP:{clear} %s"
 
-		status, err := e.Bot.Manager.Status()
+		status, err := e.Bot.Manager.Status(e.Context())
 		if err != nil {
 			return "", nil, err
 		}
@@ -179,13 +179,13 @@ func ThreadURL(e Event) error {
 	thread := e.Arguments["thread"]
 
 	if thread != "" && HasAccess(e.Client, e.Event) {
-		err := e.Bot.Manager.UpdateThread(thread)
+		err := e.Bot.Manager.UpdateThread(e.Context(), thread)
 		if err != nil {
 			return err
 		}
 	}
 
-	resp, err := e.Bot.Manager.Status()
+	resp, err := e.Bot.Manager.Status(e.Context())
 	if err != nil {
 		return err
 	}
@@ -235,12 +235,12 @@ func KillStreamer(e Event) error {
 	}
 
 	// TODO: not everyone should be able to force kill
-	err := e.Bot.Streamer.Stop(e.Arguments.Bool("force"))
+	err := e.Bot.Streamer.Stop(e.Context(), e.Arguments.Bool("force"))
 	if err != nil {
 		return NewUserError(err, "Something went wrong ;_;, trying again will only make it worse, hauu~")
 	}
 
-	status, err := e.Bot.Manager.Status()
+	status, err := e.Bot.Manager.Status(e.Context())
 	if err != nil {
 		e.EchoPublic("Disconnecting after the current song")
 	} else {

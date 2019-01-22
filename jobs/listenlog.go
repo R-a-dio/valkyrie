@@ -19,7 +19,7 @@ func ExecuteListenerLog(ctx context.Context, cfg config.Config) error {
 
 	m := cfg.Conf().Manager.TwirpClient()
 
-	status, err := m.Status()
+	status, err := m.Status(ctx)
 	if err != nil {
 		return err
 	}

@@ -20,15 +20,22 @@ type AnnounceService struct {
 }
 
 // AnnounceSong implements radio.AnnounceService
-func (a AnnounceService) AnnounceSong(s radio.Song) error {
-	// TODO: implement song passing; current api server doesn't touch the argument so
-	// we can get away with passing nothing
-	_, err := a.twirp.AnnounceSong(context.TODO(), new(Song))
+func (a AnnounceService) AnnounceSong(ctx context.Context, s radio.Song) error {
+	song := &Song{
+		Id:       int32(s.ID),
+		Metadata: s.Metadata,
+	}
+
+	if s.DatabaseTrack != nil {
+		song.TrackId = int32(s.TrackID)
+	}
+
+	_, err := a.twirp.AnnounceSong(ctx, song)
 	return err
 }
 
 // AnnounceRequest implements radio.AnnounceService
-func (a AnnounceService) AnnounceRequest(s radio.Song) error {
+func (a AnnounceService) AnnounceRequest(ctx context.Context, s radio.Song) error {
 	return nil
 }
 
@@ -50,8 +57,8 @@ type managerService struct {
 }
 
 // Status implements radio.ManagerService
-func (m managerService) Status() (radio.Status, error) {
-	s, err := m.twirp.Status(context.TODO(), new(StatusRequest))
+func (m managerService) Status(ctx context.Context) (radio.Status, error) {
+	s, err := m.twirp.Status(ctx, new(StatusRequest))
 	if err != nil {
 		return radio.Status{}, nil
 	}
@@ -77,8 +84,8 @@ func (m managerService) Status() (radio.Status, error) {
 }
 
 // UpdateUser implements radio.ManagerService
-func (m managerService) UpdateUser(u radio.User) error {
-	_, err := m.twirp.SetUser(context.TODO(), &User{
+func (m managerService) UpdateUser(ctx context.Context, u radio.User) error {
+	_, err := m.twirp.SetUser(ctx, &User{
 		Id:       int32(u.ID),
 		Nickname: u.Nickname,
 		IsRobot:  u.IsRobot,
@@ -87,20 +94,20 @@ func (m managerService) UpdateUser(u radio.User) error {
 }
 
 // UpdateSong implements radio.ManagerService
-func (m managerService) UpdateSong(s radio.Song) error {
-	_, err := m.twirp.SetSong(context.TODO(), &Song{Metadata: s.Metadata})
+func (m managerService) UpdateSong(ctx context.Context, s radio.Song) error {
+	_, err := m.twirp.SetSong(ctx, &Song{Metadata: s.Metadata})
 	return err
 }
 
 // UpdateThread implements radio.ManagerService
-func (m managerService) UpdateThread(thread string) error {
-	_, err := m.twirp.SetThread(context.TODO(), &Thread{Thread: thread})
+func (m managerService) UpdateThread(ctx context.Context, thread string) error {
+	_, err := m.twirp.SetThread(ctx, &Thread{Thread: thread})
 	return err
 }
 
 // UpdateListeners implements radio.ManagerService
-func (m managerService) UpdateListeners(count int) error {
-	_, err := m.twirp.SetListenerInfo(context.TODO(), &ListenerInfo{Listeners: int64(count)})
+func (m managerService) UpdateListeners(ctx context.Context, count int) error {
+	_, err := m.twirp.SetListenerInfo(ctx, &ListenerInfo{Listeners: int64(count)})
 	return err
 }
 
@@ -115,12 +122,12 @@ type streamerService struct {
 	twirp Streamer
 }
 
-func (s streamerService) Start() error {
-	_, err := s.twirp.Start(context.TODO(), new(Null))
+func (s streamerService) Start(ctx context.Context) error {
+	_, err := s.twirp.Start(ctx, new(Null))
 	return err
 }
 
-func (s streamerService) Stop(force bool) error {
-	_, err := s.twirp.Stop(context.TODO(), &StopRequest{ForceStop: force})
+func (s streamerService) Stop(ctx context.Context, force bool) error {
+	_, err := s.twirp.Stop(ctx, &StopRequest{ForceStop: force})
 	return err
 }

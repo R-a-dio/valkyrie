@@ -121,8 +121,8 @@ func (m *Manager) SetSong(ctx context.Context, new *rpc.Song) (*rpc.Song, error)
 		tx.Rollback()
 	}
 
-	// announce the song over IRC
-	err = m.client.announce.AnnounceSong(radio.Song{Metadata: new.Metadata})
+	// announce the new song over a chat service
+	err = m.client.announce.AnnounceSong(ctx, radio.Song{Metadata: new.Metadata})
 	if err != nil {
 		// this isn't a critical error, so we do not return it if it occurs
 		log.Printf("manager: failed to announce song: %s", err)

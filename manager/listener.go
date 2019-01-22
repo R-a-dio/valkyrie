@@ -178,7 +178,9 @@ func (ln *Listener) parseResponse(ctx context.Context, metasize int, src io.Read
 		}
 
 		go func() {
-			err := ln.manager.UpdateSong(s)
+			ctx, cancel := context.WithTimeout(ctx, time.Second*5)
+			defer cancel()
+			err := ln.manager.UpdateSong(ctx, s)
 			if err != nil {
 				log.Printf("manager-listener: error setting song: %s\n", err)
 			}
