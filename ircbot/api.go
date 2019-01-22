@@ -11,6 +11,7 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/database"
 	"github.com/R-a-dio/valkyrie/rpc"
+	"github.com/lrstanley/girc"
 )
 
 func NewHTTPServer(b *Bot) (*http.Server, error) {
@@ -122,14 +123,24 @@ func (b *Bot) AnnounceSong(ctx context.Context, a *rpc.SongAnnouncement) (*rpc.N
 		targets = append(targets, strings.Join(chunk, ","))
 	}
 
+	message = Fmt("Fave: %s is playing.", a.Song.Metadata)
+
+	// our main network, rizon lies to us about MAXTARGETS until a certain period of
+	// time has passed since you connected, so we might get an ERR_TOOMANYTARGETS when
+	// sending notices, this handler resends any that come back as single-target.
+	b.c.Handlers.AddTmp("407", time.Second*10, func(c *girc.Client, e girc.Event) bool {
+		target := e.Params[len(e.Params)-1]
+		c.Cmd.Notice(target, message)
+		return false
+	})
+
 	// now send out the notices, we do this in another goroutine because it might
 	// take a while to send all messages
-	go func(metadata string) {
-		message := "Fave: %s is playing."
+	go func(message string) {
 		for _, chunk := range targets {
-			b.c.Cmd.Noticef(chunk, message, metadata)
+			b.c.Cmd.Notice(chunk, message)
 		}
-	}(a.Song.Metadata)
+	}(message)
 
 	return new(rpc.Null), nil
 }
