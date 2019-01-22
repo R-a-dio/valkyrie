@@ -11,6 +11,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+// FavePriorityIncrement is the amount we increase/decrease priority by
+// on a track when it gets favorited/unfavorited
+const FavePriorityIncrement = 1
+
 // ErrTrackNotFound is returned if a track is not found in the database
 var ErrTrackNotFound = errors.New("unknown track id")
 
@@ -325,7 +329,16 @@ func FaveSong(h Handler, nick string, s radio.Song) (bool, error) {
 		return false, err
 	}
 
-	return true, nil
+	// we increase a search priority when a song gets favorited
+	if s.DatabaseTrack != nil && s.TrackID != 0 {
+		query = `UPDATE tracks SET priority=priority+? WHERE id=?`
+		_, err = h.Exec(query, FavePriorityIncrement, s.TrackID)
+		if err != nil {
+			return false, err
+		}
+	}
+
+	return true, err
 }
 
 func UnfaveSong(h Handler, nick string, s radio.Song) (bool, error) {
@@ -342,5 +355,13 @@ func UnfaveSong(h Handler, nick string, s radio.Song) (bool, error) {
 		panic("RowsAffected not supported")
 	}
 
-	return n > 0, nil
+	// we decrease a search priority when a song gets unfavorited
+	if n > 0 && s.DatabaseTrack != nil && s.TrackID != 0 {
+		query = `UPDATE tracks SET priority=priority-? WHERE id=?`
+		_, err = h.Exec(query, FavePriorityIncrement, s.TrackID)
+		if err != nil {
+			return false, err
+		}
+	}
+	return n > 0, err
 }

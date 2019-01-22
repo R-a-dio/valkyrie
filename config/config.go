@@ -1,8 +1,8 @@
 package config
 
 import (
-	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"sync/atomic"
@@ -204,10 +204,8 @@ func Load(r io.Reader) (Config, error) {
 	}
 
 	// print out keys that were found but don't have a destination
-	// TODO: error when this happens?
-	undec := m.Undecoded()
-	if len(undec) > 0 {
-		fmt.Println(undec)
+	for _, key := range m.Undecoded() {
+		log.Printf("warning: unknown configuration field: %s", key)
 	}
 
 	var ac = Config{new(atomic.Value)}

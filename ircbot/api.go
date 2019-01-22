@@ -6,6 +6,7 @@ import (
 	"net/http/pprof"
 	"strings"
 
+	"github.com/R-a-dio/valkyrie/database"
 	"github.com/R-a-dio/valkyrie/rpc"
 	"github.com/twitchtv/twirp"
 )
@@ -30,6 +31,10 @@ func NewHTTPServer(b *Bot) (*http.Server, error) {
 
 func (b *Bot) AnnounceSong(ctx context.Context, song *rpc.Song) (*rpc.Null, error) {
 	e := Event{
+		internal: &internalEvent{
+			ctx:    ctx,
+			handle: database.Handle(ctx, b.DB),
+		},
 		Bot:    b,
 		Client: b.c,
 	}

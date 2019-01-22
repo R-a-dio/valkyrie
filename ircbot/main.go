@@ -6,6 +6,8 @@ import (
 	"net"
 	"time"
 
+	"github.com/cenkalti/backoff"
+
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/database"
@@ -16,7 +18,7 @@ import (
 // Execute executes the ircbot with the context and configuration given. it returns with
 // any error that occurs; Execution can be interrupted by canceling the context given.
 func Execute(ctx context.Context, cfg config.Config) error {
-	b, err := NewBot(cfg)
+	b, err := NewBot(ctx, cfg)
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -51,7 +53,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 }
 
 // NewBot returns a Bot with configuration and handlers loaded
-func NewBot(cfg config.Config) (*Bot, error) {
+func NewBot(ctx context.Context, cfg config.Config) (*Bot, error) {
 	db, err := database.Connect(cfg)
 	if err != nil {
 		return nil, err
@@ -79,7 +81,7 @@ func NewBot(cfg config.Config) (*Bot, error) {
 	}
 
 	RegisterCommonHandlers(b, b.c)
-	RegisterCommandHandlers(b, b.c)
+	RegisterCommandHandlers(ctx, b)
 
 	return b, nil
 }
@@ -99,36 +101,27 @@ type Bot struct {
 // the context given is canceled
 func (b *Bot) runClient(ctx context.Context) error {
 	go func() {
+		// call close on the client when our context is done
 		<-ctx.Done()
 		b.c.Close()
 	}()
 
-	// TODO: use backoff package out of config
-	var connectTime time.Time
-	var backoffCount = 1
+	cb := config.NewConnectionBackoff()
+	cbctx := backoff.WithContext(cb, ctx)
 
-	for {
+	doConnect := func() error {
 		log.Println("client: connecting to:", b.c.Config.Server)
-
-		connectTime = time.Now()
 		err := b.c.Connect()
-		if err == nil {
-			// connect gives us a nil if it returned because of a matching
-			// close call on the client; this means we want to shutdown
-			return nil
+		if err != nil {
+			log.Println("irc: connect error:", err)
+			// reset the backoff if we managed to stay connected for a decent period of
+			// time so we will retry fast again
+			if cb.GetElapsedTime() > time.Minute*10 {
+				cb.Reset()
+			}
 		}
-		// otherwise we want to try reconnecting on our own; We use a simple
-		// backoff system to not flood the server
-		log.Println("client: connect error:", err)
-
-		// reset the backoff count if we managed to stay connected for a long
-		// enough period otherwise we double the backoff period
-		if time.Since(connectTime) > time.Minute*10 {
-			backoffCount = 1
-		} else {
-			backoffCount *= 2
-		}
-
-		time.Sleep(time.Second * 5 * time.Duration(backoffCount))
+		return err
 	}
+
+	return backoff.Retry(doConnect, cbctx)
 }

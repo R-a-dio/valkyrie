@@ -109,7 +109,10 @@ func FaveTrack(e Event) error {
 
 	if e.Arguments.Bool("relative") {
 		// for when `last` is given as argument
-		songs, err := database.GetLastPlayed(e.Database(), 0, 1)
+
+		// count the amount of `last`'s used to determine how far back we should go
+		index := strings.Count(e.Arguments["relative"], "last") - 1
+		songs, err := database.GetLastPlayed(e.Database(), index, 1)
 		if err != nil {
 			return err
 		}

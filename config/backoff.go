@@ -20,7 +20,7 @@ const (
 // NewConnectionBackoff returns a new backoff set to the intended configuration
 // for local connection retrying, for connections going to non-local addresses
 // don't use this
-func NewConnectionBackoff() backoff.BackOff {
+func NewConnectionBackoff() *backoff.ExponentialBackOff {
 	b := &backoff.ExponentialBackOff{
 		RandomizationFactor: backoff.DefaultRandomizationFactor,
 		Multiplier:          backoff.DefaultMultiplier,

@@ -6,6 +6,7 @@ import (
 	"log"
 	"regexp"
 	"strconv"
+	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/database"
@@ -20,7 +21,7 @@ var (
 	reQueue           = "q(ueue)?$"
 	reQueueLength     = "q(ueue)? l(ength)?"
 	reDJ              = "dj( (?P<isGuest>guest:)?(?P<DJ>.+))?"
-	reFave            = "(?P<isNegative>un)?f(ave|avorite)( ((?P<TrackID>[0-9]+)|(?P<relative>last)))?"
+	reFave            = "(?P<isNegative>un)?f(ave|avorite)( ((?P<TrackID>[0-9]+)|(?P<relative>(last($| ))+)))?"
 	reFaveList        = "f(ave|avorite)?l(ist)?( (?P<Nick>.+))?"
 	reThread          = "thread( (?P<thread>.+))?"
 	reTopic           = "topic( (?P<topic>.+))?"
@@ -93,8 +94,9 @@ type RegexHandler struct {
 	fn    HandlerFn
 }
 
-func NewRegexHandlers(bot *Bot, handlers ...RegexHandler) RegexHandlers {
+func NewRegexHandlers(ctx context.Context, bot *Bot, handlers ...RegexHandler) RegexHandlers {
 	h := RegexHandlers{
+		ctx:      ctx,
 		bot:      bot,
 		cache:    make([]*regexp.Regexp, len(handlers)),
 		handlers: handlers,
@@ -112,6 +114,7 @@ func NewRegexHandlers(bot *Bot, handlers ...RegexHandler) RegexHandlers {
 //
 // An IRC events last parameter is used to match against.
 type RegexHandlers struct {
+	ctx      context.Context
 	bot      *Bot
 	cache    []*regexp.Regexp
 	handlers []RegexHandler
@@ -127,14 +130,21 @@ func (rh RegexHandlers) Execute(c *girc.Client, e girc.Event) {
 			continue
 		}
 
+		ctx, cancel := context.WithTimeout(rh.ctx, time.Second*5)
+		defer cancel()
+
 		event := Event{
+			internal: &internalEvent{
+				ctx:    ctx,
+				handle: database.Handle(ctx, rh.bot.DB),
+			},
 			Event:     e,
 			Arguments: match,
 			Bot:       rh.bot,
 			Client:    c,
 		}
 
-		// create our handler
+		// execute our handler
 		err := rh.handlers[i].fn(event)
 		if err != nil {
 			if !checkUserError(c, e, err) {
@@ -167,11 +177,11 @@ var reHandlers = []RegexHandler{
 	{reTrackTags, TrackTags},
 }
 
-func RegisterCommandHandlers(b *Bot, c *girc.Client) error {
-	h := NewRegexHandlers(b, reHandlers...)
+func RegisterCommandHandlers(ctx context.Context, b *Bot) error {
+	h := NewRegexHandlers(ctx, b, reHandlers...)
 	// while RegexHandlers is a girc.Handler, girc does not expose a way to register said
 	// interface as background handler; so we pass the method bound to AddBg instead
-	c.Handlers.AddBg(girc.PRIVMSG, h.Execute)
+	b.c.Handlers.AddBg(girc.PRIVMSG, h.Execute)
 	return nil
 }
 
@@ -184,9 +194,16 @@ func (a Arguments) Bool(key string) bool {
 	return a[key] != ""
 }
 
+type internalEvent struct {
+	ctx    context.Context
+	handle database.Handler
+}
+
 // Event is a collection of parameters to handler functions, fields of Event are exposed
 // to handlers by dependency injection and you should never depend on Event directly
 type Event struct {
+	internal *internalEvent
+
 	girc.Event
 	Arguments Arguments
 
@@ -194,6 +211,8 @@ type Event struct {
 	Client *girc.Client
 }
 
+// Echo sends either a PRIVMSG to a channel or a NOTICE to a user based on the prefix
+// used when running the command
 func (e Event) Echo(message string, args ...interface{}) {
 	switch e.Trailing[0] {
 	case '.', '!':
@@ -205,14 +224,19 @@ func (e Event) Echo(message string, args ...interface{}) {
 	}
 }
 
+// EchoPrivate always sends a message as a NOTICE to the user that invoked the event
 func (e Event) EchoPrivate(message string, args ...interface{}) {
 	e.Client.Cmd.Notice(e.Source.Name, Fmt(message, args...))
 }
 
+// EchoPublic always sends a message as a PRIVMSG to the channel that
+// the event was invoked on
 func (e Event) EchoPublic(message string, args ...interface{}) {
 	e.Client.Cmd.Message(e.Params[0], Fmt(message, args...))
 }
 
+// ArgumentTrack returns the key given interpreted as a radio.TrackID and returns the
+// song associated with it.
 func (e Event) ArgumentTrack(key string) (*radio.Song, error) {
 	stringID := e.Arguments[key]
 	if stringID == "" {
@@ -236,6 +260,7 @@ func (e Event) ArgumentTrack(key string) (*radio.Song, error) {
 	return nil, err
 }
 
+// CurrentTrack returns the currently playing song on the main stream configured
 func (e Event) CurrentTrack() (*radio.Song, error) {
 	status, err := e.Bot.Manager.Status()
 	if err != nil {
@@ -245,6 +270,12 @@ func (e Event) CurrentTrack() (*radio.Song, error) {
 	return database.GetSongFromMetadata(e.Database(), status.Song.Metadata)
 }
 
+// Database returns a database handle with a timeout context
 func (e Event) Database() database.Handler {
-	return database.Handle(context.TODO(), e.Bot.DB)
+	return e.internal.handle
+}
+
+// Context returns the context associated with this event
+func (e Event) Context() context.Context {
+	return e.internal.ctx
 }
