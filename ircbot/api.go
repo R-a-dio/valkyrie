@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/pprof"
+	"strconv"
 	"strings"
 	"time"
 
@@ -88,10 +89,22 @@ func (b *Bot) AnnounceSong(ctx context.Context, a *rpc.SongAnnouncement) (*rpc.N
 		users[name] = struct{}{}
 	}
 
-	// we can send a notice to up to 4 targets at once, so start by grouping the
-	// nicknames by 4, while checking if they're in the channel
+	// we want to send as few NOTICEs as possible, so send to server MAXTARGETS at a time
+	var maxtargets = 1
+	{
+		max, ok := b.c.GetServerOption("MAXTARGETS")
+		if ok {
+			maxi, err := strconv.Atoi(max)
+			if err == nil {
+				maxtargets = maxi
+			}
+		}
+	}
+
+	// we can send a notice to up to `maxtargets` targets at once, so start by grouping the
+	// nicknames by `maxtargets`, while checking if they're in the channel
 	var targets []string
-	var chunk = make([]string, 0, 4)
+	var chunk = make([]string, 0, maxtargets)
 	for _, name := range usersWithFave {
 		// check if the user is in the channel
 		if _, ok := users[name]; !ok {
@@ -99,7 +112,7 @@ func (b *Bot) AnnounceSong(ctx context.Context, a *rpc.SongAnnouncement) (*rpc.N
 		}
 
 		chunk = append(chunk, name)
-		if len(chunk) == 4 {
+		if len(chunk) == maxtargets {
 			targets = append(targets, strings.Join(chunk, ","))
 			chunk = chunk[:0]
 		}
