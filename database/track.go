@@ -225,40 +225,6 @@ func UpdateTrackPlayTime(h Handler, id radio.TrackID) error {
 	return errors.WithStack(err)
 }
 
-// ResolveMetadataBasic resolves the metadata to return the most basic
-// information about it that we know. Currently this returns the following
-// fields if they are found
-//		esong.id
-//		esong.len
-// 		tracks.id
-func ResolveMetadataBasic(h Handler, metadata string) (*radio.Song, error) {
-	hash := radio.NewSongHash(metadata)
-
-	var tmp databaseTrack
-
-	var query = `
-	SELECT tracks.id AS trackid, esong.id AS id, esong.len AS length
-	FROM esong LEFT JOIN tracks ON esong.hash = tracks.hash WHERE esong.hash=?;`
-
-	err := sqlx.Get(h, &tmp, query, hash)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			err = ErrTrackNotFound
-		} else {
-			err = errors.WithStack(err)
-		}
-		return nil, err
-	}
-
-	// we have the metadata, because we take it as parameter, so overwrite
-	// whatever resolve gives us, because it might be empty
-	t := tmp.ToSong()
-	t.Metadata = metadata
-	t.Hash = hash
-
-	return t, nil
-}
-
 // InsertPlayedSong inserts a row into the eplay table with the arguments given
 //
 // ldiff can be nil to indicate no listener data was available

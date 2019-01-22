@@ -66,7 +66,7 @@ func (m *Manager) SetSong(ctx context.Context, new *rpc.Song) (*rpc.Song, error)
 	defer tx.Rollback()
 
 	// find information about the passed song from the database
-	track, err := database.ResolveMetadataBasic(tx, new.Metadata)
+	track, err := database.GetSongFromMetadata(tx, new.Metadata)
 	if err != nil && err != database.ErrTrackNotFound {
 		return nil, twirp.InternalErrorWith(err)
 	}
