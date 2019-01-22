@@ -6,5 +6,11 @@ import "rpc/manager.proto";
 import "rpc/types.proto";
 
 service Bot {
-    rpc AnnounceSong(rpc.Song) returns (Null);
+    rpc AnnounceSong(SongAnnouncement) returns (Null);
+    //rpc AnnounceRequest(rpc.Song) returns (Null);
+}
+
+message SongAnnouncement {
+    rpc.Song song = 1;
+    int64 listeners = 2;
 }

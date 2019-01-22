@@ -98,7 +98,7 @@ type QueueService interface {
 }
 
 type AnnounceService interface {
-	AnnounceSong(context.Context, Song) error
+	AnnounceSong(context.Context, Song, StreamInfo) error
 	AnnounceRequest(context.Context, Song) error
 }
 
@@ -193,7 +193,7 @@ type DatabaseTrack struct {
 // Requestable returns whether this song can be requested by a user
 func (s *Song) Requestable() bool {
 	if s == nil || s.DatabaseTrack == nil {
-		return false
+		panic("Requestable called with nil database track")
 	}
 	if s.RequestDelay == 0 {
 		// no delay set, so we can't really do a proper comparison below

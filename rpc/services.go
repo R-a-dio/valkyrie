@@ -20,17 +20,27 @@ type AnnounceService struct {
 }
 
 // AnnounceSong implements radio.AnnounceService
-func (a AnnounceService) AnnounceSong(ctx context.Context, s radio.Song) error {
+func (a AnnounceService) AnnounceSong(ctx context.Context, s radio.Song, info radio.StreamInfo) error {
 	song := &Song{
-		Id:       int32(s.ID),
-		Metadata: s.Metadata,
+		Id:        int32(s.ID),
+		Metadata:  s.Metadata,
+		StartTime: info.SongStart.Unix(),
+		EndTime:   info.SongEnd.Unix(),
 	}
 
+	if !s.LastPlayed.IsZero() {
+		song.LastPlayed = s.LastPlayed.Unix()
+	}
 	if s.DatabaseTrack != nil {
 		song.TrackId = int32(s.TrackID)
 	}
 
-	_, err := a.twirp.AnnounceSong(ctx, song)
+	announce := &SongAnnouncement{
+		Song:      song,
+		Listeners: int64(info.Listeners),
+	}
+
+	_, err := a.twirp.AnnounceSong(ctx, announce)
 	return err
 }
 
@@ -75,8 +85,8 @@ func (m managerService) Status(ctx context.Context) (radio.Status, error) {
 		},
 		StreamInfo: radio.StreamInfo{
 			Listeners: int(s.ListenerInfo.Listeners),
-			SongStart: time.Unix(int64(s.Song.StartTime), 0),
-			SongEnd:   time.Unix(int64(s.Song.EndTime), 0),
+			SongStart: time.Unix(s.Song.StartTime, 0),
+			SongEnd:   time.Unix(s.Song.EndTime, 0),
 		},
 		Thread:          s.Thread.Thread,
 		RequestsEnabled: s.BotConfig.RequestsEnabled,

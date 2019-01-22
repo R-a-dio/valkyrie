@@ -80,14 +80,14 @@ func (m *Manager) SetSong(ctx context.Context, new *rpc.Song) (*rpc.Song, error)
 	}
 
 	// we assume the song just started
-	new.StartTime = uint64(time.Now().Unix())
+	new.StartTime = time.Now().Unix()
 
 	// now move our database knowledge into the status Song type
 	new.Id = int32(track.ID)
 	if track.DatabaseTrack != nil {
 		new.TrackId = int32(track.TrackID)
 	}
-	new.EndTime = new.StartTime + uint64(track.Length/time.Second)
+	new.EndTime = new.StartTime + int64(track.Length/time.Second)
 
 	var prev *rpc.Song
 	var listenerCountDiff *int64
@@ -121,8 +121,14 @@ func (m *Manager) SetSong(ctx context.Context, new *rpc.Song) (*rpc.Song, error)
 		tx.Rollback()
 	}
 
+	info := radio.StreamInfo{
+		Listeners: int(currentListenerCount),
+		SongStart: time.Unix(new.StartTime, 0),
+		SongEnd:   time.Unix(new.EndTime, 0),
+	}
+
 	// announce the new song over a chat service
-	err = m.client.announce.AnnounceSong(ctx, radio.Song{Metadata: new.Metadata})
+	err = m.client.announce.AnnounceSong(ctx, *track, info)
 	if err != nil {
 		// this isn't a critical error, so we do not return it if it occurs
 		log.Printf("manager: failed to announce song: %s", err)

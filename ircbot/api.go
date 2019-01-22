@@ -4,11 +4,11 @@ import (
 	"context"
 	"net/http"
 	"net/http/pprof"
-	"strings"
+	"time"
 
+	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/database"
 	"github.com/R-a-dio/valkyrie/rpc"
-	"github.com/twitchtv/twirp"
 )
 
 func NewHTTPServer(b *Bot) (*http.Server, error) {
@@ -29,26 +29,43 @@ func NewHTTPServer(b *Bot) (*http.Server, error) {
 	return server, nil
 }
 
-func (b *Bot) AnnounceSong(ctx context.Context, song *rpc.Song) (*rpc.Null, error) {
-	e := Event{
-		internal: &internalEvent{
-			ctx:    ctx,
-			handle: database.Handle(ctx, b.DB),
-		},
-		Bot:    b,
-		Client: b.c,
+func (b *Bot) AnnounceSong(ctx context.Context, a *rpc.SongAnnouncement) (*rpc.Null, error) {
+	message := "Now starting:{red} '%s' {clear}[%s/%s](%s), %s, %s, {green}LP:{clear} %s"
+
+	var lastPlayedDiff time.Duration
+	if a.Song.LastPlayed != 0 {
+		lastPlayed := time.Unix(a.Song.LastPlayed, 0)
+		lastPlayedDiff = time.Since(lastPlayed)
 	}
 
-	fn := nowPlayingMessage(e)
-	message, args, err := fn()
-	if err != nil {
-		return nil, twirp.InternalErrorWith(err)
+	var songPosition time.Duration
+	var songLength time.Duration
+
+	{
+		start := time.Unix(a.Song.StartTime, 0)
+		end := time.Unix(a.Song.EndTime, 0)
+
+		songPosition = time.Since(start)
+		songLength = end.Sub(start)
 	}
 
-	// only difference between the announce and .np command is that it
-	// starts with "Now starting" instead of "Now playing"
-	message = strings.Replace(message, "playing", "starting", 1)
+	db := database.Handle(ctx, b.DB)
+	song := radio.Song{ID: radio.SongID(a.Song.Id)}
 
-	b.c.Cmd.Message(b.Conf().IRC.MainChannel, Fmt(message, args...))
+	favoriteCount, _ := database.SongFaveCount(db, song)
+	playedCount, _ := database.SongPlayedCount(db, song)
+
+	message = Fmt(message,
+		a.Song.Metadata,
+		FormatPlaybackDuration(songPosition), FormatPlaybackDuration(songLength),
+		Pluralf("%d listeners", int64(a.Listeners)),
+		Pluralf("%d faves", favoriteCount),
+		Pluralf("played %d times", playedCount),
+		FormatLongDuration(lastPlayedDiff),
+	)
+
+	b.c.Cmd.Message(b.Conf().IRC.MainChannel, message)
+
+	// TODO: send fave notifications
 	return new(rpc.Null), nil
 }

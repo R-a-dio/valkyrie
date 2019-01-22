@@ -29,11 +29,13 @@ message Song {
     // short metadata
     string metadata = 2; // required
     // song start time in unix epoch
-    uint64 start_time = 3; // required
+    int64 start_time = 3;
     // song end time in unix epoch, can be inaccurate
-    uint64 end_time = 4;
+    int64 end_time = 4;
     // database track identifier
     int32 track_id = 5;
+    // last time this song was played
+    int64 last_played = 6;
 }
     
 message Thread {

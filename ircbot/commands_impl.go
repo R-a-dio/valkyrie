@@ -11,17 +11,51 @@ import (
 	"github.com/R-a-dio/valkyrie/database"
 )
 
-// nowPlaying is a tiny layer around nowPlayingImpl to give it a signature the RegexHandler
-// expects
 func NowPlaying(e Event) error {
-	fn := nowPlayingMessage(e)
+	// there is very similar looking code located in api.go under AnnounceSong, so if
+	// you introduce a change here you might want to see if that change is also required
+	// in the announcement code
+	message := "Now playing:{red} '%s' {clear}[%s/%s](%s), %s, %s, {green}LP:{clear} %s"
 
-	message, args, err := fn()
+	status, err := e.Bot.Manager.Status(e.Context())
+	if err != nil {
+		return err
+	}
+	// status returns a bare song; so refresh it from the db
+	track, err := database.GetSongFromMetadata(e.Database(), status.Song.Metadata)
 	if err != nil {
 		return err
 	}
 
-	e.EchoPublic(message, args...)
+	var lastPlayedDiff time.Duration
+	if !track.LastPlayed.IsZero() {
+		lastPlayedDiff = time.Since(track.LastPlayed)
+	}
+
+	var songPosition time.Duration
+	var songLength time.Duration
+
+	{
+		start := status.StreamInfo.SongStart
+		end := status.StreamInfo.SongEnd
+
+		songPosition = time.Since(start)
+		songLength = end.Sub(start)
+	}
+
+	db := e.Database()
+	favoriteCount, _ := database.SongFaveCount(db, *track)
+	playedCount, _ := database.SongPlayedCount(db, *track)
+
+	e.EchoPublic(message,
+		status.Song.Metadata,
+		FormatPlaybackDuration(songPosition), FormatPlaybackDuration(songLength),
+		Pluralf("%d listeners", int64(status.StreamInfo.Listeners)),
+		Pluralf("%d faves", favoriteCount),
+		Pluralf("played %d times", playedCount),
+		FormatLongDuration(lastPlayedDiff),
+	)
+
 	return nil
 }
 
