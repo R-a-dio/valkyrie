@@ -102,6 +102,12 @@ func (b *Bot) AnnounceSong(ctx context.Context, a *rpc.SongAnnouncement) (*rpc.N
 		}
 	}
 
+	// see below AddTmp handler to see why we need this
+	//
+	// targetMapping is a map between every second nick in each chunk to third-onwards
+	// nicks in each chunk; this is so we can find them again when a 407 is send to us
+	targetMapping := map[string][]string{}
+
 	// we can send a notice to up to `maxtargets` targets at once, so start by grouping the
 	// nicknames by `maxtargets`, while checking if they're in the channel
 	var targets []string
@@ -114,12 +120,20 @@ func (b *Bot) AnnounceSong(ctx context.Context, a *rpc.SongAnnouncement) (*rpc.N
 
 		chunk = append(chunk, name)
 		if len(chunk) == maxtargets {
+			if len(chunk) > 2 {
+				// map second nickname onwards to the rest
+				targetMapping[chunk[1]] = chunk[2:]
+			}
 			targets = append(targets, strings.Join(chunk, ","))
 			chunk = chunk[:0]
 		}
 	}
 	// handle leftovers in the last chunk
 	if len(chunk) > 0 {
+		if len(chunk) > 2 {
+			// map second nickname onwards to the rest
+			targetMapping[chunk[1]] = chunk[2:]
+		}
 		targets = append(targets, strings.Join(chunk, ","))
 	}
 
@@ -131,6 +145,9 @@ func (b *Bot) AnnounceSong(ctx context.Context, a *rpc.SongAnnouncement) (*rpc.N
 	b.c.Handlers.AddTmp("407", time.Second*10, func(c *girc.Client, e girc.Event) bool {
 		target := e.Params[len(e.Params)-1]
 		c.Cmd.Notice(target, message)
+		for _, target = range targetMapping[target] {
+			c.Cmd.Notice(target, message)
+		}
 		return false
 	})
 
