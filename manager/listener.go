@@ -159,7 +159,7 @@ func (ln *Listener) parseResponse(ctx context.Context, metasize int, src io.Read
 		if len(meta) == 0 {
 			// fatal because it most likely means we've lost sync with the data
 			// stream and can't find our metadata anymore.
-			return errors.New("listener: empty metadata")
+			return errors.New("listener: empty metadata: " + string(buf[:length]))
 		}
 
 		song := meta["StreamTitle"]
@@ -226,7 +226,7 @@ func parseMetadata(b []byte) map[string]string {
 		b, key = findSequence(b, '=', '\'')
 		b, value = findSequence(b, '\'', ';')
 
-		if value == "" {
+		if key == "" {
 			break
 		}
 
