@@ -79,7 +79,7 @@ type QueueSong struct {
 }
 
 type QueueStorage interface {
-	Save(ctx context.Context, name string, queue []QueueSong) error
+	Store(ctx context.Context, name string, queue []QueueSong) error
 	Load(ctx context.Context, name string) ([]QueueSong, error)
 }
 
@@ -207,4 +207,8 @@ func (s *Song) Requestable() bool {
 	}
 
 	return true
+}
+
+func (t *DatabaseTrack) HasTrack() bool {
+	return t != nil
 }

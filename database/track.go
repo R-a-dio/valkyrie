@@ -80,7 +80,7 @@ func GetSongFromHash(h Handler, hash radio.SongHash) (*radio.Song, error) {
 		return nil, err
 	}
 
-	return tmp.ToSong(), nil
+	return tmp.ToSongPtr(), nil
 }
 
 // databaseTrack is the type used to communicate with the database
@@ -112,7 +112,7 @@ type databaseTrack struct {
 	NeedReplacement sql.NullInt64
 }
 
-func (dt databaseTrack) ToSong() *radio.Song {
+func (dt databaseTrack) ToSong() radio.Song {
 	metadata := dt.Metadata.String
 	if dt.Track.String != "" && dt.Artist.String != "" {
 		metadata = fmt.Sprintf("%s - %s", dt.Artist.String, dt.Track.String)
@@ -142,7 +142,7 @@ func (dt databaseTrack) ToSong() *radio.Song {
 		}
 	}
 
-	return &radio.Song{
+	return radio.Song{
 		ID:            radio.SongID(dt.ID.Int64),
 		Hash:          dt.Hash,
 		Metadata:      metadata,
@@ -150,6 +150,11 @@ func (dt databaseTrack) ToSong() *radio.Song {
 		LastPlayed:    dt.LastPlayed.Time,
 		DatabaseTrack: track,
 	}
+}
+
+func (dt databaseTrack) ToSongPtr() *radio.Song {
+	song := dt.ToSong()
+	return &song
 }
 
 // AllTracks returns all tracks in the database
@@ -169,7 +174,7 @@ func AllTracks(h Handler) ([]radio.Song, error) {
 
 	var tracks = make([]radio.Song, len(tmps))
 	for i, tmp := range tmps {
-		tracks[i] = *(tmp.ToSong())
+		tracks[i] = tmp.ToSong()
 	}
 
 	return tracks, nil
@@ -202,7 +207,7 @@ func GetTrack(h Handler, id radio.TrackID) (*radio.Song, error) {
 		return nil, err
 	}
 
-	return tmp.ToSong(), nil
+	return tmp.ToSongPtr(), nil
 }
 
 // UpdateTrackRequestTime updates the time the track given was last requested

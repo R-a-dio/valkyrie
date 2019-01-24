@@ -1,8 +1,7 @@
 package database
 
 import (
-	"database/sql"
-	"encoding/json"
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -11,84 +10,176 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-var (
-	queryQueueSave = `INSERT INTO queue (trackid, time, ip, type, meta,
-		length, id) VALUES (?, ?, ?, ?, ?, ?, ?);`
-	queryQueueLoad = `SELECT trackid, ip AS uid,
-		type AS isrequest FROM queue ORDER BY id ASC;`
-	queryQueuePopulate = `SELECT tmp.id FROM (
-			(SELECT id FROM tracks WHERE usable=1 ORDER BY 
-			(UNIX_TIMESTAMP(lastplayed) + 1)*(UNIX_TIMESTAMP(lastrequested) + 1) 
-			ASC LIMIT 100)
-		UNION ALL 
-			(SELECT id FROM tracks WHERE usable=1 ORDER BY LEAST(lastplayed,
-				 lastrequested) ASC LIMIT 100)
-		) AS tmp GROUP BY tmp.id HAVING count(*) >= 2;`
-	queryQueueUpdateLastRequested = `UPDATE tracks SET 
-		lastrequested=NOW() WHERE id=?`
-	queryQueueDelete = `DELETE FROM queue;`
-)
-
-type QueueEntry struct {
-	Track          radio.Song
-	IsRequest      bool
-	UserIdentifier string
-
-	// fields not used by the database layer
-	EstimatedPlayTime time.Time
+// NewQueueStorage creates a new QueueStorage that is backed by the database
+func NewQueueStorage(db *sqlx.DB) radio.QueueStorage {
+	return QueueStorage{db}
 }
 
-// MarshalJSON implements json.Marshaler
-func (q QueueEntry) MarshalJSON() ([]byte, error) {
-	return json.Marshal(struct {
-		IsRequest         bool
-		UserIdentifier    string
-		EstimatedPlayTime time.Time
-		Metadata          string
-		TrackID           radio.TrackID
-	}{
-		IsRequest:         q.IsRequest,
-		UserIdentifier:    q.UserIdentifier,
-		EstimatedPlayTime: q.EstimatedPlayTime,
-		Metadata:          q.Track.Metadata,
-		TrackID:           q.Track.TrackID,
-	})
+// QueueStorage is a radio.QueueStorage backed by a sql database
+type QueueStorage struct {
+	db *sqlx.DB
 }
 
-func QueueLoad(h Handler) ([]QueueEntry, error) {
-	var databaseQueue = []struct {
-		TrackID   radio.TrackID
-		UID       sql.NullString
-		IsRequest int
-	}{}
+type queueSong struct {
+	ExpectedStartTime time.Time
+	UserIdentifier    string
+	IsRequest         int
+	databaseTrack
+}
 
-	err := sqlx.Select(h, &databaseQueue, queryQueueLoad)
+// Store stores the queue given under name in the database configured
+//
+// Implements radio.QueueStorage
+func (qs QueueStorage) Store(ctx context.Context, name string, queue []radio.QueueSong) error {
+	tx, err := HandleTx(ctx, qs.db)
 	if err != nil {
-		fmt.Println("select")
+		return err
+	}
+	defer tx.Rollback()
+
+	// empty the queue so we can repopulate it
+	_, err = tx.Exec(`DELETE FROM queue`)
+	if err != nil {
+		return err
+	}
+
+	var query = `
+	INSERT INTO
+		queue (trackid, time, ip, type, meta, length, id)
+	VALUES
+		(?, ?, ?, ?, ?, ?, ?);
+	`
+	for i, entry := range queue {
+		if !entry.HasTrack() {
+			return fmt.Errorf("queue storage: song with no track found in queue: %v", entry)
+		}
+
+		var isRequest = 0
+		if entry.IsUserRequest {
+			isRequest = 1
+		}
+
+		_, err = tx.Exec(query,
+			entry.TrackID,
+			entry.ExpectedStartTime,
+			entry.UserIdentifier,
+			isRequest,
+			entry.Metadata,
+			entry.Length/time.Second,
+			i+1, // ordering id
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
+// Load loads the queue name given from the database configured
+//
+// Implements radio.QueueStorage
+func (qs QueueStorage) Load(ctx context.Context, name string) ([]radio.QueueSong, error) {
+	tx, err := HandleTx(ctx, qs.db)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	var query = `
+	SELECT
+		queue.trackid,
+		queue.time AS expectedstarttime,
+		queue.ip AS useridentifier,
+		type AS isrequest,
+		queue.meta AS metadata,
+		queue.length, 
+		(
+			SELECT
+				dt
+			FROM eplay
+			WHERE 
+				eplay.isong = esong.id
+			ORDER BY dt DESC
+			LIMIT 1
+		) AS lastplayed,
+		esong.id AS id,
+		esong.hash AS hash,
+		tracks.artist,
+		tracks.track,
+		tracks.album,
+		tracks.path,
+		tracks.tags,
+		tracks.accepter AS acceptor,
+		tracks.lasteditor,
+		tracks.priority,
+		tracks.usable,
+		tracks.lastrequested,
+		tracks.requestcount
+	FROM queue 
+		LEFT JOIN tracks ON queue.trackid = tracks.id
+		LEFT JOIN esong ON tracks.hash = esong.hash
+	ORDER BY 
+		queue.id ASC;
+	`
+
+	var queue []queueSong
+
+	err = sqlx.Select(tx, &queue, query)
+	if err != nil {
 		return nil, err
 	}
 
-	queue := make([]QueueEntry, 0, len(databaseQueue))
-	for _, qi := range databaseQueue {
-		t, err := GetTrack(h, qi.TrackID)
-		if err != nil {
-			fmt.Println("gettrack")
-			return nil, err
+	songs := make([]radio.QueueSong, len(queue))
+	for i, qSong := range queue {
+		songs[i] = radio.QueueSong{
+			Song:              qSong.ToSong(),
+			IsUserRequest:     qSong.IsRequest == 1,
+			UserIdentifier:    qSong.UserIdentifier,
+			ExpectedStartTime: qSong.ExpectedStartTime,
 		}
-
-		queue = append(queue, QueueEntry{
-			Track:          *t,
-			IsRequest:      qi.IsRequest != 0,
-			UserIdentifier: qi.UID.String,
-		})
 	}
 
-	return queue, nil
+	return songs, tx.Commit()
 }
 
 func QueuePopulate(h Handler) ([]radio.TrackID, error) {
+	var query = `
+	SELECT
+		tmp.id
+	FROM 
+	(
+		(
+			SELECT
+				id
+			FROM
+				tracks
+			WHERE
+				usable=1
+			ORDER BY (
+				UNIX_TIMESTAMP(lastplayed) + 1)*(UNIX_TIMESTAMP(lastrequested) + 1) 
+			ASC LIMIT 100
+		)
+		UNION ALL
+		(
+			SELECT
+				id
+			FROM
+				tracks
+			WHERE
+				usable=1
+			ORDER BY
+				LEAST(lastplayed, lastrequested)
+			ASC LIMIT 100
+		)
+	) AS tmp
+	GROUP BY
+		tmp.id
+	HAVING
+		count(*) >= 2;
+	`
 	var candidates = []radio.TrackID{}
-	err := sqlx.Select(h, &candidates, queryQueuePopulate)
+	err := sqlx.Select(h, &candidates, query)
 	if err != nil {
 		return nil, err
 	}
@@ -99,33 +190,19 @@ func QueuePopulate(h Handler) ([]radio.TrackID, error) {
 	return candidates, nil
 }
 
-func QueueUpdateTrack(h Handler, tid radio.TrackID) error {
-	_, err := h.Exec(queryQueueUpdateLastRequested, tid)
+func QueueUpdateTrack(h Handler, id radio.TrackID) error {
+	var query = `
+	UPDATE
+		tracks
+	SET 
+		lastrequested=NOW()
+	WHERE
+		id=?;
+	`
+
+	_, err := h.Exec(query, id)
 	if err != nil {
 		return err
 	}
-	return nil
-}
-
-func QueueSave(h Handler, queue []QueueEntry) error {
-	_, err := h.Exec(queryQueueDelete)
-	if err != nil {
-		return err
-	}
-
-	for i, e := range queue {
-		var isRequest = 0
-		if e.IsRequest {
-			isRequest = 1
-		}
-
-		_, err := h.Exec(queryQueueSave, e.Track.TrackID, e.EstimatedPlayTime,
-			e.UserIdentifier, isRequest, e.Track.Metadata,
-			e.Track.Length/time.Second, i+1)
-		if err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
