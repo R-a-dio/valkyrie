@@ -20,6 +20,9 @@ import (
 // any error that occurs; Execution can be interrupted by canceling the context given.
 func Execute(ctx context.Context, cfg config.Config) error {
 	b, err := NewBot(ctx, cfg)
+	if err != nil {
+		return err
+	}
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()

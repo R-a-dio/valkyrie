@@ -59,60 +59,6 @@ func NowPlaying(e Event) error {
 	return nil
 }
 
-// messageFn is a function that returns a string and arguments ready to be passed to
-// any of the fmt.*f functions
-type messageFn func() (msg string, args []interface{}, err error)
-
-// nowPlayingMessage implements the internals for both the NowPlaying command and
-// Bot.AnnounceSong for the API
-//func nowPlayingMessage(status radio.Status, db database.Handler, track CurrentTrack) messageFn {
-func nowPlayingMessage(e Event) messageFn {
-	return func() (string, []interface{}, error) {
-		message := "Now playing:{red} '%s' {clear}[%s/%s](%s), %s, %s, {green}LP:{clear} %s"
-
-		status, err := e.Bot.Manager.Status(e.Context())
-		if err != nil {
-			return "", nil, err
-		}
-		// status returns a bare song; so refresh it from the db
-		track, err := database.GetSongFromMetadata(e.Database(), status.Song.Metadata)
-		if err != nil {
-			return "", nil, err
-		}
-
-		var lastPlayedDiff time.Duration
-		if !track.LastPlayed.IsZero() {
-			lastPlayedDiff = time.Since(track.LastPlayed)
-		}
-
-		var songPosition time.Duration
-		var songLength time.Duration
-
-		{
-			start := status.StreamInfo.SongStart
-			end := status.StreamInfo.SongEnd
-
-			songPosition = time.Since(start)
-			songLength = end.Sub(start)
-		}
-
-		db := e.Database()
-		favoriteCount, _ := database.SongFaveCount(db, *track)
-		playedCount, _ := database.SongPlayedCount(db, *track)
-
-		args := []interface{}{
-			status.Song.Metadata,
-			FormatPlaybackDuration(songPosition), FormatPlaybackDuration(songLength),
-			Pluralf("%d listeners", int64(status.StreamInfo.Listeners)),
-			Pluralf("%d faves", favoriteCount),
-			Pluralf("played %d times", playedCount),
-			FormatLongDuration(lastPlayedDiff),
-		}
-
-		return message, args, nil
-	}
-}
-
 func LastPlayed(e Event) error {
 	songs, err := database.GetLastPlayed(e.Database(), 0, 5)
 	if err != nil {
