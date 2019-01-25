@@ -43,7 +43,7 @@ func (h *streamHandler) RequestTrack(ctx context.Context, r *rpc.TrackRequest) (
 	h.requestMutex.Lock()
 	defer h.requestMutex.Unlock()
 
-	tx, err := database.HandleTx(ctx, h.queue.DB)
+	tx, err := database.HandleTx(ctx, h.DB)
 	if err != nil {
 		return nil, twirp.InternalErrorWith(err)
 	}
@@ -85,7 +85,7 @@ func (h *streamHandler) RequestTrack(ctx context.Context, r *rpc.TrackRequest) (
 	if err != nil {
 		return nil, twirp.InternalErrorWith(err)
 	}
-	err = database.UpdateTrackRequestTime(tx, radio.TrackID(r.Track))
+	err = database.UpdateTrackRequestInfo(tx, radio.TrackID(r.Track))
 	if err != nil {
 		return nil, twirp.InternalErrorWith(err)
 	}
@@ -95,6 +95,6 @@ func (h *streamHandler) RequestTrack(ctx context.Context, r *rpc.TrackRequest) (
 	}
 
 	// send the song to the queue
-	h.queue.AddRequest(*track, r.Identifier)
+	h.queue.AddRequest(ctx, *track, r.Identifier)
 	return requestResponse(true, "thank you for making your request!")
 }

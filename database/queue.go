@@ -2,7 +2,6 @@ package database
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -30,7 +29,7 @@ type queueSong struct {
 // Store stores the queue given under name in the database configured
 //
 // Implements radio.QueueStorage
-func (qs QueueStorage) Store(ctx context.Context, name string, queue []radio.QueueSong) error {
+func (qs QueueStorage) Store(ctx context.Context, name string, queue []radio.QueueEntry) error {
 	tx, err := HandleTx(ctx, qs.db)
 	if err != nil {
 		return err
@@ -65,7 +64,7 @@ func (qs QueueStorage) Store(ctx context.Context, name string, queue []radio.Que
 			entry.UserIdentifier,
 			isRequest,
 			entry.Metadata,
-			entry.Length/time.Second,
+			entry.Length.Seconds(),
 			i+1, // ordering id
 		)
 		if err != nil {
@@ -79,7 +78,7 @@ func (qs QueueStorage) Store(ctx context.Context, name string, queue []radio.Que
 // Load loads the queue name given from the database configured
 //
 // Implements radio.QueueStorage
-func (qs QueueStorage) Load(ctx context.Context, name string) ([]radio.QueueSong, error) {
+func (qs QueueStorage) Load(ctx context.Context, name string) ([]radio.QueueEntry, error) {
 	tx, err := HandleTx(ctx, qs.db)
 	if err != nil {
 		return nil, err
@@ -91,7 +90,7 @@ func (qs QueueStorage) Load(ctx context.Context, name string) ([]radio.QueueSong
 		queue.trackid,
 		queue.time AS expectedstarttime,
 		queue.ip AS useridentifier,
-		type AS isrequest,
+		queue.type AS isrequest,
 		queue.meta AS metadata,
 		queue.length, 
 		(
@@ -130,9 +129,9 @@ func (qs QueueStorage) Load(ctx context.Context, name string) ([]radio.QueueSong
 		return nil, err
 	}
 
-	songs := make([]radio.QueueSong, len(queue))
+	songs := make([]radio.QueueEntry, len(queue))
 	for i, qSong := range queue {
-		songs[i] = radio.QueueSong{
+		songs[i] = radio.QueueEntry{
 			Song:              qSong.ToSong(),
 			IsUserRequest:     qSong.IsRequest == 1,
 			UserIdentifier:    qSong.UserIdentifier,
@@ -182,9 +181,6 @@ func QueuePopulate(h Handler) ([]radio.TrackID, error) {
 	err := sqlx.Select(h, &candidates, query)
 	if err != nil {
 		return nil, err
-	}
-	if len(candidates) == 0 {
-		return nil, errors.New("empty candidate list")
 	}
 
 	return candidates, nil

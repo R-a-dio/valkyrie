@@ -45,7 +45,7 @@ type Streamer struct {
 
 	config.Config
 	// queue used by the streamer
-	queue *Queue
+	queue radio.QueueService
 	// Format of the PCM audio data
 	AudioFormat audio.AudioFormat
 
@@ -59,7 +59,7 @@ type Streamer struct {
 }
 
 // NewStreamer returns a new streamer using the state given
-func NewStreamer(cfg config.Config, queue *Queue) (*Streamer, error) {
+func NewStreamer(cfg config.Config, queue radio.QueueService) (*Streamer, error) {
 	var s = &Streamer{
 		Config: cfg,
 		queue:  queue,
@@ -198,7 +198,7 @@ type pipelineFunc func(streamerTask) error
 
 type streamerTrack struct {
 	filepath string
-	track    radio.Song
+	track    radio.QueueEntry
 	pcm      *audio.PCMBuffer
 	mp3      *audio.MP3Buffer
 
@@ -229,7 +229,10 @@ func (s *Streamer) errored(task streamerTask, track streamerTrack) {
 
 	track.once.Do(func() {
 		log.Printf("streamer.errored: on track %s\n", track)
-		s.queue.RemoveTrack(track.track)
+		_, err := s.queue.Remove(task.Context, track.track)
+		if err != nil {
+			log.Printf("streamer.errored: error: %s\n", err)
+		}
 
 		select {
 		case task._head.out <- streamerTrack{}:
@@ -272,7 +275,10 @@ func (s *Streamer) tailTask(task streamerTask) error {
 
 		track.once.Do(func() {
 			log.Printf("streamer.tail: on track %s\n", track)
-			s.queue.PopTrack(track.track)
+			_, err := s.queue.Remove(task.Context, track.track)
+			if err != nil {
+				log.Printf("streamer.tail: error: %s\n", err)
+			}
 
 			select {
 			case task.out <- streamerTrack{}:
@@ -283,7 +289,6 @@ func (s *Streamer) tailTask(task streamerTask) error {
 }
 
 func (s *Streamer) queueFiles(task streamerTask) error {
-	var last streamerTrack
 	for {
 		var track streamerTrack
 
@@ -293,10 +298,11 @@ func (s *Streamer) queueFiles(task streamerTask) error {
 			return nil
 		}
 
-		track.track = s.queue.PeekTrack(last.track)
-		if track.track == (radio.Song{}) {
-			return ErrEmptyQueue
+		entry, err := s.queue.ReserveNext(task.Context)
+		if err != nil {
+			return err
 		}
+		track.track = *entry
 
 		track.filepath = filepath.Join(s.Conf().MusicPath, track.track.FilePath)
 
@@ -305,8 +311,6 @@ func (s *Streamer) queueFiles(task streamerTask) error {
 		case <-task.Done():
 			return nil
 		}
-
-		last = track
 	}
 }
 
