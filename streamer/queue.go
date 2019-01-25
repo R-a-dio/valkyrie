@@ -26,281 +26,192 @@ const queueMinimumLength = queueRequestThreshold / 2
 // before random songs should stop being added to it.
 const queueRequestThreshold = 10
 
+const queueName = "default"
+
 // ErrEmptyQueue is returned when the queue is empty
-var ErrEmptyQueue = errors.New("empty queue")
+var ErrEmptyQueue = errors.New("queue: empty")
 
-// NewQueue returns a ready to use Queue instance, restoring
-// state from the database before returning.
-func NewQueue(cfg config.Config) (*Queue, error) {
-	db, err := database.Connect(cfg)
+// ErrExhaustedQueue is returned when there aren't enough songs to return
+var ErrExhaustedQueue = errors.New("queue: exhausted")
+
+// ErrShortQueue is returned by population if it found less candidates than required
+var ErrShortQueue = errors.New("queue: not enough population candidates")
+
+// NewQueueService returns you a new QueueService with the configuration given
+func NewQueueService(ctx context.Context, cfg config.Config, db *sqlx.DB) (*QueueService, error) {
+	ctx, cancel := context.WithTimeout(ctx, time.Second*5)
+	defer cancel()
+
+	storage := database.NewQueueStorage(db)
+	queue, err := storage.Load(ctx, queueName)
 	if err != nil {
 		return nil, err
 	}
 
-	var q = &Queue{
-		Config:           cfg,
-		DB:               db,
-		nextSongEstimate: time.Now(),
-	}
-
-	log.Println("queue: loading")
-	if err := q.load(); err != nil {
-		log.Printf("queue: loading error: %s\n", err)
-		return nil, err
-	}
-
-	log.Println("queue: populating")
-	if err := q.populate(); err != nil {
-		log.Printf("queue: populate error: %s\n", err)
-		return nil, err
-	}
-
-	log.Println("queue: finished initializing")
-	return q, nil
+	return &QueueService{
+		Config:  cfg,
+		db:      db,
+		queue:   queue,
+		storage: storage,
+	}, nil
 }
 
-// Queue is the queue of tracks for the streamer
-type Queue struct {
+// QueueService implements radio.QueueService that uses a random population algorithm
+type QueueService struct {
 	config.Config
-	DB *sqlx.DB
+	db      *sqlx.DB
+	storage radio.QueueStorage
 
-	mu sync.Mutex
-	// l is the in-memory representation of the queue
-	l []database.QueueEntry
-	// nextSongEstimate is the estimated start-time of the next song
-	nextSongEstimate time.Time
-	// totalLength is the length of all songs in the queue summed
-	totalLength time.Duration
+	// mu protects the fields below
+	mu    sync.Mutex
+	queue []radio.QueueEntry
+	// reservedIndex indicates what part of the queue has been reserved by calls
+	// to ReserveNext, it's the index of the first un-reserved entry
+	reservedIndex int
 }
 
-// AddRequest adds a track to the queue as requested by uid
-func (q *Queue) AddRequest(t radio.Song, uid string) {
-	q.mu.Lock()
-	q.addEntry(database.QueueEntry{
-		Track:          t,
-		IsRequest:      true,
-		UserIdentifier: uid,
-	})
-	q.mu.Unlock()
-	go q.Save()
-}
+// append appends the entry given to the queue, it tries to probe a more accurate
+// song length with ffprobe and calculates the ExpectedStartTime on the entry
+func (qs *QueueService) append(ctx context.Context, entry radio.QueueEntry) {
+	// try running an ffprobe to get a more accurate song length
+	ctx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
 
-// Add adds a track to the queue
-func (q *Queue) Add(t radio.Song) {
-	q.mu.Lock()
-	q.addEntry(database.QueueEntry{
-		Track:          t,
-		UserIdentifier: "internal",
-	})
-	q.mu.Unlock()
-	go q.Save()
-}
-
-// addEntry adds the QueueEntry to the queue and populates its
-// EstimatedPlayTime field.
-//
-// Before calling addEntry you should lock q.mu
-func (q *Queue) addEntry(e database.QueueEntry) {
-	// our database length is inaccurate due to human streamers adjusting
-	// them when a song plays, so instead try to find the duration ourselves
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	path := filepath.Join(q.Conf().MusicPath, e.Track.FilePath)
+	path := filepath.Join(qs.Conf().MusicPath, entry.FilePath)
 	length, err := audio.ProbeDuration(ctx, path)
-	cancel()
 	if err == nil {
-		// only use the result if there was no error
-		e.Track.Length = length
-	} else {
-		fmt.Println("queue: probe error:", err)
+		// only use the probe value if it didn't error
+		entry.Length = length
 	}
 
-	// TODO: make this use relative times from Now
-	e.EstimatedPlayTime = q.nextSongEstimate.Add(q.totalLength)
-	q.totalLength += e.Track.Length
+	last := qs.queue[len(qs.queue)-1]
+	entry.ExpectedStartTime = last.ExpectedStartTime.Add(last.Length)
 
-	q.l = append(q.l, e)
+	qs.queue = append(qs.queue, entry)
 }
 
-// Save saves the queue to the database
-func (q *Queue) Save() error {
-	q.mu.Lock()
-	// recalculate playtime estimates, because we could have been sitting idle
-	// and that would mean the queue drifts away
-	//
-	// TODO: make this use relative times from Now
-	var length time.Duration
-	for i := range q.l {
-		q.l[i].EstimatedPlayTime = q.nextSongEstimate.Add(length)
-		length += q.l[i].Track.Length
-	}
-	q.totalLength = length
-
-	h := database.Handle(context.TODO(), q.DB)
-	err := database.QueueSave(h, q.l)
-	q.mu.Unlock()
-	return err
-}
-
-// Entries returns a copy of all queue entries
-func (q *Queue) Entries() []database.QueueEntry {
-	q.mu.Lock()
-	all := make([]database.QueueEntry, len(q.l))
-
-	for i := range q.l {
-		all[i] = q.l[i]
-	}
-	q.mu.Unlock()
-
-	return all
-}
-
-func (q *Queue) peek() radio.Song {
-	if len(q.l) == 0 {
-		return radio.Song{}
-	}
-
-	// refresh our in-memory track with database info, something might've
-	// changed between the time we got queued, and the time we're being used.
-	return q.refreshTrack(q.l[0].Track)
-}
-
-// Peek returns the next track to be returned from Pop
-func (q *Queue) Peek() radio.Song {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-
-	return q.peek()
-}
-
-// PeekTrack returns the track positioned after the track given or next track
-// if track is not in queue
-func (q *Queue) PeekTrack(t radio.Song) radio.Song {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-
-	var found bool
-	for _, qt := range q.l {
-		// we're returning the track that comes after track `t`
-		if found {
-			return q.refreshTrack(qt.Track)
-		}
-
-		if qt.Track.EqualTo(t) {
-			found = true
-		}
-	}
-
-	return q.peek()
-}
-
-func (q *Queue) refreshTrack(t radio.Song) radio.Song {
-	h := database.Handle(context.TODO(), q.DB)
-	nt, err := database.GetTrack(h, t.TrackID)
-	if err != nil {
-		// we just return our original in-memory version if the database query
-		// failed to complete
-		return t
-	}
-
-	// since we probe for a duration if length is zero, we have to copy it from
-	// the track we already had
-	if nt.Length == 0 {
-		nt.Length = t.Length
-	}
-
-	return *nt
-}
-
-// Pop removes and returns the next track in the queue
-func (q *Queue) Pop() radio.Song {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-
-	return q.pop()
-}
-
-// PopTrack pops the next track if it's the track given; otherwise does
-// nothing.
-func (q *Queue) PopTrack(t radio.Song) {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-
-	if len(q.l) == 0 {
-		return
-	}
-
-	e := q.l[0]
-
-	// check if our top-most track is equal to the argument
-	if e.Track.EqualTo(t) {
-		q.pop()
+// calculateExpectedStartTime calculates the ExpectedStartTime fields of all entries
+// based on the first entries ExpectedStartTime; This will generate incorrect times
+// if the first entry has a wrong time.
+func (qs *QueueService) calculateExpectedStartTime() {
+	var length = qs.queue[0].Length
+	for i := 1; i < len(qs.queue); i++ {
+		qs.queue[i].ExpectedStartTime = qs.queue[i-1].ExpectedStartTime.Add(length)
 	}
 }
 
-// RemoveTrack removes the first occurence of the track given from the queue
-func (q *Queue) RemoveTrack(t radio.Song) {
-	q.mu.Lock()
-	for i, qt := range q.l {
-		if !qt.Track.EqualTo(t) {
+// AddRequest implements radio.QueueService
+func (qs *QueueService) AddRequest(ctx context.Context, song radio.Song, identifier string) error {
+	qs.mu.Lock()
+	defer qs.mu.Unlock()
+
+	qs.append(ctx, radio.QueueEntry{
+		Song:           song,
+		IsUserRequest:  true,
+		UserIdentifier: identifier,
+	})
+
+	return qs.storage.Store(ctx, queueName, qs.queue)
+}
+
+// ReserveNext implements radio.QueueService
+func (qs *QueueService) ReserveNext(ctx context.Context) (*radio.QueueEntry, error) {
+	qs.mu.Lock()
+	defer qs.mu.Unlock()
+
+	if len(qs.queue) == 0 {
+		return nil, ErrEmptyQueue
+	}
+
+	if qs.reservedIndex == len(qs.queue) {
+		return nil, ErrExhaustedQueue
+	}
+
+	entry := qs.queue[qs.reservedIndex]
+	qs.reservedIndex++
+
+	return &entry, nil
+}
+
+// Remove removes the song given from the queue
+func (qs *QueueService) Remove(ctx context.Context, entry radio.QueueEntry) (bool, error) {
+	qs.mu.Lock()
+	defer qs.mu.Unlock()
+
+	size := len(qs.queue)
+	for i, e := range qs.queue {
+		if !e.EqualTo(entry) {
 			continue
 		}
 
-		q.l = append(q.l[:i], q.l[i+1:]...)
+		qs.queue = append(qs.queue[:i], qs.queue[i+1:]...)
+		if i < qs.reservedIndex {
+			qs.reservedIndex--
+		}
+
+		// we've removed the first song so assume it just started playing; now we update
+		// the front of our queue with the current time and the songs length and
+		// recalculate the rest from there
+		if len(qs.queue) > 0 && i == 0 {
+			qs.queue[0].ExpectedStartTime = time.Now().Add(e.Length)
+			qs.calculateExpectedStartTime()
+		}
 		break
 	}
-	q.mu.Unlock()
-}
-
-// pop pops a track from the queue, before calling pop you have to hold q.mu
-func (q *Queue) pop() radio.Song {
-	if len(q.l) == 0 {
-		return radio.Song{}
-	}
-
-	e := q.l[0]
-	q.l = q.l[:copy(q.l, q.l[1:])]
-
-	q.nextSongEstimate = time.Now().Add(e.Track.Length)
-	q.totalLength -= e.Track.Length
 
 	go func() {
-		// TODO: make all calls use the same transaction
-		h := database.Handle(context.TODO(), q.DB)
-		database.UpdateTrackPlayTime(h, e.Track.TrackID)
-		q.populate()
-		q.Save()
+		qs.mu.Lock()
+		defer qs.mu.Unlock()
+
+		ctx, cancel := context.WithTimeout(ctx, time.Second*5)
+		defer cancel()
+
+		err := qs.populate(ctx)
+		if err != nil {
+			log.Println(err)
+		}
+
+		err = qs.storage.Store(ctx, queueName, qs.queue)
+		if err != nil {
+			log.Println(err)
+		}
 	}()
-	return e.Track
+
+	err := qs.storage.Store(ctx, queueName, qs.queue)
+	if err != nil {
+		return false, err
+	}
+
+	return size != len(qs.queue), nil
 }
 
-func (q *Queue) load() error {
-	h := database.Handle(context.TODO(), q.DB)
-	queue, err := database.QueueLoad(h)
+// Entries returns all entries in the queue
+func (qs *QueueService) Entries(ctx context.Context) ([]radio.QueueEntry, error) {
+	qs.mu.Lock()
+	defer qs.mu.Unlock()
+
+	all := make([]radio.QueueEntry, len(qs.queue))
+	copy(all, qs.queue)
+	return all, nil
+}
+
+func (qs *QueueService) populate(ctx context.Context) error {
+	tx, err := database.HandleTx(ctx, qs.db)
 	if err != nil {
 		return err
 	}
+	defer tx.Rollback()
 
-	q.mu.Lock()
-	for _, e := range queue {
-		q.addEntry(e)
-	}
-	q.mu.Unlock()
-
-	return nil
-}
-
-func (q *Queue) populate() error {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-
+	// figure out what the queue consists of right now
 	var randomEntries, requestEntries int
-	for _, e := range q.l {
-		if e.IsRequest {
+	for i := range qs.queue {
+		if qs.queue[i].IsUserRequest {
 			requestEntries++
 		} else {
 			randomEntries++
 		}
 	}
+
 	if requestEntries > queueRequestThreshold {
 		requestEntries = queueRequestThreshold
 	}
@@ -308,68 +219,70 @@ func (q *Queue) populate() error {
 	// total amount of random songs we want in the queue
 	randomThreshold := (queueRequestThreshold - requestEntries) / 2
 	if randomEntries >= randomThreshold {
+		// we already have enough random songs
 		return nil
 	}
-
-	tx, err := database.HandleTx(context.TODO(), q.DB)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
+	// wanted final length of the queue
+	wantedLength := len(qs.queue) + (randomThreshold - randomEntries)
 
 	candidates, err := database.QueuePopulate(tx)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println(candidates)
-	var addedCount int
-	for addedCount < randomThreshold-randomEntries {
+	if len(candidates) == 0 {
+		return ErrShortQueue
+	}
+
+outer:
+	for len(qs.queue) < wantedLength {
+		// we've run out of candidates
 		if len(candidates) == 0 {
 			break
 		}
 
+		// grab a candidate at random
 		n := rand.Intn(len(candidates))
-		tid := candidates[n]
-		fmt.Println(tid)
+		id := candidates[n]
 
 		candidates[n] = candidates[len(candidates)-1]
 		candidates = candidates[:len(candidates)-1]
 
-		var dup bool
-		for _, e := range q.l {
-			if e.Track.TrackID == tid {
-				fmt.Println("queue: found duplicate:", tid)
-				dup = true
-				break
+		// check if our candidate might already be in the queue
+		for i := range qs.queue {
+			// and skip it if it is already there
+			if qs.queue[i].TrackID == id {
+				continue outer
 			}
 		}
-		if dup {
-			fmt.Println("queue: continue")
-			continue
-		}
 
-		t, err := database.GetTrack(tx, tid)
+		// TODO: handle these errors in a better way
+		song, err := database.GetTrack(tx, id)
 		if err != nil {
 			fmt.Println("queue: populate: track error:", err)
 			continue
 		}
 
-		if err = database.QueueUpdateTrack(tx, tid); err != nil {
+		if err = database.QueueUpdateTrack(tx, id); err != nil {
 			fmt.Println("queue: populate: update error:", err)
 			continue
 		}
 
-		addedCount++
-		q.addEntry(database.QueueEntry{
-			Track:          *t,
-			UserIdentifier: "internal",
+		qs.append(ctx, radio.QueueEntry{
+			Song: *song,
 		})
 	}
 
-	if len(q.l) < queueMinimumLength {
-		return errors.New("not enough songs in queue")
+	// we always want to commit because we might have added songs to the queue but it
+	// ended up still not being enough. So we do need to commit the track updates
+	err = tx.Commit()
+	if err != nil {
+		return err
 	}
 
-	return tx.Commit()
+	if len(qs.queue) < queueMinimumLength {
+		return ErrShortQueue
+	}
+
+	return nil
 }

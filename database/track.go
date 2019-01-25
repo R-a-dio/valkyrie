@@ -92,7 +92,7 @@ type databaseTrack struct {
 
 	// esong fields
 	ID       sql.NullInt64
-	Length   sql.NullInt64
+	Length   sql.NullFloat64
 	Metadata sql.NullString
 
 	// tracks fields
@@ -146,7 +146,7 @@ func (dt databaseTrack) ToSong() radio.Song {
 		ID:            radio.SongID(dt.ID.Int64),
 		Hash:          dt.Hash,
 		Metadata:      metadata,
-		Length:        time.Second * time.Duration(dt.Length.Int64),
+		Length:        time.Second * time.Duration(dt.Length.Float64),
 		LastPlayed:    dt.LastPlayed.Time,
 		DatabaseTrack: track,
 	}
@@ -210,11 +210,11 @@ func GetTrack(h Handler, id radio.TrackID) (*radio.Song, error) {
 	return tmp.ToSongPtr(), nil
 }
 
-// UpdateTrackRequestTime updates the time the track given was last requested
+// UpdateTrackRequestInfo updates the time the track given was last requested
 // and increases the time between requests for the song.
 //
 // TODO: don't hardcode requestcount and priority increments?
-func UpdateTrackRequestTime(h Handler, id radio.TrackID) error {
+func UpdateTrackRequestInfo(h Handler, id radio.TrackID) error {
 	var query = `UPDATE tracks SET lastrequested=NOW(),
 	requestcount=requestcount+2, priority=priority+1 WHERE id=?;`
 

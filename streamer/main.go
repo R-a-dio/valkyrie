@@ -5,17 +5,20 @@ import (
 	"net"
 
 	"github.com/R-a-dio/valkyrie/config"
+	"github.com/R-a-dio/valkyrie/database"
 )
 
 // Execute starts a streamer instance and its RPC API server
 func Execute(ctx context.Context, cfg config.Config) error {
-	queue, err := NewQueue(cfg)
+	db, err := database.Connect(cfg)
 	if err != nil {
 		return err
 	}
-	defer queue.Save()
-	// note: queue above will create a DB instance, if we end up needing one below you
-	// should create one at the top and also pass it to NewQueue
+
+	queue, err := NewQueueService(ctx, cfg, db)
+	if err != nil {
+		return err
+	}
 
 	streamer, err := NewStreamer(cfg, queue)
 	if err != nil {
@@ -24,7 +27,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	defer streamer.ForceStop(context.Background())
 
 	// setup a http server for our RPC API
-	srv, err := NewHTTPServer(cfg, queue, streamer)
+	srv, err := NewHTTPServer(cfg, db, queue, streamer)
 	if err != nil {
 		return err
 	}

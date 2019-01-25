@@ -6,14 +6,19 @@ import (
 	"net/http/pprof"
 	"sync"
 
+	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/rpc"
+	"github.com/jmoiron/sqlx"
 )
 
 // NewHTTPServer returns a http server with RPC API handler and debug handlers
-func NewHTTPServer(cfg config.Config, queue *Queue, streamer *Streamer) (*http.Server, error) {
+func NewHTTPServer(cfg config.Config, db *sqlx.DB,
+	queue radio.QueueService, streamer *Streamer) (*http.Server, error) {
+
 	h := &streamHandler{
 		Config:   cfg,
+		DB:       db,
 		queue:    queue,
 		streamer: streamer,
 	}
@@ -38,8 +43,9 @@ func NewHTTPServer(cfg config.Config, queue *Queue, streamer *Streamer) (*http.S
 
 type streamHandler struct {
 	config.Config
+	DB *sqlx.DB
 
-	queue        *Queue
+	queue        radio.QueueService
 	streamer     *Streamer
 	requestMutex sync.Mutex
 }

@@ -65,8 +65,8 @@ type StreamerService interface {
 	Stop(ctx context.Context, force bool) error
 }
 
-// QueueSong is a Song used in the QueueService
-type QueueSong struct {
+// QueueEntry is a Song used in the QueueService
+type QueueEntry struct {
 	Song
 
 	// IsUserRequest should be true if this song was added to the queue
@@ -78,23 +78,27 @@ type QueueSong struct {
 	ExpectedStartTime time.Time
 }
 
+func (qe *QueueEntry) EqualTo(qe2 QueueEntry) bool {
+	return qe != nil &&
+		qe.Song.EqualTo(qe2.Song) &&
+		qe.UserIdentifier == qe2.UserIdentifier
+}
+
 type QueueStorage interface {
-	Store(ctx context.Context, name string, queue []QueueSong) error
-	Load(ctx context.Context, name string) ([]QueueSong, error)
+	Store(ctx context.Context, name string, queue []QueueEntry) error
+	Load(ctx context.Context, name string) ([]QueueEntry, error)
 }
 
 type QueueService interface {
-	// Append adds the song given to the queue
-	Append(context.Context, QueueSong) error
-	// Peek returns the song that is queued after the song given
-	Peek(context.Context, QueueSong) (QueueSong, error)
-	// Pop pops off the song given if it's the top-most song, otherwise ignores it
-	Pop(context.Context, QueueSong) error
-	// Remove removes the song given from the queue;  Remove should only remove
-	// the first occurence of the song
-	Remove(context.Context, QueueSong) error
-	// All returns all songs in the queue
-	All(context.Context) ([]QueueSong, error)
+	// AddRequest requests the given song to be added to the queue, the string given
+	// is an identifier of the user that requested it
+	AddRequest(context.Context, Song, string) error
+	// ReserveNext returns the next yet-to-be-reserved entry from the queue
+	ReserveNext(context.Context) (*QueueEntry, error)
+	// Remove removes the first occurence of the given entry from the queue
+	Remove(context.Context, QueueEntry) (bool, error)
+	// Entries returns all entries in the queue
+	Entries(context.Context) ([]QueueEntry, error)
 }
 
 type AnnounceService interface {
