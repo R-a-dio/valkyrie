@@ -234,6 +234,10 @@ func (qs *QueueService) populate(ctx context.Context) error {
 		return ErrShortQueue
 	}
 
+	// bookmarking so we can tell what happens here
+	var candidateCount = len(candidates)
+	var skipReasons []error
+
 outer:
 	for len(qs.queue) < wantedLength {
 		// we've run out of candidates
@@ -252,19 +256,28 @@ outer:
 		for i := range qs.queue {
 			// and skip it if it is already there
 			if qs.queue[i].TrackID == id {
+				skipReasons = append(skipReasons, skipped{
+					trackID: id,
+					reason:  "duplicate entry",
+				})
 				continue outer
 			}
 		}
 
-		// TODO: handle these errors in a better way
 		song, err := database.GetTrack(tx, id)
 		if err != nil {
-			fmt.Println("queue: populate: track error:", err)
+			skipReasons = append(skipReasons, skipped{
+				trackID: id,
+				err:     err,
+			})
 			continue
 		}
 
 		if err = database.QueueUpdateTrack(tx, id); err != nil {
-			fmt.Println("queue: populate: update error:", err)
+			skipReasons = append(skipReasons, skipped{
+				trackID: id,
+				err:     err,
+			})
 			continue
 		}
 
@@ -280,9 +293,34 @@ outer:
 		return err
 	}
 
-	if len(qs.queue) < queueMinimumLength {
-		return ErrShortQueue
+	// we all okay so we can return, otherwise we want to log the reason we failed here
+	if len(qs.queue) >= queueMinimumLength {
+		return nil
 	}
 
-	return nil
+	log.Printf("queue: failed to populate above minimum")
+	if candidateCount == 0 {
+		log.Printf("queue: empty candidate list\n")
+	}
+	if len(skipReasons) > 0 {
+		log.Printf("queue: skipped song reasons:\n")
+	}
+	for i, err := range skipReasons {
+		log.Printf("queue:	%d	%s\n", i, err)
+	}
+
+	return ErrShortQueue
+}
+
+type skipped struct {
+	trackID radio.TrackID
+	reason  string
+	err     error
+}
+
+func (s skipped) Error() string {
+	if s.err == nil {
+		return fmt.Sprintf("<%d> %s", s.trackID, s.reason)
+	}
+	return fmt.Sprintf("<%d> %v", s.trackID, s.err)
 }
