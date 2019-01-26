@@ -29,9 +29,11 @@ func CalculateRequestDelay(requestCount int) time.Duration {
 }
 
 type Status struct {
-	User            User
-	Song            Song
-	StreamInfo      StreamInfo
+	User     User
+	Song     Song
+	SongInfo SongInfo
+	// Listeners is the current amount of stream listeners
+	Listeners       int
 	Thread          string
 	RequestsEnabled bool
 }
@@ -42,20 +44,18 @@ type User struct {
 	IsRobot  bool
 }
 
-type StreamInfo struct {
-	// Listeners is the current amount of stream listeners
-	Listeners int
-	// SongStart is the time at which the current song started playing
-	SongStart time.Time
-	// SongEnd is the expected time the current song stops playing
-	SongEnd time.Time
+type SongInfo struct {
+	// Start is the time at which the current song started playing
+	Start time.Time
+	// End is the expected time the current song stops playing
+	End time.Time
 }
 
 type ManagerService interface {
-	Status(context.Context) (Status, error)
+	Status(context.Context) (*Status, error)
 
 	UpdateUser(context.Context, User) error
-	UpdateSong(context.Context, Song) error
+	UpdateSong(context.Context, Song, SongInfo) error
 	UpdateThread(ctx context.Context, thread string) error
 	UpdateListeners(context.Context, int) error
 }
@@ -104,7 +104,7 @@ type QueueService interface {
 }
 
 type AnnounceService interface {
-	AnnounceSong(context.Context, Song, StreamInfo) error
+	AnnounceSong(context.Context, Status) error
 	AnnounceRequest(context.Context, Song) error
 }
 
