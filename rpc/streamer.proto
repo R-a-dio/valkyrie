@@ -2,36 +2,33 @@ syntax = "proto3";
 package radio.rpc;
 option go_package = "github.com/R-a-dio/valkyrie/rpc";
 
-import "rpc/types.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/wrappers.proto";
+import "google/protobuf/timestamp.proto";
+
+import "rpc/manager.proto";
 
 service Streamer {
-    rpc Start(Null) returns (Null);
-    rpc Stop(StopRequest) returns (Null);
+    rpc Start(google.protobuf.Empty) returns (google.protobuf.Empty);
+    rpc Stop(google.protobuf.BoolValue) returns (google.protobuf.Empty);
     rpc RequestTrack(TrackRequest) returns (RequestResponse);
-    rpc SetRequestable(Bool) returns (Null);
-}
-
-message StopRequest {
-    bool force_stop = 1;
+    rpc SetRequestable(google.protobuf.BoolValue) returns (google.protobuf.Empty);
 }
 
 message QueueEntry {
-    // is_request indicates if this was a request made by a human
-    bool is_request = 1;
+    rpc.Song song = 1;
+    // is_user_request indicates if this was a request made by a human
+    bool is_user_request = 2;
     // user_identifier is the way we identify the user that added this to the
     // queue; This can be anything that uniquely identifies a user
-    string user_identifier = 2;
-    // estimated_play_time is the estimated time for this track to be played
-    string estimated_play_time = 3;
-    // track_id is the id used in the database table
-    int64 track_id = 4;
-    // track_tags is a short `artist - title` field
-    string track_tags = 5;
+    string user_identifier = 3;
+    // expected_start_time is the expected time this song will start playing
+    google.protobuf.Timestamp expected_start_time = 4;
 }
 
 message TrackRequest {
-    string identifier = 1;
-    int64 track = 2;
+    string user_identifier = 1;
+    int64 track_id = 2;
 }
 
 message RequestResponse {

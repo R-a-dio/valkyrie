@@ -2,25 +2,27 @@ syntax = "proto3";
 package radio.rpc;
 option go_package = "github.com/R-a-dio/valkyrie/rpc";
 
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+
 service Manager {
     // Status returns the current status
-    rpc Status(StatusRequest) returns (StatusResponse);
+    rpc Status(google.protobuf.Empty) returns (StatusResponse);
     rpc SetUser(User) returns (User);
-    rpc SetSong(Song) returns (Song);
-    rpc SetBotConfig(BotConfig) returns (BotConfig);
-    rpc SetThread(Thread) returns (Thread);
+    rpc SetStreamInfo(StreamInfo) returns (StreamInfo);
+    rpc SetStreamerConfig(StreamerConfig) returns (StreamerConfig);
+    rpc SetThread(google.protobuf.StringValue) returns (google.protobuf.StringValue);
     rpc SetListenerInfo(ListenerInfo) returns (ListenerInfo);
 }
 
-message StatusRequest {}
-
 message StatusResponse {
     User user = 1;
-    Song song = 2;
+    StreamInfo info = 2;
 
     ListenerInfo listener_info = 3;
-    Thread thread = 4;
-    BotConfig bot_config = 5;
+    string thread = 4;
+    StreamerConfig bot_config = 5;
 }
 
 message Song {
@@ -28,23 +30,22 @@ message Song {
     int32 id = 1;
     // short metadata
     string metadata = 2; // required
-    // song start time in unix epoch
-    int64 start_time = 3;
-    // song end time in unix epoch, can be inaccurate
-    int64 end_time = 4;
-    // database track identifier
-    int32 track_id = 5;
-    // last time this song was played
-    int64 last_played = 6;
-}
-    
-message Thread {
-    // thread string, most of the time an URL
-    string thread = 1;
 }
 
-message BotConfig {
+message StreamInfo {
+    // the current song being played
+    Song song = 1;
+    // the time this song started playing
+    google.protobuf.Timestamp start_time = 3;
+    // the time this song will end playing
+    google.protobuf.Timestamp end_time = 4;
+    // last time this song was played
+    google.protobuf.Timestamp last_played = 5;
+}
+
+message StreamerConfig {
     bool requests_enabled = 1;
+    string queue_used = 2;
 }
 
 message User {
