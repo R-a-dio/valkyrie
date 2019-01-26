@@ -2,6 +2,7 @@ syntax = "proto3";
 package radio;
 option go_package = "github.com/R-a-dio/valkyrie/rpc";
 
+import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/wrappers.proto";
 import "google/protobuf/timestamp.proto";
@@ -9,10 +10,31 @@ import "google/protobuf/timestamp.proto";
 message Song {
     // song identifier (esong.id)
     int32 id = 1;
+    // sha1 hexdigest of metadata contents
+    string hash = 2;
     // short metadata
-    string metadata = 2; // required
+    string metadata = 3; // required
+    // song length
+    google.protobuf.Duration length = 4;
     // last time this song was played
     google.protobuf.Timestamp last_played = 5;
+
+    // DatabaseTrack fields
+    int32 track_id = 16;
+    string artist = 17;
+    string title = 18;
+    string album = 19;
+    string file_path = 20;
+    string tags = 21;
+
+    string acceptor = 22;
+    string last_editor = 23;
+    int32 priority = 24;
+    bool usable = 25;
+
+    google.protobuf.Timestamp last_requested = 26;
+    int32 request_count = 27;
+    google.protobuf.Duration request_delay = 28;
 }
 
 service Manager {
