@@ -55,7 +55,11 @@ func NewQueueService(ctx context.Context, cfg config.Config, db *sqlx.DB) (*Queu
 		storage: storage,
 	}
 
-	return qs, qs.populate(ctx)
+	if err = qs.populate(ctx); err != nil {
+		return nil, err
+	}
+
+	return qs, storage.Store(ctx, queueName, qs.queue)
 }
 
 // QueueService implements radio.QueueService that uses a random population algorithm
@@ -86,8 +90,12 @@ func (qs *QueueService) append(ctx context.Context, entry radio.QueueEntry) {
 		entry.Length = length
 	}
 
-	last := qs.queue[len(qs.queue)-1]
-	entry.ExpectedStartTime = last.ExpectedStartTime.Add(last.Length)
+	if len(qs.queue) == 0 {
+		entry.ExpectedStartTime = time.Now()
+	} else {
+		last := qs.queue[len(qs.queue)-1]
+		entry.ExpectedStartTime = last.ExpectedStartTime.Add(last.Length)
+	}
 
 	qs.queue = append(qs.queue, entry)
 }
@@ -308,7 +316,7 @@ outer:
 		log.Printf("queue: skipped song reasons:")
 	}
 	for i, err := range skipReasons {
-		log.Printf("queue: %6.d	%s", i, err)
+		log.Printf("queue: %6d %s", i, err)
 	}
 
 	return ErrShortQueue
