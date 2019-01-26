@@ -1,5 +1,5 @@
 syntax = "proto3";
-package radio.rpc;
+package radio;
 option go_package = "github.com/R-a-dio/valkyrie/rpc";
 
 import "google/protobuf/empty.proto";
@@ -11,9 +11,8 @@ service Announcer {
 }
 
 message SongAnnouncement {
-    rpc.StreamInfo info = 1;
-    int64 listeners = 2;
+    radio.StreamInfo info = 1;
 }
 message SongRequestAnnouncement {
-    rpc.Song song = 1;
+    radio.Song song = 1;
 }

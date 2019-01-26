@@ -1,5 +1,5 @@
 syntax = "proto3";
-package radio.rpc;
+package radio;
 option go_package = "github.com/R-a-dio/valkyrie/rpc";
 
 import "google/protobuf/empty.proto";
@@ -17,16 +17,20 @@ service Manager {
 }
 
 message StatusResponse {
+    // the current user that is streaming
     User user = 1;
+    // information about the current song
     StreamInfo info = 2;
-
+    // information about the current listeners
     ListenerInfo listener_info = 3;
+    // the current thread to be shown on the website or elsewhere
     string thread = 4;
-    StreamerConfig bot_config = 5;
+    // the current configuration of the streamer
+    StreamerConfig streamer_config = 5;
 }
 
 message Song {
-    // song identifier
+    // song identifier (esong.id)
     int32 id = 1;
     // short metadata
     string metadata = 2; // required
@@ -41,10 +45,14 @@ message StreamInfo {
     google.protobuf.Timestamp end_time = 4;
     // last time this song was played
     google.protobuf.Timestamp last_played = 5;
+    // the amount of current listeners
+    int64 listeners = 6;
 }
 
 message StreamerConfig {
+    // can users request songs to be played right now
     bool requests_enabled = 1;
+    // the queue implementation to use for the streamer
     string queue_used = 2;
 }
 
@@ -58,5 +66,6 @@ message User {
 }
 
 message ListenerInfo {
+    // the amount of listeners to the stream
     int64 listeners = 1;
 }
