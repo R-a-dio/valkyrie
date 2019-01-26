@@ -1,9 +1,0 @@
-syntax = "proto3";
-package radio.rpc;
-option go_package = "github.com/R-a-dio/valkyrie/rpc";
-
-message Null {}
-
-message Bool {
-    bool bool = 1;
-}
