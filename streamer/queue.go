@@ -48,12 +48,14 @@ func NewQueueService(ctx context.Context, cfg config.Config, db *sqlx.DB) (*Queu
 		return nil, err
 	}
 
-	return &QueueService{
+	qs := &QueueService{
 		Config:  cfg,
 		db:      db,
 		queue:   queue,
 		storage: storage,
-	}, nil
+	}
+
+	return qs, qs.populate(ctx)
 }
 
 // QueueService implements radio.QueueService that uses a random population algorithm
@@ -300,13 +302,13 @@ outer:
 
 	log.Printf("queue: failed to populate above minimum")
 	if candidateCount == 0 {
-		log.Printf("queue: empty candidate list\n")
+		log.Printf("queue: empty candidate list")
 	}
 	if len(skipReasons) > 0 {
-		log.Printf("queue: skipped song reasons:\n")
+		log.Printf("queue: skipped song reasons:")
 	}
 	for i, err := range skipReasons {
-		log.Printf("queue:	%d	%s\n", i, err)
+		log.Printf("queue: %6.d	%s", i, err)
 	}
 
 	return ErrShortQueue

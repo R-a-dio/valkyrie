@@ -144,38 +144,15 @@ func (qs QueueStorage) Load(ctx context.Context, name string) ([]radio.QueueEntr
 
 func QueuePopulate(h Handler) ([]radio.TrackID, error) {
 	var query = `
-	SELECT
-		tmp.id
-	FROM 
-	(
-		(
-			SELECT
-				id
-			FROM
-				tracks
-			WHERE
-				usable=1
-			ORDER BY (
-				UNIX_TIMESTAMP(lastplayed) + 1)*(UNIX_TIMESTAMP(lastrequested) + 1) 
-			ASC LIMIT 100
-		)
-		UNION ALL
-		(
-			SELECT
-				id
-			FROM
-				tracks
-			WHERE
-				usable=1
-			ORDER BY
-				LEAST(lastplayed, lastrequested)
-			ASC LIMIT 100
-		)
-	) AS tmp
-	GROUP BY
-		tmp.id
-	HAVING
-		count(*) >= 2;
+		SELECT
+			id
+		FROM
+			tracks
+		WHERE
+			usable=1
+		ORDER BY (
+			UNIX_TIMESTAMP(lastplayed) + 1)*(UNIX_TIMESTAMP(lastrequested) + 1) 
+		ASC LIMIT 100;
 	`
 	var candidates = []radio.TrackID{}
 	err := sqlx.Select(h, &candidates, query)
