@@ -29,7 +29,7 @@ func (a AnnouncerClient) AnnounceSong(ctx context.Context, s radio.Status) error
 	announcement := &SongAnnouncement{
 		Song: toProtoSong(s.Song),
 		Info: toProtoSongInfo(s.SongInfo),
-		Listeners: &ListenerInfo{
+		ListenerInfo: &ListenerInfo{
 			Listeners: int64(s.Listeners),
 		},
 	}
@@ -153,7 +153,7 @@ func (s StreamerClient) RequestSong(ctx context.Context, song radio.Song, identi
 
 	resp, err := s.twirp.RequestSong(ctx, &SongRequest{
 		UserIdentifier: identifier,
-		TrackId:        int64(song.TrackID),
+		Song:           toProtoSong(song),
 	})
 	if err != nil {
 		return err
@@ -172,8 +172,8 @@ func (s StreamerClient) Queue(ctx context.Context) ([]radio.QueueEntry, error) {
 	}
 
 	var queue = make([]radio.QueueEntry, len(resp.Entries))
-	for _, entry := range resp.Entries {
-		queue = append(queue, *fromProtoQueueEntry(entry))
+	for i := range resp.Entries {
+		queue[i] = *fromProtoQueueEntry(resp.Entries[i])
 	}
 
 	return queue, nil

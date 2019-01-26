@@ -111,3 +111,22 @@ func fromProtoQueueEntry(entry *QueueEntry) *radio.QueueEntry {
 		ExpectedStartTime: est,
 	}
 }
+
+func toProtoUser(u radio.User) *User {
+	return &User{
+		Id:       int32(u.ID),
+		Nickname: u.Nickname,
+		IsRobot:  u.IsRobot,
+	}
+}
+
+func fromProtoUser(u *User) radio.User {
+	if u == nil {
+		return radio.User{}
+	}
+	return radio.User{
+		ID:       int(u.Id),
+		Nickname: u.Nickname,
+		IsRobot:  u.IsRobot,
+	}
+}
