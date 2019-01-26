@@ -1,0 +1,136 @@
+syntax = "proto3";
+package radio;
+option go_package = "github.com/R-a-dio/valkyrie/rpc";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/wrappers.proto";
+import "google/protobuf/timestamp.proto";
+
+message Song {
+    // song identifier (esong.id)
+    int32 id = 1;
+    // short metadata
+    string metadata = 2; // required
+}
+
+service Manager {
+    // Status returns the current status
+    rpc Status(google.protobuf.Empty) returns (StatusResponse);
+    rpc SetUser(User) returns (User);
+    rpc SetStreamInfo(StreamInfo) returns (StreamInfo);
+    rpc SetStreamerConfig(StreamerConfig) returns (StreamerConfig);
+    rpc SetThread(google.protobuf.StringValue) returns (google.protobuf.StringValue);
+    rpc SetListenerInfo(ListenerInfo) returns (ListenerInfo);
+}
+
+message StatusResponse {
+    // the current user that is streaming
+    User user = 1;
+    // information about the current song
+    StreamInfo info = 2;
+    // information about the current listeners
+    ListenerInfo listener_info = 3;
+    // the current thread to be shown on the website or elsewhere
+    string thread = 4;
+    // the current configuration of the streamer
+    StreamerConfig streamer_config = 5;
+}
+
+message StreamInfo {
+    // the current song being played
+    Song song = 1;
+    // the time this song started playing
+    google.protobuf.Timestamp start_time = 3;
+    // the time this song will end playing
+    google.protobuf.Timestamp end_time = 4;
+    // last time this song was played
+    google.protobuf.Timestamp last_played = 5;
+}
+
+message StreamerConfig {
+    // can users request songs to be played right now
+    bool requests_enabled = 1;
+    // the queue implementation to use for the streamer
+    string queue_used = 2;
+}
+
+message User {
+    // user identifier
+    int32 id = 1;
+    // user nickname, this is only a display-name
+    string nickname = 2;
+    // indicates if this user is a robot or not
+    bool is_robot = 3;
+}
+
+message ListenerInfo {
+    // the amount of listeners to the stream
+    int64 listeners = 1;
+}
+
+service Announcer {
+    rpc AnnounceSong(SongAnnouncement) returns (google.protobuf.Empty);
+    rpc AnnounceRequest(SongRequestAnnouncement) returns (google.protobuf.Empty);
+}
+
+message SongAnnouncement {
+    radio.StreamInfo info = 1;
+    radio.ListenerInfo listeners = 2;
+}
+
+message SongRequestAnnouncement {
+    radio.Song song = 1;
+}
+
+service Streamer {
+    // Start starts the streamer
+    rpc Start(google.protobuf.Empty) returns (google.protobuf.Empty);
+    // Stop stops the streamer, the boolean argument indicates if we should stop
+    // right away, or wait until the current song ends
+    rpc Stop(google.protobuf.BoolValue) returns (google.protobuf.Empty);
+    // RequestTrack requests a song to be played by the streamer
+    rpc RequestTrack(TrackRequest) returns (RequestResponse);
+    // SetConfig changes the configuration of the streamer
+    rpc SetConfig(radio.StreamerConfig) returns (google.protobuf.Empty);
+    // Queue returns the current queue contents of the streamer
+    rpc Queue(google.protobuf.Empty) returns (QueueContent);
+}
+
+// Queue is documented under the radio.QueueService interface in the Go package
+service Queue {
+    rpc AddRequest(radio.Song) returns (google.protobuf.Empty);
+    rpc ReserveNext(google.protobuf.Empty) returns (radio.QueueEntry);
+    rpc Remove(radio.QueueEntry) returns (google.protobuf.BoolValue);
+    rpc Entries(google.protobuf.Empty) returns (QueueContent);
+}
+
+message QueueEntry {
+    radio.Song song = 1;
+    // is_user_request indicates if this was a request made by a human
+    bool is_user_request = 2;
+    // user_identifier is the way we identify the user that added this to the
+    // queue; This can be anything that uniquely identifies a user
+    string user_identifier = 3;
+    // expected_start_time is the expected time this song will start playing
+    google.protobuf.Timestamp expected_start_time = 4;
+}
+
+message QueueContent {
+    // the name of the queue implementation
+    string name = 1;
+    // the entries in the queue
+    repeated QueueEntry entries = 2;
+}
+
+message TrackRequest {
+    string user_identifier = 1;
+    int64 track_id = 2;
+}
+
+message RequestResponse {
+    bool success = 1;
+    string msg = 2;
+}
+
+
+
