@@ -1,25 +1,72 @@
 package rpc
 
 import (
+	"encoding/hex"
+
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/golang/protobuf/ptypes"
 )
 
 func toProtoSong(s radio.Song) *Song {
 	lp, _ := ptypes.TimestampProto(s.LastPlayed)
+	lr, _ := ptypes.TimestampProto(s.LastRequested)
 	return &Song{
 		Id:         int32(s.ID),
+		Hash:       s.Hash.String(),
 		Metadata:   s.Metadata,
+		Length:     ptypes.DurationProto(s.Length),
 		LastPlayed: lp,
+		// track fields
+		TrackId:       int32(s.TrackID),
+		Artist:        s.Artist,
+		Title:         s.Title,
+		Album:         s.Album,
+		FilePath:      s.FilePath,
+		Tags:          s.Tags,
+		Acceptor:      s.Acceptor,
+		LastEditor:    s.LastEditor,
+		Priority:      int32(s.Priority),
+		Usable:        s.Usable,
+		LastRequested: lr,
+		RequestCount:  int32(s.RequestCount),
+		RequestDelay:  ptypes.DurationProto(s.RequestDelay),
 	}
 }
 
 func fromProtoSong(s *Song) radio.Song {
 	lp, _ := ptypes.Timestamp(s.LastPlayed)
+	length, _ := ptypes.Duration(s.Length)
+	var hash radio.SongHash
+	hex.Decode(hash[:], []byte(s.Hash))
+
+	var track *radio.DatabaseTrack
+	if s.TrackId != 0 {
+		lr, _ := ptypes.Timestamp(s.LastRequested)
+		delay, _ := ptypes.Duration(s.RequestDelay)
+		track = &radio.DatabaseTrack{
+			TrackID:       radio.TrackID(s.TrackId),
+			Artist:        s.Artist,
+			Title:         s.Title,
+			Album:         s.Album,
+			FilePath:      s.FilePath,
+			Tags:          s.Tags,
+			Acceptor:      s.Acceptor,
+			LastEditor:    s.LastEditor,
+			Priority:      int(s.Priority),
+			Usable:        s.Usable,
+			LastRequested: lr,
+			RequestCount:  int(s.RequestCount),
+			RequestDelay:  delay,
+		}
+	}
+
 	return radio.Song{
-		ID:         radio.SongID(s.Id),
-		Metadata:   s.Metadata,
-		LastPlayed: lp,
+		ID:            radio.SongID(s.Id),
+		Hash:          hash,
+		Metadata:      s.Metadata,
+		Length:        length,
+		LastPlayed:    lp,
+		DatabaseTrack: track,
 	}
 }
 
