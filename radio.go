@@ -63,12 +63,14 @@ type ManagerService interface {
 type StreamerService interface {
 	Start(context.Context) error
 	Stop(ctx context.Context, force bool) error
+
+	RequestSong(context.Context, Song, string) error
+	Queue(context.Context) ([]QueueEntry, error)
 }
 
 // QueueEntry is a Song used in the QueueService
 type QueueEntry struct {
 	Song
-
 	// IsUserRequest should be true if this song was added to the queue
 	// by a third-party user
 	IsUserRequest bool
