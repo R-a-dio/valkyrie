@@ -158,6 +158,8 @@ message SongRequest {
 message RequestResponse {
     bool success = 1;
     string msg = 2;
+    google.protobuf.Duration user_delay = 3;
+    google.protobuf.Duration song_delay = 4;
 }
 
 

@@ -236,10 +236,61 @@ func RequestTrack(e Event) error {
 
 	err = e.Bot.Streamer.RequestSong(e.Context(), *song, e.Source.Host)
 	if err != nil {
+		if radio.IsCooldownError(err) {
+			err := err.(radio.SongRequestError)
+			return generateFriendlyCooldownError(err)
+		}
 		return err
 	}
 
 	return nil
+}
+
+// generate a friendlier and coloured error message for cooldown related errors
+func generateFriendlyCooldownError(err radio.SongRequestError) error {
+	var message string
+	// first check if a user cooldown was triggered
+	switch d := err.UserDelay; {
+	case d == 0:
+		break
+	case d < time.Minute*10:
+		message = "{green}Only less than ten minutes before you can request again!"
+	case d < time.Minute*30:
+		message = "{blue}You need to wait at most another half hour until you can request!"
+	case d < time.Minute*61:
+		message = "{brown}You still have quite a lot of time before you can request again..."
+	}
+	if message != "" {
+		err.UserMessage = message
+		return err
+	}
+	switch d := err.SongDelay; {
+	case d == 0:
+		break
+	case d < time.Minute*5:
+		message = "{green}Only five more minutes before I'll let you request that!"
+	case d < time.Minute*15:
+		message = "{green}Just another 15 minutes to go for that song!"
+	case d < time.Minute*40:
+		message = "{blue}Only less than 40 minutes to go for that song!"
+	case d < time.Hour:
+		message = "{blue}You need to wait at most an hour for that song!"
+	case d < time.Hour*4:
+		message = "{blue}That song can be requested in a few hours!"
+	case d < time.Hour*24:
+		message = "{brown}You'll have to wait at most a day for that song..."
+	case d < time.Hour*24*3:
+		message = "{brown}That song can only be requested in a few days' time..."
+	case d < time.Hour*24*7:
+		message = "{brown}You might want to go do something else while you wait for that song."
+	default:
+		message = "{red}No."
+	}
+
+	if message != "" {
+		err.UserMessage = message
+	}
+	return err
 }
 
 func LastRequestInfo(e Event) error {

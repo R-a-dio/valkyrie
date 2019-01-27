@@ -2,7 +2,6 @@ package rpc
 
 import (
 	"context"
-	"errors"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/golang/protobuf/ptypes/empty"
@@ -158,10 +157,8 @@ func (s StreamerClient) RequestSong(ctx context.Context, song radio.Song, identi
 	if err != nil {
 		return err
 	}
-	if !resp.Success {
-		return errors.New(resp.Msg)
-	}
-	return nil
+
+	return fromProtoRequestResponse(resp)
 }
 
 // Queue implements radio.StreamerService

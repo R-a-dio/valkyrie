@@ -2,6 +2,7 @@ package streamer
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"net/http/pprof"
 	"sync"
@@ -79,18 +80,17 @@ func (s *streamerService) Queue(ctx context.Context) ([]radio.QueueEntry, error)
 // to be requested, and `identifier` the unique identification used for the user (IP Address, hostname, etc)
 func (s *streamerService) RequestSong(ctx context.Context, song radio.Song, identifier string) error {
 	if !s.Conf().Streamer.RequestsEnabled {
-		return userMessage("requests are currently disabled")
+		return radio.ErrRequestsDisabled
 	}
 
 	if identifier == "" {
-		// TODO: should this panic instead of being friendly?
-		return userMessage("no identifier supplied")
+		log.Printf("request: empty identifier given")
+		return radio.ErrInvalidRequest
 	}
 
 	if !song.HasTrack() && song.ID == 0 {
-		// TODO: should this panic instead of being friendly? this endpoint should not
-		// be called by third-parties so the arguments should always be correct
-		return userMessage("invalid song passed")
+		log.Println("request: empty song given")
+		return radio.ErrInvalidRequest
 	}
 
 	// once we start using database state, we need to avoid other requests
@@ -109,7 +109,7 @@ func (s *streamerService) RequestSong(ctx context.Context, song radio.Song, iden
 		songRefresh, err := database.GetTrack(tx, song.TrackID)
 		if err != nil {
 			if err == database.ErrTrackNotFound {
-				return userMessage("unknown song requested")
+				return radio.ErrUnknownSong
 			}
 			return err
 		}
@@ -124,16 +124,20 @@ func (s *streamerService) RequestSong(ctx context.Context, song radio.Song, iden
 	// check if the user is allowed to request
 	withDelay := userLastRequest.Add(time.Duration(s.Conf().UserRequestDelay))
 	if !userLastRequest.IsZero() && withDelay.After(time.Now()) {
-		return userMessage("you need to wait longer before requesting again")
+		err := radio.ErrUserCooldown
+		err.UserDelay = time.Until(withDelay)
+		return err
 	}
 
 	// check if the track can be decoded by the streamer
 	if !song.Usable {
-		return userMessage("this song can't be requested")
+		return radio.ErrUnusableSong
 	}
 	// check if the track wasn't recently played or requested
 	if !song.Requestable() {
-		return userMessage("you need to wait longer before requesting this song")
+		err := radio.ErrSongCooldown
+		err.SongDelay = song.UntilRequestable()
+		return err
 	}
 
 	// update the database to represent the request
@@ -152,8 +156,4 @@ func (s *streamerService) RequestSong(ctx context.Context, song radio.Song, iden
 
 	// send the song to the queue
 	return s.queue.AddRequest(ctx, song, identifier)
-}
-
-func userMessage(msg string) error {
-	return radio.SongRequestError{UserMessage: msg}
 }

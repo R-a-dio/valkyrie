@@ -127,21 +127,20 @@ func (ss StreamerShim) Stop(ctx context.Context, force *wrappers.BoolValue) (*em
 func (ss StreamerShim) RequestSong(ctx context.Context, req *SongRequest) (*RequestResponse, error) {
 	err := ss.streamer.RequestSong(ctx, fromProtoSong(req.Song), req.UserIdentifier)
 	if err == nil {
+		// special response for HTTP JSON callers
 		return &RequestResponse{
 			Success: true,
 			Msg:     "thank you for making your request!",
 		}, nil
 	}
 
-	resp := new(RequestResponse)
-
-	switch uerr := err.(type) {
-	case radio.SongRequestError:
-		resp.Msg = uerr.UserMessage
-		return resp, nil
+	// otherwise check if we got our user error type
+	uerr, ok := err.(radio.SongRequestError)
+	if ok {
+		return toProtoRequestResponse(uerr), nil
 	}
 
-	return resp, err
+	return new(RequestResponse), err
 }
 
 // Queue implements Streamer

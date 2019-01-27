@@ -135,3 +135,25 @@ func fromProtoUser(u *User) radio.User {
 		IsRobot:  u.IsRobot,
 	}
 }
+
+func fromProtoRequestResponse(r *RequestResponse) error {
+	if r == nil || r.Success {
+		return nil
+	}
+
+	ud, _ := ptypes.Duration(r.UserDelay)
+	sd, _ := ptypes.Duration(r.SongDelay)
+	return radio.SongRequestError{
+		UserMessage: r.Msg,
+		UserDelay:   ud,
+		SongDelay:   sd,
+	}
+}
+
+func toProtoRequestResponse(err radio.SongRequestError) *RequestResponse {
+	return &RequestResponse{
+		Msg:       err.UserMessage,
+		UserDelay: ptypes.DurationProto(err.UserDelay),
+		SongDelay: ptypes.DurationProto(err.SongDelay),
+	}
+}

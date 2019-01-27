@@ -233,6 +233,33 @@ func (s *Song) Requestable() bool {
 	return true
 }
 
+var veryFarAway = time.Hour * 24 * 90
+
+// UntilRequestable returns the time until this song can be requested again, returns 0
+// if song.Requestable() == true
+func (s *Song) UntilRequestable() time.Duration {
+	if s.Requestable() {
+		return 0
+	}
+	if s.RequestDelay == 0 {
+		return veryFarAway
+	}
+
+	var furthest time.Time
+	if s.LastPlayed.After(s.LastRequested) {
+		furthest = s.LastPlayed
+	} else {
+		furthest = s.LastRequested
+	}
+
+	if furthest.IsZero() {
+		return veryFarAway
+	}
+
+	furthest = furthest.Add(s.RequestDelay)
+	return time.Until(furthest)
+}
+
 func (t *DatabaseTrack) HasTrack() bool {
 	return t != nil
 }
