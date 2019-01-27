@@ -57,15 +57,17 @@ func LastPlayed(e Event) error {
 		return err
 	}
 
-	message := "{green}Last Played:{clear} %s"
-	messageJoin := " {green}|{clear} "
-	onlyMetadata := make([]string, len(songs))
+	message := "{green}Last Played:{clear}"
+	messageJoin := "{green}|{clear}"
+	onlyFmt := make([]string, len(songs))
+	onlyMetadata := make([]interface{}, len(songs))
 	for i, song := range songs {
+		onlyFmt[i] = " %s "
 		onlyMetadata[i] = song.Metadata
 	}
 
-	message = fmt.Sprintf(message, strings.Join(onlyMetadata, messageJoin))
-	e.EchoPublic(message)
+	message = message + strings.Join(onlyFmt, messageJoin)
+	e.EchoPublic(message, onlyMetadata...)
 	return nil
 }
 
