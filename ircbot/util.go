@@ -46,6 +46,18 @@ func FormatPlaybackDuration(t time.Duration) string {
 	return fmt.Sprintf("%.2d:%.2d", minutes/time.Minute, seconds/time.Second)
 }
 
+// FormatPlaybackDurationHours is  similar to FormatPlaybackDuration but also includes
+// the hour part, making it "hh:mm:ss"
+func FormatPlaybackDurationHours(t time.Duration) string {
+	hours := t.Truncate(time.Hour)
+	t -= hours
+	minutes := t.Truncate(time.Minute)
+	seconds := t - minutes
+
+	return fmt.Sprintf("%.2d:%.2d:%.2d",
+		hours/time.Hour, minutes/time.Minute, seconds/time.Second)
+}
+
 var (
 	year  = time.Duration(float64(day) * 365.25)
 	month = year / 12
