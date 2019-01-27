@@ -9,28 +9,33 @@ import (
 
 func toProtoSong(s radio.Song) *Song {
 	lp, _ := ptypes.TimestampProto(s.LastPlayed)
-	lr, _ := ptypes.TimestampProto(s.LastRequested)
-	return &Song{
+	song := &Song{
 		Id:         int32(s.ID),
 		Hash:       s.Hash.String(),
 		Metadata:   s.Metadata,
 		Length:     ptypes.DurationProto(s.Length),
 		LastPlayed: lp,
-		// track fields
-		TrackId:       int32(s.TrackID),
-		Artist:        s.Artist,
-		Title:         s.Title,
-		Album:         s.Album,
-		FilePath:      s.FilePath,
-		Tags:          s.Tags,
-		Acceptor:      s.Acceptor,
-		LastEditor:    s.LastEditor,
-		Priority:      int32(s.Priority),
-		Usable:        s.Usable,
-		LastRequested: lr,
-		RequestCount:  int32(s.RequestCount),
-		RequestDelay:  ptypes.DurationProto(s.RequestDelay),
 	}
+
+	if s.HasTrack() {
+		lr, _ := ptypes.TimestampProto(s.LastRequested)
+		// track fields
+		song.TrackId = int32(s.TrackID)
+		song.Artist = s.Artist
+		song.Title = s.Title
+		song.Album = s.Album
+		song.FilePath = s.FilePath
+		song.Tags = s.Tags
+		song.Acceptor = s.Acceptor
+		song.LastEditor = s.LastEditor
+		song.Priority = int32(s.Priority)
+		song.Usable = s.Usable
+		song.LastRequested = lr
+		song.RequestCount = int32(s.RequestCount)
+		song.RequestDelay = ptypes.DurationProto(s.RequestDelay)
+	}
+
+	return song
 }
 
 func fromProtoSong(s *Song) radio.Song {
