@@ -165,6 +165,7 @@ func (b *Bot) AnnounceRequest(ctx context.Context, song radio.Song) error {
 	for i, qs := range songQueue {
 		if qs.ID == song.ID {
 			songPos = i
+			break
 		}
 	}
 
