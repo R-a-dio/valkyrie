@@ -124,6 +124,9 @@ type SongID uint64
 
 // Scan implements sql.Scanner
 func (s *SongID) Scan(src interface{}) error {
+	if src == nil {
+		return nil
+	}
 	if i, ok := src.(int64); ok {
 		*s = SongID(i)
 	}
@@ -147,7 +150,11 @@ func (s SongHash) Value() (driver.Value, error) {
 
 // Scan implements sql.Scanner
 func (s *SongHash) Scan(src interface{}) error {
-	_, err := hex.Decode((*s)[:], src.([]byte))
+	b, ok := src.([]byte)
+	if src == nil || !ok {
+		return nil
+	}
+	_, err := hex.Decode((*s)[:], b)
 	return err
 }
 
