@@ -1,7 +1,6 @@
 package ircbot
 
 import (
-	"fmt"
 	"log"
 	"regexp"
 	"strings"
@@ -230,20 +229,16 @@ func LuckyTrackRequest(e Event) error  { return nil }
 func SearchTrack(e Event) error        { return nil }
 
 func RequestTrack(e Event) error {
-	/*return func() error {
-		req := &streamer.TrackRequest{
-			Identifier: e.Source.Host,
-			Track:      int64(track.TrackID),
-		}
+	song, err := e.ArgumentTrack("TrackID")
+	if err != nil {
+		return err
+	}
 
-		resp, err := s.RequestTrack(context.TODO(), req)
-		if err != nil {
-			return err
-		}
+	err = e.Bot.Streamer.RequestSong(e.Context(), *song, e.Source.Host)
+	if err != nil {
+		return err
+	}
 
-		echo(resp.Msg)
-		return nil
-	}*/
 	return nil
 }
 
@@ -276,27 +271,25 @@ func LastRequestInfo(e Event) error {
 		return nil
 	}
 
-	// calculate if enough time has passed since the last request
-	canRequest := time.Since(t) >= time.Duration(e.Bot.Conf().UserRequestDelay)
-	if canRequest {
-		if withArgument {
-			message += fmt.Sprintf(" {green}%s can request", e.Arguments["Nick"])
-		} else {
-			message += " {green}You can request!"
-		}
-	}
-
 	var name = "You"
 	if withArgument {
 		name = e.Arguments["Nick"]
 	}
 
-	e.Echo(message,
+	args := []interface{}{
 		name,
 		t.Format("Jan 02, 15:04:05"),
-		FormatDayDuration(time.Since(t)),
-	)
+		FormatDayDuration(time.Since(t).Truncate(time.Second)),
+	}
 
+	// calculate if enough time has passed since the last request
+	canRequest := time.Since(t) >= time.Duration(e.Bot.Conf().UserRequestDelay)
+	if canRequest {
+		message += " {green}%s can request!"
+		args = append(args, name)
+	}
+
+	e.Echo(message, args...)
 	return nil
 }
 
