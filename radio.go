@@ -38,6 +38,17 @@ type Status struct {
 	RequestsEnabled bool
 }
 
+// Copy makes a deep-copy of the status object
+func (s Status) Copy() Status {
+	c := s
+	if s.Song.HasTrack() {
+		track := *s.Song.DatabaseTrack
+		c.Song.DatabaseTrack = &track
+	}
+
+	return s
+}
+
 type User struct {
 	ID       int
 	Nickname string

@@ -7,17 +7,14 @@ import (
 	"net/http/pprof"
 	"time"
 
-	"github.com/twitchtv/twirp"
-
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/database"
 	"github.com/R-a-dio/valkyrie/rpc"
-	"github.com/golang/protobuf/proto"
 )
 
 // NewHTTPServer sets up a net/http server ready to serve RPC requests
 func NewHTTPServer(m *Manager) (*http.Server, error) {
-	rpcServer := rpc.NewManagerServer(m, nil)
+	rpcServer := rpc.NewManagerServer(rpc.NewManager(m), nil)
 	mux := http.NewServeMux()
 	// rpc server path
 	mux.Handle(rpc.ManagerPathPrefix, rpcServer)
@@ -35,74 +32,71 @@ func NewHTTPServer(m *Manager) (*http.Server, error) {
 }
 
 // Status returns the current status of the radio
-func (m *Manager) Status(ctx context.Context, _ *rpc.StatusRequest) (*rpc.StatusResponse, error) {
-	var sr rpc.StatusResponse
+func (m *Manager) Status(ctx context.Context) (*radio.Status, error) {
 	m.mu.Lock()
-	proto.Merge(&sr, m.status)
+	status := m.status.Copy()
 	m.mu.Unlock()
-	return &sr, nil
+	return &status, nil
 }
 
-// SetUser sets information about the current streamer
-func (m *Manager) SetUser(ctx context.Context, u *rpc.User) (*rpc.User, error) {
-	var old *rpc.User
+// UpdateUser sets information about the current streamer
+func (m *Manager) UpdateUser(ctx context.Context, u radio.User) error {
 	m.mu.Lock()
-	old, m.status.User = m.status.User, u
+	m.status.User = u
 	m.mu.Unlock()
-	return old, nil
+	return nil
 }
 
-// SetSong sets information about the currently playing song
-func (m *Manager) SetSong(ctx context.Context, new *rpc.Song) (*rpc.Song, error) {
-	switch { // required arguments check
-	case new.Metadata == "":
-		return nil, twirp.RequiredArgumentError("metadata")
-	}
-
+// UpdateSong sets information about the currently playing song
+func (m *Manager) UpdateSong(ctx context.Context, new radio.Song, info radio.SongInfo) error {
 	tx, err := database.HandleTx(ctx, m.DB)
 	if err != nil {
-		return nil, twirp.InternalErrorWith(err)
+		return err
 	}
 	defer tx.Rollback()
 
-	// find information about the passed song from the database
-	track, err := database.GetSongFromMetadata(tx, new.Metadata)
+	// we assume that the song we received has very little or no data except for the
+	// Metadata field. So we try and find more info from that
+	song, err := database.GetSongFromMetadata(tx, new.Metadata)
 	if err != nil && err != database.ErrTrackNotFound {
-		return nil, twirp.InternalErrorWith(err)
+		return err
 	}
 
 	// if we don't have this song in the database create a new entry for it
-	if track == nil {
-		track, err = database.CreateSong(tx, new.Metadata)
+	if song == nil {
+		song, err = database.CreateSong(tx, new.Metadata)
 		if err != nil {
-			return nil, twirp.InternalErrorWith(err)
+			return err
 		}
 	}
 
-	// we assume the song just started
-	new.StartTime = time.Now().Unix()
-
-	// now move our database knowledge into the status Song type
-	new.Id = int32(track.ID)
-	if track.DatabaseTrack != nil {
-		new.TrackId = int32(track.TrackID)
+	// calculate start and end time only if they're zero
+	if info.Start.IsZero() {
+		// we assume the song just started if it wasn't set
+		info.Start = time.Now()
 	}
-	new.EndTime = new.StartTime + int64(track.Length/time.Second)
+	if info.End.IsZero() && song.Length > 0 {
+		info.End = info.Start.Add(song.Length)
+	}
 
-	var prev *rpc.Song
-	var listenerCountDiff *int64
+	var prev radio.Song
+	var prevInfo radio.SongInfo
+	var listenerCountDiff *int
 
 	// critical section to swap our new song with the previous one
 	m.mu.Lock()
 
-	prev, m.status.Song = m.status.Song, new
+	prev, m.status.Song = m.status.Song, *song
+	prevInfo, m.status.SongInfo = m.status.SongInfo, info
 
 	// record listener count and calculate the difference between start/end of song
-	currentListenerCount := m.status.ListenerInfo.Listeners
+	currentListenerCount := m.status.Listeners
 	// update and retrieve listener count of start of song
-	var startListenerCount int64
+	var startListenerCount int
 	startListenerCount, m.songStartListenerCount = m.songStartListenerCount, currentListenerCount
 
+	// make a copy of our current status to send to the announcer
+	announceStatus := m.status.Copy()
 	m.mu.Unlock()
 
 	// only calculate a diff if we have more than 10 listeners
@@ -111,79 +105,60 @@ func (m *Manager) SetSong(ctx context.Context, new *rpc.Song) (*rpc.Song, error)
 		listenerCountDiff = &diff
 	}
 
-	log.Printf("manager: set song: \"%s\" (%s)\n", track.Metadata, track.Length)
+	log.Printf("manager: set song: \"%s\" (%s)\n", song.Metadata, song.Length)
 
 	// finish up database work for the previous song
-	err = m.handlePreviousSong(tx, prev, listenerCountDiff)
+	err = m.handlePreviousSong(tx, prev, prevInfo, listenerCountDiff)
 	if err == nil {
 		tx.Commit()
 	} else {
 		tx.Rollback()
 	}
 
-	info := radio.StreamInfo{
-		Listeners: int(currentListenerCount),
-		SongStart: time.Unix(new.StartTime, 0),
-		SongEnd:   time.Unix(new.EndTime, 0),
-	}
-
 	// announce the new song over a chat service
-	err = m.client.announce.AnnounceSong(ctx, *track, info)
+	err = m.client.announce.AnnounceSong(ctx, announceStatus)
 	if err != nil {
 		// this isn't a critical error, so we do not return it if it occurs
 		log.Printf("manager: failed to announce song: %s", err)
 	}
 
-	return prev, nil
+	return nil
 }
 
-func (m *Manager) handlePreviousSong(tx database.HandlerTx, prev *rpc.Song, listenerDiff *int64) error {
+func (m *Manager) handlePreviousSong(tx database.HandlerTx, song radio.Song, info radio.SongInfo, listenerDiff *int) error {
 	// protect against zero-d Song's
-	if prev.Id == 0 {
+	if song.ID == 0 {
 		return nil
 	}
 
-	startTime := time.Unix(int64(prev.StartTime), 0)
-
 	// insert an entry that the previous song just played
-	err := database.InsertPlayedSong(tx, radio.SongID(prev.Id), listenerDiff)
+	err := database.InsertPlayedSong(tx, song.ID, listenerDiff)
 	if err != nil {
 		log.Printf("manager: unable to insert play history: %s", err)
 		return err
 	}
 
-	if prev.StartTime == prev.EndTime {
-		length := time.Since(startTime)
+	if song.Length == 0 {
+		length := time.Since(info.Start)
 
-		return database.UpdateSongLength(tx, radio.SongID(prev.Id), length)
+		return database.UpdateSongLength(tx, song.ID, length)
 	}
 
 	return nil
 }
 
-// SetBotConfig sets options related to the automated streamer
-func (m *Manager) SetBotConfig(ctx context.Context, bc *rpc.BotConfig) (*rpc.BotConfig, error) {
-	var old *rpc.BotConfig
+// UpdateThread sets the current thread information on the front page and chats
+func (m *Manager) UpdateThread(ctx context.Context, thread string) error {
 	m.mu.Lock()
-	old, m.status.BotConfig = m.status.BotConfig, bc
+	m.status.Thread = thread
 	m.mu.Unlock()
-	return old, nil
+	return nil
 }
 
-// SetThread sets the current thread information on the front page and chats
-func (m *Manager) SetThread(ctx context.Context, t *rpc.Thread) (*rpc.Thread, error) {
-	var old *rpc.Thread
+// UpdateListeners sets the listener count
+func (m *Manager) UpdateListeners(ctx context.Context, listeners int) error {
 	m.mu.Lock()
-	old, m.status.Thread = m.status.Thread, t
+	m.status.Listeners = listeners
 	m.mu.Unlock()
-	return old, nil
-}
-
-// SetListenerInfo sets the listener info part of status
-func (m *Manager) SetListenerInfo(ctx context.Context, li *rpc.ListenerInfo) (*rpc.ListenerInfo, error) {
-	var old *rpc.ListenerInfo
-	m.mu.Lock()
-	old, m.status.ListenerInfo = m.status.ListenerInfo, li
-	m.mu.Unlock()
-	return old, nil
+	return nil
 }

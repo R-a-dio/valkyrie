@@ -8,7 +8,6 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/database"
-	"github.com/R-a-dio/valkyrie/rpc"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -20,7 +19,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 
-	ExecuteListener(ctx, cfg, rpc.NewManagerServiceWrap(m))
+	ExecuteListener(ctx, cfg, m)
 
 	// setup a http server for our RPC API
 	srv, err := NewHTTPServer(m)
@@ -60,17 +59,11 @@ func NewManager(cfg config.Config) (*Manager, error) {
 	m := Manager{
 		Config: cfg,
 		DB:     db,
-		status: &rpc.StatusResponse{
-			User:         new(rpc.User),
-			Song:         new(rpc.Song),
-			ListenerInfo: new(rpc.ListenerInfo),
-			Thread:       new(rpc.Thread),
-			BotConfig:    new(rpc.BotConfig),
-		},
+		status: radio.Status{},
 	}
 
-	m.client.announce = cfg.Conf().IRC.TwirpClient()
-	m.client.streamer = cfg.Conf().Streamer.TwirpClient()
+	m.client.announce = cfg.Conf().IRC.Client()
+	m.client.streamer = cfg.Conf().Streamer.Client()
 	return &m, nil
 }
 
@@ -86,7 +79,7 @@ type Manager struct {
 	}
 	// mu protects the fields below and their contents
 	mu     sync.Mutex
-	status *rpc.StatusResponse
+	status radio.Status
 	// listener count at the start of a song
-	songStartListenerCount int64
+	songStartListenerCount int
 }

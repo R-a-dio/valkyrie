@@ -82,8 +82,8 @@ func NewBot(ctx context.Context, cfg config.Config) (*Bot, error) {
 	b := &Bot{
 		Config:   cfg,
 		DB:       db,
-		Manager:  c.Manager.TwirpClient(),
-		Streamer: c.Streamer.TwirpClient(),
+		Manager:  c.Manager.Client(),
+		Streamer: c.Streamer.Client(),
 		c:        girc.New(ircConf),
 	}
 

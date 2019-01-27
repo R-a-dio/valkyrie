@@ -79,9 +79,9 @@ type streamer struct {
 	RequestsEnabled bool
 }
 
-// TwirpClient returns an usable twirp client for the streamer
-func (s streamer) TwirpClient() radio.StreamerService {
-	return rpc.NewStreamerService(prepareTwirpClient(s.Addr))
+// Client returns an usable client to the streamer
+func (s streamer) Client() radio.StreamerService {
+	return rpc.NewStreamerClient(prepareTwirpClient(s.Addr))
 }
 
 // irc contains all the fields only relevant to the irc bot
@@ -104,9 +104,9 @@ type irc struct {
 	EnableEcho bool
 }
 
-// TwirpClient returns an usable twirp client for the irc bot
-func (i irc) TwirpClient() radio.AnnounceService {
-	return rpc.NewAnnounceService(prepareTwirpClient(i.Addr))
+// Client returns an usable client to the irc (announcer) service
+func (i irc) Client() radio.AnnounceService {
+	return rpc.NewAnnouncerClient(prepareTwirpClient(i.Addr))
 }
 
 // manager contains all fields relevant to the manager
@@ -120,8 +120,9 @@ type manager struct {
 	FallbackNames []string
 }
 
-func (m manager) TwirpClient() radio.ManagerService {
-	return rpc.NewManagerService(prepareTwirpClient(m.Addr))
+// Client returns an usable client to the manager service
+func (m manager) Client() radio.ManagerService {
+	return rpc.NewManagerClient(prepareTwirpClient(m.Addr))
 }
 
 // prepareTwirpClient prepares a http client and an usable address string for creating

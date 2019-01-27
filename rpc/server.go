@@ -212,7 +212,7 @@ func (q QueueShim) Remove(ctx context.Context, e *QueueEntry) (*wrappers.BoolVal
 
 // Entries implements Queue
 func (q QueueShim) Entries(ctx context.Context, _ *empty.Empty) (*QueueInfo, error) {
-	entries, err := q.queue.Entries()
+	entries, err := q.queue.Entries(ctx)
 	if err != nil {
 		return nil, err
 	}

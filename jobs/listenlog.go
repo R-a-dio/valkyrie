@@ -17,7 +17,7 @@ func ExecuteListenerLog(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 
-	m := cfg.Conf().Manager.TwirpClient()
+	m := cfg.Conf().Manager.Client()
 
 	status, err := m.Status(ctx)
 	if err != nil {
@@ -25,7 +25,7 @@ func ExecuteListenerLog(ctx context.Context, cfg config.Config) error {
 	}
 
 	h := database.Handle(ctx, db)
-	_, err = h.Exec(insertLog, status.StreamInfo.Listeners, status.User.ID)
+	_, err = h.Exec(insertLog, status.Listeners, status.User.ID)
 	if err != nil {
 		return err
 	}

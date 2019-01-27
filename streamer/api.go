@@ -5,9 +5,11 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"sync"
+	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
+	"github.com/R-a-dio/valkyrie/database"
 	"github.com/R-a-dio/valkyrie/rpc"
 	"github.com/jmoiron/sqlx"
 )
@@ -16,14 +18,14 @@ import (
 func NewHTTPServer(cfg config.Config, db *sqlx.DB,
 	queue radio.QueueService, streamer *Streamer) (*http.Server, error) {
 
-	h := &streamHandler{
+	s := &streamerService{
 		Config:   cfg,
 		DB:       db,
 		queue:    queue,
 		streamer: streamer,
 	}
 
-	rpcServer := rpc.NewStreamerServer(h, nil)
+	rpcServer := rpc.NewStreamerServer(rpc.NewStreamer(s), nil)
 	mux := http.NewServeMux()
 	// rpc server path
 	mux.Handle(rpc.StreamerPathPrefix, rpcServer)
@@ -41,7 +43,7 @@ func NewHTTPServer(cfg config.Config, db *sqlx.DB,
 	return server, nil
 }
 
-type streamHandler struct {
+type streamerService struct {
 	config.Config
 	DB *sqlx.DB
 
@@ -50,21 +52,108 @@ type streamHandler struct {
 	requestMutex sync.Mutex
 }
 
-func (h *streamHandler) Start(ctx context.Context, _ *rpc.Null) (*rpc.Null, error) {
-	h.streamer.Start(context.Background())
-	return nil, nil
+// Start implements radio.StreamerService
+func (s *streamerService) Start(_ context.Context) error {
+	// don't use the passed ctx here as it will cancel once we return
+	s.streamer.Start(context.Background())
+	return nil
 }
 
-func (h *streamHandler) Stop(ctx context.Context, r *rpc.StopRequest) (*rpc.Null, error) {
-	if r.ForceStop {
-		return nil, h.streamer.ForceStop(ctx)
+// Stop implements radio.StreamerService
+func (s *streamerService) Stop(ctx context.Context, force bool) error {
+	if force {
+		return s.streamer.ForceStop(ctx)
 	}
-	return nil, h.streamer.Stop(ctx)
+	return s.streamer.Stop(ctx)
 }
 
-func (h *streamHandler) SetRequestable(ctx context.Context, b *rpc.Bool) (*rpc.Null, error) {
-	c := h.Conf()
-	c.Streamer.RequestsEnabled = b.Bool
-	h.StoreConf(c)
-	return nil, nil
+// Queue implements radio.StreamerService
+func (s *streamerService) Queue(ctx context.Context) ([]radio.QueueEntry, error) {
+	return s.queue.Entries(ctx)
+}
+
+// RequestSong implements radio.StreamerService
+//
+// We do not do authentication or authorization checks, this is left to the client. Request can be
+// either a GET or POST with parameters `track` and `identifier`, where `track` is the track number
+// to be requested, and `identifier` the unique identification used for the user (IP Address, hostname, etc)
+func (s *streamerService) RequestSong(ctx context.Context, song radio.Song, identifier string) error {
+	if !s.Conf().Streamer.RequestsEnabled {
+		return userMessage("requests are currently disabled")
+	}
+
+	if identifier == "" {
+		// TODO: should this panic instead of being friendly?
+		return userMessage("no identifier supplied")
+	}
+
+	if !song.HasTrack() && song.ID == 0 {
+		// TODO: should this panic instead of being friendly? this endpoint should not
+		// be called by third-parties so the arguments should always be correct
+		return userMessage("invalid song passed")
+	}
+
+	// once we start using database state, we need to avoid other requests
+	// from reading it at the same time.
+	s.requestMutex.Lock()
+	defer s.requestMutex.Unlock()
+
+	tx, err := database.HandleTx(ctx, s.DB)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// refresh our song information for if it's a bare song or something similar
+	{
+		songRefresh, err := database.GetTrack(tx, song.TrackID)
+		if err != nil {
+			if err == database.ErrTrackNotFound {
+				return userMessage("unknown song requested")
+			}
+			return err
+		}
+		song = *songRefresh
+	}
+	// find the last time this user requested a song
+	userLastRequest, err := database.UserRequestTime(tx, identifier)
+	if err != nil {
+		return err
+	}
+
+	// check if the user is allowed to request
+	withDelay := userLastRequest.Add(time.Duration(s.Conf().UserRequestDelay))
+	if !userLastRequest.IsZero() && withDelay.After(time.Now()) {
+		return userMessage("you need to wait longer before requesting again")
+	}
+
+	// check if the track can be decoded by the streamer
+	if !song.Usable {
+		return userMessage("this song can't be requested")
+	}
+	// check if the track wasn't recently played or requested
+	if !song.Requestable() {
+		return userMessage("you need to wait longer before requesting this song")
+	}
+
+	// update the database to represent the request
+	err = database.UpdateUserRequestTime(tx, identifier, userLastRequest.IsZero())
+	if err != nil {
+		return err
+	}
+	err = database.UpdateTrackRequestInfo(tx, song.TrackID)
+	if err != nil {
+		return err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+
+	// send the song to the queue
+	return s.queue.AddRequest(ctx, song, identifier)
+}
+
+func userMessage(msg string) error {
+	return radio.SongRequestError{UserMessage: msg}
 }
