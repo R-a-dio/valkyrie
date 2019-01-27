@@ -36,7 +36,7 @@ func (b *Bot) AnnounceSong(ctx context.Context, status radio.Status) error {
 	message := "Now starting:{red} '%s' {clear}[%s/%s](%s), %s, %s, {green}LP:{clear} %s"
 
 	var lastPlayedDiff time.Duration
-	if status.Song.LastPlayed.IsZero() {
+	if !status.Song.LastPlayed.IsZero() {
 		lastPlayedDiff = time.Since(status.Song.LastPlayed)
 	}
 
