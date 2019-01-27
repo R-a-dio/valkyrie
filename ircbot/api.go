@@ -152,6 +152,42 @@ func (b *Bot) AnnounceSong(ctx context.Context, status radio.Status) error {
 }
 
 func (b *Bot) AnnounceRequest(ctx context.Context, song radio.Song) error {
-	// TODO: implement AnnounceRequest
+	message := "Requested:{red} '%s'"
+
+	// Get queue from streamer
+	songQueue, err := b.Streamer.Queue(ctx);
+	if err != nil {
+		return err
+	}
+
+	// Search for the song in the queue, -1 means not found by default
+	songPos:= -1
+	for i, qs := range songQueue {
+		if qs.ID == song.ID {
+			songPos = i
+		}
+	}
+
+	// If song is queued, change message with remaining time to start
+	if songPos > -1 {
+		// Calculate the remaining time until song start
+		var startTimeDiff time.Duration
+		if !songQueue[songPos].ExpectedStartTime.IsZero() {
+			startTimeDiff = time.Until(songQueue[songPos].ExpectedStartTime)
+		}
+
+		// Append new info to message
+		message = Fmt(message + " (%s)",
+			song.Metadata,
+			FormatDayDuration(startTimeDiff),
+		)
+	} else {
+		message = Fmt(message, song.Metadata)
+	}
+
+	// Announce to the channel the request
+	b.c.Cmd.Message(b.Conf().IRC.MainChannel, message)
+
+	// All done!
 	return nil
 }
