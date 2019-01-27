@@ -343,7 +343,32 @@ func KillStreamer(e Event) error {
 
 func RandomTrackRequest(e Event) error { return nil }
 func LuckyTrackRequest(e Event) error  { return nil }
-func SearchTrack(e Event) error        { return nil }
+func SearchTrack(e Event) error        {
+	// Grab track with the TrackID key
+	track, err := e.ArgumentTrack("TrackID")
+
+	// If there's an error then no track was found with TrackID
+	if err != nil {
+		e.EchoPublic("Your search returned no results")
+		return nil
+	}
+
+	// Figure out the lastplayed
+	var lastPlayedDiff time.Duration
+	if !track.LastPlayed.IsZero() {
+		lastPlayedDiff = time.Since(track.LastPlayed)
+	}
+
+	// Echo the results
+	e.EchoPublic("%s (%d) (LP:%s)",
+		track.Metadata,
+		track.TrackID,
+		FormatDayDuration(lastPlayedDiff),
+	)
+
+	// All done
+	return nil
+}
 
 func RequestTrack(e Event) error {
 	song, err := e.ArgumentTrack("TrackID")
