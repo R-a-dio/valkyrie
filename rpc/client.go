@@ -132,16 +132,22 @@ var _ radio.StreamerService = StreamerClient{}
 
 // Start implements radio.StreamerService
 func (s StreamerClient) Start(ctx context.Context) error {
-	_, err := s.twirp.Start(ctx, new(empty.Empty))
-	return err
+	resp, err := s.twirp.Start(ctx, new(empty.Empty))
+	if err != nil {
+		return err
+	}
+	return fromProtoUserError(resp.UserError)
 }
 
 // Stop implements radio.StreamerService
 func (s StreamerClient) Stop(ctx context.Context, force bool) error {
-	_, err := s.twirp.Stop(ctx, &wrappers.BoolValue{
+	resp, err := s.twirp.Stop(ctx, &wrappers.BoolValue{
 		Value: force,
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	return fromProtoUserError(resp.UserError)
 }
 
 // RequestSong implements radio.StreamerService

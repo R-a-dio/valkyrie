@@ -1,6 +1,7 @@
 package ircbot
 
 import (
+	"context"
 	"log"
 	"regexp"
 	"strings"
@@ -32,7 +33,7 @@ func NowPlaying(e Event) error {
 	}
 
 	songPosition := time.Since(status.SongInfo.Start)
-	songLength := status.SongInfo.End.Sub(status.SongInfo.Start)
+	songLength := status.Song.Length
 
 	db := e.Database()
 	favoriteCount, _ := database.SongFaveCount(db, *track)
@@ -207,10 +208,30 @@ func KillStreamer(e Event) error {
 		return nil
 	}
 
-	// TODO: not everyone should be able to force kill
-	err := e.Bot.Streamer.Stop(e.Context(), e.Arguments.Bool("force"))
-	if err != nil {
-		return NewUserError(err, "Something went wrong ;_;, trying again will only make it worse, hauu~")
+	var quickErr = make(chan error, 1)
+	go func() {
+		// we call this async with a fairly long timeout, most songs on the streamer
+		// should be shorter than the timeout given here. Don't use the event context
+		// since it has a very short timeout
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute*15)
+		defer cancel()
+		// TODO: not everyone should be able to force kill
+		err := e.Bot.Streamer.Stop(ctx, e.Arguments.Bool("force"))
+		if err != nil {
+			quickErr <- err
+			return
+		}
+		quickErr <- nil
+		e.EchoPublic("I've stopped streaming now %s!", e.Source.Name)
+	}()
+
+	select {
+	case err := <-quickErr:
+		if err != nil {
+			return err
+		}
+	case <-time.After(time.Second):
+	case <-e.Context().Done():
 	}
 
 	status, err := e.Bot.Manager.Status(e.Context())
@@ -218,7 +239,8 @@ func KillStreamer(e Event) error {
 		e.EchoPublic("Disconnecting after the current song")
 	} else {
 		e.EchoPublic("Disconnecting in about %s",
-			time.Until(status.SongInfo.End))
+			FormatLongDuration(time.Until(status.SongInfo.End)),
+		)
 	}
 
 	return nil

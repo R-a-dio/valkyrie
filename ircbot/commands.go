@@ -35,15 +35,6 @@ var (
 	reTrackTags       = "tags( (?P<TrackID>[0-9]+))?"
 )
 
-// UserError is an error that includes a message suitable for the user
-//
-// a UserError returned from a handler is send to the user that invoked it
-type UserError interface {
-	error
-	Public() bool
-	UserError() string
-}
-
 type userError struct {
 	err    error
 	msg    string
@@ -73,7 +64,7 @@ func NewPublicError(err error, msg string) error {
 }
 
 func checkUserError(c *girc.Client, e girc.Event, err error) bool {
-	uerr, ok := err.(UserError)
+	uerr, ok := err.(radio.UserError)
 	if !ok {
 		return false
 	}

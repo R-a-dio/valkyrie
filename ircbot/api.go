@@ -65,7 +65,7 @@ func (ann *announceService) AnnounceSong(ctx context.Context, status radio.Statu
 		lastPlayedDiff = time.Since(status.Song.LastPlayed)
 	}
 
-	songLength := status.SongInfo.End.Sub(status.SongInfo.Start)
+	songLength := status.Song.Length
 
 	db := database.Handle(ctx, ann.DB)
 	favoriteCount, _ := database.SongFaveCount(db, status.Song)
@@ -83,6 +83,9 @@ func (ann *announceService) AnnounceSong(ctx context.Context, status radio.Statu
 	ann.bot.c.Cmd.Message(ann.Conf().IRC.MainChannel, message)
 	ann.lastAnnounceSong = time.Now()
 
+	//
+	// ======= favorite announcements below =========
+	//
 	if favoriteCount == 0 {
 		// save ourselves some work if there are no favorites
 		return nil

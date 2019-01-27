@@ -112,15 +112,19 @@ type StreamerShim struct {
 }
 
 // Start implements Streamer
-func (ss StreamerShim) Start(ctx context.Context, _ *empty.Empty) (*empty.Empty, error) {
+func (ss StreamerShim) Start(ctx context.Context, _ *empty.Empty) (*StreamerResponse, error) {
 	err := ss.streamer.Start(ctx)
-	return new(empty.Empty), err
+	resp := new(StreamerResponse)
+	resp.UserError, err = toProtoUserError(err)
+	return resp, err
 }
 
 // Stop implements Streamer
-func (ss StreamerShim) Stop(ctx context.Context, force *wrappers.BoolValue) (*empty.Empty, error) {
+func (ss StreamerShim) Stop(ctx context.Context, force *wrappers.BoolValue) (*StreamerResponse, error) {
 	err := ss.streamer.Stop(ctx, force.Value)
-	return new(empty.Empty), err
+	resp := new(StreamerResponse)
+	resp.UserError, err = toProtoUserError(err)
+	return resp, err
 }
 
 // RequestSong implements Streamer

@@ -157,3 +157,47 @@ func toProtoRequestResponse(err radio.SongRequestError) *RequestResponse {
 		SongDelay: ptypes.DurationProto(err.SongDelay),
 	}
 }
+
+func toProtoUserError(err error) (*UserError, error) {
+	if err == nil {
+		return nil, nil
+	}
+	uerr, ok := err.(radio.UserError)
+	if !ok {
+		return nil, err
+	}
+	return &UserError{
+		Public:    uerr.Public(),
+		UserError: uerr.UserError(),
+		Error:     uerr.Error(),
+	}, nil
+}
+
+func fromProtoUserError(err *UserError) error {
+	if err == nil {
+		return nil
+	}
+	return userError{
+		userError: err.UserError,
+		errorMsg:  err.Error,
+		public:    err.Public,
+	}
+}
+
+type userError struct {
+	userError string
+	errorMsg  string
+	public    bool
+}
+
+func (err userError) Error() string {
+	return err.errorMsg
+}
+
+func (err userError) UserError() string {
+	return err.userError
+}
+
+func (err userError) Public() bool {
+	return err.public
+}

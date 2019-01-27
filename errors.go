@@ -2,6 +2,15 @@ package radio
 
 import "time"
 
+// UserError is an error that includes a message suitable for the user
+//
+// a UserError that reaches the IRC handlers will be send to the appropiate location
+type UserError interface {
+	error
+	Public() bool
+	UserError() string
+}
+
 // ErrRequestsDisabled is returned when requests are currently disabled
 var ErrRequestsDisabled = createSRE("requests are currently disabled")
 
@@ -57,4 +66,32 @@ func IsCooldownError(err error) bool {
 	}
 	return uerr.UserMessage == ErrSongCooldown.UserMessage ||
 		uerr.UserMessage == ErrUserCooldown.UserMessage
+}
+
+// NewStreamerError returns a new error with the arguments given
+func NewStreamerError(msg string, public bool) error {
+	return StreamerError{
+		Message: msg,
+		Private: !public,
+	}
+}
+
+// StreamerError is returned by the streamer when something goes wrong
+type StreamerError struct {
+	Message string
+	Private bool
+}
+
+func (err StreamerError) Error() string {
+	return err.Message
+}
+
+// Public implements ircbot.UserError
+func (err StreamerError) Public() bool {
+	return !err.Private
+}
+
+// UserError implements ircbot.UserError
+func (err StreamerError) UserError() string {
+	return err.Message
 }

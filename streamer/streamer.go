@@ -156,12 +156,15 @@ func (s *Streamer) Stop(ctx context.Context) error {
 	if atomic.LoadInt32(&s.started) == 0 {
 		// we're not running
 		log.Println("streamer.stop: not running")
-		return nil
+		return radio.NewStreamerError("I'm not currently streaming!", true)
 	}
 	if !atomic.CompareAndSwapInt32(&s.stopping, 0, 1) {
 		// we're already trying to stop or have already stopped
 		log.Println("streamer.stop: already stopping")
-		return nil
+		return radio.NewStreamerError(
+			"I'm already stopping with streaming, please be patient~",
+			true,
+		)
 	}
 
 	if s.cancel != nil {

@@ -112,16 +112,20 @@ message SongRequestAnnouncement {
 
 service Streamer {
     // Start starts the streamer
-    rpc Start(google.protobuf.Empty) returns (google.protobuf.Empty);
+    rpc Start(google.protobuf.Empty) returns (StreamerResponse);
     // Stop stops the streamer, the boolean argument indicates if we should stop
     // right away, or wait until the current song ends
-    rpc Stop(google.protobuf.BoolValue) returns (google.protobuf.Empty);
+    rpc Stop(google.protobuf.BoolValue) returns (StreamerResponse);
     // RequestSong requests a song to be played by the streamer
     rpc RequestSong(SongRequest) returns (RequestResponse);
     // SetConfig changes the configuration of the streamer
     rpc SetConfig(StreamerConfig) returns (google.protobuf.Empty);
     // Queue returns the current queue contents of the streamer
     rpc Queue(google.protobuf.Empty) returns (QueueInfo);
+}
+
+message StreamerResponse {
+    UserError user_error = 1;
 }
 
 // Queue is documented under the radio.QueueService interface in the Go package
@@ -162,5 +166,10 @@ message RequestResponse {
     google.protobuf.Duration song_delay = 4;
 }
 
-
+// UserError is the protobuf variant of the UserError interface
+message UserError {
+    bool public = 1;
+    string user_error = 2;
+    string error = 3;
+}
 
