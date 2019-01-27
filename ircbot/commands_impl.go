@@ -72,7 +72,54 @@ func LastPlayed(e Event) error {
 }
 
 func StreamerQueue(e Event) error       { return nil }
-func StreamerQueueLength(e Event) error { return nil }
+
+func StreamerQueueLength(e Event) error {
+	// Define echo message
+	message := "There are %d requests (%s), %d randoms (%s), total of %d songs (%s)"
+
+	// Get queue from streamer
+	songQueue, err := e.Bot.Streamer.Queue(e.Context())
+	if err != nil {
+		return err
+	}
+
+	// If the queue is empty then we're done
+	if len(songQueue) == 0 {
+		return NewPublicError(nil, "No queue at the moment")
+	}
+
+	// Calculate the total queue time, request time, and request count
+	var totalQueueTime time.Duration
+	var totalReqTime time.Duration
+	reqCount := 0
+	for _, song := range songQueue {
+		if song.IsUserRequest {
+			totalReqTime += song.Length
+			reqCount += 1
+		}
+		totalQueueTime += song.Length
+	}
+
+	// Calculate the total count
+	totalCount := len(songQueue)
+
+	// Calculate random count and time
+	totalRandTime := totalQueueTime - totalReqTime
+	randCount := totalCount - reqCount
+
+	// Echo the message
+	e.EchoPublic(message,
+		reqCount,
+		FormatPlaybackDurationHours(totalReqTime),
+		randCount,
+		FormatPlaybackDurationHours(totalRandTime),
+		totalCount,
+		FormatPlaybackDurationHours(totalQueueTime),
+	)
+
+	// All done!
+	return nil
+}
 
 func StreamerUserInfo(e Event) error {
 	return nil
