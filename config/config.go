@@ -29,9 +29,10 @@ var defaultConfig = config{
 		RequestsEnabled: true,
 	},
 	IRC: irc{
-		Addr:       ":4444",
-		AllowFlood: false,
-		EnableEcho: true,
+		Addr:           ":4444",
+		AllowFlood:     false,
+		EnableEcho:     true,
+		AnnouncePeriod: Duration(time.Second * 15),
 	},
 	Manager: manager{
 		Addr:          ":4646",
@@ -102,6 +103,8 @@ type irc struct {
 	AllowFlood bool
 	// EnableEcho allows you to enable/disable IRC messages output
 	EnableEcho bool
+	// AnnouncePeriod is the amount of time that is required between two announcements
+	AnnouncePeriod Duration
 }
 
 // Client returns an usable client to the irc (announcer) service

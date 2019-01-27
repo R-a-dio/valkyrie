@@ -2,6 +2,7 @@ package ircbot
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"net/http/pprof"
 	"strconv"
@@ -9,13 +10,16 @@ import (
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/database"
 	"github.com/R-a-dio/valkyrie/rpc"
+	"github.com/jmoiron/sqlx"
 	"github.com/lrstanley/girc"
 )
 
 func NewHTTPServer(b *Bot) (*http.Server, error) {
-	rpcServer := rpc.NewAnnouncerServer(rpc.NewAnnouncer(b), nil)
+	service := NewAnnounceService(b.Config, b.DB, b)
+	rpcServer := rpc.NewAnnouncerServer(rpc.NewAnnouncer(service), nil)
 	mux := http.NewServeMux()
 	// rpc server path
 	mux.Handle(rpc.AnnouncerPathPrefix, rpcServer)
@@ -32,7 +36,28 @@ func NewHTTPServer(b *Bot) (*http.Server, error) {
 	return server, nil
 }
 
-func (b *Bot) AnnounceSong(ctx context.Context, status radio.Status) error {
+func NewAnnounceService(cfg config.Config, db *sqlx.DB, bot *Bot) radio.AnnounceService {
+	return &announceService{
+		Config: cfg,
+		DB:     db,
+		bot:    bot,
+	}
+}
+
+type announceService struct {
+	config.Config
+	DB *sqlx.DB
+
+	bot              *Bot
+	lastAnnounceSong time.Time
+}
+
+func (ann *announceService) AnnounceSong(ctx context.Context, status radio.Status) error {
+	// don't do the announcement if the last one was recent enough
+	if time.Since(ann.lastAnnounceSong) < time.Duration(ann.Conf().IRC.AnnouncePeriod) {
+		log.Printf("skipping announce because of AnnouncePeriod")
+		return nil
+	}
 	message := "Now starting:{red} '%s' {clear}[%s](%s), %s, %s, {green}LP:{clear} %s"
 
 	var lastPlayedDiff time.Duration
@@ -42,7 +67,7 @@ func (b *Bot) AnnounceSong(ctx context.Context, status radio.Status) error {
 
 	songLength := status.SongInfo.End.Sub(status.SongInfo.Start)
 
-	db := database.Handle(ctx, b.DB)
+	db := database.Handle(ctx, ann.DB)
 	favoriteCount, _ := database.SongFaveCount(db, status.Song)
 	playedCount, _ := database.SongPlayedCount(db, status.Song)
 
@@ -55,7 +80,8 @@ func (b *Bot) AnnounceSong(ctx context.Context, status radio.Status) error {
 		FormatLongDuration(lastPlayedDiff),
 	)
 
-	b.c.Cmd.Message(b.Conf().IRC.MainChannel, message)
+	ann.bot.c.Cmd.Message(ann.Conf().IRC.MainChannel, message)
+	ann.lastAnnounceSong = time.Now()
 
 	if favoriteCount == 0 {
 		// save ourselves some work if there are no favorites
@@ -67,7 +93,7 @@ func (b *Bot) AnnounceSong(ctx context.Context, status radio.Status) error {
 	}
 
 	// we only send notifications to people that are on the configured main channel
-	channel := b.c.LookupChannel(b.Conf().IRC.MainChannel)
+	channel := ann.bot.c.LookupChannel(ann.Conf().IRC.MainChannel)
 	if channel == nil {
 		// just exit early if we are not on the channel somehow
 		return nil
@@ -81,7 +107,7 @@ func (b *Bot) AnnounceSong(ctx context.Context, status radio.Status) error {
 	// we want to send as few NOTICEs as possible, so send to server MAXTARGETS at a time
 	var maxtargets = 1
 	{
-		max, ok := b.c.GetServerOption("MAXTARGETS")
+		max, ok := ann.bot.c.GetServerOption("MAXTARGETS")
 		if ok {
 			maxi, err := strconv.Atoi(max)
 			if err == nil {
@@ -130,7 +156,7 @@ func (b *Bot) AnnounceSong(ctx context.Context, status radio.Status) error {
 	// our main network, rizon lies to us about MAXTARGETS until a certain period of
 	// time has passed since you connected, so we might get an ERR_TOOMANYTARGETS when
 	// sending notices, this handler resends any that come back as single-target.
-	b.c.Handlers.AddTmp("407", time.Second*10, func(c *girc.Client, e girc.Event) bool {
+	ann.bot.c.Handlers.AddTmp("407", time.Second*10, func(c *girc.Client, e girc.Event) bool {
 		target := e.Params[len(e.Params)-1]
 		c.Cmd.Notice(target, message)
 		for _, target = range targetMapping[target] {
@@ -143,26 +169,26 @@ func (b *Bot) AnnounceSong(ctx context.Context, status radio.Status) error {
 	// take a while to send all messages
 	go func(message string) {
 		for _, chunk := range targets {
-			b.c.Cmd.Notice(chunk, message)
+			ann.bot.c.Cmd.Notice(chunk, message)
 		}
 	}(message)
 
 	return nil
 }
 
-func (b *Bot) AnnounceRequest(ctx context.Context, song radio.Song) error {
+func (ann *announceService) AnnounceRequest(ctx context.Context, song radio.Song) error {
 	message := "Requested:{red} '%s'"
 
 	// Get queue from streamer
-	songQueue, err := b.Streamer.Queue(ctx);
+	songQueue, err := ann.bot.Streamer.Queue(ctx)
 	if err != nil {
 		return err
 	}
 
 	// Search for the song in the queue, -1 means not found by default
-	songPos:= -1
+	songPos := -1
 	for i, qs := range songQueue {
-		if qs.ID == song.ID {
+		if qs.Song.EqualTo(song) {
 			songPos = i
 			break
 		}
@@ -177,7 +203,7 @@ func (b *Bot) AnnounceRequest(ctx context.Context, song radio.Song) error {
 		}
 
 		// Append new info to message
-		message = Fmt(message + " (%s)",
+		message = Fmt(message+" (%s)",
 			song.Metadata,
 			FormatDayDuration(startTimeDiff),
 		)
@@ -186,7 +212,7 @@ func (b *Bot) AnnounceRequest(ctx context.Context, song radio.Song) error {
 	}
 
 	// Announce to the channel the request
-	b.c.Cmd.Message(b.Conf().IRC.MainChannel, message)
+	ann.bot.c.Cmd.Message(ann.Conf().IRC.MainChannel, message)
 
 	// All done!
 	return nil
