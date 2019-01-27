@@ -33,14 +33,13 @@ func NewHTTPServer(b *Bot) (*http.Server, error) {
 }
 
 func (b *Bot) AnnounceSong(ctx context.Context, status radio.Status) error {
-	message := "Now starting:{red} '%s' {clear}[%s/%s](%s), %s, %s, {green}LP:{clear} %s"
+	message := "Now starting:{red} '%s' {clear}[%s](%s), %s, %s, {green}LP:{clear} %s"
 
 	var lastPlayedDiff time.Duration
 	if !status.Song.LastPlayed.IsZero() {
 		lastPlayedDiff = time.Since(status.Song.LastPlayed)
 	}
 
-	songPosition := time.Since(status.SongInfo.Start)
 	songLength := status.SongInfo.End.Sub(status.SongInfo.Start)
 
 	db := database.Handle(ctx, b.DB)
@@ -49,7 +48,7 @@ func (b *Bot) AnnounceSong(ctx context.Context, status radio.Status) error {
 
 	message = Fmt(message,
 		status.Song.Metadata,
-		FormatPlaybackDuration(songPosition), FormatPlaybackDuration(songLength),
+		FormatPlaybackDuration(songLength),
 		Pluralf("%d listeners", int64(status.Listeners)),
 		Pluralf("%d faves", favoriteCount),
 		Pluralf("played %d times", playedCount),
