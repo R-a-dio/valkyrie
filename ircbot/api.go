@@ -15,10 +15,10 @@ import (
 )
 
 func NewHTTPServer(b *Bot) (*http.Server, error) {
-	rpcServer := rpc.NewBotServer(b, nil)
+	rpcServer := rpc.NewAnnouncerServer(rpc.NewAnnouncer(b), nil)
 	mux := http.NewServeMux()
 	// rpc server path
-	mux.Handle(rpc.BotPathPrefix, rpcServer)
+	mux.Handle(rpc.AnnouncerPathPrefix, rpcServer)
 
 	// debug symbols
 	mux.HandleFunc("/debug/pprof/", pprof.Index)
@@ -32,36 +32,25 @@ func NewHTTPServer(b *Bot) (*http.Server, error) {
 	return server, nil
 }
 
-func (b *Bot) AnnounceSong(ctx context.Context, a *rpc.SongAnnouncement) (*rpc.Null, error) {
+func (b *Bot) AnnounceSong(ctx context.Context, status radio.Status) error {
 	message := "Now starting:{red} '%s' {clear}[%s/%s](%s), %s, %s, {green}LP:{clear} %s"
 
 	var lastPlayedDiff time.Duration
-	if a.Song.LastPlayed != 0 {
-		lastPlayed := time.Unix(a.Song.LastPlayed, 0)
-		lastPlayedDiff = time.Since(lastPlayed)
+	if status.Song.LastPlayed.IsZero() {
+		lastPlayedDiff = time.Since(status.Song.LastPlayed)
 	}
 
-	var songPosition time.Duration
-	var songLength time.Duration
-
-	{
-		start := time.Unix(a.Song.StartTime, 0)
-		end := time.Unix(a.Song.EndTime, 0)
-
-		songPosition = time.Since(start)
-		songLength = end.Sub(start)
-	}
+	songPosition := time.Since(status.SongInfo.Start)
+	songLength := status.SongInfo.End.Sub(status.SongInfo.Start)
 
 	db := database.Handle(ctx, b.DB)
-	song := radio.Song{ID: radio.SongID(a.Song.Id)}
-
-	favoriteCount, _ := database.SongFaveCount(db, song)
-	playedCount, _ := database.SongPlayedCount(db, song)
+	favoriteCount, _ := database.SongFaveCount(db, status.Song)
+	playedCount, _ := database.SongPlayedCount(db, status.Song)
 
 	message = Fmt(message,
-		a.Song.Metadata,
+		status.Song.Metadata,
 		FormatPlaybackDuration(songPosition), FormatPlaybackDuration(songLength),
-		Pluralf("%d listeners", int64(a.Listeners)),
+		Pluralf("%d listeners", int64(status.Listeners)),
 		Pluralf("%d faves", favoriteCount),
 		Pluralf("played %d times", playedCount),
 		FormatLongDuration(lastPlayedDiff),
@@ -71,18 +60,18 @@ func (b *Bot) AnnounceSong(ctx context.Context, a *rpc.SongAnnouncement) (*rpc.N
 
 	if favoriteCount == 0 {
 		// save ourselves some work if there are no favorites
-		return new(rpc.Null), nil
+		return nil
 	}
-	usersWithFave, err := database.GetSongFavorites(db, song.ID)
+	usersWithFave, err := database.GetSongFavorites(db, status.Song.ID)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// we only send notifications to people that are on the configured main channel
 	channel := b.c.LookupChannel(b.Conf().IRC.MainChannel)
 	if channel == nil {
 		// just exit early if we are not on the channel somehow
-		return new(rpc.Null), nil
+		return nil
 	}
 	// create a map of all the users so we get simpler and faster lookups
 	users := make(map[string]struct{}, len(channel.UserList))
@@ -137,7 +126,7 @@ func (b *Bot) AnnounceSong(ctx context.Context, a *rpc.SongAnnouncement) (*rpc.N
 		targets = append(targets, strings.Join(chunk, ","))
 	}
 
-	message = Fmt("Fave: %s is playing.", a.Song.Metadata)
+	message = Fmt("Fave: %s is playing.", status.Song.Metadata)
 
 	// our main network, rizon lies to us about MAXTARGETS until a certain period of
 	// time has passed since you connected, so we might get an ERR_TOOMANYTARGETS when
@@ -159,5 +148,10 @@ func (b *Bot) AnnounceSong(ctx context.Context, a *rpc.SongAnnouncement) (*rpc.N
 		}
 	}(message)
 
-	return new(rpc.Null), nil
+	return nil
+}
+
+func (b *Bot) AnnounceRequest(ctx context.Context, song radio.Song) error {
+	// TODO: implement AnnounceRequest
+	return nil
 }

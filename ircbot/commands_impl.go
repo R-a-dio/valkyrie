@@ -32,16 +32,8 @@ func NowPlaying(e Event) error {
 		lastPlayedDiff = time.Since(track.LastPlayed)
 	}
 
-	var songPosition time.Duration
-	var songLength time.Duration
-
-	{
-		start := status.StreamInfo.SongStart
-		end := status.StreamInfo.SongEnd
-
-		songPosition = time.Since(start)
-		songLength = end.Sub(start)
-	}
+	songPosition := time.Since(status.SongInfo.Start)
+	songLength := status.SongInfo.End.Sub(status.SongInfo.Start)
 
 	db := e.Database()
 	favoriteCount, _ := database.SongFaveCount(db, *track)
@@ -50,7 +42,7 @@ func NowPlaying(e Event) error {
 	e.EchoPublic(message,
 		status.Song.Metadata,
 		FormatPlaybackDuration(songPosition), FormatPlaybackDuration(songLength),
-		Pluralf("%d listeners", int64(status.StreamInfo.Listeners)),
+		Pluralf("%d listeners", int64(status.Listeners)),
 		Pluralf("%d faves", favoriteCount),
 		Pluralf("played %d times", playedCount),
 		FormatLongDuration(lastPlayedDiff),
@@ -225,7 +217,7 @@ func KillStreamer(e Event) error {
 		e.EchoPublic("Disconnecting after the current song")
 	} else {
 		e.EchoPublic("Disconnecting in about %s",
-			time.Until(status.StreamInfo.SongEnd))
+			time.Until(status.SongInfo.End))
 	}
 
 	return nil
