@@ -25,6 +25,9 @@ func dur(s string) time.Duration {
 
 var formatTests = []testDurationFormat{
 	{dur("1h30m15s"), "1h30m15s", "90:15", "01:30:15", "1 hour 30 minutes 15 seconds"},
+	{dur("90h"), "3d18h0m0s", "5400:00", "90:00:00", "3 days 18 hours"},
+	{dur("60m"), "1h0m0s", "60:00", "01:00:00", "1 hour"},
+	{dur("125m"), "2h5m0s", "125:00", "02:05:00", "2 hours 5 minutes"},
 }
 
 func TestFormatDayDuration(t *testing.T) {

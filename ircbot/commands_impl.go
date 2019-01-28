@@ -331,16 +331,13 @@ func ChannelTopic(e Event) error {
 	newTopic := e.Arguments["topic"]
 	if newTopic != "" && HasAccess(e.Client, e.Event) {
 		// we want to set the topic and have access for it
-		match := reTopicBit.FindAllStringSubmatch(channel.Topic, -1)
-		// a match is a [][]string of all matches, we only have one match so get rid
-		// of the outer slice
-		parts := match[0]
+		match := reTopicBit.FindStringSubmatch(channel.Topic)
 		// regexp returns the full match as the first element, so we get rid of it
-		parts = parts[1:]
+		match = match[1:]
 		// now we replace the relevant bits between the forward slashes
-		parts[1] = Fmt("%s{orange}", newTopic)
+		match[1] = Fmt("%s{orange}", newTopic)
 		// and now we can just merge them back together
-		newTopic = strings.Join(parts, "")
+		newTopic = strings.Join(match, "")
 
 		e.Client.Cmd.Topic(channel.Name, newTopic)
 		return nil

@@ -96,4 +96,5 @@ func (err StreamerError) UserError() string {
 	return err.Message
 }
 
+// TODO: implement a different type of error for this
 var ErrUnknownUser = createSRE("unknown user")
