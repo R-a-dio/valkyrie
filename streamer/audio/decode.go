@@ -18,7 +18,6 @@ func DecodeFile(path string) (*PCMBuffer, error) {
 	go func() {
 		err := cmd.Wait()
 		if err != nil {
-			fmt.Println("ffmpeg error", err)
 			err = &DecodeError{
 				Err:       err,
 				ExtraInfo: cmd.Stderr.(*bytes.Buffer).String(),

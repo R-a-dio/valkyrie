@@ -125,6 +125,16 @@ var requestCountCmd = cmd{
 	execute: jobs.ExecuteRequestCount,
 }
 
+var verifierCmd = cmd{
+	name:     "verifier",
+	synopsis: "verifies that tracks marked unusable can be decoded with ffmpeg",
+	usage: `verifier:
+	verifies that all tracks marked with usable=0 can be decoded with ffmpeg
+	and marks them with usable=1 if it succeeds
+	`,
+	execute: jobs.ExecuteVerifier,
+}
+
 func main() {
 	// setup configuration file as top-level flag
 	flag.StringVar(&configFile, "config", "hanyuu.toml", "filepath to configuration file")
@@ -145,6 +155,7 @@ func main() {
 
 	subcommands.Register(listenerLogCmd, "jobs")
 	subcommands.Register(requestCountCmd, "jobs")
+	subcommands.Register(verifierCmd, "jobs")
 
 	flag.Parse()
 	configEnvFile = os.Getenv(configEnvFile)

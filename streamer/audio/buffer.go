@@ -1,7 +1,6 @@
 package audio
 
 import (
-	"fmt"
 	"io"
 	"sync"
 	"sync/atomic"
@@ -77,7 +76,6 @@ func (b *Buffer) SetError(err error) {
 	if err == nil {
 		return
 	}
-	fmt.Println("seterror", err)
 	b.mu.Lock()
 	b.err = err
 	b.mu.Unlock()

@@ -181,6 +181,52 @@ func AllTracks(h Handler) ([]radio.Song, error) {
 	return tracks, nil
 }
 
+// GetUnusableTracks returns all tracks that are marked unusable in the database
+func GetUnusableTracks(h Handler) ([]radio.Song, error) {
+	var tmps = []databaseTrack{}
+
+	var query = `
+	SELECT 
+		esong.id AS id,
+		esong.hash AS hash,
+		esong.meta AS metadata,
+		esong.len AS length,
+		tracks.id AS trackid,
+		tracks.lastplayed,
+		tracks.artist,
+		tracks.track,
+		tracks.album,
+		tracks.path,
+		tracks.tags,
+		tracks.accepter AS acceptor,
+		tracks.lasteditor,
+		tracks.priority,
+		tracks.usable,
+		tracks.lastrequested,
+		tracks.requestcount
+	FROM
+		tracks
+	LEFT JOIN 
+		esong
+	ON
+		tracks.hash = esong.hash
+	WHERE
+		tracks.usable=0;
+	`
+
+	err := sqlx.Select(h, &tmps, query)
+	if err != nil {
+		return nil, err
+	}
+
+	var tracks = make([]radio.Song, len(tmps))
+	for i, tmp := range tmps {
+		tracks[i] = tmp.ToSong()
+	}
+
+	return tracks, nil
+}
+
 // GetTrack returns a track based on the id given.
 // returns ErrTrackNotFound if the id does not exist.
 func GetTrack(h Handler, id radio.TrackID) (*radio.Song, error) {
