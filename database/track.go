@@ -149,6 +149,7 @@ func (dt databaseTrack) ToSong() radio.Song {
 		Length:        time.Duration(float64(time.Second) * dt.Length.Float64),
 		LastPlayed:    dt.LastPlayed.Time,
 		DatabaseTrack: track,
+		SyncTime:      time.Now(),
 	}
 }
 

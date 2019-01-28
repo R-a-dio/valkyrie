@@ -176,6 +176,9 @@ type Song struct {
 	LastPlayed time.Time
 	// DatabaseTrack is only available if the song is in our streamer database
 	*DatabaseTrack
+
+	// SyncTime is the time this Song was returned by the database layer
+	SyncTime time.Time
 }
 
 // EqualTo returns s == d based on unique fields

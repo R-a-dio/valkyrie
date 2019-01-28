@@ -173,7 +173,7 @@ func (qs *QueueService) Remove(ctx context.Context, entry radio.QueueEntry) (boo
 		qs.mu.Lock()
 		defer qs.mu.Unlock()
 
-		ctx, cancel := context.WithTimeout(ctx, time.Second*5)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 		defer cancel()
 
 		err := qs.populate(ctx)

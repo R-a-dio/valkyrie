@@ -9,12 +9,14 @@ import (
 
 func toProtoSong(s radio.Song) *Song {
 	lp, _ := ptypes.TimestampProto(s.LastPlayed)
+	sync, _ := ptypes.TimestampProto(s.SyncTime)
 	song := &Song{
 		Id:         int32(s.ID),
 		Hash:       s.Hash.String(),
 		Metadata:   s.Metadata,
 		Length:     ptypes.DurationProto(s.Length),
 		LastPlayed: lp,
+		SyncTime:   sync,
 	}
 
 	if s.HasTrack() {
@@ -40,6 +42,7 @@ func toProtoSong(s radio.Song) *Song {
 
 func fromProtoSong(s *Song) radio.Song {
 	lp, _ := ptypes.Timestamp(s.LastPlayed)
+	sync, _ := ptypes.Timestamp(s.SyncTime)
 	length, _ := ptypes.Duration(s.Length)
 	var hash radio.SongHash
 	hex.Decode(hash[:], []byte(s.Hash))
@@ -72,6 +75,7 @@ func fromProtoSong(s *Song) radio.Song {
 		Length:        length,
 		LastPlayed:    lp,
 		DatabaseTrack: track,
+		SyncTime:      sync,
 	}
 }
 
