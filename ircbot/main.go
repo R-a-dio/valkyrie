@@ -100,6 +100,7 @@ type Bot struct {
 	// interfaces to other components
 	Manager  radio.ManagerService
 	Streamer radio.StreamerService
+	Search   radio.SearchService
 
 	c *girc.Client
 }

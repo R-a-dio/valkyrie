@@ -62,6 +62,11 @@ type SongInfo struct {
 	End time.Time
 }
 
+type SearchService interface {
+	Search(context.Context, string, int, int) ([]Song, error)
+	UpdateIndex(context.Context, TrackID) error
+}
+
 type ManagerService interface {
 	Status(context.Context) (*Status, error)
 
