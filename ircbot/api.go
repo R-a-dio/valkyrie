@@ -208,7 +208,7 @@ func (ann *announceService) AnnounceRequest(ctx context.Context, song radio.Song
 		// Append new info to message
 		message = Fmt(message+" (%s)",
 			song.Metadata,
-			FormatDayDuration(startTimeDiff),
+			FormatPlaybackDurationHours(startTimeDiff),
 		)
 	} else {
 		message = Fmt(message, song.Metadata)
