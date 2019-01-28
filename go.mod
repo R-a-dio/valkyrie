@@ -7,7 +7,6 @@ require (
 	github.com/go-sql-driver/mysql v1.4.1
 	github.com/golang/protobuf v1.2.0
 	github.com/google/subcommands v0.0.0-20181012225330-46f0354f6315
-	github.com/google/wire v0.2.0
 	github.com/grafov/m3u8 v0.6.1
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/lrstanley/girc v0.0.0-20190102153329-c1e59a02f488
