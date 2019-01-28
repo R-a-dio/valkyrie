@@ -71,7 +71,55 @@ func LastPlayed(e Event) error {
 	return nil
 }
 
-func StreamerQueue(e Event) error       { return nil }
+func StreamerQueue(e Event) error       {
+	// Get queue from streamer
+	songQueue, err := e.Bot.Streamer.Queue(e.Context())
+	if err != nil {
+		return err
+	}
+
+	// If the queue is empty then we're done
+	if len(songQueue) == 0 {
+		return NewPublicError(nil, "No queue at the moment")
+	}
+
+	// Calculate playback time for the queue
+	var totalQueueTime time.Duration
+	for _, song := range songQueue {
+		totalQueueTime += song.Length
+	}
+
+	// Define the message strings
+	message := "{green}Queue (/r/ time: %s):{clear}"
+	messageJoin := "{red}|{clear}"
+
+	// Grab metadata and set color green if requestable
+	onlyFmt := make([]string, len(songQueue))
+	onlyMetadata := make([]interface{}, len(songQueue))
+	for i, song := range songQueue {
+		if song.IsUserRequest {
+			onlyFmt[i] = "{green} %s {clear}"
+		} else {
+			onlyFmt[i] = " %s "
+		}
+		onlyMetadata[i] = song.Metadata
+	}
+
+	// Add information to message
+	message = message + strings.Join(onlyFmt, messageJoin)
+
+	// Create the args
+	args := append(
+		[]interface{}{FormatPlaybackDurationHours(totalQueueTime)},
+		onlyMetadata...,
+	)
+
+	// Echo out the message
+	e.EchoPublic(message, args...)
+
+	// All done!
+	return nil
+}
 
 func StreamerQueueLength(e Event) error {
 	// Define echo message
