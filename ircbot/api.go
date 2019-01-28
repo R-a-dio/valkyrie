@@ -180,7 +180,7 @@ func (ann *announceService) AnnounceSong(ctx context.Context, status radio.Statu
 }
 
 func (ann *announceService) AnnounceRequest(ctx context.Context, song radio.Song) error {
-	message := "Requested:{red} '%s'"
+	message := "Requested:{green} '%s'"
 
 	// Get queue from streamer
 	songQueue, err := ann.bot.Streamer.Queue(ctx)

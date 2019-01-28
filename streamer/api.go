@@ -17,11 +17,13 @@ import (
 
 // NewHTTPServer returns a http server with RPC API handler and debug handlers
 func NewHTTPServer(cfg config.Config, db *sqlx.DB,
-	queue radio.QueueService, streamer *Streamer) (*http.Server, error) {
+	queue radio.QueueService, announce radio.AnnounceService,
+	streamer *Streamer) (*http.Server, error) {
 
 	s := &streamerService{
 		Config:   cfg,
 		DB:       db,
+		announce: announce,
 		queue:    queue,
 		streamer: streamer,
 	}
@@ -48,6 +50,7 @@ type streamerService struct {
 	config.Config
 	DB *sqlx.DB
 
+	announce     radio.AnnounceService
 	queue        radio.QueueService
 	streamer     *Streamer
 	requestMutex sync.Mutex
@@ -155,5 +158,10 @@ func (s *streamerService) RequestSong(ctx context.Context, song radio.Song, iden
 	}
 
 	// send the song to the queue
-	return s.queue.AddRequest(ctx, song, identifier)
+	err = s.queue.AddRequest(ctx, song, identifier)
+	if err != nil {
+		return err
+	}
+
+	return s.announce.AnnounceRequest(ctx, song)
 }

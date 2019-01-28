@@ -26,8 +26,11 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	}
 	defer streamer.ForceStop(context.Background())
 
+	// announcement service
+	announce := cfg.Conf().IRC.Client()
+
 	// setup a http server for our RPC API
-	srv, err := NewHTTPServer(cfg, db, queue, streamer)
+	srv, err := NewHTTPServer(cfg, db, queue, announce, streamer)
 	if err != nil {
 		return err
 	}

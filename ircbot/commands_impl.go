@@ -71,7 +71,7 @@ func LastPlayed(e Event) error {
 	return nil
 }
 
-func StreamerQueue(e Event) error       {
+func StreamerQueue(e Event) error {
 	// Get queue from streamer
 	songQueue, err := e.Bot.Streamer.Queue(e.Context())
 	if err != nil {
@@ -378,7 +378,7 @@ func generateFriendlyCooldownError(err radio.SongRequestError) error {
 		message = "{brown}You still have quite a lot of time before you can request again..."
 	}
 	if message != "" {
-		err.UserMessage = message
+		err.UserMessage = Fmt(message)
 		return err
 	}
 	switch d := err.SongDelay; {
@@ -405,7 +405,7 @@ func generateFriendlyCooldownError(err radio.SongRequestError) error {
 	}
 
 	if message != "" {
-		err.UserMessage = message
+		err.UserMessage = Fmt(message)
 	}
 	return err
 }
