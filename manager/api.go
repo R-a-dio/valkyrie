@@ -41,6 +41,7 @@ func (m *Manager) Status(ctx context.Context) (*radio.Status, error) {
 
 // UpdateUser sets information about the current streamer
 func (m *Manager) UpdateUser(ctx context.Context, u radio.User) error {
+	defer m.updateStreamStatus()
 	m.mu.Lock()
 	m.status.User = u
 	m.mu.Unlock()
@@ -49,6 +50,7 @@ func (m *Manager) UpdateUser(ctx context.Context, u radio.User) error {
 
 // UpdateSong sets information about the currently playing song
 func (m *Manager) UpdateSong(ctx context.Context, new radio.Song, info radio.SongInfo) error {
+	defer m.updateStreamStatus()
 	tx, err := database.HandleTx(ctx, m.DB)
 	if err != nil {
 		return err
@@ -149,6 +151,7 @@ func (m *Manager) handlePreviousSong(tx database.HandlerTx, song radio.Song, inf
 
 // UpdateThread sets the current thread information on the front page and chats
 func (m *Manager) UpdateThread(ctx context.Context, thread string) error {
+	defer m.updateStreamStatus()
 	m.mu.Lock()
 	m.status.Thread = thread
 	m.mu.Unlock()
@@ -157,6 +160,7 @@ func (m *Manager) UpdateThread(ctx context.Context, thread string) error {
 
 // UpdateListeners sets the listener count
 func (m *Manager) UpdateListeners(ctx context.Context, listeners int) error {
+	defer m.updateStreamStatus()
 	m.mu.Lock()
 	m.status.Listeners = listeners
 	m.mu.Unlock()

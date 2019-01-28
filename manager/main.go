@@ -2,8 +2,11 @@ package manager
 
 import (
 	"context"
+	"database/sql"
+	"log"
 	"net"
 	"sync"
+	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
@@ -62,6 +65,12 @@ func NewManager(cfg config.Config) (*Manager, error) {
 		status: radio.Status{},
 	}
 
+	old, err := m.loadStreamStatus(context.TODO())
+	if err != nil {
+		return nil, err
+	}
+	m.status = *old
+
 	m.client.announce = cfg.Conf().IRC.Client()
 	m.client.streamer = cfg.Conf().Streamer.Client()
 	return &m, nil
@@ -82,4 +91,139 @@ type Manager struct {
 	status radio.Status
 	// listener count at the start of a song
 	songStartListenerCount int
+}
+
+// updateStreamStatus is a legacy layer to keep supporting streamstatus table usage
+// in the website.
+func (m *Manager) updateStreamStatus() {
+	go func() {
+		m.mu.Lock()
+		status := m.status.Copy()
+		m.mu.Unlock()
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+		defer cancel()
+
+		h := database.Handle(ctx, m.DB)
+
+		// we either want to do an UPDATE or an INSERT if our row doesn't exist
+		var queries = []string{`
+		UPDATE
+			streamstatus
+		SET
+			djid=:user.id,
+			np=:song.metadata,
+			listeners=:listeners,
+			bitrate=192000,
+			isafkstream=:user.isrobot,
+			isstreamdesk=0,
+			start_time=UNIX_TIMESTAMP(:songinfo.start),
+			end_time=UNIX_TIMESTAMP(:songinfo.end),
+			trackid=:song.trackid,
+			thread=:thread,
+			requesting=:requestsenabled,
+			djname=:user.nickname
+		WHERE
+			id=0;
+		`, `
+		INSERT INTO
+			streamstatus
+		(
+			id,
+			djid,
+			np,
+			listeners,
+			isafkstream,
+			start_time,
+			end_time,
+			trackid,
+			thread,
+			requesting,
+			djname
+		) VALUES (
+			0,
+			:user.id,
+			:song.metadata,
+			:listeners,
+			:user.isrobot,
+			UNIX_TIMESTAMP(:songinfo.start),
+			UNIX_TIMESTAMP(:songinfo.end),
+			:song.trackid,
+			:thread,
+			:requestsenabled,
+			:user.nickname
+		);
+		`}
+
+		// do some minor adjustments so that we can safely pass the status object
+		// straight to the Exec
+		if !status.Song.HasTrack() {
+			status.Song.DatabaseTrack = &radio.DatabaseTrack{}
+		}
+		// streamstatus expects an end equal to start if it's unknown
+		if status.SongInfo.End.IsZero() {
+			status.SongInfo.End = status.SongInfo.Start
+		}
+
+		// now try the UPDATE and if that fails do the same with an INSERT
+		for _, query := range queries {
+			query, args, err := sqlx.Named(query, status)
+			if err != nil {
+				log.Printf("manager: error: %v", err)
+				return
+			}
+
+			res, err := h.Exec(query, args...)
+			if err != nil {
+				log.Printf("manager: error: %v", err)
+				return
+			}
+
+			// check if we've successfully updated, otherwise we need to do an insert
+			if i, err := res.RowsAffected(); err != nil || i > 0 {
+				return
+			}
+		}
+	}()
+}
+
+// loadStreamStatus is to load the legacy streamstatus table, we should only do this
+// at startup
+func (m *Manager) loadStreamStatus(ctx context.Context) (*radio.Status, error) {
+	h := database.Handle(ctx, m.DB)
+
+	var query = `
+	SELECT
+		djid AS 'user.id',
+		np AS 'song.metadata',
+		listeners,
+		isafkstream AS 'user.isrobot',
+		from_unixtime(start_time) AS 'songinfo.start',
+		from_unixtime(end_time) AS 'songinfo.end',
+		trackid AS 'song.trackid',
+		thread,
+		requesting AS requestsenabled,
+		djname AS 'user.nickname'
+	FROM
+		streamstatus
+	WHERE
+		id=0
+	LIMIT 1;
+	`
+	var status radio.Status
+
+	err := sqlx.Get(h, &status, query)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+
+	// see if we can get a full song from the database
+	if status.Song.Metadata != "" {
+		song, err := database.GetSongFromMetadata(h, status.Song.Metadata)
+		if err == nil {
+			status.Song = *song
+		}
+	}
+
+	return &status, nil
 }
