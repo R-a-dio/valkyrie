@@ -137,3 +137,9 @@ func HasAccess(c *girc.Client, e girc.Event) bool {
 
 	return perms.IsAdmin() || perms.HalfOp
 }
+
+// HasStreamAccess is similar to HasAccess but also includes special casing for streamers
+// that don't have channel access, but do have the authorization to access the stream
+func HasStreamAccess(c *girc.Client, e girc.Event) bool {
+	return HasAccess(c, e)
+}

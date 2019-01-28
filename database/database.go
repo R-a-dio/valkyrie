@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"time"
 
 	"github.com/R-a-dio/valkyrie/config"
@@ -10,6 +11,14 @@ import (
 	_ "github.com/go-sql-driver/mysql" // mariadb
 	"github.com/jmoiron/sqlx"
 )
+
+// specialCasedColumnNames is a map of Go <StructField> to SQL <ColumnName>
+var specialCasedColumnNames = map[string]string{
+	"CreatedAt":     "created_at",
+	"DeletedAt":     "deleted_at",
+	"UpdatedAt":     "updated_at",
+	"RememberToken": "remember_token",
+}
 
 // Connect connects to the database configured in cfg
 func Connect(cfg config.Config) (*sqlx.DB, error) {
@@ -19,6 +28,14 @@ func Connect(cfg config.Config) (*sqlx.DB, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	db.MapperFunc(func(s string) string {
+		n, ok := specialCasedColumnNames[s]
+		if ok {
+			s = n
+		}
+		return strings.ToLower(s)
+	})
 	return db, nil
 }
 

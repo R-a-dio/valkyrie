@@ -29,12 +29,19 @@ func CalculateRequestDelay(requestCount int) time.Duration {
 }
 
 type Status struct {
-	User     User
-	Song     Song
+	// User is the user that is currently broadcasting on the stream
+	User User
+	// Song is the song that is currently playing on the stream
+	Song Song
+	// SongInfo is extra information about the song that is currently playing
 	SongInfo SongInfo
+	// StreamerName is the name given to us by the user that is streaming
+	StreamerName string
 	// Listeners is the current amount of stream listeners
-	Listeners       int
-	Thread          string
+	Listeners int
+	// Thread is an URL to a third-party platform related to the current stream
+	Thread string
+	// RequestsEnabled tells you if requests to the automated streamer are enabled
 	RequestsEnabled bool
 }
 
@@ -49,10 +56,55 @@ func (s Status) Copy() Status {
 	return s
 }
 
+// UserID is an identifier corresponding to an user
+type UserID uint64
+
+// User is an user account in the database
 type User struct {
-	ID       int
-	Nickname string
-	IsRobot  bool
+	ID            UserID
+	Username      string
+	Password      string
+	Email         string
+	RememberToken string
+	IP            string
+
+	UpdatedAt time.Time
+	DeletedAt time.Time
+	CreatedAt time.Time
+
+	DJ DJ
+}
+
+// DJID is an identifier corresponding to a dj
+type DJID uint64
+
+// DJ is someone that has access to streaming
+type DJ struct {
+	ID    DJID
+	Name  string
+	Regex string
+
+	Text  string
+	Image string
+
+	Visible  bool
+	Priority int
+	Role     string
+
+	CSS   string
+	Color string
+	Theme Theme
+}
+
+// ThemeID is the identifier of a website theme
+type ThemeID uint64
+
+// Theme is a website theme
+type Theme struct {
+	ID          ThemeID
+	Name        string
+	DisplayName string
+	Author      string
 }
 
 type SongInfo struct {
@@ -70,7 +122,7 @@ type SearchService interface {
 type ManagerService interface {
 	Status(context.Context) (*Status, error)
 
-	UpdateUser(context.Context, User) error
+	UpdateUser(context.Context, string, User) error
 	UpdateSong(context.Context, Song, SongInfo) error
 	UpdateThread(ctx context.Context, thread string) error
 	UpdateListeners(context.Context, int) error

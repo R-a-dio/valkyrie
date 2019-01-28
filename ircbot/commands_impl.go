@@ -169,7 +169,62 @@ func StreamerQueueLength(e Event) error {
 	return nil
 }
 
+var reOtherTopicBit = regexp.MustCompile(`(.*?r/.*/dio.*?)(\|.*?\|)(.*)`)
+
 func StreamerUserInfo(e Event) error {
+	name := e.Arguments["DJ"]
+	if name == "" || !HasAccess(e.Client, e.Event) {
+		// simple path with no argument or no access
+		status, err := e.Bot.Manager.Status(e.Context())
+		if err != nil {
+			return err
+		}
+		e.EchoPublic("Current DJ: {green}%s", status.StreamerName)
+		return nil
+	}
+
+	channel := e.Client.LookupChannel(e.Params[0])
+	if channel == nil {
+		return nil
+	}
+
+	var err error
+	var user *radio.User
+	var topicStatus = "UP"
+
+	// skip the name lookup if the name is None, since it means we are down and out
+	if name != "None" {
+		user, err = database.LookupNickname(e.Database(), name)
+		if err != nil {
+			return err
+		}
+	} else {
+		topicStatus = "DOWN"
+		user = &radio.User{}
+	}
+
+	err = e.Bot.Manager.UpdateUser(e.Context(), name, *user)
+	if err != nil {
+		return err
+	}
+
+	// parse the topic so we can change it
+	match := reOtherTopicBit.FindStringSubmatch(channel.Topic)
+	if len(match) < 4 {
+		return NewPublicError(nil, "Topic format is broken")
+	}
+	// we get a []string back with all our groups, the first is the full match
+	// which we don't need
+	match = match[1:]
+	// now the group we're interested in is the second one, so replace that with
+	// our new status print
+	match[1] = Fmt(
+		"|{orange} Stream:{red} %s {orange}DJ:{red} %s {cyan} https://r-a-d.io {clear}|",
+		topicStatus, name,
+	)
+
+	newTopic := strings.Join(match, "")
+	e.Client.Cmd.Topic(channel.Name, newTopic)
 	return nil
 }
 
@@ -247,7 +302,7 @@ func FaveList(e Event) error {
 func ThreadURL(e Event) error {
 	thread := e.Arguments["thread"]
 
-	if thread != "" && HasAccess(e.Client, e.Event) {
+	if thread != "" && HasStreamAccess(e.Client, e.Event) {
 		err := e.Bot.Manager.UpdateThread(e.Context(), thread)
 		if err != nil {
 			return err
@@ -297,9 +352,7 @@ func ChannelTopic(e Event) error {
 }
 
 func KillStreamer(e Event) error {
-	// TODO: this should use special caseing for streamers that don't have channel
-	// access
-	if !HasAccess(e.Client, e.Event) {
+	if !HasStreamAccess(e.Client, e.Event) {
 		return nil
 	}
 
@@ -462,6 +515,10 @@ func LastRequestInfo(e Event) error {
 }
 
 func TrackInfo(e Event) error {
+	if !HasAccess(e.Client, e.Event) {
+		return nil
+	}
+
 	message := "ID: {red}%d {clear}" +
 		"Title: {red}%s {clear}" +
 		"Faves: {red}%d {clear}" +

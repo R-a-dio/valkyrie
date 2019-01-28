@@ -40,9 +40,10 @@ func (m *Manager) Status(ctx context.Context) (*radio.Status, error) {
 }
 
 // UpdateUser sets information about the current streamer
-func (m *Manager) UpdateUser(ctx context.Context, u radio.User) error {
+func (m *Manager) UpdateUser(ctx context.Context, n string, u radio.User) error {
 	defer m.updateStreamStatus()
 	m.mu.Lock()
+	m.status.StreamerName = n
 	m.status.User = u
 	m.mu.Unlock()
 	return nil

@@ -95,3 +95,5 @@ func (err StreamerError) Public() bool {
 func (err StreamerError) UserError() string {
 	return err.Message
 }
+
+var ErrUnknownUser = createSRE("unknown user")

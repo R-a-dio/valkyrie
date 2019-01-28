@@ -42,7 +42,7 @@ message Song {
 service Manager {
     // Status returns the current status
     rpc Status(google.protobuf.Empty) returns (StatusResponse);
-    rpc SetUser(User) returns (google.protobuf.Empty);
+    rpc SetUser(UserUpdate) returns (google.protobuf.Empty);
     rpc SetSong(SongUpdate) returns (google.protobuf.Empty);
     rpc SetStreamerConfig(StreamerConfig) returns (google.protobuf.Empty);
     rpc SetThread(google.protobuf.StringValue) returns (google.protobuf.Empty);
@@ -62,6 +62,8 @@ message StatusResponse {
     string thread = 5;
     // the current configuration of the streamer
     StreamerConfig streamer_config = 6;
+    // the display name given to us by the streaming user
+    string streamer_name = 7;
 }
 
 message SongUpdate {
@@ -83,13 +85,47 @@ message StreamerConfig {
     string queue_used = 2;
 }
 
+message UserUpdate {
+    User user = 1;
+    string streamer_name = 2;
+}
+
 message User {
-    // user identifier
+    // user fields
     int32 id = 1;
-    // user nickname, this is only a display-name
-    string nickname = 2;
-    // indicates if this user is a robot or not
-    bool is_robot = 3;
+    string username = 2;
+    string password = 3;
+    string email = 4;
+    string remember_token = 5;
+    string ip = 6;
+    google.protobuf.Timestamp updated_at = 7;
+    google.protobuf.Timestamp deleted_at = 8;
+    google.protobuf.Timestamp created_at = 9;
+
+    DJ dj = 10;
+}
+
+message DJ {
+    // DJ fields
+    int32 id = 1;
+    string name = 2;
+    string regex = 3;
+    string text = 4;
+    string image = 5;
+    bool visible = 6;
+    int32 priority = 7;
+    string role = 8;
+    string css = 9;
+    string color = 10;
+    
+    Theme theme = 11;
+}
+
+message Theme {
+    int32 id = 1;
+    string name = 2;
+    string display_name = 3;
+    string author = 4;
 }
 
 message ListenerInfo {

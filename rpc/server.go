@@ -66,12 +66,13 @@ func (m ManagerShim) Status(ctx context.Context, _ *empty.Empty) (*StatusRespons
 		StreamerConfig: &StreamerConfig{
 			RequestsEnabled: s.RequestsEnabled,
 		},
+		StreamerName: s.StreamerName,
 	}, nil
 }
 
 // SetUser implements Manager
-func (m ManagerShim) SetUser(ctx context.Context, u *User) (*empty.Empty, error) {
-	err := m.manager.UpdateUser(ctx, fromProtoUser(u))
+func (m ManagerShim) SetUser(ctx context.Context, u *UserUpdate) (*empty.Empty, error) {
+	err := m.manager.UpdateUser(ctx, u.StreamerName, fromProtoUser(u.User))
 	return new(empty.Empty), err
 }
 

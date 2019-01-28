@@ -68,25 +68,21 @@ func (m ManagerClient) Status(ctx context.Context) (*radio.Status, error) {
 	}
 
 	return &radio.Status{
-		User: radio.User{
-			ID:       int(s.User.Id),
-			Nickname: s.User.Nickname,
-			IsRobot:  s.User.IsRobot,
-		},
+		User:            fromProtoUser(s.User),
 		Song:            fromProtoSong(s.Song),
 		SongInfo:        fromProtoSongInfo(s.Info),
 		Listeners:       int(s.ListenerInfo.Listeners),
 		Thread:          s.Thread,
 		RequestsEnabled: s.StreamerConfig.RequestsEnabled,
+		StreamerName:    s.StreamerName,
 	}, nil
 }
 
 // UpdateUser implements radio.ManagerService
-func (m ManagerClient) UpdateUser(ctx context.Context, u radio.User) error {
-	_, err := m.twirp.SetUser(ctx, &User{
-		Id:       int32(u.ID),
-		Nickname: u.Nickname,
-		IsRobot:  u.IsRobot,
+func (m ManagerClient) UpdateUser(ctx context.Context, n string, u radio.User) error {
+	_, err := m.twirp.SetUser(ctx, &UserUpdate{
+		User:         toProtoUser(u),
+		StreamerName: n,
 	})
 	return err
 }

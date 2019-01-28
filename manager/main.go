@@ -17,7 +17,7 @@ import (
 // Execute executes a manager with the context and configuration given; it returns with
 // any error that occurs; Execution can be interrupted by canceling the context given.
 func Execute(ctx context.Context, cfg config.Config) error {
-	m, err := NewManager(cfg)
+	m, err := NewManager(ctx, cfg)
 	if err != nil {
 		return err
 	}
@@ -53,7 +53,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 var ExecuteListener = NewListener
 
 // NewManager returns a manager ready for use
-func NewManager(cfg config.Config) (*Manager, error) {
+func NewManager(ctx context.Context, cfg config.Config) (*Manager, error) {
 	db, err := database.Connect(cfg)
 	if err != nil {
 		return nil, err
@@ -65,7 +65,7 @@ func NewManager(cfg config.Config) (*Manager, error) {
 		status: radio.Status{},
 	}
 
-	old, err := m.loadStreamStatus(context.TODO())
+	old, err := m.loadStreamStatus(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func (m *Manager) updateStreamStatus() {
 		status := m.status.Copy()
 		m.mu.Unlock()
 
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
 		defer cancel()
 
 		h := database.Handle(ctx, m.DB)
@@ -111,18 +111,19 @@ func (m *Manager) updateStreamStatus() {
 		UPDATE
 			streamstatus
 		SET
-			djid=:user.id,
+			djid=:user.dj.id,
 			np=:song.metadata,
 			listeners=:listeners,
 			bitrate=192000,
-			isafkstream=:user.isrobot,
+			isafkstream=0,
 			isstreamdesk=0,
 			start_time=UNIX_TIMESTAMP(:songinfo.start),
 			end_time=UNIX_TIMESTAMP(:songinfo.end),
 			trackid=:song.trackid,
 			thread=:thread,
 			requesting=:requestsenabled,
-			djname=:user.nickname
+			djname=:streamername,
+			lastset=NOW()
 		WHERE
 			id=0;
 		`, `
@@ -142,16 +143,16 @@ func (m *Manager) updateStreamStatus() {
 			djname
 		) VALUES (
 			0,
-			:user.id,
+			:user.dj.id,
 			:song.metadata,
 			:listeners,
-			:user.isrobot,
+			0,
 			UNIX_TIMESTAMP(:songinfo.start),
 			UNIX_TIMESTAMP(:songinfo.end),
 			:song.trackid,
 			:thread,
 			:requestsenabled,
-			:user.nickname
+			:streamername
 		);
 		`}
 
@@ -194,16 +195,15 @@ func (m *Manager) loadStreamStatus(ctx context.Context) (*radio.Status, error) {
 
 	var query = `
 	SELECT
-		djid AS 'user.id',
+		djid AS 'user.dj.id',
 		np AS 'song.metadata',
 		listeners,
-		isafkstream AS 'user.isrobot',
 		from_unixtime(start_time) AS 'songinfo.start',
 		from_unixtime(end_time) AS 'songinfo.end',
 		trackid AS 'song.trackid',
 		thread,
 		requesting AS requestsenabled,
-		djname AS 'user.nickname'
+		djname AS 'streamername'
 	FROM
 		streamstatus
 	WHERE
