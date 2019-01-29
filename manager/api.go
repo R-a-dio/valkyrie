@@ -51,7 +51,18 @@ func (m *Manager) UpdateUser(ctx context.Context, n string, u radio.User) error 
 
 // UpdateSong sets information about the currently playing song
 func (m *Manager) UpdateSong(ctx context.Context, new radio.Song, info radio.SongInfo) error {
+	// first we check if this is the same song as the previous one we received to
+	// avoid double announcement or drifting start/end timings
+	m.mu.Lock()
+	if m.status.Song.Metadata == new.Metadata {
+		m.mu.Unlock()
+		return nil
+	}
+	m.mu.Unlock()
+
+	// otherwise continue like it's a new song
 	defer m.updateStreamStatus()
+
 	tx, err := database.HandleTx(ctx, m.DB)
 	if err != nil {
 		return err
