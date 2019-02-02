@@ -507,20 +507,38 @@ func LuckyTrackRequest(e Event) error {
 }
 
 func SearchTrack(e Event) error {
-	query, ok := e.Arguments["Query"]
-	if !ok || query == "" {
-		return nil
+	var songs []radio.Song
+	// we specialcase a TrackID argument to only return that specific ID if it exists
+	query := e.Arguments["Query"]
+	if query == "" && !e.Arguments.Bool("TrackID") {
+		return NewUserError(nil, "No search query given")
 	}
 
-	res, err := e.Bot.Searcher.Search(e.Context(), query, 5, 0)
+	track, err := e.ArgumentTrack("TrackID")
+	if query == "" {
+		// switch the query to TrackID argument, if it was only numbers or a TrackID
+		query = e.Arguments["TrackID"]
+	}
+
+	songs, err = e.Bot.Searcher.Search(e.Context(), query, 5, 0)
 	if err != nil {
 		return err
 	}
-	if len(res) == 0 {
+
+	if track != nil {
+		songs = append([]radio.Song{*track}, songs...)
+	}
+	if len(songs) == 0 {
 		return NewUserError(nil, "Your search returned no results")
+	}
+	// limit to 5 songs when an ID is given
+	if len(songs) > 5 {
+		songs = songs[:5]
 	}
 
 	var (
+		// setup dup check for when we have a trackid argument
+		dup = map[radio.TrackID]struct{}{}
 		// setup formatting strings
 		requestableColor   = "{green}"
 		unrequestableColor = "{red}"
@@ -530,7 +548,19 @@ func SearchTrack(e Event) error {
 		args    = make([]interface{}, 0, 15)
 	)
 	// loop over our songs and append to our args and message
-	for _, song := range res {
+	for _, song := range songs {
+		// limit to 5 songs max, for if we have a TrackID argument and no duplicate
+		if len(dup) == 5 {
+			break
+		}
+		// just skip it if there is a duplicate
+		if _, ok := dup[song.TrackID]; ok {
+			continue
+		}
+		// add song to duplication check
+		dup[song.TrackID] = struct{}{}
+
+		// check if song is requestable to change the color
 		if song.Requestable() {
 			message = append(message, requestableColor+format)
 		} else {
