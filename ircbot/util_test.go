@@ -33,7 +33,7 @@ var formatTests = []testDurationFormat{
 func TestFormatDayDuration(t *testing.T) {
 	for _, d := range formatTests {
 		expected := d.dayDuration
-		out := FormatDayDuration(d.dur)
+		out := FormatDuration(d.dur, time.Second)
 		if out != expected {
 			t.Errorf("(%s) as %s expected %s instead", d.dur, out, expected)
 		}

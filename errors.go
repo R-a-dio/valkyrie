@@ -68,6 +68,16 @@ func IsCooldownError(err error) bool {
 		uerr.UserMessage == ErrUserCooldown.UserMessage
 }
 
+// IsUserCooldownError tells you if the error given is an ErrUserCooldown
+func IsUserCooldownError(err error) bool {
+	uerr, ok := err.(SongRequestError)
+	if !ok {
+		return false
+	}
+
+	return uerr.UserMessage == ErrUserCooldown.UserMessage
+}
+
 // NewStreamerError returns a new error with the arguments given
 func NewStreamerError(msg string, public bool) error {
 	return StreamerError{

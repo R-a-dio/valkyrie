@@ -2,7 +2,6 @@ package database
 
 import (
 	"database/sql"
-	"fmt"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -113,13 +112,6 @@ type databaseTrack struct {
 }
 
 func (dt databaseTrack) ToSong() radio.Song {
-	metadata := dt.Metadata.String
-	if dt.Track.String != "" && dt.Artist.String != "" {
-		metadata = fmt.Sprintf("%s - %s", dt.Artist.String, dt.Track.String)
-	} else if dt.Track.String != "" {
-		metadata = dt.Track.String
-	}
-
 	var track *radio.DatabaseTrack
 	if dt.TrackID.Valid {
 		track = &radio.DatabaseTrack{
@@ -142,15 +134,16 @@ func (dt databaseTrack) ToSong() radio.Song {
 		}
 	}
 
-	return radio.Song{
+	song := radio.Song{
 		ID:            radio.SongID(dt.ID.Int64),
 		Hash:          dt.Hash,
-		Metadata:      metadata,
 		Length:        time.Duration(float64(time.Second) * dt.Length.Float64),
 		LastPlayed:    dt.LastPlayed.Time,
 		DatabaseTrack: track,
 		SyncTime:      time.Now(),
 	}
+	song.FillMetadata()
+	return song
 }
 
 func (dt databaseTrack) ToSongPtr() *radio.Song {
@@ -401,4 +394,53 @@ func GetSongFavorites(h Handler, id radio.SongID) ([]string, error) {
 	}
 
 	return users, nil
+}
+
+// GetSongFavoritesOf returns all songs favorited by the nickname given
+func GetSongFavoritesOf(h Handler, nick string) ([]radio.Song, error) {
+	var query = `
+	SELECT 
+		esong.id AS id,
+		esong.hash AS hash,
+		esong.meta AS metadata,
+		esong.len AS length,
+		tracks.id AS trackid,
+		tracks.lastplayed,
+		tracks.artist,
+		tracks.track,
+		tracks.album,
+		tracks.path,
+		tracks.tags,
+		tracks.accepter AS acceptor,
+		tracks.lasteditor,
+		tracks.priority,
+		tracks.usable,
+		tracks.lastrequested,
+		tracks.requestcount
+	FROM
+		tracks
+	LEFT JOIN 
+		esong ON tracks.hash = esong.hash
+	JOIN
+		efave ON efave.isong = esong.id
+	JOIN
+		enick ON efave.inick = enick.id
+	WHERE
+		tracks.usable=1 AND
+		enick.nick=?;
+	`
+
+	var tmps = []databaseTrack{}
+
+	err := sqlx.Select(h, &tmps, query, nick)
+	if err != nil {
+		return nil, err
+	}
+
+	var songs = make([]radio.Song, len(tmps))
+	for i, tmp := range tmps {
+		songs[i] = tmp.ToSong()
+	}
+
+	return songs, nil
 }

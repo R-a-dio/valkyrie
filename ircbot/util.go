@@ -25,16 +25,36 @@ func Pluralf(format string, amount int64) string {
 	return s
 }
 
-// FormatDayDuration formats a Duration similar to Duration.String except it adds a day
-// value on the front if required. Such that instead of the form "72h3m0.5s" this returns
-// "3d3m0.5s"
-func FormatDayDuration(t time.Duration) string {
-	if t < day {
-		return t.String()
+// FormatDuration formats a Duration similar to Duration.String except it adds a possible
+// month and day value to the front if available. Such that instead of the form
+// "72h3m0.5s" this returns "3d3m0.5s".
+//
+// The truncate argument indicates the smallest unit returned in the string
+func FormatDuration(t time.Duration, truncate time.Duration) string {
+	if t < truncate {
+		return ""
 	}
 
-	wholeDays := t.Truncate(day)
-	return fmt.Sprintf("%dd%s", wholeDays/day, t-wholeDays)
+	var args []interface{}
+	var msg []string
+	for i, d := range longDurations {
+		if t < truncate {
+			break
+		}
+		if t < d {
+			continue
+		}
+
+		c := t.Truncate(d)
+		t -= c
+		c /= d
+		if c > 0 {
+			msg = append(msg, "%d%s")
+			args = append(args, c, longDurationSmall[i])
+		}
+	}
+
+	return fmt.Sprintf(strings.Join(msg, ""), args...)
 }
 
 // FormatPlaybackDuration formats a Duration in the form mm:ss where mm are minutes and
@@ -74,6 +94,7 @@ var (
 		"%d minutes",
 		"%d seconds",
 	}
+	longDurationSmall = []string{"y", "m", "w", "d", "h", "m", "s"}
 )
 
 func FormatLongDuration(t time.Duration) string {

@@ -342,6 +342,20 @@ func (s *Song) UntilRequestable() time.Duration {
 	return time.Until(furthest)
 }
 
+// FillMetadata fills in the Metadata field from other fields if available
+func (s *Song) FillMetadata() {
+	s.Metadata = strings.TrimSpace(s.Metadata)
+	if !s.HasTrack() {
+		return
+	}
+
+	if s.Title != "" && s.Artist != "" {
+		s.Metadata = fmt.Sprintf("%s - %s", s.Artist, s.Title)
+	} else if s.Title != "" && s.Metadata == "" {
+		s.Metadata = s.Title
+	}
+}
+
 // HasTrack returns true if t != nil, can be used as Song.HasTrack to check if a track
 // was allocated for the embedded field
 func (t *DatabaseTrack) HasTrack() bool {

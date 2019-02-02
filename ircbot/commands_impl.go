@@ -3,6 +3,7 @@ package ircbot
 import (
 	"context"
 	"log"
+	"math/rand"
 	"regexp"
 	"strings"
 	"time"
@@ -391,9 +392,171 @@ func KillStreamer(e Event) error {
 	return nil
 }
 
-func RandomTrackRequest(e Event) error { return nil }
-func LuckyTrackRequest(e Event) error  { return nil }
-func SearchTrack(e Event) error        { return nil }
+func RandomTrackRequest(e Event) error {
+	var songs []radio.Song
+	var err error
+
+	// we select random song from a specific set of songs, either:
+	// - favorites of the caller
+	// - favorites of the nickname given
+	// - from the search result of the query
+	// - purely random from all songs
+	isFave := e.Arguments.Bool("isFave")
+	query := e.Arguments["Query"]
+
+	// see where we need to get our songs from
+	if isFave {
+		// favorite list random
+		nickname := e.Source.Name
+		// check if we have a nickname argument to use the list of instead
+		if nick := e.Arguments["Nick"]; nick != "" {
+			nickname = nick
+		}
+
+		songs, err = database.GetSongFavoritesOf(e.Database(), nickname)
+		if err != nil {
+			return err
+		}
+	} else if query != "" {
+		// query random, select of top 100 results
+		songs, err = e.Bot.Searcher.Search(e.Context(), query, 100, 0)
+		if err != nil {
+			return err
+		}
+		if len(songs) == 0 {
+			return NewUserError(nil, "Your search returned no results")
+		}
+	} else {
+		// purely random, just select from all tracks
+		songs, err = database.AllTracks(e.Database())
+		if err != nil {
+			return err
+		}
+	}
+
+	// select songs randomly of what we have
+	for len(songs) > 0 {
+		n := rand.Intn(len(songs))
+		song := songs[n]
+		// swap our last element with the one we selected to remove it from the list
+		songs[n] = songs[len(songs)-1]
+		songs = songs[:len(songs)-1]
+
+		// can the song be requested
+		if !song.Requestable() {
+			continue
+		}
+
+		// try requesting the song
+		err = e.Bot.Streamer.RequestSong(e.Context(), song, e.Source.Host)
+		if err == nil {
+			// finished and requested a song successfully
+			return nil
+		}
+
+		// if not a cooldown error we can stop early too
+		if !radio.IsCooldownError(err) {
+			return err
+		}
+
+		// if user cooldown the user isn't allowed to request yet
+		if radio.IsUserCooldownError(err) {
+			return generateFriendlyCooldownError(err)
+		}
+	}
+
+	return NewUserError(nil, "None of the songs found could be requested")
+}
+
+func LuckyTrackRequest(e Event) error {
+	query := e.Arguments["Query"]
+	if query == "" {
+		return nil
+	}
+
+	res, err := e.Bot.Searcher.Search(e.Context(), query, 100, 0)
+	if err != nil {
+		return err
+	}
+	if len(res) == 0 {
+		return NewUserError(nil, "Your search returned no results")
+	}
+
+	for _, song := range res {
+		if !song.Requestable() {
+			continue
+		}
+
+		err = e.Bot.Streamer.RequestSong(e.Context(), song, e.Source.Host)
+		if err == nil {
+			return nil
+		}
+
+		// if it's not a cooldown error it's some other error we can't handle so return
+		if !radio.IsCooldownError(err) {
+			return err
+		}
+
+		// if user cooldown the user isn't allowed to request yet
+		if radio.IsUserCooldownError(err) {
+			return generateFriendlyCooldownError(err)
+		}
+	}
+
+	return NewUserError(nil, "None of the songs found could be requested.")
+}
+
+func SearchTrack(e Event) error {
+	query, ok := e.Arguments["Query"]
+	if !ok || query == "" {
+		return nil
+	}
+
+	res, err := e.Bot.Searcher.Search(e.Context(), query, 5, 0)
+	if err != nil {
+		return err
+	}
+	if len(res) == 0 {
+		return NewUserError(nil, "Your search returned no results")
+	}
+
+	var (
+		// setup formatting strings
+		requestableColor   = "{green}"
+		unrequestableColor = "{red}"
+		format             = "%s {green}(%d) {clear}(LP:{brown}%s{clear})"
+		// setup message and argument list for later
+		message = make([]string, 0, 10)
+		args    = make([]interface{}, 0, 15)
+	)
+	// loop over our songs and append to our args and message
+	for _, song := range res {
+		if song.Requestable() {
+			message = append(message, requestableColor+format)
+		} else {
+			message = append(message, unrequestableColor+format)
+		}
+
+		var lastPlayed = "Never"
+		if !song.LastPlayed.IsZero() {
+			// we have three different format limits here due to restricted space,
+			// either month/day, day/hour or hour/minutes
+			diff := time.Since(song.LastPlayed)
+			if diff < time.Hour*24 {
+				lastPlayed = FormatDuration(diff, time.Minute)
+			} else if diff < time.Hour*24*30 {
+				lastPlayed = FormatDuration(diff, time.Hour)
+			} else {
+				lastPlayed = FormatDuration(diff, time.Hour*24)
+			}
+		}
+
+		args = append(args, song.Metadata, song.TrackID, lastPlayed)
+	}
+
+	e.Echo(strings.Join(message, " | "), args...)
+	return nil
+}
 
 func RequestTrack(e Event) error {
 	song, err := e.ArgumentTrack("TrackID")
@@ -403,21 +566,23 @@ func RequestTrack(e Event) error {
 
 	err = e.Bot.Streamer.RequestSong(e.Context(), *song, e.Source.Host)
 	if err != nil {
-		if radio.IsCooldownError(err) {
-			err := err.(radio.SongRequestError)
-			return generateFriendlyCooldownError(err)
-		}
-		return err
+		return generateFriendlyCooldownError(err)
 	}
 
 	return nil
 }
 
-// generate a friendlier and coloured error message for cooldown related errors
-func generateFriendlyCooldownError(err radio.SongRequestError) error {
+// generate a friendlier and coloured error message for cooldown related errors,
+// returns the original error if it's not of type radio.SongRequestError
+func generateFriendlyCooldownError(err error) error {
+	srerr, ok := err.(radio.SongRequestError)
+	if !ok {
+		return err
+	}
+
 	var message string
 	// first check if a user cooldown was triggered
-	switch d := err.UserDelay; {
+	switch d := srerr.UserDelay; {
 	case d == 0:
 		break
 	case d < time.Minute*10:
@@ -428,10 +593,10 @@ func generateFriendlyCooldownError(err radio.SongRequestError) error {
 		message = "{brown}You still have quite a lot of time before you can request again..."
 	}
 	if message != "" {
-		err.UserMessage = Fmt(message)
+		srerr.UserMessage = Fmt(message)
 		return err
 	}
-	switch d := err.SongDelay; {
+	switch d := srerr.SongDelay; {
 	case d == 0:
 		break
 	case d < time.Minute*5:
@@ -455,13 +620,13 @@ func generateFriendlyCooldownError(err radio.SongRequestError) error {
 	}
 
 	if message != "" {
-		err.UserMessage = Fmt(message)
+		srerr.UserMessage = Fmt(message)
 	}
-	return err
+	return srerr
 }
 
 func LastRequestInfo(e Event) error {
-	message := "%s last requested at {red}%s {clear}, which is {red}%s {clear} ago."
+	message := "%s last requested at {red}%s {clear}, which is {red}%s{clear} ago."
 
 	var host = e.Source.Host
 	var withArgument bool
@@ -497,7 +662,7 @@ func LastRequestInfo(e Event) error {
 	args := []interface{}{
 		name,
 		t.Format("Jan 02, 15:04:05"),
-		FormatDayDuration(time.Since(t).Truncate(time.Second)),
+		FormatDuration(time.Since(t).Truncate(time.Second), time.Second),
 	}
 
 	// calculate if enough time has passed since the last request

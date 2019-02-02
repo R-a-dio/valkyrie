@@ -95,6 +95,7 @@ func NewRegexHandlers(ctx context.Context, bot *Bot, handlers ...RegexHandler) R
 
 	for i, handler := range handlers {
 		h.cache[i] = regexp.MustCompile(rePrefix + handler.regex)
+		h.cache[i].Longest()
 	}
 
 	return h
