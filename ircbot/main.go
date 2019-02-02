@@ -12,6 +12,7 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/database"
+	"github.com/R-a-dio/valkyrie/search"
 	"github.com/jmoiron/sqlx"
 	"github.com/lrstanley/girc"
 )
@@ -63,6 +64,11 @@ func NewBot(ctx context.Context, cfg config.Config) (*Bot, error) {
 		return nil, err
 	}
 
+	ss, err := search.NewElasticSearchService(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+
 	var ircConf girc.Config
 	c := cfg.Conf()
 
@@ -84,6 +90,7 @@ func NewBot(ctx context.Context, cfg config.Config) (*Bot, error) {
 		DB:       db,
 		Manager:  c.Manager.Client(),
 		Streamer: c.Streamer.Client(),
+		Searcher: ss,
 		c:        girc.New(ircConf),
 	}
 
@@ -100,7 +107,7 @@ type Bot struct {
 	// interfaces to other components
 	Manager  radio.ManagerService
 	Streamer radio.StreamerService
-	Search   radio.SearchService
+	Searcher radio.SearchService
 
 	c *girc.Client
 }

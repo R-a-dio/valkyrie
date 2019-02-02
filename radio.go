@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -116,7 +117,8 @@ type SongInfo struct {
 
 type SearchService interface {
 	Search(context.Context, string, int, int) ([]Song, error)
-	UpdateIndex(context.Context, TrackID) error
+	Update(context.Context, ...Song) error
+	Delete(context.Context, Song) error
 }
 
 type ManagerService interface {
@@ -191,6 +193,10 @@ func (s *SongID) Scan(src interface{}) error {
 	return nil
 }
 
+func (s SongID) String() string {
+	return strconv.Itoa(int(s))
+}
+
 // SongHash is a sha1 hash
 type SongHash [sha1.Size]byte
 
@@ -222,20 +228,20 @@ func (s SongHash) String() string {
 
 // Song is a song we've seen played on the stream
 type Song struct {
-	ID SongID
+	ID SongID `json:"-"`
 	// Hash is a sha1 of the contents of Metadata
-	Hash SongHash
+	Hash SongHash `json:"hash"`
 	// Metadata is simple metadata for this song in the format 'artist - title'
-	Metadata string
+	Metadata string `json:"-"`
 	// Length is the length of the song
-	Length time.Duration
+	Length time.Duration `json:"length"`
 	// LastPlayed is the last time this song played on stream
-	LastPlayed time.Time
+	LastPlayed time.Time `json:"last_played"`
 	// DatabaseTrack is only available if the song is in our streamer database
 	*DatabaseTrack
 
 	// SyncTime is the time this Song was returned by the database layer
-	SyncTime time.Time
+	SyncTime time.Time `json:"-"`
 }
 
 // EqualTo returns s == d based on unique fields
@@ -262,27 +268,32 @@ func (s Song) EqualTo(d Song) bool {
 // TrackID is a database track identifier
 type TrackID uint64
 
+func (t TrackID) String() string {
+	return strconv.Itoa(int(t))
+}
+
 // DatabaseTrack is a song we have the actual audio file for and is available to the
 // automated streamer
 type DatabaseTrack struct {
-	TrackID TrackID
+	TrackID TrackID `json:"track_id"`
 
-	Artist   string
-	Title    string
-	Album    string
-	FilePath string
-	Tags     string
+	Artist   string `json:"artist"`
+	Title    string `json:"title"`
+	Album    string `json:"album"`
+	FilePath string `json:"-"`
+	Tags     string `json:"tags"`
 
-	Acceptor   string
-	LastEditor string
+	Acceptor   string `json:"acceptor"`
+	LastEditor string `json:"last_editor"`
 
-	Priority int
-	Usable   bool
+	Priority     int  `json:"priority"`
+	Usable       bool `json:"usable"`
+	NeedReupload bool `json:"need_reupload"`
 
-	LastRequested time.Time
+	LastRequested time.Time `json:"last_requested"`
 
-	RequestCount int
-	RequestDelay time.Duration
+	RequestCount int           `json:"request_count"`
+	RequestDelay time.Duration `json:"request_delay"`
 }
 
 // Requestable returns whether this song can be requested by a user

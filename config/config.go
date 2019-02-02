@@ -39,6 +39,9 @@ var defaultConfig = config{
 		StreamURL:     "",
 		FallbackNames: []string{"fallback"},
 	},
+	Elastic: elasticsearch{
+		URL: "http://127.0.0.1:9200/",
+	},
 }
 
 // config represents a full configuration file of this project, each tool part
@@ -59,6 +62,7 @@ type config struct {
 	Streamer streamer
 	IRC      irc
 	Manager  manager
+	Elastic  elasticsearch
 }
 
 // database is the configuration for the database/sql package
@@ -126,6 +130,10 @@ type manager struct {
 // Client returns an usable client to the manager service
 func (m manager) Client() radio.ManagerService {
 	return rpc.NewManagerClient(prepareTwirpClient(m.Addr))
+}
+
+type elasticsearch struct {
+	URL string
 }
 
 // prepareTwirpClient prepares a http client and an usable address string for creating
