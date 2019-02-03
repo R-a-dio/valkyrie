@@ -118,7 +118,7 @@ type SongInfo struct {
 type SearchService interface {
 	Search(context.Context, string, int, int) ([]Song, error)
 	Update(context.Context, ...Song) error
-	Delete(context.Context, Song) error
+	Delete(context.Context, ...Song) error
 }
 
 type ManagerService interface {

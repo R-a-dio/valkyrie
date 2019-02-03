@@ -224,22 +224,29 @@ func (es *ElasticService) createUpsertRequest(song radio.Song) elastic.BulkableR
 		Doc(song).DocAsUpsert(true)
 }
 
-func (es *ElasticService) Delete(ctx context.Context, song radio.Song) error {
-	if !song.HasTrack() {
-		return errors.New("received song with no track")
-		//return ErrInvalidSong
+func (es *ElasticService) Delete(ctx context.Context, songs ...radio.Song) error {
+	bulk := es.es.Bulk()
+
+	for _, song := range songs {
+		if !song.HasTrack() {
+			return errors.New("received song with no track")
+			//return ErrInvalidSong
+		}
+		bulk = bulk.Add(es.createDeleteRequest(song))
 	}
 
-	action := es.es.Index().Index(songSearchIndex).
-		Type(songSearchType).
-		OpType("delete").
-		Id(song.TrackID.String())
-
-	put, err := action.Do(ctx)
+	resp, err := bulk.Do(ctx)
 	if err != nil {
 		return err
 	}
 
-	log.Printf("search: elastic: deleted song %s", put.Id)
+	log.Printf("search: elastic: deleted %d songs", len(resp.Items))
 	return nil
+}
+
+func (es *ElasticService) createDeleteRequest(song radio.Song) elastic.BulkableRequest {
+	return elastic.NewBulkDeleteRequest().
+		Index(songSearchIndex).
+		Type(songSearchType).
+		Id(song.TrackID.String())
 }
