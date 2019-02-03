@@ -384,9 +384,14 @@ func KillStreamer(e Event) error {
 	if err != nil {
 		e.EchoPublic("Disconnecting after the current song")
 	} else {
-		e.EchoPublic("Disconnecting in about %s",
-			FormatLongDuration(time.Until(status.SongInfo.End)),
-		)
+		until := time.Until(status.SongInfo.End)
+		if until == 0 {
+			e.EchoPublic("Disconnecting after the current song")
+		} else {
+			e.EchoPublic("Disconnecting in about %s",
+				FormatLongDuration(until),
+			)
+		}
 	}
 
 	return nil
