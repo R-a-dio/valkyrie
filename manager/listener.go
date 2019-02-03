@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -174,7 +175,7 @@ func (ln *Listener) parseResponse(ctx context.Context, metasize int, src io.Read
 		}
 
 		s := radio.Song{
-			Metadata: song,
+			Metadata: strings.TrimSpace(song),
 		}
 
 		go func() {
