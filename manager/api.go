@@ -102,6 +102,9 @@ func (m *Manager) UpdateSong(ctx context.Context, new radio.Song, info radio.Son
 
 	prev, m.status.Song = m.status.Song, *song
 	prevInfo, m.status.SongInfo = m.status.SongInfo, info
+	// check if a robot is streaming
+	// TODO: don't hardcode this
+	isRobot := m.status.User.Username == "AFK"
 
 	// record listener count and calculate the difference between start/end of song
 	currentListenerCount := m.status.Listeners
@@ -122,7 +125,7 @@ func (m *Manager) UpdateSong(ctx context.Context, new radio.Song, info radio.Son
 	log.Printf("manager: set song: \"%s\" (%s)\n", song.Metadata, song.Length)
 
 	// finish up database work for the previous song
-	err = m.handlePreviousSong(tx, prev, prevInfo, listenerCountDiff)
+	err = m.handlePreviousSong(tx, prev, prevInfo, listenerCountDiff, isRobot)
 	if err == nil {
 		tx.Commit()
 	} else {
@@ -139,7 +142,7 @@ func (m *Manager) UpdateSong(ctx context.Context, new radio.Song, info radio.Son
 	return nil
 }
 
-func (m *Manager) handlePreviousSong(tx database.HandlerTx, song radio.Song, info radio.SongInfo, listenerDiff *int) error {
+func (m *Manager) handlePreviousSong(tx database.HandlerTx, song radio.Song, info radio.SongInfo, listenerDiff *int, isRobot bool) error {
 	// protect against zero-d Song's
 	if song.ID == 0 {
 		return nil
@@ -150,6 +153,14 @@ func (m *Manager) handlePreviousSong(tx database.HandlerTx, song radio.Song, inf
 	if err != nil {
 		log.Printf("manager: unable to insert play history: %s", err)
 		return err
+	}
+	// update our other lastplayed field if the streamer is a robot and the song has
+	// a database track
+	if song.HasTrack() && isRobot {
+		err := database.UpdateTrackPlayTime(tx, song.TrackID)
+		if err != nil {
+			return err
+		}
 	}
 
 	if song.Length == 0 {
