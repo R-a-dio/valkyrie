@@ -157,6 +157,8 @@ func main() {
 	subcommands.Register(requestCountCmd, "jobs")
 	subcommands.Register(verifierCmd, "jobs")
 
+	subcommands.Register(elasticCmd{}, "search")
+
 	flag.Parse()
 	configEnvFile = os.Getenv(configEnvFile)
 

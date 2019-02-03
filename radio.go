@@ -228,12 +228,12 @@ func (s SongHash) String() string {
 
 // MarshalJSON implements encoding/json.Marshaler
 func (s SongHash) MarshalJSON() ([]byte, error) {
-	return []byte(s.String()), nil
+	return []byte(fmt.Sprintf(`"%x"`, s[:])), nil
 }
 
 // UnmarshalJSON implements encoding/json.Unmarshaler
 func (s *SongHash) UnmarshalJSON(b []byte) error {
-	_, err := hex.Decode((*s)[:], b)
+	_, err := hex.Decode((*s)[:], b[1:len(b)-1])
 	return err
 }
 
