@@ -22,6 +22,12 @@ func NowPlaying(e Event) error {
 	if err != nil {
 		return err
 	}
+
+	if status.SongInfo.IsFallback {
+		e.EchoPublic("Stream is currently down.")
+		return nil
+	}
+
 	// status returns a bare song; so refresh it from the db
 	track, err := database.GetSongFromMetadata(e.Database(), status.Song.Metadata)
 	if err != nil {

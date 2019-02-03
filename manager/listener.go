@@ -164,8 +164,8 @@ func (ln *Listener) parseResponse(ctx context.Context, metasize int, src io.Read
 		}
 
 		song := meta["StreamTitle"]
-		if song == "" || ln.isFallback(song) {
-			log.Printf("listener: fallback or empty song: %s", song)
+		if song == "" {
+			log.Printf("listener: empty song")
 			continue
 		}
 
@@ -177,11 +177,21 @@ func (ln *Listener) parseResponse(ctx context.Context, metasize int, src io.Read
 		s := radio.Song{
 			Metadata: strings.TrimSpace(song),
 		}
+		info := radio.SongInfo{
+			Start:      time.Now(),
+			IsFallback: ln.isFallback(song),
+		}
+
+		// set the previous song metadata only if we're not on a fallback to avoid
+		// stream -> drop (onto fallback) -> stream patterns announcing multiple times
+		if !info.IsFallback {
+			ln.prevSong = song
+		}
 
 		go func() {
 			ctx, cancel := context.WithTimeout(ctx, time.Second*5)
 			defer cancel()
-			err := ln.manager.UpdateSong(ctx, s, radio.SongInfo{})
+			err := ln.manager.UpdateSong(ctx, s, info)
 			if err != nil {
 				log.Printf("manager-listener: error setting song: %s\n", err)
 			}

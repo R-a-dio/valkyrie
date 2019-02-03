@@ -76,6 +76,8 @@ message SongInfo {
     google.protobuf.Timestamp start_time = 3;
     // the time this song will end playing
     google.protobuf.Timestamp end_time = 4;
+    // indicates if the song is a fallback track
+    bool is_fallback = 5;
 }
 
 message StreamerConfig {

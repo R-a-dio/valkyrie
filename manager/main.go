@@ -87,8 +87,9 @@ type Manager struct {
 		streamer radio.StreamerService
 	}
 	// mu protects the fields below and their contents
-	mu     sync.Mutex
-	status radio.Status
+	mu                sync.Mutex
+	status            radio.Status
+	autoStreamerTimer *time.Timer
 	// listener count at the start of a song
 	songStartListenerCount int
 }
@@ -223,7 +224,56 @@ func (m *Manager) loadStreamStatus(ctx context.Context) (*radio.Status, error) {
 		if err == nil {
 			status.Song = *song
 		}
+
+		user, err := database.LookupNickname(h, status.StreamerName)
+		if err == nil {
+			status.User = *user
+		}
 	}
 
 	return &status, nil
+}
+
+// tryStartStreamer tries to start the streamer after waiting the timeout period given
+//
+// tryStartStreamer needs to be called with m.mu held
+func (m *Manager) tryStartStreamer(timeout time.Duration) {
+	if m.autoStreamerTimer != nil {
+		return
+	}
+
+	log.Printf("manager: trying to start streamer in: %s", timeout)
+	m.autoStreamerTimer = time.AfterFunc(timeout, func() {
+		// we lock here to lower the chance of a race between UpdateUser and this
+		// timer firing
+		m.mu.Lock()
+		defer m.mu.Unlock()
+		if m.autoStreamerTimer == nil {
+			// this means we got cancelled before we could run, but a race occurred
+			// between the call to Stop and this function, and we won that race. We
+			// don't want that to happen so cancel the starting
+			return
+		}
+		// reset ourselves
+		m.autoStreamerTimer = nil
+
+		err := m.client.streamer.Start(context.Background())
+		if err != nil {
+			log.Printf("manager: failed to start streamer: %s", err)
+			return
+		}
+	})
+}
+
+// stopStartStreamer stops the timer created by tryStartStreamer and sets the timer to
+// nil again.
+//
+// stopStartStreamer needs to be called with m.mu held
+func (m *Manager) stopStartStreamer() {
+	if m.autoStreamerTimer == nil {
+		return
+	}
+
+	m.autoStreamerTimer.Stop()
+	m.autoStreamerTimer = nil
 }

@@ -45,7 +45,19 @@ func (m *Manager) UpdateUser(ctx context.Context, n string, u radio.User) error 
 	m.mu.Lock()
 	m.status.StreamerName = n
 	m.status.User = u
+
+	isRobot := u.Username == "AFK"
+	if isRobot && m.status.SongInfo.IsFallback {
+		// since we're setting the DJ and are already on a fallback with our listener, we
+		// try and just start the streamer straight away
+		m.tryStartStreamer(time.Second * 0)
+	}
+	if !isRobot {
+		m.stopStartStreamer()
+	}
+
 	m.mu.Unlock()
+	log.Printf("manager: updating user to: %s (%s)", n, u.Username)
 	return nil
 }
 
@@ -58,6 +70,27 @@ func (m *Manager) UpdateSong(ctx context.Context, new radio.Song, info radio.Son
 		m.mu.Unlock()
 		return nil
 	}
+
+	// check if a robot is streaming
+	// TODO: don't hardcode this
+	isRobot := m.status.User.Username == "AFK"
+
+	// check if we're on a fallback stream
+	if info.IsFallback {
+		log.Printf("manager: fallback engaged: %s", new.Metadata)
+		// if we have a robot user we want to start the automated streamer, but only if
+		// there isn't already a timer running
+		if isRobot {
+			// TODO: don't hardcode this
+			timeout := time.Second * 15
+			m.tryStartStreamer(timeout)
+		}
+		m.status.SongInfo.IsFallback = info.IsFallback
+		m.mu.Unlock()
+		return nil
+	}
+	// if we're not on a fallback we want to stop the timer for the automated streamer
+	m.stopStartStreamer()
 	m.mu.Unlock()
 
 	// otherwise continue like it's a new song
@@ -102,9 +135,6 @@ func (m *Manager) UpdateSong(ctx context.Context, new radio.Song, info radio.Son
 
 	prev, m.status.Song = m.status.Song, *song
 	prevInfo, m.status.SongInfo = m.status.SongInfo, info
-	// check if a robot is streaming
-	// TODO: don't hardcode this
-	isRobot := m.status.User.Username == "AFK"
 
 	// record listener count and calculate the difference between start/end of song
 	currentListenerCount := m.status.Listeners

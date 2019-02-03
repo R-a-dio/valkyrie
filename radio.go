@@ -113,6 +113,9 @@ type SongInfo struct {
 	Start time.Time
 	// End is the expected time the current song stops playing
 	End time.Time
+	// IsFallback indicates if the song currently playing is one marked as a
+	// fallback song for when the icecast main stream is down
+	IsFallback bool
 }
 
 type SearchService interface {

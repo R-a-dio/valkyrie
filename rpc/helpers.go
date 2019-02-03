@@ -102,15 +102,17 @@ func fromProtoSong(s *Song) radio.Song {
 
 func toProtoSongInfo(i radio.SongInfo) *SongInfo {
 	return &SongInfo{
-		StartTime: tp(i.Start),
-		EndTime:   tp(i.End),
+		StartTime:  tp(i.Start),
+		EndTime:    tp(i.End),
+		IsFallback: i.IsFallback,
 	}
 }
 
 func fromProtoSongInfo(i *SongInfo) radio.SongInfo {
 	return radio.SongInfo{
-		Start: t(i.StartTime),
-		End:   t(i.EndTime),
+		Start:      t(i.StartTime),
+		End:        t(i.EndTime),
+		IsFallback: i.IsFallback,
 	}
 }
 
@@ -139,7 +141,10 @@ func fromProtoQueueEntry(entry *QueueEntry) *radio.QueueEntry {
 func toProtoUser(u radio.User) *User {
 	// TODO: implement this fully
 	return &User{
-		Dj: toProtoDJ(u.DJ),
+		Id:       int32(u.ID),
+		Username: u.Username,
+		Ip:       u.IP,
+		Dj:       toProtoDJ(u.DJ),
 	}
 }
 
