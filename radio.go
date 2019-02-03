@@ -226,6 +226,17 @@ func (s SongHash) String() string {
 	return fmt.Sprintf("%x", s[:])
 }
 
+// MarshalJSON implements encoding/json.Marshaler
+func (s SongHash) MarshalJSON() ([]byte, error) {
+	return []byte(s.String()), nil
+}
+
+// UnmarshalJSON implements encoding/json.Unmarshaler
+func (s *SongHash) UnmarshalJSON(b []byte) error {
+	_, err := hex.Decode((*s)[:], b)
+	return err
+}
+
 // Song is a song we've seen played on the stream
 type Song struct {
 	ID SongID `json:"-"`
