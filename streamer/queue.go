@@ -97,6 +97,7 @@ func (qs *QueueService) append(ctx context.Context, entry radio.QueueEntry) {
 		entry.ExpectedStartTime = last.ExpectedStartTime.Add(last.Length)
 	}
 
+	log.Printf("queue:   adding entry: %s", entry)
 	qs.queue = append(qs.queue, entry)
 }
 
@@ -139,8 +140,19 @@ func (qs *QueueService) ReserveNext(ctx context.Context) (*radio.QueueEntry, err
 
 	entry := qs.queue[qs.reservedIndex]
 	qs.reservedIndex++
+	log.Printf("queue: reserved entry: %s", entry)
 
 	return &entry, nil
+}
+
+// ResetReserved implements radio.QueueService
+func (qs *QueueService) ResetReserved(ctx context.Context) error {
+	qs.mu.Lock()
+	defer qs.mu.Unlock()
+
+	log.Printf("queue: resetting reserved index from %d", qs.reservedIndex)
+	qs.reservedIndex = 0
+	return nil
 }
 
 // Remove removes the song given from the queue
@@ -153,6 +165,8 @@ func (qs *QueueService) Remove(ctx context.Context, entry radio.QueueEntry) (boo
 		if !e.EqualTo(entry) {
 			continue
 		}
+
+		log.Printf("queue: removing entry: %s", e)
 
 		qs.queue = append(qs.queue[:i], qs.queue[i+1:]...)
 		if i < qs.reservedIndex {

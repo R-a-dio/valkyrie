@@ -292,6 +292,10 @@ func (s *Streamer) tailTask(task streamerTask) error {
 }
 
 func (s *Streamer) queueFiles(task streamerTask) error {
+	defer func() {
+		s.queue.ResetReserved(context.Background())
+	}()
+
 	for {
 		var track streamerTrack
 

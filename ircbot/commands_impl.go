@@ -360,6 +360,8 @@ func KillStreamer(e Event) error {
 		return nil
 	}
 
+	force := e.Arguments.Bool("force")
+
 	var quickErr = make(chan error, 1)
 	go func() {
 		// we call this async with a fairly long timeout, most songs on the streamer
@@ -368,7 +370,7 @@ func KillStreamer(e Event) error {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute*15)
 		defer cancel()
 		// TODO: not everyone should be able to force kill
-		err := e.Bot.Streamer.Stop(ctx, e.Arguments.Bool("force"))
+		err := e.Bot.Streamer.Stop(ctx, force)
 		if err != nil {
 			quickErr <- err
 			return
@@ -391,7 +393,9 @@ func KillStreamer(e Event) error {
 		e.EchoPublic("Disconnecting after the current song")
 	} else {
 		until := time.Until(status.SongInfo.End)
-		if until == 0 {
+		if force {
+			e.EchoPublic("Disconnecting right now")
+		} else if until == 0 {
 			e.EchoPublic("Disconnecting after the current song")
 		} else {
 			e.EchoPublic("Disconnecting in about %s",

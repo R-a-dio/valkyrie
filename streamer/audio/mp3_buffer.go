@@ -75,7 +75,6 @@ func (mb *MP3Buffer) Write(p []byte) (n int, err error) {
 	for err == nil {
 		if atomic.LoadInt64(&mb.lengthCap)-length < 0 {
 			mb.Close()
-			fmt.Println(len(mb.decBuf.buf), len(p), len(p)-len(mb.decBuf.buf))
 			return len(p) - len(mb.decBuf.buf), ErrBufferFull
 		}
 

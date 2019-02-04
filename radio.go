@@ -153,6 +153,15 @@ type QueueEntry struct {
 	ExpectedStartTime time.Time
 }
 
+func (qe QueueEntry) String() string {
+	est := qe.ExpectedStartTime.Format("2006-01-02 15:04:05")
+	if qe.IsUserRequest {
+		return fmt.Sprintf("(%s)(R) %s", est, qe.Song.Metadata)
+	} else {
+		return fmt.Sprintf("(%s)(P) %s", est, qe.Song.Metadata)
+	}
+}
+
 func (qe *QueueEntry) EqualTo(qe2 QueueEntry) bool {
 	return qe != nil &&
 		qe.Song.EqualTo(qe2.Song) &&
@@ -170,6 +179,9 @@ type QueueService interface {
 	AddRequest(context.Context, Song, string) error
 	// ReserveNext returns the next yet-to-be-reserved entry from the queue
 	ReserveNext(context.Context) (*QueueEntry, error)
+	// ResetReserved resets the reserved status of all entries returned by ReserveNext
+	// but not yet removed by Remove
+	ResetReserved(context.Context) error
 	// Remove removes the first occurence of the given entry from the queue
 	Remove(context.Context, QueueEntry) (bool, error)
 	// Entries returns all entries in the queue

@@ -212,6 +212,11 @@ func (q QueueClient) ReserveNext(ctx context.Context) (*radio.QueueEntry, error)
 	return fromProtoQueueEntry(resp), nil
 }
 
+func (q QueueClient) ResetReserved(ctx context.Context) error {
+	// TODO: implement this
+	return nil
+}
+
 // Remove implements radio.QueueService
 func (q QueueClient) Remove(ctx context.Context, entry radio.QueueEntry) (bool, error) {
 	resp, err := q.twirp.Remove(ctx, toProtoQueueEntry(entry))
