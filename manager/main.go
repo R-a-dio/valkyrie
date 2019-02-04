@@ -260,6 +260,11 @@ func (m *Manager) tryStartStreamer(timeout time.Duration) {
 		err := m.client.streamer.Start(context.Background())
 		if err != nil {
 			log.Printf("manager: failed to start streamer: %s", err)
+			// if we failed to start, try again with atleast 10 seconds timeout
+			if timeout < time.Second*10 {
+				timeout = time.Second * 10
+			}
+			m.tryStartStreamer(timeout)
 			return
 		}
 	})
