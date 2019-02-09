@@ -21,6 +21,8 @@ script:
 
 addons:
   apt:
+    sources:
+      - trusty-media
     packages:
       - libmp3lame-dev
       - libmp3lame0
