@@ -21,4 +21,4 @@ script:
 
 before_install:
 - sudo apt-get update
-- sudo apt-get install -y libmp3lame-dev libmp3lame ffmpeg
+- sudo apt-get install -y libmp3lame-dev libmp3lame0 ffmpeg
