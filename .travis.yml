@@ -10,6 +10,6 @@ install:
   - docker run -d -ti --rm --name=valkyrie radio/valkyrie
 
 script:
-  - docker exec valkyrie diff -u <(echo -n) <(gofmt -d -s .)
+  - docker exec valkyrie /bin/ash -c '! gofmt -d -s . 2>&1 | read'
   - docker exec valkyrie go vet ./...
   - docker exec valkyrie go test -v ./...
