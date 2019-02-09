@@ -1,29 +1,15 @@
+sudo: required
+
 language: go
 
-go:
-  - master
-  - 1.11.x
-matrix:
-  allow_failures:
-    - go: master
-  fast_finish: true
-
-env:
-- GO111MODULE=on # use go modules
+services:
+  - docker
 
 install:
-  - #nothing
-script:
-  - go get -t -v ./...
-  - diff -u <(echo -n) <(gofmt -d -s .)
-  - go vet ./...
-  - go test -v -race ./...
+  - docker build -t radio/valkyrie .
+  - docker run -d -ti --rm --name=valkyrie radio/valkyrie
 
-addons:
-  apt:
-    sources:
-      - trusty-media
-    packages:
-      - libmp3lame-dev
-      - libmp3lame0
-      - ffmpeg
+script:
+  - docker exec valkyrie diff -u <(echo -n) <(gofmt -d -s .)
+  - docker exec valkyrie go vet ./...
+  - docker exec valkyrie go test -v ./...
