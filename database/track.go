@@ -137,6 +137,7 @@ func (dt databaseTrack) ToSong() radio.Song {
 	song := radio.Song{
 		ID:            radio.SongID(dt.ID.Int64),
 		Hash:          dt.Hash,
+		Metadata:      dt.Metadata.String,
 		Length:        time.Duration(float64(time.Second) * dt.Length.Float64),
 		LastPlayed:    dt.LastPlayed.Time,
 		DatabaseTrack: track,
