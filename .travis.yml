@@ -1,5 +1,24 @@
 language: go
 
 go:
-- master
-- 1.11.x
+  - master
+  - 1.11.x
+matrix:
+  allow_failures:
+    - go: master
+  fast_finish: true
+
+env:
+- GO111MODULE=on # use go modules
+
+install:
+  - #nothing
+script:
+  - go get -t -v ./...
+  - diff -u <(echo -n) <(gofmt -d -s .)
+  - go tool vet .
+  - go test -v -race ./...
+
+before_install:
+- sudo apt-get update
+- sudo apt-get install -y libmp3lame-dev libmp3lame ffmpeg
