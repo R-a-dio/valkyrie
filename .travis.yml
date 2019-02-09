@@ -19,6 +19,9 @@ script:
   - go vet ./...
   - go test -v -race ./...
 
-before_install:
-- sudo apt-get update
-- sudo apt-get install -y libmp3lame-dev libmp3lame0
+addons:
+  apt:
+    packages:
+      - libmp3lame-dev
+      - libmp3lame0
+      - ffmpeg
