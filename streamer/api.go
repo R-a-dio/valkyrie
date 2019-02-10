@@ -41,7 +41,7 @@ func NewHTTPServer(cfg config.Config, db *sqlx.DB,
 	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 
 	conf := cfg.Conf()
-	server := &http.Server{Addr: conf.Streamer.Addr, Handler: mux}
+	server := &http.Server{Addr: conf.Streamer.ListenAddr, Handler: mux}
 
 	return server, nil
 }

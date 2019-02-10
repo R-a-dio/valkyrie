@@ -27,7 +27,7 @@ func NewHTTPServer(m *Manager) (*http.Server, error) {
 	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 
 	conf := m.Conf()
-	server := &http.Server{Addr: conf.Manager.Addr, Handler: mux}
+	server := &http.Server{Addr: conf.Manager.ListenAddr, Handler: mux}
 	return server, nil
 }
 
