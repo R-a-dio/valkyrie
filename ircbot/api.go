@@ -32,7 +32,7 @@ func NewHTTPServer(b *Bot) (*http.Server, error) {
 	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 
 	conf := b.Conf()
-	server := &http.Server{Addr: conf.IRC.Addr, Handler: mux}
+	server := &http.Server{Addr: conf.IRC.ListenAddr, Handler: mux}
 	return server, nil
 }
 

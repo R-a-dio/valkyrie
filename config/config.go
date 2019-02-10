@@ -25,17 +25,20 @@ var defaultConfig = config{
 	},
 	Streamer: streamer{
 		Addr:            ":4545",
+		ListenAddr:      ":4545",
 		StreamURL:       "",
 		RequestsEnabled: true,
 	},
 	IRC: irc{
 		Addr:           ":4444",
+		ListenAddr:     ":4444",
 		AllowFlood:     false,
 		EnableEcho:     true,
 		AnnouncePeriod: Duration(time.Second * 15),
 	},
 	Manager: manager{
 		Addr:          ":4646",
+		ListenAddr:    ":4646",
 		StreamURL:     "",
 		FallbackNames: []string{"fallback"},
 	},
@@ -77,6 +80,8 @@ type database struct {
 type streamer struct {
 	// Addr is the address for the HTTP API
 	Addr string
+	// ListenAddr is the address to listen on for the HTTP API
+	ListenAddr string
 	// StreamURL is the full URL to the streamer endpoint, including any
 	// authorization parameters required to connect.
 	StreamURL string
@@ -93,6 +98,8 @@ func (s streamer) Client() radio.StreamerService {
 type irc struct {
 	// Addr is the address for the HTTP API
 	Addr string
+	// ListenAddr is the address to listen on for the HTTP API
+	ListenAddr string
 	// Server is the address of the irc server to connect to
 	Server string
 	// Nick is the nickname to use
@@ -120,6 +127,8 @@ func (i irc) Client() radio.AnnounceService {
 type manager struct {
 	// Addr is the address for the HTTP API
 	Addr string
+	// ListenAddr is the address to listen on for the HTTP API
+	ListenAddr string
 	// StreamURL is the url to listen to the mp3 stream
 	StreamURL string
 	// FallbackNames is a list of strings that indicate an icecast stream is playing a
