@@ -18,5 +18,5 @@ var streamerCmd = cmd{
 	usage: `streamer:
 	streams to a configured icecast server
 	`,
-	execute: streamer.Execute,
+	execute: withConfig(streamer.Execute),
 }

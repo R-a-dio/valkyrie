@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"syscall"
 
 	"github.com/R-a-dio/valkyrie/config"
@@ -16,12 +17,16 @@ import (
 	"github.com/google/subcommands"
 )
 
+type executeFn func(context.Context, config.Loader) error
+
+type executeConfigFn func(context.Context, config.Config) error
+
 type cmd struct {
 	name     string
 	synopsis string
 	usage    string
 	setFlags func(*flag.FlagSet)
-	execute  func(context.Context, config.Config) error
+	execute  executeFn
 }
 
 func (c cmd) Name() string     { return c.name }
@@ -37,14 +42,23 @@ func (c cmd) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{}) 
 	// because that is an unrecoverable programmer error
 	errCh := args[0].(chan error)
 
-	cfg, err := config.LoadFile(configFile, configEnvFile)
-	if err != nil {
-		errCh <- err
-		return subcommands.ExitFailure
+	loader := func() (config.Config, error) {
+		return config.LoadFile(configFile, configEnvFile)
 	}
 
-	errCh <- c.execute(ctx, cfg)
+	errCh <- c.execute(ctx, loader)
 	return subcommands.ExitSuccess
+}
+
+// withConfig turns an executeConfigFn into an executeFn
+func withConfig(fn executeConfigFn) executeFn {
+	return func(ctx context.Context, l config.Loader) error {
+		cfg, err := l()
+		if err != nil {
+			return err
+		}
+		return fn(ctx, cfg)
+	}
 }
 
 var versionCmd = cmd{
@@ -55,16 +69,15 @@ var versionCmd = cmd{
 	execute: printVersion,
 }
 
-func printVersion(context.Context, config.Config) error {
-	/* uncomment when go version 1.12 lands
+func printVersion(context.Context, config.Loader) error {
 	if info, ok := debug.ReadBuildInfo(); ok {
 		fmt.Printf("%s %s\n", info.Path, info.Main.Version)
 		for _, mod := range info.Deps {
 			fmt.Printf("\t%s %s\n", mod.Path, mod.Version)
 		}
+	} else {
+		fmt.Printf("%s %s\n", "valkyrie", "(devel)")
 	}
-	*/
-	fmt.Printf("%s %s\n", "valkyrie", "(devel)")
 	return nil
 }
 
@@ -83,7 +96,9 @@ var configCmd = cmd{
 	execute: printConfig,
 }
 
-func printConfig(_ context.Context, cfg config.Config) error {
+func printConfig(_ context.Context, l config.Loader) error {
+	// try and load the configuration, but otherwise just print the defaults
+	cfg, _ := l()
 	return cfg.Save(os.Stdout)
 }
 
@@ -94,7 +109,7 @@ var managerCmd = cmd{
 	usage: `manager:
 	manages shared state between the different parts
 	`,
-	execute: manager.Execute,
+	execute: withConfig(manager.Execute),
 }
 
 // implements cmd for .../valkyrie/ircbot
@@ -104,7 +119,7 @@ var ircCmd = cmd{
 	usage: `irc:
 	run the IRC bot
 	`,
-	execute: ircbot.Execute,
+	execute: withConfig(ircbot.Execute),
 }
 
 var listenerLogCmd = cmd{
@@ -113,7 +128,7 @@ var listenerLogCmd = cmd{
 	usage: `listenerlog:
 	log listener count to database
 	`,
-	execute: jobs.ExecuteListenerLog,
+	execute: withConfig(jobs.ExecuteListenerLog),
 }
 
 var requestCountCmd = cmd{
@@ -122,7 +137,7 @@ var requestCountCmd = cmd{
 	usage: `requestcount:
 	reduce request counter in database
 	`,
-	execute: jobs.ExecuteRequestCount,
+	execute: withConfig(jobs.ExecuteRequestCount),
 }
 
 var verifierCmd = cmd{
@@ -132,7 +147,7 @@ var verifierCmd = cmd{
 	verifies that all tracks marked with usable=0 can be decoded with ffmpeg
 	and marks them with usable=1 if it succeeds
 	`,
-	execute: jobs.ExecuteVerifier,
+	execute: withConfig(jobs.ExecuteVerifier),
 }
 
 func main() {

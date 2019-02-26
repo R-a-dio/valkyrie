@@ -191,6 +191,16 @@ type Config struct {
 	config *atomic.Value
 }
 
+func newConfig(c config) Config {
+	ac := Config{new(atomic.Value)}
+	ac.StoreConf(c)
+	return ac
+}
+
+// Loader is a typed function that returns a Config, used to pass in a pre-set Load or
+// LoadFile call from a closure
+type Loader func() (Config, error)
+
 // LoadFile loads a configuration file from the filename given
 func LoadFile(filenames ...string) (Config, error) {
 	var f *os.File
@@ -212,7 +222,7 @@ func LoadFile(filenames ...string) (Config, error) {
 	}
 
 	if f == nil {
-		return Config{}, errs
+		return newConfig(defaultConfig), errs
 	}
 	defer f.Close()
 
@@ -224,7 +234,7 @@ func Load(r io.Reader) (Config, error) {
 	var c = defaultConfig
 	m, err := toml.DecodeReader(r, &c)
 	if err != nil {
-		return Config{}, err
+		return newConfig(defaultConfig), err
 	}
 
 	// print out keys that were found but don't have a destination
@@ -232,10 +242,7 @@ func Load(r io.Reader) (Config, error) {
 		log.Printf("warning: unknown configuration field: %s", key)
 	}
 
-	var ac = Config{new(atomic.Value)}
-	ac.StoreConf(c)
-
-	return ac, nil
+	return newConfig(c), nil
 }
 
 // Conf returns the configuration stored inside

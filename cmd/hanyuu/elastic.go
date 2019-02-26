@@ -42,7 +42,7 @@ func (e elasticCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...interf
 		usage: `delete-index:
 		delete all indices created by 'create-index'
 		`,
-		execute: e.deleteIndex,
+		execute: withConfig(e.deleteIndex),
 	}, "")
 	cmder.Register(cmd{
 		name:     "create-index",
@@ -50,7 +50,7 @@ func (e elasticCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...interf
 		usage: `create-index:
 		create all indices required but does not fill them with data
 		`,
-		execute: e.createIndex,
+		execute: withConfig(e.createIndex),
 	}, "")
 	cmder.Register(cmd{
 		name:     "index-songs",
@@ -58,7 +58,7 @@ func (e elasticCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...interf
 		usage: `index-songs:
 		fill the song search index with all songs in the database
 		`,
-		execute: e.indexSongs,
+		execute: withConfig(e.indexSongs),
 	}, "")
 	return cmder.Execute(ctx, args...)
 }
