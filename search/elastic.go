@@ -3,11 +3,11 @@ package search
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"log"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
+	"github.com/R-a-dio/valkyrie/errors"
 
 	"github.com/olivere/elastic"
 )
@@ -114,12 +114,13 @@ type ElasticService struct {
 // CreateIndex creates all indices used by the service, it returns an error if the indices
 // already exist
 func (es *ElasticService) CreateIndex(ctx context.Context) error {
+	const op errors.Op = "elastic.CreateIndex"
 	exists, err := es.es.IndexExists(songSearchIndex).Do(ctx)
 	if err != nil {
 		return err
 	}
 	if exists {
-		return errors.New("elastic: index already exists")
+		return errors.E(errors.SearchIndexExists, op)
 	}
 
 	create, err := es.es.CreateIndex(songSearchIndex).BodyString(songMapping).Do(ctx)
@@ -127,7 +128,7 @@ func (es *ElasticService) CreateIndex(ctx context.Context) error {
 		return err
 	}
 	if !create.Acknowledged {
-		return errors.New("elastic: index creation not acknowledged")
+		return errors.Errorf("elastic: index creation not acknowledged")
 	}
 
 	return nil
@@ -140,13 +141,14 @@ func (es *ElasticService) DeleteIndex(ctx context.Context) error {
 		return err
 	}
 	if !del.Acknowledged {
-		return errors.New("elastic: index deletion not acknowledged")
+		return errors.Errorf("elastic: index deletion not acknowledged")
 	}
 
 	return nil
 }
 
 func (es *ElasticService) Search(ctx context.Context, query string, limit int, offset int) ([]radio.Song, error) {
+	const op errors.Op = "elastic.Search"
 	esQuery := es.createSearchQuery2(query)
 
 	action := es.es.Search().Index(songSearchIndex).
@@ -170,7 +172,7 @@ func (es *ElasticService) Search(ctx context.Context, query string, limit int, o
 	}
 
 	if res.Hits == nil || len(res.Hits.Hits) == 0 {
-		return []radio.Song{}, nil
+		return []radio.Song{}, errors.E(errors.SearchNoResults, op)
 	}
 
 	songs := make([]radio.Song, len(res.Hits.Hits))
@@ -196,12 +198,12 @@ func (es *ElasticService) createSearchQuery2(query string) elastic.Query {
 }
 
 func (es *ElasticService) Update(ctx context.Context, songs ...radio.Song) error {
+	const op errors.Op = "elastic.Update"
 	bulk := es.es.Bulk()
 
 	for _, song := range songs {
 		if !song.HasTrack() {
-			return errors.New("received song with no track")
-			//return ErrInvalidSong
+			return errors.E(errors.SongWithoutTrack, op)
 		}
 
 		bulk = bulk.Add(es.createUpsertRequest(song))
@@ -225,12 +227,12 @@ func (es *ElasticService) createUpsertRequest(song radio.Song) elastic.BulkableR
 }
 
 func (es *ElasticService) Delete(ctx context.Context, songs ...radio.Song) error {
+	const op errors.Op = "elastic.Delete"
 	bulk := es.es.Bulk()
 
 	for _, song := range songs {
 		if !song.HasTrack() {
-			return errors.New("received song with no track")
-			//return ErrInvalidSong
+			return errors.E(errors.SongWithoutTrack, op)
 		}
 		bulk = bulk.Add(es.createDeleteRequest(song))
 	}
