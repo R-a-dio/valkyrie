@@ -8,7 +8,7 @@ Installation
 
 Required
 -----
-- Go version 1.11+
+- Go version 1.12+
 - MySQL/MariaDB
 
 Optional

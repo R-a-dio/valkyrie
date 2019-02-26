@@ -70,7 +70,7 @@ var versionCmd = cmd{
 }
 
 func printVersion(context.Context, config.Loader) error {
-	if info, ok := debug.ReadBuildInfo(); ok {
+	if info, ok := debug.ReadBuildInfo(); ok { // requires go version 1.12+
 		fmt.Printf("%s %s\n", info.Path, info.Main.Version)
 		for _, mod := range info.Deps {
 			fmt.Printf("\t%s %s\n", mod.Path, mod.Version)
