@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/R-a-dio/valkyrie/config"
+	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/cenkalti/backoff"
 	_ "github.com/go-sql-driver/mysql" // mariadb
 	"github.com/jmoiron/sqlx"
@@ -84,6 +85,8 @@ func HandleTx(ctx context.Context, db *sqlx.DB) (HandlerTx, error) {
 
 // BeginTx begins a transaction on the handler given
 func BeginTx(h Handler) (HandlerTx, error) {
+	const op errors.Op = "database/BeginTx"
+
 	var err error
 	var hh handle
 
@@ -102,7 +105,10 @@ func BeginTx(h Handler) (HandlerTx, error) {
 	htx.tx, err = htx.db.BeginTxx(htx.ctx, nil)
 	// set ext on our handle so that it now uses the transaction
 	htx.ext = htx.tx
-	return htx, err
+	if err != nil {
+		return nil, errors.E(op, errors.TransactionBegin, err)
+	}
+	return htx, nil
 }
 
 // handleTx is a handle that implements transactions on top of handle
@@ -112,17 +118,31 @@ type handleTx struct {
 }
 
 func (h handleTx) Commit() error {
+	const op errors.Op = "database/handleTx.Commit"
+
 	if h.tx == nil {
 		panic("sanity: Commit called with nil tx")
 	}
-	return h.tx.Commit()
+
+	err := h.tx.Commit()
+	if err != nil {
+		return errors.E(op, errors.TransactionCommit, err)
+	}
+	return nil
 }
 
 func (h handleTx) Rollback() error {
+	const op errors.Op = "database/handleTx.Rollback"
+
 	if h.tx == nil {
 		panic("sanity: Rollback called with nil tx")
 	}
-	return h.tx.Rollback()
+
+	err := h.tx.Rollback()
+	if err != nil {
+		return errors.E(op, errors.TransactionRollback, err)
+	}
+	return nil
 }
 
 func (h handleTx) Tx() *sqlx.Tx {

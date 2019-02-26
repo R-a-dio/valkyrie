@@ -5,6 +5,7 @@ import (
 	"regexp"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -21,6 +22,8 @@ import (
 */
 
 func LookupNickname(h Handler, name string) (*radio.User, error) {
+	const op errors.Op = "database/LookupNickname"
+
 	var query = `
 	SELECT
 		IFNULL(users.user, '') AS username,	
@@ -36,7 +39,7 @@ func LookupNickname(h Handler, name string) (*radio.User, error) {
 
 	err := sqlx.Select(h, &users, query)
 	if err != nil {
-		return nil, err
+		return nil, errors.E(op, err)
 	}
 
 	for _, user := range users {
@@ -47,7 +50,7 @@ func LookupNickname(h Handler, name string) (*radio.User, error) {
 
 		re, err := regexp.Compile(`(?i)` + user.DJ.Regex)
 		if err != nil {
-			log.Printf("database: invalid regex field: %v", err)
+			log.Printf("%s: invalid regex field: %v", op, err)
 			continue
 		}
 
@@ -56,5 +59,5 @@ func LookupNickname(h Handler, name string) (*radio.User, error) {
 		}
 	}
 
-	return nil, radio.ErrUnknownUser
+	return nil, errors.E(op, errors.UserUnknown, errors.Info(name))
 }

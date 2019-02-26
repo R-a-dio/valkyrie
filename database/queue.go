@@ -2,10 +2,10 @@ package database
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -30,16 +30,18 @@ type queueSong struct {
 //
 // Implements radio.QueueStorage
 func (qs QueueStorage) Store(ctx context.Context, name string, queue []radio.QueueEntry) error {
+	const op errors.Op = "database/QueueStorage.Store"
+
 	tx, err := HandleTx(ctx, qs.db)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 	defer tx.Rollback()
 
 	// empty the queue so we can repopulate it
 	_, err = tx.Exec(`DELETE FROM queue`)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 
 	var query = `
@@ -50,7 +52,7 @@ func (qs QueueStorage) Store(ctx context.Context, name string, queue []radio.Que
 	`
 	for i, entry := range queue {
 		if !entry.HasTrack() {
-			return fmt.Errorf("queue storage: song with no track found in queue: %v", entry)
+			return errors.E(op, errors.SongWithoutTrack, entry)
 		}
 
 		var isRequest = 0
@@ -68,7 +70,7 @@ func (qs QueueStorage) Store(ctx context.Context, name string, queue []radio.Que
 			i+1, // ordering id
 		)
 		if err != nil {
-			return err
+			return errors.E(op, err)
 		}
 	}
 
@@ -79,9 +81,11 @@ func (qs QueueStorage) Store(ctx context.Context, name string, queue []radio.Que
 //
 // Implements radio.QueueStorage
 func (qs QueueStorage) Load(ctx context.Context, name string) ([]radio.QueueEntry, error) {
+	const op errors.Op = "database/QueueStorage.Load"
+
 	tx, err := HandleTx(ctx, qs.db)
 	if err != nil {
-		return nil, err
+		return nil, errors.E(op, err)
 	}
 	defer tx.Rollback()
 
@@ -126,7 +130,7 @@ func (qs QueueStorage) Load(ctx context.Context, name string) ([]radio.QueueEntr
 
 	err = sqlx.Select(tx, &queue, query)
 	if err != nil {
-		return nil, err
+		return nil, errors.E(op, err)
 	}
 
 	songs := make([]radio.QueueEntry, len(queue))
@@ -139,10 +143,16 @@ func (qs QueueStorage) Load(ctx context.Context, name string) ([]radio.QueueEntr
 		}
 	}
 
-	return songs, tx.Commit()
+	if err = tx.Commit(); err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	return songs, nil
 }
 
 func QueuePopulate(h Handler) ([]radio.TrackID, error) {
+	const op errors.Op = "database/QueuePopulate"
+
 	var query = `
 		SELECT
 			id
@@ -157,13 +167,15 @@ func QueuePopulate(h Handler) ([]radio.TrackID, error) {
 	var candidates = []radio.TrackID{}
 	err := sqlx.Select(h, &candidates, query)
 	if err != nil {
-		return nil, err
+		return nil, errors.E(op, err)
 	}
 
 	return candidates, nil
 }
 
 func QueueUpdateTrack(h Handler, id radio.TrackID) error {
+	const op errors.Op = "database/QueueUpdateTrack"
+
 	var query = `
 	UPDATE
 		tracks
@@ -175,7 +187,7 @@ func QueueUpdateTrack(h Handler, id radio.TrackID) error {
 
 	_, err := h.Exec(query, id)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 	return nil
 }
