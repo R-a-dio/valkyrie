@@ -10,9 +10,12 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/database"
+	"github.com/R-a-dio/valkyrie/errors"
 )
 
 func NowPlaying(e Event) error {
+	const op errors.Op = "irc/NowPlaying"
+
 	// there is very similar looking code located in api.go under AnnounceSong, so if
 	// you introduce a change here you might want to see if that change is also required
 	// in the announcement code
@@ -20,7 +23,7 @@ func NowPlaying(e Event) error {
 
 	status, err := e.Bot.Manager.Status(e.Context())
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 
 	if status.SongInfo.IsFallback {
@@ -31,7 +34,7 @@ func NowPlaying(e Event) error {
 	// status returns a bare song; so refresh it from the db
 	track, err := database.GetSongFromMetadata(e.Database(), status.Song.Metadata)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 
 	var lastPlayedDiff time.Duration
@@ -59,9 +62,11 @@ func NowPlaying(e Event) error {
 }
 
 func LastPlayed(e Event) error {
+	const op errors.Op = "irc/LastPlayed"
+
 	songs, err := database.GetLastPlayed(e.Database(), 0, 5)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 
 	message := "{green}Last Played:{clear}"
@@ -79,15 +84,18 @@ func LastPlayed(e Event) error {
 }
 
 func StreamerQueue(e Event) error {
+	const op errors.Op = "irc/StreamerQueue"
+
 	// Get queue from streamer
 	songQueue, err := e.Bot.Streamer.Queue(e.Context())
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 
 	// If the queue is empty then we're done
 	if len(songQueue) == 0 {
-		return NewPublicError(nil, "No queue at the moment")
+		e.EchoPublic("No queue at the moment")
+		return nil
 	}
 
 	// Calculate playback time for the queue
@@ -129,18 +137,21 @@ func StreamerQueue(e Event) error {
 }
 
 func StreamerQueueLength(e Event) error {
+	const op errors.Op = "irc/StreamerQueueLength"
+
 	// Define echo message
 	message := "There are %d requests (%s), %d randoms (%s), total of %d songs (%s)"
 
 	// Get queue from streamer
 	songQueue, err := e.Bot.Streamer.Queue(e.Context())
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 
 	// If the queue is empty then we're done
 	if len(songQueue) == 0 {
-		return NewPublicError(nil, "No queue at the moment")
+		e.EchoPublic("No queue at the moment")
+		return nil
 	}
 
 	// Calculate the total queue time, request time, and request count
@@ -150,7 +161,7 @@ func StreamerQueueLength(e Event) error {
 	for _, song := range songQueue {
 		if song.IsUserRequest {
 			totalReqTime += song.Length
-			reqCount += 1
+			reqCount++
 		}
 		totalQueueTime += song.Length
 	}
@@ -179,12 +190,14 @@ func StreamerQueueLength(e Event) error {
 var reOtherTopicBit = regexp.MustCompile(`(.*?r/.*/dio.*?)(\|.*?\|)(.*)`)
 
 func StreamerUserInfo(e Event) error {
+	const op errors.Op = "irc/StreamerUserInfo"
+
 	name := e.Arguments["DJ"]
 	if name == "" || !HasAccess(e.Client, e.Event) {
 		// simple path with no argument or no access
 		status, err := e.Bot.Manager.Status(e.Context())
 		if err != nil {
-			return err
+			return errors.E(op, err)
 		}
 		e.EchoPublic("Current DJ: {green}%s", status.StreamerName)
 		return nil
@@ -203,7 +216,7 @@ func StreamerUserInfo(e Event) error {
 	if name != "None" {
 		user, err = database.LookupNickname(e.Database(), name)
 		if err != nil {
-			return err
+			return errors.E(op, err)
 		}
 	} else {
 		topicStatus = "DOWN"
@@ -212,14 +225,15 @@ func StreamerUserInfo(e Event) error {
 
 	err = e.Bot.Manager.UpdateUser(e.Context(), name, *user)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 
 	// parse the topic so we can change it
 	match := reOtherTopicBit.FindStringSubmatch(channel.Topic)
 	if len(match) < 4 {
-		return NewPublicError(nil, "Topic format is broken")
+		return errors.E(errors.BrokenTopic, op)
 	}
+
 	// we get a []string back with all our groups, the first is the full match
 	// which we don't need
 	match = match[1:]
@@ -236,6 +250,8 @@ func StreamerUserInfo(e Event) error {
 }
 
 func FaveTrack(e Event) error {
+	const op errors.Op = "irc/FaveTrack"
+
 	var song radio.Song
 
 	if e.Arguments.Bool("relative") {
@@ -245,21 +261,21 @@ func FaveTrack(e Event) error {
 		index := strings.Count(e.Arguments["relative"], "last") - 1
 		songs, err := database.GetLastPlayed(e.Database(), index, 1)
 		if err != nil {
-			return err
+			return errors.E(op, err)
 		}
 		song = songs[0]
 	} else if e.Arguments.Bool("TrackID") {
 		// for when a track number is given as argument
 		s, err := e.ArgumentTrack("TrackID")
 		if err != nil {
-			return err
+			return errors.E(op, err)
 		}
 		song = *s
 	} else {
 		// for when there is no argument given
 		s, err := e.CurrentTrack()
 		if err != nil {
-			return err
+			return errors.E(op, err)
 		}
 		song = *s
 	}
@@ -272,7 +288,7 @@ func FaveTrack(e Event) error {
 
 	changed, err := dbFunc(e.Database(), e.Source.Name, song)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 
 	// now we need the correct message based on the success of the query
@@ -307,18 +323,20 @@ func FaveList(e Event) error {
 }
 
 func ThreadURL(e Event) error {
+	const op errors.Op = "irc/ThreadURL"
+
 	thread := e.Arguments["thread"]
 
 	if thread != "" && HasStreamAccess(e.Client, e.Event) {
 		err := e.Bot.Manager.UpdateThread(e.Context(), thread)
 		if err != nil {
-			return err
+			return errors.E(op, err)
 		}
 	}
 
 	resp, err := e.Bot.Manager.Status(e.Context())
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 
 	e.Echo("Thread: %s", resp.Thread)
@@ -356,6 +374,8 @@ func ChannelTopic(e Event) error {
 }
 
 func KillStreamer(e Event) error {
+	const op errors.Op = "irc/KillStreamer"
+
 	if !HasStreamAccess(e.Client, e.Event) {
 		return nil
 	}
@@ -382,7 +402,7 @@ func KillStreamer(e Event) error {
 	select {
 	case err := <-quickErr:
 		if err != nil {
-			return err
+			return errors.E(op, err)
 		}
 	case <-time.After(time.Second):
 	case <-e.Context().Done():
@@ -408,6 +428,8 @@ func KillStreamer(e Event) error {
 }
 
 func RandomTrackRequest(e Event) error {
+	const op errors.Op = "irc/RandomTrackRequest"
+
 	var songs []radio.Song
 	var err error
 
@@ -430,22 +452,19 @@ func RandomTrackRequest(e Event) error {
 
 		songs, err = database.GetSongFavoritesOf(e.Database(), nickname)
 		if err != nil {
-			return err
+			return errors.E(op, err)
 		}
 	} else if query != "" {
 		// query random, select of top 100 results
 		songs, err = e.Bot.Searcher.Search(e.Context(), query, 100, 0)
 		if err != nil {
-			return err
-		}
-		if len(songs) == 0 {
-			return NewUserError(nil, "Your search returned no results")
+			return errors.E(op, err)
 		}
 	} else {
 		// purely random, just select from all tracks
 		songs, err = database.AllTracks(e.Database())
 		if err != nil {
-			return err
+			return errors.E(op, err)
 		}
 	}
 
@@ -469,21 +488,24 @@ func RandomTrackRequest(e Event) error {
 			return nil
 		}
 
-		// if not a cooldown error we can stop early too
-		if !radio.IsCooldownError(err) {
-			return err
+		// if user cooldown the user isn't allowed to request yet
+		if errors.Is(errors.UserCooldown, err) {
+			return errors.E(op, err)
 		}
 
-		// if user cooldown the user isn't allowed to request yet
-		if radio.IsUserCooldownError(err) {
-			return generateFriendlyCooldownError(err)
+		// if not a song cooldown error we received some other error so exit early
+		if !errors.Is(errors.SongCooldown, err) {
+			return errors.E(op, err)
 		}
 	}
 
-	return NewUserError(nil, "None of the songs found could be requested")
+	e.Echo("None of the songs found could be requested")
+	return nil
 }
 
 func LuckyTrackRequest(e Event) error {
+	const op errors.Op = "irc/LuckyTrackRequest"
+
 	query := e.Arguments["Query"]
 	if query == "" {
 		return nil
@@ -491,10 +513,7 @@ func LuckyTrackRequest(e Event) error {
 
 	res, err := e.Bot.Searcher.Search(e.Context(), query, 100, 0)
 	if err != nil {
-		return err
-	}
-	if len(res) == 0 {
-		return NewUserError(nil, "Your search returned no results")
+		return errors.E(op, err)
 	}
 
 	for _, song := range res {
@@ -504,43 +523,43 @@ func LuckyTrackRequest(e Event) error {
 
 		err = e.Bot.Streamer.RequestSong(e.Context(), song, e.Source.Host)
 		if err == nil {
+			// finished and requested a song successfully
 			return nil
 		}
 
-		// if it's not a cooldown error it's some other error we can't handle so return
-		if !radio.IsCooldownError(err) {
-			return err
+		// if user cooldown the user isn't allowed to request yet
+		if errors.Is(errors.UserCooldown, err) {
+			return errors.E(op, err)
 		}
 
-		// if user cooldown the user isn't allowed to request yet
-		if radio.IsUserCooldownError(err) {
-			return generateFriendlyCooldownError(err)
+		// if not a song cooldown error we received some other error so exit early
+		if !errors.Is(errors.SongCooldown, err) {
+			return errors.E(op, err)
 		}
 	}
 
-	return NewUserError(nil, "None of the songs found could be requested.")
+	e.Echo("None of the songs found could be requested.")
+	return nil
 }
 
 func SearchTrack(e Event) error {
+	const op errors.Op = "irc/SearchTrack"
+
 	var songs []radio.Song
 	var err error
 
 	if e.Arguments.Bool("TrackID") {
 		song, err := e.ArgumentTrack("TrackID")
 		if err != nil {
-			return err
+			return errors.E(op, err)
 		}
 		songs = []radio.Song{*song}
 	} else {
 		query := e.Arguments["Query"]
 		songs, err = e.Bot.Searcher.Search(e.Context(), query, 5, 0)
 		if err != nil {
-			return err
+			return errors.E(op, err)
 		}
-	}
-
-	if len(songs) == 0 {
-		return NewUserError(nil, "Your search returned no results")
 	}
 
 	var (
@@ -583,73 +602,69 @@ func SearchTrack(e Event) error {
 }
 
 func RequestTrack(e Event) error {
+	const op errors.Op = "irc/RequestTrack"
+
 	song, err := e.ArgumentTrack("TrackID")
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 
 	err = e.Bot.Streamer.RequestSong(e.Context(), *song, e.Source.Host)
 	if err != nil {
-		return generateFriendlyCooldownError(err)
+		return errors.E(op, err)
 	}
 
 	return nil
 }
 
-// generate a friendlier and coloured error message for cooldown related errors,
-// returns the original error if it's not of type radio.SongRequestError
-func generateFriendlyCooldownError(err error) error {
-	srerr, ok := err.(radio.SongRequestError)
+// CooldownMessageFromError returns a friendlier, coloured error message for cooldown
+// related errors
+func CooldownMessageFromError(err error) string {
+	// user cooldown messages
+	e, ok := errors.Select(errors.UserCooldown, err)
+	if ok {
+		switch d := time.Duration(e.Delay); {
+		case d < time.Minute*10:
+			return "{green}Only less than ten minutes before you can request again!"
+		case d < time.Minute*30:
+			return "{blue}You need to wait at most another half hour until you can request!"
+		case d < time.Minute*61:
+			return "{brown}You still have quite a lot of time before you can request again..."
+		}
+	}
+
+	// song cooldown messages
+	e, ok = errors.Select(errors.SongCooldown, err)
 	if !ok {
-		return err
+		// ? error passed is neither of kind UserCooldown or SongCooldown
+		panic("invalid error passed to CooldownMessageFromError: " + err.Error())
 	}
 
-	var message string
-	// first check if a user cooldown was triggered
-	switch d := srerr.UserDelay; {
-	case d == 0:
-		break
-	case d < time.Minute*10:
-		message = "{green}Only less than ten minutes before you can request again!"
-	case d < time.Minute*30:
-		message = "{blue}You need to wait at most another half hour until you can request!"
-	case d < time.Minute*61:
-		message = "{brown}You still have quite a lot of time before you can request again..."
-	}
-	if message != "" {
-		srerr.UserMessage = Fmt(message)
-		return err
-	}
-	switch d := srerr.SongDelay; {
-	case d == 0:
-		break
+	switch d := time.Duration(e.Delay); {
 	case d < time.Minute*5:
-		message = "{green}Only five more minutes before I'll let you request that!"
+		return "{green}Only five more minutes before I'll let you request that!"
 	case d < time.Minute*15:
-		message = "{green}Just another 15 minutes to go for that song!"
+		return "{green}Just another 15 minutes to go for that song!"
 	case d < time.Minute*40:
-		message = "{blue}Only less than 40 minutes to go for that song!"
+		return "{blue}Only less than 40 minutes to go for that song!"
 	case d < time.Hour:
-		message = "{blue}You need to wait at most an hour for that song!"
+		return "{blue}You need to wait at most an hour for that song!"
 	case d < time.Hour*4:
-		message = "{blue}That song can be requested in a few hours!"
+		return "{blue}That song can be requested in a few hours!"
 	case d < time.Hour*24:
-		message = "{brown}You'll have to wait at most a day for that song..."
+		return "{brown}You'll have to wait at most a day for that song..."
 	case d < time.Hour*24*3:
-		message = "{brown}That song can only be requested in a few days' time..."
+		return "{brown}That song can only be requested in a few days' time..."
 	case d < time.Hour*24*7:
-		message = "{brown}You might want to go do something else while you wait for that song."
+		return "{brown}You might want to go do something else while you wait for that song."
 	default:
-		message = "{red}No."
+		return "{red}No."
 	}
-
-	if message != "" {
-		srerr.UserMessage = Fmt(message)
-	}
-	return srerr
 }
 
 func LastRequestInfo(e Event) error {
+	const op errors.Op = "irc/LastRequestInfo"
+
 	message := "%s last requested at {red}%s {clear}, which is {red}%s{clear} ago."
 
 	var host = e.Source.Host
@@ -657,7 +672,8 @@ func LastRequestInfo(e Event) error {
 	if nick := e.Arguments["Nick"]; nick != "" {
 		u := e.Client.LookupUser(nick)
 		if u == nil {
-			return NewUserError(nil, "I don't know who that is")
+			e.EchoPrivate("I don't know who that is")
+			return nil
 		}
 
 		host = u.Host
@@ -666,7 +682,7 @@ func LastRequestInfo(e Event) error {
 
 	t, err := database.UserRequestTime(e.Database(), host)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 
 	if t.IsZero() {
@@ -701,6 +717,8 @@ func LastRequestInfo(e Event) error {
 }
 
 func TrackInfo(e Event) error {
+	const op errors.Op = "irc/TrackInfo"
+
 	if !HasAccess(e.Client, e.Event) {
 		return nil
 	}
@@ -719,12 +737,13 @@ func TrackInfo(e Event) error {
 	if err != nil {
 		track, err = e.CurrentTrack()
 		if err != nil {
-			return err
+			return errors.E(op, err)
 		}
 	}
 
-	if track.DatabaseTrack == nil {
-		return NewUserError(nil, "song is not in the database")
+	if !track.HasTrack() {
+		e.EchoPrivate("Song is not in the database")
+		return nil
 	}
 
 	db := e.Database()
@@ -761,6 +780,8 @@ func TrackInfo(e Event) error {
 }
 
 func TrackTags(e Event) error {
+	const op errors.Op = "irc/TrackTags"
+
 	message := "Title: {red}%s {clear}" +
 		"Album: {red}%s {clear}" +
 		"Faves: {red}%d {clear}" +
@@ -771,7 +792,7 @@ func TrackTags(e Event) error {
 	if err != nil {
 		track, err = e.CurrentTrack()
 		if err != nil {
-			return err
+			return errors.E(op, err)
 		}
 	}
 

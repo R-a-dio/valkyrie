@@ -12,6 +12,7 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/database"
+	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/search"
 	"github.com/jmoiron/sqlx"
 	"github.com/lrstanley/girc"
@@ -59,14 +60,16 @@ func Execute(ctx context.Context, cfg config.Config) error {
 
 // NewBot returns a Bot with configuration and handlers loaded
 func NewBot(ctx context.Context, cfg config.Config) (*Bot, error) {
+	const op errors.Op = "irc/NewBot"
+
 	db, err := database.Connect(cfg)
 	if err != nil {
-		return nil, err
+		return nil, errors.E(op, err)
 	}
 
 	ss, err := search.NewElasticSearchService(ctx, cfg)
 	if err != nil {
-		return nil, err
+		return nil, errors.E(op, err)
 	}
 
 	var ircConf girc.Config
@@ -125,6 +128,8 @@ func (b *Bot) runClient(ctx context.Context) error {
 	cbctx := backoff.WithContext(cb, ctx)
 
 	doConnect := func() error {
+		const op errors.Op = "irc/Bot.runClient.doConnect"
+
 		log.Println("client: connecting to:", b.c.Config.Server)
 		err := b.c.Connect()
 		if err != nil {
@@ -134,6 +139,8 @@ func (b *Bot) runClient(ctx context.Context) error {
 			if cb.GetElapsedTime() > time.Minute*10 {
 				cb.Reset()
 			}
+
+			err = errors.E(op, err)
 		}
 		return err
 	}

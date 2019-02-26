@@ -12,6 +12,7 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/database"
+	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/rpc"
 	"github.com/jmoiron/sqlx"
 	"github.com/lrstanley/girc"
@@ -53,6 +54,8 @@ type announceService struct {
 }
 
 func (ann *announceService) AnnounceSong(ctx context.Context, status radio.Status) error {
+	const op errors.Op = "irc/announceService.AnnounceSong"
+
 	// don't do the announcement if the last one was recent enough
 	if time.Since(ann.lastAnnounceSong) < time.Duration(ann.Conf().IRC.AnnouncePeriod) {
 		log.Printf("skipping announce because of AnnouncePeriod")
@@ -92,7 +95,7 @@ func (ann *announceService) AnnounceSong(ctx context.Context, status radio.Statu
 	}
 	usersWithFave, err := database.GetSongFavorites(db, status.Song.ID)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 
 	// we only send notifications to people that are on the configured main channel
@@ -180,12 +183,14 @@ func (ann *announceService) AnnounceSong(ctx context.Context, status radio.Statu
 }
 
 func (ann *announceService) AnnounceRequest(ctx context.Context, song radio.Song) error {
+	const op errors.Op = "irc/announceService.AnnounceRequest"
+
 	message := "Requested:{green} '%s'"
 
 	// Get queue from streamer
 	songQueue, err := ann.bot.Streamer.Queue(ctx)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 
 	// Search for the song in the queue, -1 means not found by default
