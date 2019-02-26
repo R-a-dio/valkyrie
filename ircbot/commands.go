@@ -2,7 +2,6 @@ package ircbot
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"regexp"
 	"strconv"
@@ -10,6 +9,7 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/database"
+	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/lrstanley/girc"
 )
 
@@ -34,49 +34,6 @@ var (
 	reTrackInfo       = "i(nfo)?( (?P<TrackID>[0-9]+))?"
 	reTrackTags       = "tags( (?P<TrackID>[0-9]+))?"
 )
-
-type userError struct {
-	err    error
-	msg    string
-	public bool
-}
-
-func (u userError) Error() string {
-	return u.err.Error()
-}
-
-func (u userError) UserError() string {
-	return u.msg
-}
-
-func (u userError) Public() bool {
-	return u.public
-}
-
-// NewUserError returns a new error with the given msg for the user
-func NewUserError(err error, msg string) error {
-	return userError{err, msg, false}
-}
-
-// NewPublicError returns a new error with the given msg for the public channel
-func NewPublicError(err error, msg string) error {
-	return userError{err, msg, true}
-}
-
-func checkUserError(c *girc.Client, e girc.Event, err error) bool {
-	uerr, ok := err.(radio.UserError)
-	if !ok {
-		return false
-	}
-
-	if uerr.Public() {
-		c.Cmd.Message(e.Params[0], uerr.UserError())
-	} else {
-		c.Cmd.Notice(e.Source.Name, uerr.UserError())
-	}
-
-	return true
-}
 
 type HandlerFn func(Event) error
 
@@ -139,7 +96,14 @@ func (rh RegexHandlers) Execute(c *girc.Client, e girc.Event) {
 		// execute our handler
 		err := rh.handlers[i].fn(event)
 		if err != nil {
-			if !checkUserError(c, e, err) {
+			switch {
+			case errors.Is(errors.SearchNoResults, err):
+				event.Echo("Your search returned no results")
+			case errors.Is(errors.UserCooldown, err):
+				fallthrough
+			case errors.Is(errors.SongCooldown, err):
+				event.Echo(CooldownMessageFromError(err))
+			default:
 				log.Println("handler error:", err)
 			}
 			return
@@ -230,14 +194,17 @@ func (e Event) EchoPublic(message string, args ...interface{}) {
 // ArgumentTrack returns the key given interpreted as a radio.TrackID and returns the
 // song associated with it.
 func (e Event) ArgumentTrack(key string) (*radio.Song, error) {
+	const op errors.Op = "irc/Event.ArgumentTrack"
+
 	stringID := e.Arguments[key]
 	if stringID == "" {
-		return nil, fmt.Errorf("key '%s' not found in arguments", key)
+		return nil, errors.E(op, errors.InvalidArgument,
+			errors.Errorf("key '%s' not found in arguments", key))
 	}
 
 	id, err := strconv.Atoi(stringID)
 	if err != nil {
-		return nil, err
+		return nil, errors.E(op, errors.InvalidArgument, err)
 	}
 
 	track, err := database.GetTrack(e.Database(), radio.TrackID(id))
@@ -245,21 +212,24 @@ func (e Event) ArgumentTrack(key string) (*radio.Song, error) {
 		return track, nil
 	}
 
-	if err == database.ErrTrackNotFound {
-		return nil, NewUserError(err, "unknown track identifier")
-	}
-
-	return nil, err
+	return nil, errors.E(op, err)
 }
 
 // CurrentTrack returns the currently playing song on the main stream configured
 func (e Event) CurrentTrack() (*radio.Song, error) {
+	const op errors.Op = "irc/Event.CurrentTrack"
+
 	status, err := e.Bot.Manager.Status(e.Context())
 	if err != nil {
-		return nil, err
+		return nil, errors.E(op, err)
 	}
 
-	return database.GetSongFromMetadata(e.Database(), status.Song.Metadata)
+	song, err := database.GetSongFromMetadata(e.Database(), status.Song.Metadata)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	return song, nil
 }
 
 // Database returns a database handle with a timeout context
