@@ -5,61 +5,82 @@ import (
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
-	"github.com/pkg/errors"
 )
 
 // FavePriorityIncrement is the amount we increase/decrease priority by
 // on a track when it gets favorited/unfavorited
 const FavePriorityIncrement = 1
 
-// ErrTrackNotFound is returned if a track is not found in the database
-var ErrTrackNotFound = errors.New("unknown track id")
-
 // SongPlayedCount returns the amount of times this song has been played
 func SongPlayedCount(h Handler, s radio.Song) (int64, error) {
+	const op errors.Op = "database/SongPlayedCount"
+
 	var query = `SELECT count(*) FROM eplay WHERE isong=?;`
 	var playedCount int64
 
 	err := sqlx.Get(h, &playedCount, query, s.ID)
-	return playedCount, errors.WithStack(err)
+	if err != nil {
+		return 0, errors.E(op, err)
+	}
+	return playedCount, nil
 }
 
 // SongFaveCount returns the amount of faves this song has
 func SongFaveCount(h Handler, s radio.Song) (int64, error) {
+	const op errors.Op = "database/SongFaveCount"
+
 	var query = `SELECT count(*) FROM efave WHERE isong=?;`
 	var faveCount int64
 
 	err := sqlx.Get(h, &faveCount, query, s.ID)
-	return faveCount, errors.WithStack(err)
+	if err != nil {
+		return 0, errors.E(op, err)
+	}
+	return faveCount, nil
 }
 
 // CreateSong inserts a new row into the song database table and returns a Track
 // containing the new data.
 func CreateSong(h HandlerTx, metadata string) (*radio.Song, error) {
+	const op errors.Op = "database/CreateSong"
+
 	// we only accept a tx handler because we potentially do multiple queries
 	var query = `INSERT INTO esong (meta, hash, hash_link, len) VALUES (?, ?, ?, ?)`
 	hash := radio.NewSongHash(metadata)
 
 	_, err := h.Exec(query, metadata, hash, hash, 0)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, errors.E(op, err)
 	}
 
-	return GetSongFromHash(h, hash)
+	song, err := GetSongFromHash(h, hash)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+	return song, nil
 }
 
 // GetSongFromMetadata is a convenience function that calls NewSongHash
 // and GetSongFromHash for you
 func GetSongFromMetadata(h Handler, metadata string) (*radio.Song, error) {
-	return GetSongFromHash(h, radio.NewSongHash(metadata))
+	const op errors.Op = "database/GetSongFromMetadata"
+
+	song, err := GetSongFromHash(h, radio.NewSongHash(metadata))
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+	return song, nil
 }
 
 // GetSongFromHash retrieves a track using the hash given. It uses the esong table as
 // primary join and will return ErrTrackNotFound if the hash only exists in the tracks
 // table
 func GetSongFromHash(h Handler, hash radio.SongHash) (*radio.Song, error) {
+	const op errors.Op = "database/GetSongFromHash"
+
 	var tmp databaseTrack
 
 	var query = `
@@ -72,11 +93,9 @@ func GetSongFromHash(h Handler, hash radio.SongHash) (*radio.Song, error) {
 	err := sqlx.Get(h, &tmp, query, hash)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			err = ErrTrackNotFound
-		} else {
-			err = errors.WithStack(err)
+			return nil, errors.E(op, errors.SongUnknown)
 		}
-		return nil, err
+		return nil, errors.E(op, err)
 	}
 
 	return tmp.ToSongPtr(), nil
@@ -154,6 +173,8 @@ func (dt databaseTrack) ToSongPtr() *radio.Song {
 
 // AllTracks returns all tracks in the database
 func AllTracks(h Handler) ([]radio.Song, error) {
+	const op errors.Op = "database/AllTracks"
+
 	var tmps = []databaseTrack{}
 
 	var query = `
@@ -164,7 +185,7 @@ func AllTracks(h Handler) ([]radio.Song, error) {
 
 	err := sqlx.Select(h, &tmps, query)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, errors.E(op, err)
 	}
 
 	var tracks = make([]radio.Song, len(tmps))
@@ -177,6 +198,8 @@ func AllTracks(h Handler) ([]radio.Song, error) {
 
 // GetUnusableTracks returns all tracks that are marked unusable in the database
 func GetUnusableTracks(h Handler) ([]radio.Song, error) {
+	const op errors.Op = "database/GetUnusableTracks"
+
 	var tmps = []databaseTrack{}
 
 	var query = `
@@ -210,7 +233,7 @@ func GetUnusableTracks(h Handler) ([]radio.Song, error) {
 
 	err := sqlx.Select(h, &tmps, query)
 	if err != nil {
-		return nil, err
+		return nil, errors.E(op, err)
 	}
 
 	var tracks = make([]radio.Song, len(tmps))
@@ -224,6 +247,8 @@ func GetUnusableTracks(h Handler) ([]radio.Song, error) {
 // GetTrack returns a track based on the id given.
 // returns ErrTrackNotFound if the id does not exist.
 func GetTrack(h Handler, id radio.TrackID) (*radio.Song, error) {
+	const op errors.Op = "database/GetTrack"
+
 	// we create a temporary struct to handle NULL values returned by
 	// the query, both Length and Song.ID can be NULL due to the LEFT JOIN
 	// not necessarily having an entry in the `esong` table.
@@ -241,11 +266,9 @@ func GetTrack(h Handler, id radio.TrackID) (*radio.Song, error) {
 	err := sqlx.Get(h, &tmp, query, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			err = ErrTrackNotFound
-		} else {
-			err = errors.WithStack(err)
+			return nil, errors.E(op, errors.SongUnknown)
 		}
-		return nil, err
+		return nil, errors.E(op, err)
 	}
 
 	return tmp.ToSongPtr(), nil
@@ -256,43 +279,65 @@ func GetTrack(h Handler, id radio.TrackID) (*radio.Song, error) {
 //
 // TODO: don't hardcode requestcount and priority increments?
 func UpdateTrackRequestInfo(h Handler, id radio.TrackID) error {
+	const op errors.Op = "database/UpdateTrackRequestInfo"
+
 	var query = `UPDATE tracks SET lastrequested=NOW(),
 	requestcount=requestcount+2, priority=priority+1 WHERE id=?;`
 
 	_, err := h.Exec(query, id)
-	return errors.WithStack(err)
+	if err != nil {
+		return errors.E(op, err)
+	}
+	return nil
 }
 
 // UpdateTrackPlayTime updates the time the track given was last played
 func UpdateTrackPlayTime(h Handler, id radio.TrackID) error {
+	const op errors.Op = "database/UpdateTrackPlayTime"
+
 	var query = `UPDATE tracks SET lastplayed=NOW() WHERE id=?;`
 
 	_, err := h.Exec(query, id)
-	return errors.WithStack(err)
+	if err != nil {
+		return errors.E(op, err)
+	}
+	return nil
 }
 
 // InsertPlayedSong inserts a row into the eplay table with the arguments given
 //
 // ldiff can be nil to indicate no listener data was available
 func InsertPlayedSong(h Handler, id radio.SongID, ldiff *int) error {
+	const op errors.Op = "database/InsertPlayedSong"
+
 	var query = `INSERT INTO eplay (isong, ldiff) VALUES (?, ?);`
 
 	_, err := h.Exec(query, id, ldiff)
-	return errors.WithStack(err)
+	if err != nil {
+		return errors.E(op, err)
+	}
+	return nil
 }
 
 // UpdateSongLength updates the length for the ID given, length is rounded to seconds
 func UpdateSongLength(h Handler, id radio.SongID, length time.Duration) error {
+	const op errors.Op = "database/UpdateSongLength"
+
 	var query = "UPDATE esong SET len=? WHERE id=?;"
 
 	len := int(length / time.Second)
 	_, err := h.Exec(query, len, id)
-	return errors.WithStack(err)
+	if err != nil {
+		return errors.E(op, err)
+	}
+	return nil
 }
 
 // GetLastPlayed returns the songs that have recently played, indicated by the offset
 // given; returns up to the given amount of songs
 func GetLastPlayed(h Handler, offset, amount int) ([]radio.Song, error) {
+	const op errors.Op = "database/GetLastPlayed"
+
 	var query = `SELECT esong.id AS id, esong.meta AS metadata FROM esong
 		RIGHT JOIN eplay ON esong.id = eplay.isong ORDER BY eplay.dt DESC LIMIT ? OFFSET ?;`
 
@@ -300,7 +345,7 @@ func GetLastPlayed(h Handler, offset, amount int) ([]radio.Song, error) {
 
 	err := sqlx.Select(h, &songs, query, amount, offset)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, errors.E(op, err)
 	}
 
 	return songs, nil
@@ -308,6 +353,8 @@ func GetLastPlayed(h Handler, offset, amount int) ([]radio.Song, error) {
 
 // FaveSong adds the nick given to the favorites of the song given
 func FaveSong(h Handler, nick string, s radio.Song) (bool, error) {
+	const op errors.Op = "database/FaveSong"
+
 	var query = `SELECT enick.id AS id, EXISTS(SELECT efave.id FROM efave WHERE
 		inick=enick.id AND isong=?) AS hasfave FROM enick WHERE enick.nick=?;`
 
@@ -318,7 +365,7 @@ func FaveSong(h Handler, nick string, s radio.Song) (bool, error) {
 
 	err := sqlx.Get(h, &info, query, s.ID, nick)
 	if err != nil {
-		return false, err
+		return false, errors.E(op, err)
 	}
 
 	if info.HasFave {
@@ -329,7 +376,7 @@ func FaveSong(h Handler, nick string, s radio.Song) (bool, error) {
 		query = `INSERT INTO enick (nick) VALUES (?)`
 		res, err := h.Exec(query, nick)
 		if err != nil {
-			return false, err
+			return false, errors.E(op, err)
 		}
 
 		info.ID, err = res.LastInsertId()
@@ -341,7 +388,7 @@ func FaveSong(h Handler, nick string, s radio.Song) (bool, error) {
 	query = `INSERT INTO efave (inick, isong) VALUES (?, ?)`
 	_, err = h.Exec(query, info.ID, s.ID)
 	if err != nil {
-		return false, err
+		return false, errors.E(op, err)
 	}
 
 	// we increase a search priority when a song gets favorited
@@ -349,21 +396,23 @@ func FaveSong(h Handler, nick string, s radio.Song) (bool, error) {
 		query = `UPDATE tracks SET priority=priority+? WHERE id=?`
 		_, err = h.Exec(query, FavePriorityIncrement, s.TrackID)
 		if err != nil {
-			return false, err
+			return false, errors.E(op, err)
 		}
 	}
 
-	return true, err
+	return true, nil
 }
 
 // UnfaveSong removes the nick given from the favorites of the song given
 func UnfaveSong(h Handler, nick string, s radio.Song) (bool, error) {
+	const op errors.Op = "database/UnfaveSong"
+
 	var query = `DELETE efave FROM efave JOIN enick ON 
 	enick.id = efave.inick WHERE enick.nick=? AND efave.isong=?;`
 
 	res, err := h.Exec(query, nick, s.ID)
 	if err != nil {
-		return false, errors.WithStack(err)
+		return false, errors.E(op, err)
 	}
 
 	n, err := res.RowsAffected()
@@ -376,14 +425,16 @@ func UnfaveSong(h Handler, nick string, s radio.Song) (bool, error) {
 		query = `UPDATE tracks SET priority=priority-? WHERE id=?`
 		_, err = h.Exec(query, FavePriorityIncrement, s.TrackID)
 		if err != nil {
-			return false, err
+			return false, errors.E(op, err)
 		}
 	}
-	return n > 0, err
+	return n > 0, nil
 }
 
 // GetSongFavorites returns all nicknames that have favorited the song id given
 func GetSongFavorites(h Handler, id radio.SongID) ([]string, error) {
+	const op errors.Op = "database/GetSongFavorites"
+
 	var query = `SELECT enick.nick FROM efave JOIN enick ON
 	enick.id = efave.inick WHERE efave.isong=?`
 
@@ -391,7 +442,7 @@ func GetSongFavorites(h Handler, id radio.SongID) ([]string, error) {
 
 	err := sqlx.Select(h, &users, query, id)
 	if err != nil {
-		return nil, err
+		return nil, errors.E(op, err)
 	}
 
 	return users, nil
@@ -399,6 +450,8 @@ func GetSongFavorites(h Handler, id radio.SongID) ([]string, error) {
 
 // GetSongFavoritesOf returns all songs favorited by the nickname given
 func GetSongFavoritesOf(h Handler, nick string) ([]radio.Song, error) {
+	const op errors.Op = "database/GetSongFavoritesOf"
+
 	var query = `
 	SELECT 
 		esong.id AS id,
@@ -435,7 +488,7 @@ func GetSongFavoritesOf(h Handler, nick string) ([]radio.Song, error) {
 
 	err := sqlx.Select(h, &tmps, query, nick)
 	if err != nil {
-		return nil, err
+		return nil, errors.E(op, err)
 	}
 
 	var songs = make([]radio.Song, len(tmps))
