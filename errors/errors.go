@@ -11,12 +11,45 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 )
 
-// Errorf is equalivant to fmt.Errorf
+// Errorf is equavalent to fmt.Errorf
 var Errorf = fmt.Errorf
 
-// New is equalivant to errors.New
+// New is equavalent to errors.New
 var New = errors.New
 
+// E builds an error value from its arguments.
+// There must be at least one argument or E panics.
+// The type of each argument determines its meaning.
+// If more than one argument of a given type is presented,
+// only the last one is recorded.
+//
+// The types are:
+// 		radio.SongID:
+//			The song identifier of the song involved
+//		radio.TrackID:
+//			The track identifier of the song involved
+//		radio.Song, radio.QueueEntry:
+//			The song involved, fills in both SongID and TrackID above
+//		errors.Delay:
+//			The delay until this error is resolved
+//		errors.Info:
+//			Extra info useful to this class of error, think argument
+//			name when using InvalidArgument
+//		errors.Op:
+//			The operation being performed
+//		string:
+//			Treated as an error message and assigned to the
+//			Err field after a call to errors.New
+// 		errors.Kind:
+//			The class of error
+//		error:
+//			The underlying error that triggered this one
+//
+// If the error is printed, only those items that have been
+// set to non-zero values will appear in the result.
+//
+// If Kind is not specified or Other, we set it to the Kind of
+// the underlying error.
 func E(args ...interface{}) error {
 	if len(args) == 0 {
 		panic("call to errors.E with no arguments")
@@ -31,6 +64,8 @@ func E(args ...interface{}) error {
 			e.Op = arg
 		case Delay:
 			e.Delay = arg
+		case Info:
+			e.Info = arg
 		case radio.QueueEntry:
 			e.SongID = arg.ID
 			if arg.HasTrack() {
@@ -77,6 +112,9 @@ func E(args ...interface{}) error {
 	}
 	if prev.Delay == e.Delay {
 		prev.Delay = 0
+	}
+	if prev.Info == e.Info {
+		prev.Info = ""
 	}
 	// if this error has Kind unset or Other, pull up the inner one
 	if e.Kind == Other {
