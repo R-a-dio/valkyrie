@@ -176,24 +176,37 @@ func (s *Streamer) Stop(ctx context.Context) error {
 	}
 
 	log.Println("streamer.stop: finished")
-	return s.err
+	if s.err != nil {
+		return errors.E(op, s.err)
+	}
+	return nil
 }
 
 // ForceStop stops the streamer and tries to stop as soon as possible
 func (s *Streamer) ForceStop(ctx context.Context) error {
+	const op errors.Op = "streamer/Streamer.ForceStop"
+
 	// set force unconditionally, since arguments might change between two
 	// stop calls (first stop with force=false, second with force=true)
 	log.Println("streamer.stop: stopping with force=true")
 	atomic.StoreInt32(&s.forceDone, 1)
 
-	return s.Stop(ctx)
+	err := s.Stop(ctx)
+	if err != nil {
+		return errors.E(op, err)
+	}
+	return nil
 }
 
 // Wait waits for the streamer to stop running; either by an error occuring or
 // by someone else calling Stop or ForceStop.
 func (s *Streamer) Wait() error {
+	const op errors.Op = "streamer/Streamer.Wait"
 	s.wg.Wait()
-	return s.err
+	if s.err != nil {
+		return errors.E(op, s.err)
+	}
+	return nil
 }
 
 type pipelineFunc func(streamerTask) error
