@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"math/rand"
 	"reflect"
+	"strings"
 	"testing"
 	"testing/quick"
 	"time"
@@ -45,7 +46,11 @@ func generateDatabaseTrack(v []reflect.Value, r *rand.Rand) {
 	}
 }
 
-var databaseTrackToSongMapping = map[string]string{}
+var databaseTrackToSongMapping = map[string]string{
+	"Track":           "Title",
+	"Path":            "FilePath",
+	"NeedReplacement": "NeedReupload",
+}
 
 func indirectDatabaseNull(v reflect.Value) reflect.Value {
 	switch i := v.Interface().(type) {
@@ -71,6 +76,18 @@ func indirectRadioTypes(v reflect.Value) reflect.Value {
 	}
 	return v
 }
+
+func mutateValues(i interface{}) interface{} {
+	switch v := i.(type) {
+	case int:
+		return int64(v)
+	case string:
+		return strings.TrimSpace(v)
+	}
+
+	return i
+}
+
 func TestDatabaseTrackToSong(t *testing.T) {
 	err := quick.Check(func(dt databaseTrack) bool {
 		song := dt.ToSong()
@@ -80,14 +97,44 @@ func TestDatabaseTrackToSong(t *testing.T) {
 
 		sv := reflect.ValueOf(song)
 
+		tt := reflect.TypeOf(radio.DatabaseTrack{})
+
 		for i := 0; i < vv.NumField(); i++ {
 			var name = vt.Field(i).Name
+			var targetName = name
 			if mapped, ok := databaseTrackToSongMapping[name]; ok {
-				name = mapped
+				targetName = mapped
 			}
 
+			// check if the field we're looking for is embedded in the Song type
+			_, embedded := tt.FieldByName(targetName)
+			if embedded && !song.HasTrack() {
+				// skip embedded fields if we have no track
+				continue
+			}
+
+			if name == "Metadata" && song.HasTrack() {
+				// if we have a track, the data filled in our field will be overwritten
+				// by <title - artist>, so skip the metadata field
+				continue
+			} else if name == "Length" || name == "Usable" || name == "NeedReplacement" {
+				// TODO: implement length and usable checking
+				//
+				// Length is omitted because the database type holds a float64 in seconds
+				// while the radio type holds a time.Duration
+				//
+				// Usable is omitted because the database type holds an int64 as a new
+				// feature to implement more than two usable states, but the radio type
+				// has Usable as a bool
+				//
+				// NeedReplacement is the same as Usable, int64 != bool
+				continue
+			}
+
+			t.Log(embedded, song.HasTrack(), name, targetName)
+
 			originalValue := vv.FieldByName(name)
-			targetValue := sv.FieldByName(name)
+			targetValue := sv.FieldByName(targetName)
 			// some of our types are Null* types from the database package, we want to
 			// extract the actual value of these temporary types to compare to
 			originalValue = indirectDatabaseNull(originalValue)
@@ -95,12 +142,10 @@ func TestDatabaseTrackToSong(t *testing.T) {
 			// back to normal types
 			targetValue = indirectRadioTypes(targetValue)
 
-			switch name {
-			case "Length":
-				continue
-			}
+			iv := mutateValues(originalValue.Interface())
+			it := mutateValues(targetValue.Interface())
 
-			if reflect.DeepEqual(originalValue.Interface(), targetValue.Interface()) {
+			if reflect.DeepEqual(iv, it) {
 				continue
 			}
 
