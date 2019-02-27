@@ -9,6 +9,7 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/database"
+	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/rpc"
 )
 
@@ -63,6 +64,8 @@ func (m *Manager) UpdateUser(ctx context.Context, n string, u radio.User) error 
 
 // UpdateSong sets information about the currently playing song
 func (m *Manager) UpdateSong(ctx context.Context, new radio.Song, info radio.SongInfo) error {
+	const op errors.Op = "manager/Manager.UpdateSong"
+
 	// first we check if this is the same song as the previous one we received to
 	// avoid double announcement or drifting start/end timings
 	m.mu.Lock()
@@ -98,22 +101,22 @@ func (m *Manager) UpdateSong(ctx context.Context, new radio.Song, info radio.Son
 
 	tx, err := database.HandleTx(ctx, m.DB)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 	defer tx.Rollback()
 
 	// we assume that the song we received has very little or no data except for the
 	// Metadata field. So we try and find more info from that
 	song, err := database.GetSongFromMetadata(tx, new.Metadata)
-	if err != nil && err != database.ErrTrackNotFound {
-		return err
+	if err != nil && !errors.Is(errors.SongUnknown, err) {
+		return errors.E(op, err)
 	}
 
 	// if we don't have this song in the database create a new entry for it
 	if song == nil {
 		song, err = database.CreateSong(tx, new.Metadata)
 		if err != nil {
-			return err
+			return errors.E(op, err)
 		}
 	}
 
@@ -166,13 +169,15 @@ func (m *Manager) UpdateSong(ctx context.Context, new radio.Song, info radio.Son
 	err = m.client.announce.AnnounceSong(ctx, announceStatus)
 	if err != nil {
 		// this isn't a critical error, so we do not return it if it occurs
-		log.Printf("manager: failed to announce song: %s", err)
+		log.Printf("%s: failed to announce song: %s", op, err)
 	}
 
 	return nil
 }
 
 func (m *Manager) handlePreviousSong(tx database.HandlerTx, song radio.Song, info radio.SongInfo, listenerDiff *int, isRobot bool) error {
+	const op errors.Op = "manager/Manager.handlePreviousSong"
+
 	// protect against zero-d Song's
 	if song.ID == 0 {
 		return nil
@@ -182,21 +187,24 @@ func (m *Manager) handlePreviousSong(tx database.HandlerTx, song radio.Song, inf
 	err := database.InsertPlayedSong(tx, song.ID, listenerDiff)
 	if err != nil {
 		log.Printf("manager: unable to insert play history: %s", err)
-		return err
+		return errors.E(op, err, song)
 	}
 	// update our other lastplayed field if the streamer is a robot and the song has
 	// a database track
 	if song.HasTrack() && isRobot {
 		err := database.UpdateTrackPlayTime(tx, song.TrackID)
 		if err != nil {
-			return err
+			return errors.E(op, err, song)
 		}
 	}
 
 	if song.Length == 0 {
 		length := time.Since(info.Start)
 
-		return database.UpdateSongLength(tx, song.ID, length)
+		err = database.UpdateSongLength(tx, song.ID, length)
+		if err != nil {
+			return errors.E(op, err, song)
+		}
 	}
 
 	return nil
