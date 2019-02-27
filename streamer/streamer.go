@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -19,6 +18,7 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
+	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/streamer/audio"
 	"github.com/cenkalti/backoff"
 )
@@ -153,18 +153,17 @@ func (s *Streamer) Start(ctx context.Context) {
 
 // Stop stops the streamer, but waits until the current track is done
 func (s *Streamer) Stop(ctx context.Context) error {
+	const op errors.Op = "streamer/Streamer.Stop"
+
 	if atomic.LoadInt32(&s.started) == 0 {
 		// we're not running
 		log.Println("streamer.stop: not running")
-		return radio.NewStreamerError("I'm not currently streaming!", true)
+		return errors.E(op, errors.StreamerNotRunning)
 	}
 	if !atomic.CompareAndSwapInt32(&s.stopping, 0, 1) {
 		// we're already trying to stop or have already stopped
 		log.Println("streamer.stop: already stopping")
-		return radio.NewStreamerError(
-			"I'm already stopping with streaming, please be patient~",
-			true,
-		)
+		return errors.E(op, errors.StreamerAlreadyStopped)
 	}
 
 	if s.cancel != nil {
