@@ -165,7 +165,7 @@ service Streamer {
 }
 
 message StreamerResponse {
-    UserError user_error = 1;
+    repeated Error error = 1;
 }
 
 // Queue is documented under the radio.QueueService interface in the Go package
@@ -200,16 +200,16 @@ message SongRequest {
 }
 
 message RequestResponse {
-    bool success = 1;
-    string msg = 2;
-    google.protobuf.Duration user_delay = 3;
-    google.protobuf.Duration song_delay = 4;
+    repeated Error error = 1;
 }
 
-// UserError is the protobuf variant of the UserError interface
-message UserError {
-    bool public = 1;
-    string user_error = 2;
-    string error = 3;
+message Error {
+    uint32 kind = 1;
+    string op = 2;
+    int32 song_id = 3;
+    int32 track_id = 4;
+    google.protobuf.Duration delay = 5;
+    string info = 6;
+    string error = 7;
 }
 
