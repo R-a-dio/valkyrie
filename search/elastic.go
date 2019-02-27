@@ -82,6 +82,8 @@ const (
 // NewElasticSearchService returns a new radio.SearchService that calls into
 // an elasticsearch instance for the implementation
 func NewElasticSearchService(ctx context.Context, cfg config.Config) (*ElasticService, error) {
+	const op errors.Op = "search/NewElasticSearchService"
+
 	conf := cfg.Conf()
 
 	log.Printf("search: elastic: trying to connect to %s", conf.Elastic.URL)
@@ -90,12 +92,12 @@ func NewElasticSearchService(ctx context.Context, cfg config.Config) (*ElasticSe
 		elastic.SetSniff(false),
 	)
 	if err != nil {
-		return nil, err
+		return nil, errors.E(op, err)
 	}
 
 	version, err := client.ElasticsearchVersion(conf.Elastic.URL)
 	if err != nil {
-		return nil, err
+		return nil, errors.E(op, err)
 	}
 
 	log.Printf("search: elastic: using elasticsearch on %s with version %s", conf.Elastic.URL, version)
@@ -114,10 +116,10 @@ type ElasticService struct {
 // CreateIndex creates all indices used by the service, it returns an error if the indices
 // already exist
 func (es *ElasticService) CreateIndex(ctx context.Context) error {
-	const op errors.Op = "elastic.CreateIndex"
+	const op errors.Op = "search/ElasticService.CreateIndex"
 	exists, err := es.es.IndexExists(songSearchIndex).Do(ctx)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 	if exists {
 		return errors.E(errors.SearchIndexExists, op)
@@ -125,10 +127,10 @@ func (es *ElasticService) CreateIndex(ctx context.Context) error {
 
 	create, err := es.es.CreateIndex(songSearchIndex).BodyString(songMapping).Do(ctx)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 	if !create.Acknowledged {
-		return errors.Errorf("elastic: index creation not acknowledged")
+		return errors.E(op, "index creation not acknowledged")
 	}
 
 	return nil
@@ -136,19 +138,21 @@ func (es *ElasticService) CreateIndex(ctx context.Context) error {
 
 // DeleteIndex deletes all indices created by CreateIndex
 func (es *ElasticService) DeleteIndex(ctx context.Context) error {
+	const op errors.Op = "search/ElasticService.DeleteIndex"
+
 	del, err := es.es.DeleteIndex(songSearchIndex).Do(ctx)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 	if !del.Acknowledged {
-		return errors.Errorf("elastic: index deletion not acknowledged")
+		return errors.E(op, "index deletion not acknowledged")
 	}
 
 	return nil
 }
 
 func (es *ElasticService) Search(ctx context.Context, query string, limit int, offset int) ([]radio.Song, error) {
-	const op errors.Op = "elastic.Search"
+	const op errors.Op = "search/ElasticService.Search"
 	esQuery := es.createSearchQuery2(query)
 
 	action := es.es.Search().Index(songSearchIndex).
@@ -168,18 +172,18 @@ func (es *ElasticService) Search(ctx context.Context, query string, limit int, o
 
 	res, err := action.Do(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errors.E(op, err)
 	}
 
 	if res.Hits == nil || len(res.Hits.Hits) == 0 {
-		return []radio.Song{}, errors.E(errors.SearchNoResults, op)
+		return []radio.Song{}, errors.E(op, errors.SearchNoResults, errors.Info(query))
 	}
 
 	songs := make([]radio.Song, len(res.Hits.Hits))
 	for i, hit := range res.Hits.Hits {
 		err := json.Unmarshal(*hit.Source, &songs[i])
 		if err != nil {
-			return nil, err
+			return nil, errors.E(op, err)
 		}
 		songs[i].FillMetadata()
 	}
@@ -198,12 +202,12 @@ func (es *ElasticService) createSearchQuery2(query string) elastic.Query {
 }
 
 func (es *ElasticService) Update(ctx context.Context, songs ...radio.Song) error {
-	const op errors.Op = "elastic.Update"
+	const op errors.Op = "search/ElasticService.Update"
 	bulk := es.es.Bulk()
 
 	for _, song := range songs {
 		if !song.HasTrack() {
-			return errors.E(errors.SongWithoutTrack, op)
+			return errors.E(op, errors.SongWithoutTrack, song)
 		}
 
 		bulk = bulk.Add(es.createUpsertRequest(song))
@@ -211,7 +215,7 @@ func (es *ElasticService) Update(ctx context.Context, songs ...radio.Song) error
 
 	resp, err := bulk.Do(ctx)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 
 	log.Printf("search: elastic: indexed %d songs", len(resp.Items))
@@ -227,19 +231,19 @@ func (es *ElasticService) createUpsertRequest(song radio.Song) elastic.BulkableR
 }
 
 func (es *ElasticService) Delete(ctx context.Context, songs ...radio.Song) error {
-	const op errors.Op = "elastic.Delete"
+	const op errors.Op = "search/ElasticService.Delete"
 	bulk := es.es.Bulk()
 
 	for _, song := range songs {
 		if !song.HasTrack() {
-			return errors.E(errors.SongWithoutTrack, op)
+			return errors.E(op, errors.SongWithoutTrack, song)
 		}
 		bulk = bulk.Add(es.createDeleteRequest(song))
 	}
 
 	resp, err := bulk.Do(ctx)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 
 	log.Printf("search: elastic: deleted %d songs", len(resp.Items))
