@@ -116,7 +116,7 @@ type StreamerShim struct {
 func (ss StreamerShim) Start(ctx context.Context, _ *empty.Empty) (*StreamerResponse, error) {
 	err := ss.streamer.Start(ctx)
 	resp := new(StreamerResponse)
-	resp.UserError, err = toProtoUserError(err)
+	resp.Error, err = toProtoError(err)
 	return resp, err
 }
 
@@ -124,28 +124,16 @@ func (ss StreamerShim) Start(ctx context.Context, _ *empty.Empty) (*StreamerResp
 func (ss StreamerShim) Stop(ctx context.Context, force *wrappers.BoolValue) (*StreamerResponse, error) {
 	err := ss.streamer.Stop(ctx, force.Value)
 	resp := new(StreamerResponse)
-	resp.UserError, err = toProtoUserError(err)
+	resp.Error, err = toProtoError(err)
 	return resp, err
 }
 
 // RequestSong implements Streamer
 func (ss StreamerShim) RequestSong(ctx context.Context, req *SongRequest) (*RequestResponse, error) {
 	err := ss.streamer.RequestSong(ctx, fromProtoSong(req.Song), req.UserIdentifier)
-	if err == nil {
-		// special response for HTTP JSON callers
-		return &RequestResponse{
-			Success: true,
-			Msg:     "thank you for making your request!",
-		}, nil
-	}
-
-	// otherwise check if we got our user error type
-	uerr, ok := err.(radio.SongRequestError)
-	if ok {
-		return toProtoRequestResponse(uerr), nil
-	}
-
-	return new(RequestResponse), err
+	resp := new(RequestResponse)
+	resp.Error, err = toProtoError(err)
+	return resp, err
 }
 
 // Queue implements Streamer

@@ -132,7 +132,7 @@ func (s StreamerClient) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return fromProtoUserError(resp.UserError)
+	return fromProtoError(resp.Error)
 }
 
 // Stop implements radio.StreamerService
@@ -143,7 +143,7 @@ func (s StreamerClient) Stop(ctx context.Context, force bool) error {
 	if err != nil {
 		return err
 	}
-	return fromProtoUserError(resp.UserError)
+	return fromProtoError(resp.Error)
 }
 
 // RequestSong implements radio.StreamerService
@@ -160,7 +160,7 @@ func (s StreamerClient) RequestSong(ctx context.Context, song radio.Song, identi
 		return err
 	}
 
-	return fromProtoRequestResponse(resp)
+	return fromProtoError(resp.Error)
 }
 
 // Queue implements radio.StreamerService

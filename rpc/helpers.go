@@ -5,6 +5,7 @@ import (
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/golang/protobuf/ptypes"
 	duration "github.com/golang/protobuf/ptypes/duration"
 	timestamp "github.com/golang/protobuf/ptypes/timestamp"
@@ -183,66 +184,75 @@ func fromProtoDJ(d *DJ) radio.DJ {
 	}
 }
 
-func fromProtoRequestResponse(r *RequestResponse) error {
-	if r == nil || r.Success {
+func toProtoError(err error) ([]*Error, error) {
+	var stack []*Error
+
+	if err == nil {
+		return stack, nil
+	}
+
+	for {
+		e, ok := err.(*errors.Error)
+		if !ok {
+			stack = append(stack, &Error{
+				Error: err.Error(),
+			})
+			break
+		}
+
+		stack = append(stack, &Error{
+			Kind:    uint32(e.Kind),
+			Op:      string(e.Op),
+			SongId:  int32(e.SongID),
+			TrackId: int32(e.TrackID),
+			Delay:   dp(time.Duration(e.Delay)),
+			Info:    string(e.Info),
+		})
+
+		if e.Err == nil {
+			// no other nested errors
+			break
+		}
+		// else work on the next one
+		err = e.Err
+	}
+
+	return stack, nil
+}
+
+func fromProtoError(stack []*Error) error {
+	if len(stack) == 0 {
 		return nil
 	}
 
-	return radio.SongRequestError{
-		UserMessage: r.Msg,
-		UserDelay:   d(r.UserDelay),
-		SongDelay:   d(r.SongDelay),
+	var err *errors.Error
+	var prev *errors.Error
+	var top error
+	for i := 0; i < len(stack); i++ {
+		e := stack[i]
+
+		if e.Error != "" {
+			err = &errors.Error{
+				Err: errors.Errorf("%s", e.Error),
+			}
+		} else {
+			err = &errors.Error{
+				Kind:    errors.Kind(e.Kind),
+				Op:      errors.Op(e.Op),
+				SongID:  radio.SongID(e.SongId),
+				TrackID: radio.TrackID(e.TrackId),
+				Delay:   errors.Delay(d(e.Delay)),
+				Info:    errors.Info(e.Info),
+			}
+		}
+
+		if top == nil {
+			top = err
+		}
+
+		prev.Err = err
+		prev = err
 	}
-}
 
-func toProtoRequestResponse(err radio.SongRequestError) *RequestResponse {
-	return &RequestResponse{
-		Msg:       err.UserMessage,
-		UserDelay: dp(err.UserDelay),
-		SongDelay: dp(err.SongDelay),
-	}
-}
-
-func toProtoUserError(err error) (*UserError, error) {
-	if err == nil {
-		return nil, nil
-	}
-	uerr, ok := err.(radio.UserError)
-	if !ok {
-		return nil, err
-	}
-	return &UserError{
-		Public:    uerr.Public(),
-		UserError: uerr.UserError(),
-		Error:     uerr.Error(),
-	}, nil
-}
-
-func fromProtoUserError(err *UserError) error {
-	if err == nil {
-		return nil
-	}
-	return userError{
-		userError: err.UserError,
-		errorMsg:  err.Error,
-		public:    err.Public,
-	}
-}
-
-type userError struct {
-	userError string
-	errorMsg  string
-	public    bool
-}
-
-func (err userError) Error() string {
-	return err.errorMsg
-}
-
-func (err userError) UserError() string {
-	return err.userError
-}
-
-func (err userError) Public() bool {
-	return err.public
+	return top
 }
