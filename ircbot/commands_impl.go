@@ -231,7 +231,7 @@ func StreamerUserInfo(e Event) error {
 	// parse the topic so we can change it
 	match := reOtherTopicBit.FindStringSubmatch(channel.Topic)
 	if len(match) < 4 {
-		return errors.E(errors.BrokenTopic, op)
+		return errors.E(errors.BrokenTopic, op, errors.Info(channel.Topic))
 	}
 
 	// we get a []string back with all our groups, the first is the full match
