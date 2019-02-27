@@ -198,21 +198,19 @@ func (e Event) ArgumentTrack(key string) (*radio.Song, error) {
 
 	stringID := e.Arguments[key]
 	if stringID == "" {
-		return nil, errors.E(op, errors.InvalidArgument,
-			errors.Errorf("key '%s' not found in arguments", key))
+		return nil, errors.E(op, errors.InvalidArgument, errors.Info(key))
 	}
 
 	id, err := strconv.Atoi(stringID)
 	if err != nil {
-		return nil, errors.E(op, errors.InvalidArgument, err)
+		return nil, errors.E(op, errors.InvalidArgument, err, errors.Info(stringID))
 	}
 
 	track, err := database.GetTrack(e.Database(), radio.TrackID(id))
-	if err == nil {
-		return track, nil
+	if err != nil {
+		return nil, errors.E(op, err)
 	}
-
-	return nil, errors.E(op, err)
+	return track, nil
 }
 
 // CurrentTrack returns the currently playing song on the main stream configured
@@ -226,7 +224,7 @@ func (e Event) CurrentTrack() (*radio.Song, error) {
 
 	song, err := database.GetSongFromMetadata(e.Database(), status.Song.Metadata)
 	if err != nil {
-		return nil, errors.E(op, err)
+		return nil, errors.E(op, err, status.Song)
 	}
 
 	return song, nil
