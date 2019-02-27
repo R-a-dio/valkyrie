@@ -14,6 +14,9 @@ import (
 // Errorf is equalivant to fmt.Errorf
 var Errorf = fmt.Errorf
 
+// New is equalivant to errors.New
+var New = errors.New
+
 func E(args ...interface{}) error {
 	if len(args) == 0 {
 		panic("call to errors.E with no arguments")
