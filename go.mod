@@ -12,7 +12,7 @@ require (
 	github.com/lrstanley/girc v0.0.0-20190102153329-c1e59a02f488
 	github.com/mailru/easyjson v0.0.0-20180823135443-60711f1a8329 // indirect
 	github.com/olivere/elastic v6.2.16+incompatible
-	github.com/pkg/errors v0.8.0
+	github.com/pkg/errors v0.8.0 // indirect
 	github.com/tcolgate/mp3 v0.0.0-20170426193717-e79c5a46d300
 	github.com/twitchtv/twirp v5.5.1+incompatible
 	golang.org/x/sync v0.0.0-20181221193216-37e7f081c4d4
