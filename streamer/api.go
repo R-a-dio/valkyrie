@@ -139,7 +139,7 @@ func (s *streamerService) RequestSong(ctx context.Context, song radio.Song, iden
 	// check if the user is allowed to request
 	withDelay := userLastRequest.Add(time.Duration(s.Conf().UserRequestDelay))
 	if !userLastRequest.IsZero() && withDelay.After(time.Now()) {
-		d := withDelay.Sub(time.Now())
+		d := time.Until(withDelay)
 		return errors.E(op, errors.UserCooldown, errors.Delay(d), song)
 	}
 
