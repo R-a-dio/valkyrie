@@ -2,7 +2,6 @@ package streamer
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"math/rand"
@@ -13,6 +12,7 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/database"
+	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/streamer/audio"
 	"github.com/jmoiron/sqlx"
 )
@@ -28,24 +28,17 @@ const queueRequestThreshold = 10
 
 const queueName = "default"
 
-// ErrEmptyQueue is returned when the queue is empty
-var ErrEmptyQueue = errors.New("queue: empty")
-
-// ErrExhaustedQueue is returned when there aren't enough songs to return
-var ErrExhaustedQueue = errors.New("queue: exhausted")
-
-// ErrShortQueue is returned by population if it found less candidates than required
-var ErrShortQueue = errors.New("queue: not enough population candidates")
-
 // NewQueueService returns you a new QueueService with the configuration given
 func NewQueueService(ctx context.Context, cfg config.Config, db *sqlx.DB) (*QueueService, error) {
+	const op errors.Op = "streamer/NewQueueService"
+
 	ctx, cancel := context.WithTimeout(ctx, time.Second*5)
 	defer cancel()
 
 	storage := database.NewQueueStorage(db)
 	queue, err := storage.Load(ctx, queueName)
 	if err != nil {
-		return nil, err
+		return nil, errors.E(op, err)
 	}
 
 	qs := &QueueService{
@@ -56,10 +49,14 @@ func NewQueueService(ctx context.Context, cfg config.Config, db *sqlx.DB) (*Queu
 	}
 
 	if err = qs.populate(ctx); err != nil {
-		return nil, err
+		return nil, errors.E(op, err)
 	}
 
-	return qs, storage.Store(ctx, queueName, qs.queue)
+	if err = storage.Store(ctx, queueName, qs.queue); err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	return qs, nil
 }
 
 // QueueService implements radio.QueueService that uses a random population algorithm
@@ -113,6 +110,8 @@ func (qs *QueueService) calculateExpectedStartTime() {
 
 // AddRequest implements radio.QueueService
 func (qs *QueueService) AddRequest(ctx context.Context, song radio.Song, identifier string) error {
+	const op errors.Op = "streamer/QueueService.AddRequest"
+
 	qs.mu.Lock()
 	defer qs.mu.Unlock()
 
@@ -122,20 +121,26 @@ func (qs *QueueService) AddRequest(ctx context.Context, song radio.Song, identif
 		UserIdentifier: identifier,
 	})
 
-	return qs.storage.Store(ctx, queueName, qs.queue)
+	err := qs.storage.Store(ctx, queueName, qs.queue)
+	if err != nil {
+		return errors.E(op, err)
+	}
+	return nil
 }
 
 // ReserveNext implements radio.QueueService
 func (qs *QueueService) ReserveNext(ctx context.Context) (*radio.QueueEntry, error) {
+	const op errors.Op = "streamer/QueueService.ReserveNext"
+
 	qs.mu.Lock()
 	defer qs.mu.Unlock()
 
 	if len(qs.queue) == 0 {
-		return nil, ErrEmptyQueue
+		return nil, errors.E(op, errors.QueueEmpty)
 	}
 
 	if qs.reservedIndex == len(qs.queue) {
-		return nil, ErrExhaustedQueue
+		return nil, errors.E(op, errors.QueueExhausted)
 	}
 
 	entry := qs.queue[qs.reservedIndex]
@@ -157,6 +162,8 @@ func (qs *QueueService) ResetReserved(ctx context.Context) error {
 
 // Remove removes the song given from the queue
 func (qs *QueueService) Remove(ctx context.Context, entry radio.QueueEntry) (bool, error) {
+	const op errors.Op = "streamer/QueueService.Remove"
+
 	qs.mu.Lock()
 	defer qs.mu.Unlock()
 
@@ -192,18 +199,18 @@ func (qs *QueueService) Remove(ctx context.Context, entry radio.QueueEntry) (boo
 
 		err := qs.populate(ctx)
 		if err != nil {
-			log.Println(err)
+			log.Println(errors.E(op, err))
 		}
 
 		err = qs.storage.Store(ctx, queueName, qs.queue)
 		if err != nil {
-			log.Println(err)
+			log.Println(errors.E(op, err))
 		}
 	}()
 
 	err := qs.storage.Store(ctx, queueName, qs.queue)
 	if err != nil {
-		return false, err
+		return false, errors.E(op, err)
 	}
 
 	return size != len(qs.queue), nil
@@ -220,9 +227,11 @@ func (qs *QueueService) Entries(ctx context.Context) ([]radio.QueueEntry, error)
 }
 
 func (qs *QueueService) populate(ctx context.Context) error {
+	const op errors.Op = "streamer/QueueService.populate"
+
 	tx, err := database.HandleTx(ctx, qs.db)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 	defer tx.Rollback()
 
@@ -251,11 +260,11 @@ func (qs *QueueService) populate(ctx context.Context) error {
 
 	candidates, err := database.QueuePopulate(tx)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 
 	if len(candidates) == 0 {
-		return ErrShortQueue
+		return errors.E(op, errors.QueueShort)
 	}
 
 	// bookmarking so we can tell what happens here
@@ -314,7 +323,7 @@ outer:
 	// ended up still not being enough. So we do need to commit the track updates
 	err = tx.Commit()
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 
 	// we all okay so we can return, otherwise we want to log the reason we failed here
@@ -333,7 +342,7 @@ outer:
 		log.Printf("queue: %6d %s", i, err)
 	}
 
-	return ErrShortQueue
+	return errors.E(op, errors.QueueShort)
 }
 
 type skipped struct {
@@ -346,5 +355,5 @@ func (s skipped) Error() string {
 	if s.err == nil {
 		return fmt.Sprintf("<%d> %s", s.trackID, s.reason)
 	}
-	return fmt.Sprintf("<%d> %v", s.trackID, s.err)
+	return fmt.Sprintf("<%d> %s", s.trackID, s.err)
 }

@@ -2,7 +2,6 @@ package streamer
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"net/http/pprof"
 	"sync"
@@ -11,6 +10,7 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/database"
+	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/rpc"
 	"github.com/jmoiron/sqlx"
 )
@@ -65,15 +65,30 @@ func (s *streamerService) Start(_ context.Context) error {
 
 // Stop implements radio.StreamerService
 func (s *streamerService) Stop(ctx context.Context, force bool) error {
+	const op errors.Op = "streamer/streamerService.Stop"
+
+	var err error
 	if force {
-		return s.streamer.ForceStop(ctx)
+		err = s.streamer.ForceStop(ctx)
+	} else {
+		err = s.streamer.Stop(ctx)
 	}
-	return s.streamer.Stop(ctx)
+
+	if err != nil {
+		return errors.E(op, err)
+	}
+	return nil
 }
 
 // Queue implements radio.StreamerService
 func (s *streamerService) Queue(ctx context.Context) ([]radio.QueueEntry, error) {
-	return s.queue.Entries(ctx)
+	const op errors.Op = "streamer/streamerService.Queue"
+
+	queue, err := s.queue.Entries(ctx)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+	return queue, nil
 }
 
 // RequestSong implements radio.StreamerService
@@ -82,18 +97,18 @@ func (s *streamerService) Queue(ctx context.Context) ([]radio.QueueEntry, error)
 // either a GET or POST with parameters `track` and `identifier`, where `track` is the track number
 // to be requested, and `identifier` the unique identification used for the user (IP Address, hostname, etc)
 func (s *streamerService) RequestSong(ctx context.Context, song radio.Song, identifier string) error {
+	const op errors.Op = "streamer/streamerService.RequestSong"
+
 	if !s.Conf().Streamer.RequestsEnabled {
-		return radio.ErrRequestsDisabled
+		return errors.E(op, errors.StreamerNoRequests)
 	}
 
 	if identifier == "" {
-		log.Printf("request: empty identifier given")
-		return radio.ErrInvalidRequest
+		return errors.E(op, errors.InvalidArgument, errors.Info("identifier"))
 	}
 
 	if !song.HasTrack() && song.ID == 0 {
-		log.Println("request: empty song given")
-		return radio.ErrInvalidRequest
+		return errors.E(op, errors.InvalidArgument, errors.Info("song"), song)
 	}
 
 	// once we start using database state, we need to avoid other requests
@@ -103,7 +118,7 @@ func (s *streamerService) RequestSong(ctx context.Context, song radio.Song, iden
 
 	tx, err := database.HandleTx(ctx, s.DB)
 	if err != nil {
-		return err
+		return errors.E(op, err, song)
 	}
 	defer tx.Rollback()
 
@@ -111,57 +126,57 @@ func (s *streamerService) RequestSong(ctx context.Context, song radio.Song, iden
 	{
 		songRefresh, err := database.GetTrack(tx, song.TrackID)
 		if err != nil {
-			if err == database.ErrTrackNotFound {
-				return radio.ErrUnknownSong
-			}
-			return err
+			return errors.E(op, err, song)
 		}
 		song = *songRefresh
 	}
 	// find the last time this user requested a song
 	userLastRequest, err := database.UserRequestTime(tx, identifier)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 
 	// check if the user is allowed to request
 	withDelay := userLastRequest.Add(time.Duration(s.Conf().UserRequestDelay))
 	if !userLastRequest.IsZero() && withDelay.After(time.Now()) {
-		err := radio.ErrUserCooldown
-		err.UserDelay = time.Until(withDelay)
-		return err
+		d := withDelay.Sub(time.Now())
+		return errors.E(op, errors.UserCooldown, errors.Delay(d), song)
 	}
 
 	// check if the track can be decoded by the streamer
 	if !song.Usable {
-		return radio.ErrUnusableSong
+		return errors.E(op, errors.SongUnusable, song)
 	}
+
 	// check if the track wasn't recently played or requested
 	if !song.Requestable() {
-		err := radio.ErrSongCooldown
-		err.SongDelay = song.UntilRequestable()
-		return err
+		d := song.UntilRequestable()
+		return errors.E(op, errors.SongCooldown, errors.Delay(d), song)
 	}
 
 	// update the database to represent the request
 	err = database.UpdateUserRequestTime(tx, identifier, userLastRequest.IsZero())
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 	err = database.UpdateTrackRequestInfo(tx, song.TrackID)
 	if err != nil {
-		return err
+		return errors.E(op, err, song)
 	}
 
 	if err = tx.Commit(); err != nil {
-		return err
+		return errors.E(op, err)
 	}
 
 	// send the song to the queue
 	err = s.queue.AddRequest(ctx, song, identifier)
 	if err != nil {
-		return err
+		return errors.E(op, err, song)
 	}
 
-	return s.announce.AnnounceRequest(ctx, song)
+	err = s.announce.AnnounceRequest(ctx, song)
+	if err != nil {
+		return errors.E(op, err, song)
+	}
+	return nil
 }
