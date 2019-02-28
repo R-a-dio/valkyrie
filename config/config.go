@@ -1,10 +1,15 @@
 package config
 
 import (
+	crand "crypto/rand"
 	"io"
 	"log"
+	"math"
+	"math/big"
+	"math/rand"
 	"net/http"
 	"os"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -276,4 +281,54 @@ func (d *Duration) UnmarshalText(text []byte) error {
 	n, err := time.ParseDuration(string(text))
 	*d = Duration(n)
 	return err
+}
+
+// NewRand returns a fresh *rand.Rand seeded with either a crypto random seed or the
+// current time if that fails to succeed
+func NewRand(lock bool) *rand.Rand {
+	var seed int64
+
+	max := big.NewInt(math.MaxInt64)
+	n, err := crand.Int(crand.Reader, max)
+	if err != nil {
+		seed = time.Now().UnixNano()
+	} else {
+		seed = n.Int64()
+	}
+
+	src := rand.NewSource(seed)
+	if lock {
+		// wrap our source in a lock if the caller didn't specifically ask for no lock
+		if src64, ok := src.(rand.Source64); ok {
+			src = &lockedSource{src: src64}
+		} else {
+			panic("source returned by NewSource does not implement Source64")
+		}
+	}
+	return rand.New(src)
+}
+
+type lockedSource struct {
+	mu  sync.Mutex
+	src rand.Source64
+}
+
+func (ls *lockedSource) Int63() int64 {
+	ls.mu.Lock()
+	n := ls.src.Int63()
+	ls.mu.Unlock()
+	return n
+}
+
+func (ls *lockedSource) Seed(seed int64) {
+	ls.mu.Lock()
+	ls.src.Seed(seed)
+	ls.mu.Unlock()
+}
+
+func (ls *lockedSource) Uint64() uint64 {
+	ls.mu.Lock()
+	n := ls.src.Uint64()
+	ls.mu.Unlock()
+	return n
 }

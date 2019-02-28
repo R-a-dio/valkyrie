@@ -3,12 +3,12 @@ package ircbot
 import (
 	"context"
 	"log"
-	"math/rand"
 	"regexp"
 	"strings"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/database"
 	"github.com/R-a-dio/valkyrie/errors"
 )
@@ -467,6 +467,8 @@ func RandomTrackRequest(e Event) error {
 			return errors.E(op, err)
 		}
 	}
+
+	rand := config.NewRand(false)
 
 	// select songs randomly of what we have
 	for len(songs) > 0 {

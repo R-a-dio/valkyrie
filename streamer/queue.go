@@ -46,6 +46,7 @@ func NewQueueService(ctx context.Context, cfg config.Config, db *sqlx.DB) (*Queu
 		db:      db,
 		queue:   queue,
 		storage: storage,
+		rand:    config.NewRand(true),
 	}
 
 	if err = qs.populate(ctx); err != nil {
@@ -64,6 +65,7 @@ type QueueService struct {
 	config.Config
 	db      *sqlx.DB
 	storage radio.QueueStorage
+	rand    *rand.Rand
 
 	// mu protects the fields below
 	mu    sync.Mutex
@@ -279,7 +281,7 @@ outer:
 		}
 
 		// grab a candidate at random
-		n := rand.Intn(len(candidates))
+		n := qs.rand.Intn(len(candidates))
 		id := candidates[n]
 
 		candidates[n] = candidates[len(candidates)-1]
