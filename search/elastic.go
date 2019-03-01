@@ -151,9 +151,10 @@ func (es *ElasticService) DeleteIndex(ctx context.Context) error {
 	return nil
 }
 
+// Search implements radio.SearchService
 func (es *ElasticService) Search(ctx context.Context, query string, limit int, offset int) ([]radio.Song, error) {
 	const op errors.Op = "search/ElasticService.Search"
-	esQuery := es.createSearchQuery2(query)
+	esQuery := es.createSearchQuery(query)
 
 	action := es.es.Search().Index(songSearchIndex).
 		Query(esQuery).
@@ -191,16 +192,15 @@ func (es *ElasticService) Search(ctx context.Context, query string, limit int, o
 }
 
 func (es *ElasticService) createSearchQuery(query string) elastic.Query {
+	/* query_string version, this is what has been done historically
 	return elastic.NewQueryStringQuery(query).
 		Field("title").Field("artist").Field("album").Field("tags").Field("track_id").
-		DefaultOperator("AND")
-}
-
-func (es *ElasticService) createSearchQuery2(query string) elastic.Query {
+		DefaultOperator("AND") */
 	return elastic.NewMultiMatchQuery(query, "title", "artist", "album", "tags", "track_id").
 		Type("cross_fields").Operator("AND")
 }
 
+// Update implements radio.SearchService
 func (es *ElasticService) Update(ctx context.Context, songs ...radio.Song) error {
 	const op errors.Op = "search/ElasticService.Update"
 	bulk := es.es.Bulk()
@@ -230,6 +230,7 @@ func (es *ElasticService) createUpsertRequest(song radio.Song) elastic.BulkableR
 		Doc(song).DocAsUpsert(true)
 }
 
+// Delete implements radio.SearchService
 func (es *ElasticService) Delete(ctx context.Context, songs ...radio.Song) error {
 	const op errors.Op = "search/ElasticService.Delete"
 	bulk := es.es.Bulk()

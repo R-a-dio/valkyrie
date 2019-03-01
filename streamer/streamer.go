@@ -443,7 +443,7 @@ func (s *Streamer) encodeToMP3(task streamerTask) error {
 				// code at time of writing guarantees we either get data or an
 				// error, and never both. But we check for it to be sure
 				if mp3buf != nil {
-					// TODO: log warning
+					panic("streamer: encoder returned both data and error")
 				}
 				// encoding error, we should try flushing the encoder buffers
 				// and handling the data that was still in there

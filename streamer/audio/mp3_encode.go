@@ -132,7 +132,3 @@ func (l *LAME) Close() error {
 	l.flags = nil
 	return nil
 }
-
-func check(ret C.int) {
-	fmt.Println(int(ret))
-}

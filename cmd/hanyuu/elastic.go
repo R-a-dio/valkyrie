@@ -27,9 +27,7 @@ func (e elasticCmd) Usage() string {
 	return "elastic"
 }
 
-func (e elasticCmd) SetFlags(*flag.FlagSet) {
-	return
-}
+func (e elasticCmd) SetFlags(*flag.FlagSet) {}
 
 func (e elasticCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
 	cmder := subcommands.NewCommander(f, path.Base(os.Args[0])+" elastic")

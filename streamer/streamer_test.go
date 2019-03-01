@@ -55,11 +55,8 @@ func TestNewIcecastConn(t *testing.T) {
 				e <- "data not equal to testData"
 				return
 			}
-
-			return
 		},
 	))
 
 	_ = s
-	return
 }
