@@ -14,7 +14,6 @@ import (
 	"github.com/R-a-dio/valkyrie/database"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/search"
-	"github.com/jmoiron/sqlx"
 	"github.com/lrstanley/girc"
 )
 
@@ -62,7 +61,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 func NewBot(ctx context.Context, cfg config.Config) (*Bot, error) {
 	const op errors.Op = "irc/NewBot"
 
-	db, err := database.Connect(cfg)
+	storage, err := database.Open(cfg)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
@@ -90,7 +89,7 @@ func NewBot(ctx context.Context, cfg config.Config) (*Bot, error) {
 
 	b := &Bot{
 		Config:   cfg,
-		DB:       db,
+		Storage:  storage,
 		Manager:  c.Manager.Client(),
 		Streamer: c.Streamer.Client(),
 		Searcher: ss,
@@ -105,7 +104,7 @@ func NewBot(ctx context.Context, cfg config.Config) (*Bot, error) {
 
 type Bot struct {
 	config.Config
-	DB *sqlx.DB
+	Storage radio.StorageService
 
 	// interfaces to other components
 	Manager  radio.ManagerService

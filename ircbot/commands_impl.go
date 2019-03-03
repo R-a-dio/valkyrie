@@ -9,7 +9,6 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
-	"github.com/R-a-dio/valkyrie/database"
 	"github.com/R-a-dio/valkyrie/errors"
 )
 
@@ -21,7 +20,7 @@ func NowPlaying(e Event) error {
 	// in the announcement code
 	message := "Now playing:{red} '%s' {clear}[%s/%s](%s), %s, %s, {green}LP:{clear} %s"
 
-	status, err := e.Bot.Manager.Status(e.Context())
+	status, err := e.Bot.Manager.Status(e.Ctx)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -31,23 +30,29 @@ func NowPlaying(e Event) error {
 		return nil
 	}
 
+	ss := e.Storage.Song(e.Ctx)
 	// status returns a bare song; so refresh it from the db
-	track, err := database.GetSongFromMetadata(e.Database(), status.Song.Metadata)
+	song, err := ss.FromMetadata(status.Song.Metadata)
 	if err != nil {
 		return errors.E(op, err)
 	}
 
 	var lastPlayedDiff time.Duration
-	if !track.LastPlayed.IsZero() {
-		lastPlayedDiff = time.Since(track.LastPlayed)
+	if !song.LastPlayed.IsZero() {
+		lastPlayedDiff = time.Since(song.LastPlayed)
 	}
 
 	songPosition := time.Since(status.SongInfo.Start)
 	songLength := status.Song.Length
 
-	db := e.Database()
-	favoriteCount, _ := database.SongFaveCount(db, *track)
-	playedCount, _ := database.SongPlayedCount(db, *track)
+	favoriteCount, err := ss.FavoriteCount(*song)
+	if err != nil {
+		return errors.E(op, err)
+	}
+	playedCount, err := ss.PlayedCount(*song)
+	if err != nil {
+		return errors.E(op, err)
+	}
 
 	e.EchoPublic(message,
 		status.Song.Metadata,
@@ -64,7 +69,7 @@ func NowPlaying(e Event) error {
 func LastPlayed(e Event) error {
 	const op errors.Op = "irc/LastPlayed"
 
-	songs, err := database.GetLastPlayed(e.Database(), 0, 5)
+	songs, err := e.Storage.Song(e.Ctx).LastPlayed(0, 5)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -87,7 +92,7 @@ func StreamerQueue(e Event) error {
 	const op errors.Op = "irc/StreamerQueue"
 
 	// Get queue from streamer
-	songQueue, err := e.Bot.Streamer.Queue(e.Context())
+	songQueue, err := e.Bot.Streamer.Queue(e.Ctx)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -143,7 +148,7 @@ func StreamerQueueLength(e Event) error {
 	message := "There are %d requests (%s), %d randoms (%s), total of %d songs (%s)"
 
 	// Get queue from streamer
-	songQueue, err := e.Bot.Streamer.Queue(e.Context())
+	songQueue, err := e.Bot.Streamer.Queue(e.Ctx)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -195,7 +200,7 @@ func StreamerUserInfo(e Event) error {
 	name := e.Arguments["DJ"]
 	if name == "" || !HasAccess(e.Client, e.Event) {
 		// simple path with no argument or no access
-		status, err := e.Bot.Manager.Status(e.Context())
+		status, err := e.Bot.Manager.Status(e.Ctx)
 		if err != nil {
 			return errors.E(op, err)
 		}
@@ -214,7 +219,7 @@ func StreamerUserInfo(e Event) error {
 
 	// skip the name lookup if the name is None, since it means we are down and out
 	if name != "None" {
-		user, err = database.LookupNickname(e.Database(), name)
+		user, err = e.Storage.User(e.Ctx).LookupName(name)
 		if err != nil {
 			return errors.E(op, err)
 		}
@@ -223,7 +228,7 @@ func StreamerUserInfo(e Event) error {
 		user = &radio.User{}
 	}
 
-	err = e.Bot.Manager.UpdateUser(e.Context(), name, *user)
+	err = e.Bot.Manager.UpdateUser(e.Ctx, name, *user)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -254,12 +259,13 @@ func FaveTrack(e Event) error {
 
 	var song radio.Song
 
+	ss := e.Storage.Song(e.Ctx)
 	if e.Arguments.Bool("relative") {
 		// for when `last` is given as argument
 
 		// count the amount of `last`'s used to determine how far back we should go
 		index := strings.Count(e.Arguments["relative"], "last") - 1
-		songs, err := database.GetLastPlayed(e.Database(), index, 1)
+		songs, err := ss.LastPlayed(index, 1)
 		if err != nil {
 			return errors.E(op, err)
 		}
@@ -281,12 +287,12 @@ func FaveTrack(e Event) error {
 	}
 
 	// now check to see if we want to favorite or unfavorite something
-	var dbFunc = database.FaveSong
+	var dbFunc = ss.AddFavorite
 	if e.Arguments.Bool("isNegative") {
-		dbFunc = database.UnfaveSong
+		dbFunc = ss.RemoveFavorite
 	}
 
-	changed, err := dbFunc(e.Database(), e.Source.Name, song)
+	changed, err := dbFunc(song, e.Source.Name)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -328,13 +334,13 @@ func ThreadURL(e Event) error {
 	thread := e.Arguments["thread"]
 
 	if thread != "" && HasStreamAccess(e.Client, e.Event) {
-		err := e.Bot.Manager.UpdateThread(e.Context(), thread)
+		err := e.Bot.Manager.UpdateThread(e.Ctx, thread)
 		if err != nil {
 			return errors.E(op, err)
 		}
 	}
 
-	resp, err := e.Bot.Manager.Status(e.Context())
+	resp, err := e.Bot.Manager.Status(e.Ctx)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -405,10 +411,10 @@ func KillStreamer(e Event) error {
 			return errors.E(op, err)
 		}
 	case <-time.After(time.Second):
-	case <-e.Context().Done():
+	case <-e.Ctx.Done():
 	}
 
-	status, err := e.Bot.Manager.Status(e.Context())
+	status, err := e.Bot.Manager.Status(e.Ctx)
 	if err != nil {
 		e.EchoPublic("Disconnecting after the current song")
 	} else {
@@ -450,19 +456,19 @@ func RandomTrackRequest(e Event) error {
 			nickname = nick
 		}
 
-		songs, err = database.GetSongFavoritesOf(e.Database(), nickname)
+		songs, err = e.Storage.Song(e.Ctx).FavoritesOf(nickname)
 		if err != nil {
 			return errors.E(op, err)
 		}
 	} else if query != "" {
 		// query random, select of top 100 results
-		songs, err = e.Bot.Searcher.Search(e.Context(), query, 100, 0)
+		songs, err = e.Bot.Searcher.Search(e.Ctx, query, 100, 0)
 		if err != nil {
 			return errors.E(op, err)
 		}
 	} else {
 		// purely random, just select from all tracks
-		songs, err = database.AllTracks(e.Database())
+		songs, err = e.Storage.Track(e.Ctx).All()
 		if err != nil {
 			return errors.E(op, err)
 		}
@@ -484,7 +490,7 @@ func RandomTrackRequest(e Event) error {
 		}
 
 		// try requesting the song
-		err = e.Bot.Streamer.RequestSong(e.Context(), song, e.Source.Host)
+		err = e.Bot.Streamer.RequestSong(e.Ctx, song, e.Source.Host)
 		if err == nil {
 			// finished and requested a song successfully
 			return nil
@@ -513,7 +519,7 @@ func LuckyTrackRequest(e Event) error {
 		return nil
 	}
 
-	res, err := e.Bot.Searcher.Search(e.Context(), query, 100, 0)
+	res, err := e.Bot.Searcher.Search(e.Ctx, query, 100, 0)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -523,7 +529,7 @@ func LuckyTrackRequest(e Event) error {
 			continue
 		}
 
-		err = e.Bot.Streamer.RequestSong(e.Context(), song, e.Source.Host)
+		err = e.Bot.Streamer.RequestSong(e.Ctx, song, e.Source.Host)
 		if err == nil {
 			// finished and requested a song successfully
 			return nil
@@ -558,7 +564,7 @@ func SearchTrack(e Event) error {
 		songs = []radio.Song{*song}
 	} else {
 		query := e.Arguments["Query"]
-		songs, err = e.Bot.Searcher.Search(e.Context(), query, 5, 0)
+		songs, err = e.Bot.Searcher.Search(e.Ctx, query, 5, 0)
 		if err != nil {
 			return errors.E(op, err)
 		}
@@ -611,7 +617,7 @@ func RequestTrack(e Event) error {
 		return errors.E(op, err)
 	}
 
-	err = e.Bot.Streamer.RequestSong(e.Context(), *song, e.Source.Host)
+	err = e.Bot.Streamer.RequestSong(e.Ctx, *song, e.Source.Host)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -682,7 +688,7 @@ func LastRequestInfo(e Event) error {
 		withArgument = true
 	}
 
-	t, err := database.UserRequestTime(e.Database(), host)
+	t, err := e.Storage.Request(e.Ctx).LastRequest(host)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -735,47 +741,53 @@ func TrackInfo(e Event) error {
 		"Accepter: {red}%s {clear}" +
 		"Tags: {red}%s {clear}"
 
-	track, err := e.ArgumentTrack("TrackID")
+	song, err := e.ArgumentTrack("TrackID")
 	if err != nil {
-		track, err = e.CurrentTrack()
+		song, err = e.CurrentTrack()
 		if err != nil {
 			return errors.E(op, err)
 		}
 	}
 
-	if !track.HasTrack() {
+	if !song.HasTrack() {
 		e.EchoPrivate("Song is not in the database")
 		return nil
 	}
 
-	db := e.Database()
-	favoriteCount, _ := database.SongFaveCount(db, *track)
-	playedCount, _ := database.SongPlayedCount(db, *track)
+	ss := e.Storage.Song(e.Ctx)
+	favoriteCount, err := ss.FavoriteCount(*song)
+	if err != nil {
+		return errors.E(op, err)
+	}
+	playedCount, err := ss.PlayedCount(*song)
+	if err != nil {
+		return errors.E(op, err)
+	}
 
 	// calculate the time remaining until this can be requested again
 	var cooldownIndicator = "!"
 	{
-		compareTime := track.LastPlayed
-		if track.LastRequested.After(track.LastPlayed) {
-			compareTime = track.LastRequested
+		compareTime := song.LastPlayed
+		if song.LastRequested.After(song.LastPlayed) {
+			compareTime = song.LastRequested
 		}
 
-		leftover := track.RequestDelay - time.Since(compareTime)
+		leftover := song.RequestDelay - time.Since(compareTime)
 		if leftover > 0 {
 			cooldownIndicator = FormatDuration(leftover, time.Second)
 		}
 	}
 
 	e.Echo(message,
-		track.TrackID,
-		track.Metadata,
+		song.TrackID,
+		song.Metadata,
 		favoriteCount,
 		playedCount,
-		track.RequestCount,
-		track.Priority,
-		FormatDuration(track.RequestDelay, time.Second), cooldownIndicator,
-		track.Acceptor,
-		track.Tags,
+		song.RequestCount,
+		song.Priority,
+		FormatDuration(song.RequestDelay, time.Second), cooldownIndicator,
+		song.Acceptor,
+		song.Tags,
 	)
 
 	return nil
@@ -790,9 +802,9 @@ func TrackTags(e Event) error {
 		"Plays: {red}%d {clear}" +
 		"Tags: {red}%s {clear}"
 
-	track, err := e.ArgumentTrack("TrackID")
+	song, err := e.ArgumentTrack("TrackID")
 	if err != nil {
-		track, err = e.CurrentTrack()
+		song, err = e.CurrentTrack()
 		if err != nil {
 			return errors.E(op, err)
 		}
@@ -800,16 +812,22 @@ func TrackTags(e Event) error {
 
 	var album string
 	var tags = "no tags available"
-	if track.DatabaseTrack != nil {
-		album, tags = track.Album, track.Tags
+	if song.HasTrack() {
+		album, tags = song.Album, song.Tags
 	}
 
-	db := e.Database()
-	favoriteCount, _ := database.SongFaveCount(db, *track)
-	playedCount, _ := database.SongPlayedCount(db, *track)
+	ss := e.Storage.Song(e.Ctx)
+	favoriteCount, err := ss.FavoriteCount(*song)
+	if err != nil {
+		return errors.E(op, err)
+	}
+	playedCount, err := ss.PlayedCount(*song)
+	if err != nil {
+		return errors.E(op, err)
+	}
 
 	e.Echo(message,
-		track.Metadata,
+		song.Metadata,
 		album,
 		favoriteCount,
 		playedCount,
