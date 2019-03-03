@@ -406,9 +406,9 @@ type QueueStorageService interface {
 // QueueStorage stores a queue
 type QueueStorage interface {
 	// Store stores the queue with the name given
-	Store(ctx context.Context, name string, queue []QueueEntry) error
+	Store(name string, queue []QueueEntry) error
 	// Load returns the queue associated with the name given
-	Load(ctx context.Context, name string) ([]QueueEntry, error)
+	Load(name string) ([]QueueEntry, error)
 }
 
 // SongStorageService is a service able to supply a SongStorage
