@@ -383,6 +383,11 @@ func (t *DatabaseTrack) HasTrack() bool {
 	return t != nil
 }
 
+type StorageTx interface {
+	Commit() error
+	Rollback() error
+}
+
 // StorageService is an interface containing all *StorageService interfaces
 type StorageService interface {
 	QueueStorageService
@@ -395,6 +400,7 @@ type StorageService interface {
 // QueueStorageService is a service able to supply a QueueStorage
 type QueueStorageService interface {
 	Queue(context.Context) QueueStorage
+	QueueTx(context.Context, StorageTx) (QueueStorage, StorageTx, error)
 }
 
 // QueueStorage stores a queue
@@ -408,6 +414,7 @@ type QueueStorage interface {
 // SongStorageService is a service able to supply a SongStorage
 type SongStorageService interface {
 	Song(context.Context) SongStorage
+	SongTx(context.Context, StorageTx) (SongStorage, StorageTx, error)
 }
 
 // SongStorage stores information about songs
@@ -450,6 +457,7 @@ type SongStorage interface {
 // TrackStorageService is a service able to supply a TrackStorage
 type TrackStorageService interface {
 	Track(context.Context) TrackStorage
+	TrackTx(context.Context, StorageTx) (TrackStorage, StorageTx, error)
 }
 
 // TrackStorage stores information about tracks
@@ -480,6 +488,7 @@ type TrackStorage interface {
 // RequestStorageService is a service able to supply a RequestStorage
 type RequestStorageService interface {
 	Request(context.Context) RequestStorage
+	RequestTx(context.Context, StorageTx) (RequestStorage, StorageTx, error)
 }
 
 // RequestStorage stores things related to automated streamer song requests
@@ -495,6 +504,7 @@ type RequestStorage interface {
 // UserStorageService is a service able to supply a UserStorage
 type UserStorageService interface {
 	User(context.Context) UserStorage
+	UserTx(context.Context, StorageTx) (UserStorage, StorageTx, error)
 }
 
 // UserStorage stores things related to users with actual accounts on the website
