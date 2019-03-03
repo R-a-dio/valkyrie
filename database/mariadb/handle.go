@@ -155,6 +155,12 @@ func (s *StorageService) UserTx(ctx context.Context, tx radio.StorageTx) (radio.
 	return storage, txx, nil
 }
 
+func (s *StorageService) Status(ctx context.Context) radio.StatusStorage {
+	return StatusStorage{
+		handle: handle{s.db, ctx},
+	}
+}
+
 type extContext interface {
 	sqlx.ExecerContext
 	sqlx.QueryerContext
