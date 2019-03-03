@@ -2,7 +2,6 @@ package manager
 
 import (
 	"context"
-	"database/sql"
 	"log"
 	"net"
 	"sync"
@@ -11,7 +10,6 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/database"
-	"github.com/jmoiron/sqlx"
 )
 
 // Execute executes a manager with the context and configuration given; it returns with
@@ -54,15 +52,15 @@ var ExecuteListener = NewListener
 
 // NewManager returns a manager ready for use
 func NewManager(ctx context.Context, cfg config.Config) (*Manager, error) {
-	db, err := database.Connect(cfg)
+	storage, err := database.Open(cfg)
 	if err != nil {
 		return nil, err
 	}
 
 	m := Manager{
-		Config: cfg,
-		DB:     db,
-		status: radio.Status{},
+		Config:  cfg,
+		Storage: storage,
+		status:  radio.Status{},
 	}
 
 	old, err := m.loadStreamStatus(ctx)
@@ -79,7 +77,7 @@ func NewManager(ctx context.Context, cfg config.Config) (*Manager, error) {
 // Manager manages shared state between different processes
 type Manager struct {
 	config.Config
-	DB *sqlx.DB
+	Storage radio.StorageService
 
 	// Other components
 	client struct {
@@ -105,57 +103,7 @@ func (m *Manager) updateStreamStatus() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
 		defer cancel()
 
-		h := database.Handle(ctx, m.DB)
-
-		// we either want to do an UPDATE or an INSERT if our row doesn't exist
-		var queries = []string{`
-		UPDATE
-			streamstatus
-		SET
-			djid=:user.dj.id,
-			np=:song.metadata,
-			listeners=:listeners,
-			bitrate=192000,
-			isafkstream=0,
-			isstreamdesk=0,
-			start_time=UNIX_TIMESTAMP(:songinfo.start),
-			end_time=UNIX_TIMESTAMP(:songinfo.end),
-			trackid=:song.trackid,
-			thread=:thread,
-			requesting=:requestsenabled,
-			djname=:streamername,
-			lastset=NOW()
-		WHERE
-			id=0;
-		`, `
-		INSERT INTO
-			streamstatus
-		(
-			id,
-			djid,
-			np,
-			listeners,
-			isafkstream,
-			start_time,
-			end_time,
-			trackid,
-			thread,
-			requesting,
-			djname
-		) VALUES (
-			0,
-			:user.dj.id,
-			:song.metadata,
-			:listeners,
-			0,
-			UNIX_TIMESTAMP(:songinfo.start),
-			UNIX_TIMESTAMP(:songinfo.end),
-			:song.trackid,
-			:thread,
-			:requestsenabled,
-			:streamername
-		);
-		`}
+		ss := m.Storage.Status(ctx)
 
 		// do some minor adjustments so that we can safely pass the status object
 		// straight to the Exec
@@ -167,24 +115,10 @@ func (m *Manager) updateStreamStatus() {
 			status.SongInfo.End = status.SongInfo.Start
 		}
 
-		// now try the UPDATE and if that fails do the same with an INSERT
-		for _, query := range queries {
-			query, args, err := sqlx.Named(query, status)
-			if err != nil {
-				log.Printf("manager: error: %v", err)
-				return
-			}
-
-			res, err := h.Exec(query, args...)
-			if err != nil {
-				log.Printf("manager: error: %v", err)
-				return
-			}
-
-			// check if we've successfully updated, otherwise we need to do an insert
-			if i, err := res.RowsAffected(); err != nil || i > 0 {
-				return
-			}
+		err := ss.Store(status)
+		if err != nil {
+			log.Printf("manager: error: %v", err)
+			return
 		}
 	}()
 }
@@ -192,46 +126,26 @@ func (m *Manager) updateStreamStatus() {
 // loadStreamStatus is to load the legacy streamstatus table, we should only do this
 // at startup
 func (m *Manager) loadStreamStatus(ctx context.Context) (*radio.Status, error) {
-	h := database.Handle(ctx, m.DB)
-
-	var query = `
-	SELECT
-		djid AS 'user.dj.id',
-		np AS 'song.metadata',
-		listeners,
-		from_unixtime(start_time) AS 'songinfo.start',
-		from_unixtime(end_time) AS 'songinfo.end',
-		trackid AS 'song.trackid',
-		thread,
-		requesting AS requestsenabled,
-		djname AS 'streamername'
-	FROM
-		streamstatus
-	WHERE
-		id=0
-	LIMIT 1;
-	`
-	var status radio.Status
-
-	err := sqlx.Get(h, &status, query)
-	if err != nil && err != sql.ErrNoRows {
+	status, err := m.Storage.Status(ctx).Load()
+	if err != nil {
 		return nil, err
 	}
 
-	// see if we can get a full song from the database
+	// see if we can get more complete data than what we already have
 	if status.Song.Metadata != "" {
-		song, err := database.GetSongFromMetadata(h, status.Song.Metadata)
+		song, err := m.Storage.Song(ctx).FromMetadata(status.Song.Metadata)
 		if err == nil {
 			status.Song = *song
 		}
-
-		user, err := database.LookupNickname(h, status.StreamerName)
+	}
+	if status.StreamerName != "" {
+		user, err := m.Storage.User(ctx).LookupName(status.StreamerName)
 		if err == nil {
 			status.User = *user
 		}
 	}
 
-	return &status, nil
+	return status, nil
 }
 
 // tryStartStreamer tries to start the streamer after waiting the timeout period given

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
-	"github.com/R-a-dio/valkyrie/database"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/rpc"
 )
@@ -99,7 +98,7 @@ func (m *Manager) UpdateSong(ctx context.Context, new radio.Song, info radio.Son
 	// otherwise continue like it's a new song
 	defer m.updateStreamStatus()
 
-	tx, err := database.HandleTx(ctx, m.DB)
+	ss, tx, err := m.Storage.SongTx(ctx, nil)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -107,14 +106,14 @@ func (m *Manager) UpdateSong(ctx context.Context, new radio.Song, info radio.Son
 
 	// we assume that the song we received has very little or no data except for the
 	// Metadata field. So we try and find more info from that
-	song, err := database.GetSongFromMetadata(tx, new.Metadata)
+	song, err := ss.FromMetadata(new.Metadata)
 	if err != nil && !errors.Is(errors.SongUnknown, err) {
 		return errors.E(op, err)
 	}
 
 	// if we don't have this song in the database create a new entry for it
 	if song == nil {
-		song, err = database.CreateSong(tx, new.Metadata)
+		song, err = ss.Create(new.Metadata)
 		if err != nil {
 			return errors.E(op, err)
 		}
@@ -157,14 +156,6 @@ func (m *Manager) UpdateSong(ctx context.Context, new radio.Song, info radio.Son
 
 	log.Printf("manager: set song: \"%s\" (%s)\n", song.Metadata, song.Length)
 
-	// finish up database work for the previous song
-	err = m.handlePreviousSong(tx, prev, prevInfo, listenerCountDiff, isRobot)
-	if err == nil {
-		tx.Commit()
-	} else {
-		tx.Rollback()
-	}
-
 	// announce the new song over a chat service
 	err = m.client.announce.AnnounceSong(ctx, announceStatus)
 	if err != nil {
@@ -172,41 +163,47 @@ func (m *Manager) UpdateSong(ctx context.Context, new radio.Song, info radio.Son
 		log.Printf("%s: failed to announce song: %s", op, err)
 	}
 
-	return nil
-}
-
-func (m *Manager) handlePreviousSong(tx database.HandlerTx, song radio.Song, info radio.SongInfo, listenerDiff *int, isRobot bool) error {
-	const op errors.Op = "manager/Manager.handlePreviousSong"
-
-	// protect against zero-d Song's
-	if song.ID == 0 {
+	// =============================================
+	// finish up database work for the previous song
+	//
+	// after this point, any reference to the `song` variable is an error, so we
+	// make it nil so it will panic if done by mistake
+	song = nil
+	if prev.ID == 0 { // protect against a zero'd song
 		return nil
 	}
 
-	// insert an entry that the previous song just played
-	err := database.InsertPlayedSong(tx, song.ID, listenerDiff)
+	// insert a played entry
+	err = ss.AddPlay(prev, listenerCountDiff)
 	if err != nil {
-		log.Printf("manager: unable to insert play history: %s", err)
-		return errors.E(op, err, song)
+		return errors.E(op, err)
 	}
-	// update our other lastplayed field if the streamer is a robot and the song has
-	// a database track
-	if song.HasTrack() && isRobot {
-		err := database.UpdateTrackPlayTime(tx, song.TrackID)
+
+	// update lastplayed if the streamer is a robot and the song has a track
+	if prev.HasTrack() && isRobot {
+		ts, _, err := m.Storage.TrackTx(ctx, tx)
 		if err != nil {
-			return errors.E(op, err, song)
+			return errors.E(op, err)
+		}
+
+		err = ts.UpdateLastPlayed(prev.TrackID)
+		if err != nil {
+			return errors.E(op, err, prev)
 		}
 	}
 
-	if song.Length == 0 {
-		length := time.Since(info.Start)
-
-		err = database.UpdateSongLength(tx, song.ID, length)
+	// update song length only if it didn't already have one
+	if prev.Length == 0 {
+		err = ss.UpdateLength(prev, time.Since(prevInfo.Start))
 		if err != nil {
-			return errors.E(op, err, song)
+			return errors.E(op, err, prev)
 		}
 	}
 
+	err = tx.Commit()
+	if err != nil {
+		return errors.E(op, errors.TransactionCommit, err, prev)
+	}
 	return nil
 }
 

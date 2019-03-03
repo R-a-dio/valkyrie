@@ -395,6 +395,7 @@ type StorageService interface {
 	TrackStorageService
 	RequestStorageService
 	UserStorageService
+	StatusStorageService
 }
 
 // QueueStorageService is a service able to supply a QueueStorage
@@ -522,4 +523,17 @@ type UserStorage interface {
 	LookupName(name string) (*User, error)
 	// RecordListeners records a history of listener count
 	RecordListeners(int, User) error
+}
+
+// StatusStorageService is a service able to supply a StatusStorage
+type StatusStorageService interface {
+	Status(context.Context) StatusStorage
+}
+
+// StatusStorage stores a Status structure
+type StatusStorage interface {
+	// Store stores the Status given
+	Store(Status) error
+	// Load returns the previously stored Status
+	Load() (*Status, error)
 }
