@@ -11,9 +11,9 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
-	"github.com/R-a-dio/valkyrie/database"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/search"
+	"github.com/R-a-dio/valkyrie/storage"
 	"github.com/lrstanley/girc"
 )
 
@@ -61,7 +61,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 func NewBot(ctx context.Context, cfg config.Config) (*Bot, error) {
 	const op errors.Op = "irc/NewBot"
 
-	storage, err := database.Open(cfg)
+	store, err := storage.Open(cfg)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
@@ -89,7 +89,7 @@ func NewBot(ctx context.Context, cfg config.Config) (*Bot, error) {
 
 	b := &Bot{
 		Config:   cfg,
-		Storage:  storage,
+		Storage:  store,
 		Manager:  c.Manager.Client(),
 		Streamer: c.Streamer.Client(),
 		Searcher: ss,

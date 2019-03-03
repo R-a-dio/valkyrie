@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/R-a-dio/valkyrie/config"
-	"github.com/R-a-dio/valkyrie/database"
 	"github.com/R-a-dio/valkyrie/search"
+	"github.com/R-a-dio/valkyrie/storage"
 )
 
 const duration = time.Hour * 24 * 11
@@ -23,12 +23,12 @@ const (
 // ExecuteRequestCount drops the requestcount of all tracks by 1 if they have not been
 // requested within the specified duration.
 func ExecuteRequestCount(ctx context.Context, cfg config.Config) error {
-	storage, err := database.Open(cfg)
+	store, err := storage.Open(cfg)
 	if err != nil {
 		return err
 	}
 
-	ts, tx, err := storage.TrackTx(ctx, nil)
+	ts, tx, err := store.TrackTx(ctx, nil)
 	if err != nil {
 		return err
 	}

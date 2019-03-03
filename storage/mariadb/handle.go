@@ -7,13 +7,13 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
-	"github.com/R-a-dio/valkyrie/database"
+	"github.com/R-a-dio/valkyrie/storage"
 	_ "github.com/go-sql-driver/mysql" // mariadb
 	"github.com/jmoiron/sqlx"
 )
 
 func init() {
-	database.Register("mariadb", Connect)
+	storage.Register("mariadb", Connect)
 }
 
 // specialCasedColumnNames is a map of Go <StructField> to SQL <ColumnName>

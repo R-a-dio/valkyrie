@@ -6,17 +6,17 @@ import (
 	"path/filepath"
 
 	"github.com/R-a-dio/valkyrie/config"
-	"github.com/R-a-dio/valkyrie/database"
+	"github.com/R-a-dio/valkyrie/storage"
 	"github.com/R-a-dio/valkyrie/streamer/audio"
 )
 
 func ExecuteVerifier(ctx context.Context, cfg config.Config) error {
-	storage, err := database.Open(cfg)
+	store, err := storage.Open(cfg)
 	if err != nil {
 		return err
 	}
 
-	ts := storage.Track(ctx)
+	ts := store.Track(ctx)
 
 	songs, err := ts.Unusable()
 	if err != nil {

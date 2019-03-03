@@ -1,4 +1,4 @@
-package database
+package storage
 
 import (
 	radio "github.com/R-a-dio/valkyrie"
