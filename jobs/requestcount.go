@@ -5,11 +5,9 @@ import (
 	"log"
 	"time"
 
-	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/database"
-
-	"github.com/jmoiron/sqlx"
+	"github.com/R-a-dio/valkyrie/search"
 )
 
 const duration = time.Hour * 24 * 11
@@ -25,34 +23,44 @@ const (
 // ExecuteRequestCount drops the requestcount of all tracks by 1 if they have not been
 // requested within the specified duration.
 func ExecuteRequestCount(ctx context.Context, cfg config.Config) error {
-	db, err := database.Connect(cfg)
+	storage, err := database.Open(cfg)
 	if err != nil {
 		return err
 	}
 
-	h, err := database.HandleTx(ctx, db)
+	ts, tx, err := storage.TrackTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	defer h.Rollback()
+	defer tx.Rollback()
 
-	var ids = []radio.TrackID{}
-	err = sqlx.Select(h, &ids, selectRC, duration.Seconds())
-	if err != nil {
-		return err
-	}
-
-	_, err = h.Exec(updateRC, duration.Seconds())
-	if err != nil {
-		return err
-	}
-	err = h.Commit()
+	before := time.Now().Add(-duration)
+	songs, err := ts.BeforeLastRequested(before)
 	if err != nil {
 		return err
 	}
 
-	// TODO: update search index for the specified tracks
+	err = ts.DecrementRequestCount(before)
+	if err != nil {
+		return err
+	}
 
-	log.Printf("requestcount: processed %d tracks\n", len(ids))
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+
+	// update search index
+	search, err := search.NewElasticSearchService(ctx, cfg)
+	if err != nil {
+		return err
+	}
+
+	err = search.Update(ctx, songs...)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("requestcount: processed %d tracks\n", len(songs))
 	return nil
 }

@@ -49,6 +49,8 @@ type StorageService struct {
 	db *sqlx.DB
 }
 
+// tx either unwraps the tx given to a *sqlx.Tx, or creates a new transaction if tx is
+// nil. Passing in a StorageTx not returned by this package will panic
 func (s *StorageService) tx(ctx context.Context, tx radio.StorageTx) (*sqlx.Tx, error) {
 	if tx == nil {
 		// new transaction

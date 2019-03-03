@@ -55,3 +55,16 @@ func (us UserStorage) LookupName(name string) (*radio.User, error) {
 
 	return nil, errors.E(op, errors.UserUnknown, errors.Info(name))
 }
+
+// RecordListeners implements radio.UserStorage
+func (us UserStorage) RecordListeners(listeners int, user radio.User) error {
+	const op errors.Op = "mariadb/UserStorage.RecordListeners"
+
+	var query = `INSERT INTO listenlog (listeners, dj) VALUES (?, ?);`
+
+	_, err := us.handle.Exec(query, listeners, user.ID)
+	if err != nil {
+		return errors.E(op, err)
+	}
+	return nil
+}

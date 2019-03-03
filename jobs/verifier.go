@@ -5,20 +5,20 @@ import (
 	"log"
 	"path/filepath"
 
-	"github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/database"
 	"github.com/R-a-dio/valkyrie/streamer/audio"
 )
 
 func ExecuteVerifier(ctx context.Context, cfg config.Config) error {
-	db, err := database.Connect(cfg)
+	storage, err := database.Open(cfg)
 	if err != nil {
 		return err
 	}
-	h := database.Handle(ctx, db)
 
-	songs, err := database.GetUnusableTracks(h)
+	ts := storage.Track(ctx)
+
+	songs, err := ts.Unusable()
 	if err != nil {
 		return err
 	}
@@ -38,7 +38,7 @@ func ExecuteVerifier(ctx context.Context, cfg config.Config) error {
 			continue
 		}
 
-		err = markUsable(h, song)
+		err = ts.UpdateUsable(song, 1)
 		if err != nil {
 			log.Printf("verify: failed to mark as usable: (%d): %s", song.TrackID, err)
 			continue
@@ -47,22 +47,6 @@ func ExecuteVerifier(ctx context.Context, cfg config.Config) error {
 		log.Printf("verify: success: (%d) %s", song.TrackID, song.Metadata)
 	}
 
-	return nil
-}
-
-func markUsable(h database.Handler, song radio.Song) error {
-	var query = `
-	UPDATE
-		tracks
-	SET
-		usable=1
-	WHERE
-		id=?;
-	`
-	_, err := h.Exec(query, song.TrackID)
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
