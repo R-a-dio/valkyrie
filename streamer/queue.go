@@ -11,10 +11,8 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
-	"github.com/R-a-dio/valkyrie/database"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/streamer/audio"
-	"github.com/jmoiron/sqlx"
 )
 
 // queueMinimumLength is the minimum amount of songs required to be
@@ -29,23 +27,21 @@ const queueRequestThreshold = 10
 const queueName = "default"
 
 // NewQueueService returns you a new QueueService with the configuration given
-func NewQueueService(ctx context.Context, cfg config.Config, db *sqlx.DB) (*QueueService, error) {
+func NewQueueService(ctx context.Context, cfg config.Config, storage radio.StorageService) (*QueueService, error) {
 	const op errors.Op = "streamer/NewQueueService"
 
 	ctx, cancel := context.WithTimeout(ctx, time.Second*5)
 	defer cancel()
 
-	storage := database.NewQueueStorage(db)
-	queue, err := storage.Load(ctx, queueName)
+	queue, err := storage.Queue(ctx).Load(queueName)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
 
 	qs := &QueueService{
 		Config:  cfg,
-		db:      db,
+		Storage: storage,
 		queue:   queue,
-		storage: storage,
 		rand:    config.NewRand(true),
 	}
 
@@ -53,7 +49,7 @@ func NewQueueService(ctx context.Context, cfg config.Config, db *sqlx.DB) (*Queu
 		return nil, errors.E(op, err)
 	}
 
-	if err = storage.Store(ctx, queueName, qs.queue); err != nil {
+	if err = storage.Queue(ctx).Store(queueName, qs.queue); err != nil {
 		return nil, errors.E(op, err)
 	}
 
@@ -63,8 +59,7 @@ func NewQueueService(ctx context.Context, cfg config.Config, db *sqlx.DB) (*Queu
 // QueueService implements radio.QueueService that uses a random population algorithm
 type QueueService struct {
 	config.Config
-	db      *sqlx.DB
-	storage radio.QueueStorage
+	Storage radio.StorageService
 	rand    *rand.Rand
 
 	// mu protects the fields below
@@ -123,7 +118,7 @@ func (qs *QueueService) AddRequest(ctx context.Context, song radio.Song, identif
 		UserIdentifier: identifier,
 	})
 
-	err := qs.storage.Store(ctx, queueName, qs.queue)
+	err := qs.Storage.Queue(ctx).Store(queueName, qs.queue)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -204,13 +199,13 @@ func (qs *QueueService) Remove(ctx context.Context, entry radio.QueueEntry) (boo
 			log.Println(errors.E(op, err))
 		}
 
-		err = qs.storage.Store(ctx, queueName, qs.queue)
+		err = qs.Storage.Queue(ctx).Store(queueName, qs.queue)
 		if err != nil {
 			log.Println(errors.E(op, err))
 		}
 	}()
 
-	err := qs.storage.Store(ctx, queueName, qs.queue)
+	err := qs.Storage.Queue(ctx).Store(queueName, qs.queue)
 	if err != nil {
 		return false, errors.E(op, err)
 	}
@@ -231,7 +226,7 @@ func (qs *QueueService) Entries(ctx context.Context) ([]radio.QueueEntry, error)
 func (qs *QueueService) populate(ctx context.Context) error {
 	const op errors.Op = "streamer/QueueService.populate"
 
-	tx, err := database.HandleTx(ctx, qs.db)
+	ts, tx, err := qs.Storage.TrackTx(ctx, nil)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -260,7 +255,7 @@ func (qs *QueueService) populate(ctx context.Context) error {
 	// wanted final length of the queue
 	wantedLength := len(qs.queue) + (randomThreshold - randomEntries)
 
-	candidates, err := database.QueuePopulate(tx)
+	candidates, err := ts.QueueCandidates()
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -299,7 +294,7 @@ outer:
 			}
 		}
 
-		song, err := database.GetTrack(tx, id)
+		song, err := ts.Get(id)
 		if err != nil {
 			skipReasons = append(skipReasons, skipped{
 				trackID: id,
@@ -308,7 +303,7 @@ outer:
 			continue
 		}
 
-		if err = database.QueueUpdateTrack(tx, id); err != nil {
+		if err = ts.UpdateLastRequested(id); err != nil {
 			skipReasons = append(skipReasons, skipped{
 				trackID: id,
 				err:     err,
