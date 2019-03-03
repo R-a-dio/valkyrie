@@ -10,12 +10,12 @@ import (
 
 // Execute starts a streamer instance and its RPC API server
 func Execute(ctx context.Context, cfg config.Config) error {
-	db, err := database.Connect(cfg)
+	storage, err := database.Open(cfg)
 	if err != nil {
 		return err
 	}
 
-	queue, err := NewQueueService(ctx, cfg, db)
+	queue, err := NewQueueService(ctx, cfg, storage)
 	if err != nil {
 		return err
 	}
@@ -30,7 +30,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	announce := cfg.Conf().IRC.Client()
 
 	// setup a http server for our RPC API
-	srv, err := NewHTTPServer(cfg, db, queue, announce, streamer)
+	srv, err := NewHTTPServer(cfg, storage, queue, announce, streamer)
 	if err != nil {
 		return err
 	}

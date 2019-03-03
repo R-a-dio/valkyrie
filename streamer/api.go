@@ -9,20 +9,18 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
-	"github.com/R-a-dio/valkyrie/database"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/rpc"
-	"github.com/jmoiron/sqlx"
 )
 
 // NewHTTPServer returns a http server with RPC API handler and debug handlers
-func NewHTTPServer(cfg config.Config, db *sqlx.DB,
+func NewHTTPServer(cfg config.Config, storage radio.StorageService,
 	queue radio.QueueService, announce radio.AnnounceService,
 	streamer *Streamer) (*http.Server, error) {
 
 	s := &streamerService{
 		Config:   cfg,
-		DB:       db,
+		Storage:  storage,
 		announce: announce,
 		queue:    queue,
 		streamer: streamer,
@@ -48,7 +46,7 @@ func NewHTTPServer(cfg config.Config, db *sqlx.DB,
 
 type streamerService struct {
 	config.Config
-	DB *sqlx.DB
+	Storage radio.StorageService
 
 	announce     radio.AnnounceService
 	queue        radio.QueueService
@@ -116,22 +114,27 @@ func (s *streamerService) RequestSong(ctx context.Context, song radio.Song, iden
 	s.requestMutex.Lock()
 	defer s.requestMutex.Unlock()
 
-	tx, err := database.HandleTx(ctx, s.DB)
+	ts, tx, err := s.Storage.TrackTx(ctx, nil)
 	if err != nil {
-		return errors.E(op, err, song)
+		return errors.E(op, errors.TransactionBegin, err, song)
 	}
 	defer tx.Rollback()
 
+	rs, tx, err := s.Storage.RequestTx(ctx, tx)
+	if err != nil {
+		return errors.E(op, errors.TransactionBegin, err, song)
+	}
+
 	// refresh our song information for if it's a bare song or something similar
 	{
-		songRefresh, err := database.GetTrack(tx, song.TrackID)
+		songRefresh, err := ts.Get(song.TrackID)
 		if err != nil {
 			return errors.E(op, err, song)
 		}
 		song = *songRefresh
 	}
 	// find the last time this user requested a song
-	userLastRequest, err := database.UserRequestTime(tx, identifier)
+	userLastRequest, err := rs.LastRequest(identifier)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -155,17 +158,17 @@ func (s *streamerService) RequestSong(ctx context.Context, song radio.Song, iden
 	}
 
 	// update the database to represent the request
-	err = database.UpdateUserRequestTime(tx, identifier, userLastRequest.IsZero())
+	err = rs.UpdateLastRequest(identifier)
 	if err != nil {
 		return errors.E(op, err)
 	}
-	err = database.UpdateTrackRequestInfo(tx, song.TrackID)
+	err = ts.UpdateRequestInfo(song.TrackID)
 	if err != nil {
 		return errors.E(op, err, song)
 	}
 
 	if err = tx.Commit(); err != nil {
-		return errors.E(op, err)
+		return errors.E(op, errors.TransactionCommit, err)
 	}
 
 	// send the song to the queue
