@@ -11,14 +11,6 @@ import (
 )
 
 const duration = time.Hour * 24 * 11
-const (
-	selectRC = `SELECT id FROM tracks 
-				WHERE UNIX_TIMESTAMP(NOW()) - UNIX_TIMESTAMP(lastrequested) > ?
-				AND requestcount > 0;`
-	updateRC = `UPDATE tracks SET requestcount=requestcount - 1 
-				WHERE UNIX_TIMESTAMP(NOW()) - UNIX_TIMESTAMP(lastrequested) > ?
-				AND requestcount > 0;`
-)
 
 // ExecuteRequestCount drops the requestcount of all tracks by 1 if they have not been
 // requested within the specified duration.
