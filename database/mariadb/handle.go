@@ -157,6 +157,27 @@ type extContext interface {
 	sqlx.QueryerContext
 }
 
+// requireTx returns a handle that uses a transaction, if the handle given already is
+// one using a transaction it returns it as-is, otherwise makes a new transaction
+func requireTx(h handle) (handle, radio.StorageTx, error) {
+	if tx, ok := h.ext.(*sqlx.Tx); ok {
+		return h, tx, nil
+	}
+
+	db, ok := h.ext.(*sqlx.DB)
+	if !ok {
+		// TODO: add type
+		panic("mariadb: unknown type in ext field")
+	}
+
+	tx, err := db.BeginTxx(h.ctx, nil)
+	if err != nil {
+		return h, nil, err
+	}
+	h.ext = tx
+	return h, tx, nil
+}
+
 // handle is an implementation of sqlx.Execer and sqlx.Queryer that can either use
 // a *sqlx.DB directly, or a *sqlx.Tx. It implements these with the *Context equivalents
 type handle struct {
