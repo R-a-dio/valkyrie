@@ -11,15 +11,13 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
-	"github.com/R-a-dio/valkyrie/database"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/rpc"
-	"github.com/jmoiron/sqlx"
 	"github.com/lrstanley/girc"
 )
 
 func NewHTTPServer(b *Bot) (*http.Server, error) {
-	service := NewAnnounceService(b.Config, b.DB, b)
+	service := NewAnnounceService(b.Config, b.Storage, b)
 	rpcServer := rpc.NewAnnouncerServer(rpc.NewAnnouncer(service), nil)
 	mux := http.NewServeMux()
 	// rpc server path
@@ -37,17 +35,17 @@ func NewHTTPServer(b *Bot) (*http.Server, error) {
 	return server, nil
 }
 
-func NewAnnounceService(cfg config.Config, db *sqlx.DB, bot *Bot) radio.AnnounceService {
+func NewAnnounceService(cfg config.Config, storage radio.StorageService, bot *Bot) radio.AnnounceService {
 	return &announceService{
-		Config: cfg,
-		DB:     db,
-		bot:    bot,
+		Config:  cfg,
+		Storage: storage,
+		bot:     bot,
 	}
 }
 
 type announceService struct {
 	config.Config
-	DB *sqlx.DB
+	Storage radio.StorageService
 
 	bot              *Bot
 	lastAnnounceSong time.Time
@@ -70,9 +68,15 @@ func (ann *announceService) AnnounceSong(ctx context.Context, status radio.Statu
 
 	songLength := status.Song.Length
 
-	db := database.Handle(ctx, ann.DB)
-	favoriteCount, _ := database.SongFaveCount(db, status.Song)
-	playedCount, _ := database.SongPlayedCount(db, status.Song)
+	ss := ann.Storage.Song(ctx)
+	favoriteCount, err := ss.FavoriteCount(status.Song)
+	if err != nil {
+		return errors.E(op, err)
+	}
+	playedCount, err := ss.PlayedCount(status.Song)
+	if err != nil {
+		return errors.E(op, err)
+	}
 
 	message = Fmt(message,
 		status.Song.Metadata,
@@ -93,7 +97,7 @@ func (ann *announceService) AnnounceSong(ctx context.Context, status radio.Statu
 		// save ourselves some work if there are no favorites
 		return nil
 	}
-	usersWithFave, err := database.GetSongFavorites(db, status.Song.ID)
+	usersWithFave, err := ss.Favorites(status.Song)
 	if err != nil {
 		return errors.E(op, err)
 	}

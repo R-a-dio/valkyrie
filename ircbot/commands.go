@@ -8,7 +8,6 @@ import (
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
-	"github.com/R-a-dio/valkyrie/database"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/lrstanley/girc"
 )
@@ -83,10 +82,8 @@ func (rh RegexHandlers) Execute(c *girc.Client, e girc.Event) {
 		defer cancel()
 
 		event := Event{
-			internal: &internalEvent{
-				ctx:    ctx,
-				handle: database.Handle(ctx, rh.bot.DB),
-			},
+			Ctx:       ctx,
+			Storage:   rh.bot.Storage,
 			Event:     e,
 			Arguments: match,
 			Bot:       rh.bot,
@@ -150,15 +147,11 @@ func (a Arguments) Bool(key string) bool {
 	return a[key] != ""
 }
 
-type internalEvent struct {
-	ctx    context.Context
-	handle database.Handler
-}
-
-// Event is a collection of parameters to handler functions, fields of Event are exposed
-// to handlers by dependency injection and you should never depend on Event directly
+// Event is a collection of parameters to handler functions, all fields are guaranteed
+// to be populated when passed through a RegexHandler
 type Event struct {
-	internal *internalEvent
+	Ctx     context.Context
+	Storage radio.StorageService
 
 	girc.Event
 	Arguments Arguments
@@ -206,7 +199,7 @@ func (e Event) ArgumentTrack(key string) (*radio.Song, error) {
 		return nil, errors.E(op, errors.InvalidArgument, err, errors.Info(stringID))
 	}
 
-	track, err := database.GetTrack(e.Database(), radio.TrackID(id))
+	track, err := e.Storage.Track(e.Ctx).Get(radio.TrackID(id))
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
@@ -217,25 +210,15 @@ func (e Event) ArgumentTrack(key string) (*radio.Song, error) {
 func (e Event) CurrentTrack() (*radio.Song, error) {
 	const op errors.Op = "irc/Event.CurrentTrack"
 
-	status, err := e.Bot.Manager.Status(e.Context())
+	status, err := e.Bot.Manager.Status(e.Ctx)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
 
-	song, err := database.GetSongFromMetadata(e.Database(), status.Song.Metadata)
+	song, err := e.Storage.Song(e.Ctx).FromMetadata(status.Song.Metadata)
 	if err != nil {
 		return nil, errors.E(op, err, status.Song)
 	}
 
 	return song, nil
-}
-
-// Database returns a database handle with a timeout context
-func (e Event) Database() database.Handler {
-	return e.internal.handle
-}
-
-// Context returns the context associated with this event
-func (e Event) Context() context.Context {
-	return e.internal.ctx
 }
