@@ -62,7 +62,7 @@ func (us UserStorage) RecordListeners(listeners int, user radio.User) error {
 
 	var query = `INSERT INTO listenlog (listeners, dj) VALUES (?, ?);`
 
-	_, err := us.handle.Exec(query, listeners, user.ID)
+	_, err := us.handle.Exec(query, listeners, user.DJ.ID)
 	if err != nil {
 		return errors.E(op, err)
 	}
