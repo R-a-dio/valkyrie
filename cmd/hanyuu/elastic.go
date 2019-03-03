@@ -84,13 +84,12 @@ func (e elasticCmd) indexSongs(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 
-	db, err := database.Connect(cfg)
+	storage, err := database.Open(cfg)
 	if err != nil {
 		return err
 	}
-	h := database.Handle(ctx, db)
 
-	songs, err := database.AllTracks(h)
+	songs, err := storage.Track(ctx).All()
 	if err != nil {
 		return err
 	}
