@@ -4,13 +4,13 @@ import (
 	"context"
 
 	"github.com/R-a-dio/valkyrie/config"
-	"github.com/R-a-dio/valkyrie/database"
+	"github.com/R-a-dio/valkyrie/storage"
 )
 
 // ExecuteListenerLog fetches the listener count from the manager and inserts a line into
 // the listenlog table.
 func ExecuteListenerLog(ctx context.Context, cfg config.Config) error {
-	storage, err := database.Open(cfg)
+	store, err := storage.Open(cfg)
 	if err != nil {
 		return err
 	}
@@ -22,5 +22,5 @@ func ExecuteListenerLog(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 
-	return storage.User(ctx).RecordListeners(status.Listeners, status.User)
+	return store.User(ctx).RecordListeners(status.Listeners, status.User)
 }

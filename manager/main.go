@@ -9,7 +9,7 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
-	"github.com/R-a-dio/valkyrie/database"
+	"github.com/R-a-dio/valkyrie/storage"
 )
 
 // Execute executes a manager with the context and configuration given; it returns with
@@ -52,14 +52,14 @@ var ExecuteListener = NewListener
 
 // NewManager returns a manager ready for use
 func NewManager(ctx context.Context, cfg config.Config) (*Manager, error) {
-	storage, err := database.Open(cfg)
+	store, err := storage.Open(cfg)
 	if err != nil {
 		return nil, err
 	}
 
 	m := Manager{
 		Config:  cfg,
-		Storage: storage,
+		Storage: store,
 		status:  radio.Status{},
 	}
 

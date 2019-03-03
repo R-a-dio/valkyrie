@@ -7,8 +7,8 @@ import (
 	"path"
 
 	"github.com/R-a-dio/valkyrie/config"
-	"github.com/R-a-dio/valkyrie/database"
 	"github.com/R-a-dio/valkyrie/search"
+	"github.com/R-a-dio/valkyrie/storage"
 	"github.com/google/subcommands"
 )
 
@@ -84,12 +84,12 @@ func (e elasticCmd) indexSongs(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 
-	storage, err := database.Open(cfg)
+	store, err := storage.Open(cfg)
 	if err != nil {
 		return err
 	}
 
-	songs, err := storage.Track(ctx).All()
+	songs, err := store.Track(ctx).All()
 	if err != nil {
 		return err
 	}

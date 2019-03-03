@@ -5,17 +5,17 @@ import (
 	"net"
 
 	"github.com/R-a-dio/valkyrie/config"
-	"github.com/R-a-dio/valkyrie/database"
+	"github.com/R-a-dio/valkyrie/storage"
 )
 
 // Execute starts a streamer instance and its RPC API server
 func Execute(ctx context.Context, cfg config.Config) error {
-	storage, err := database.Open(cfg)
+	store, err := storage.Open(cfg)
 	if err != nil {
 		return err
 	}
 
-	queue, err := NewQueueService(ctx, cfg, storage)
+	queue, err := NewQueueService(ctx, cfg, store)
 	if err != nil {
 		return err
 	}
@@ -30,7 +30,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	announce := cfg.Conf().IRC.Client()
 
 	// setup a http server for our RPC API
-	srv, err := NewHTTPServer(cfg, storage, queue, announce, streamer)
+	srv, err := NewHTTPServer(cfg, store, queue, announce, streamer)
 	if err != nil {
 		return err
 	}
