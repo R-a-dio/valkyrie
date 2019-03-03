@@ -7,12 +7,10 @@ import (
 	"github.com/R-a-dio/valkyrie/database"
 )
 
-const insertLog = `INSERT INTO listenlog (listeners, dj) VALUES (?, ?);`
-
 // ExecuteListenerLog fetches the listener count from the manager and inserts a line into
 // the listenlog table.
 func ExecuteListenerLog(ctx context.Context, cfg config.Config) error {
-	db, err := database.Connect(cfg)
+	storage, err := database.Open(cfg)
 	if err != nil {
 		return err
 	}
@@ -24,11 +22,5 @@ func ExecuteListenerLog(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 
-	h := database.Handle(ctx, db)
-	_, err = h.Exec(insertLog, status.Listeners, status.User.ID)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return storage.User(ctx).RecordListeners(status.Listeners, status.User)
 }

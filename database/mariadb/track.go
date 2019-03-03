@@ -471,6 +471,25 @@ func (ts TrackStorage) Unusable() ([]radio.Song, error) {
 	return tracks, nil
 }
 
+func (ts TrackStorage) UpdateUsable(song radio.Song, state int) error {
+	const op errors.Op = "mariadb/TrackStorage.UpdateUsable"
+
+	var query = `
+	UPDATE
+		tracks
+	SET
+		usable=?
+	WHERE
+		id=?;
+	`
+
+	_, err := ts.handle.Exec(query, state, song.ID)
+	if err != nil {
+		return errors.E(op, err)
+	}
+	return nil
+}
+
 // UpdateRequestInfo updates the time the track given was last requested
 // and increases the time between requests for the song.
 //
@@ -516,6 +535,76 @@ func (ts TrackStorage) UpdateLastRequested(id radio.TrackID) error {
 	`
 
 	_, err := ts.handle.Exec(query, id)
+	if err != nil {
+		return errors.E(op, err)
+	}
+	return nil
+}
+
+// BeforeLastRequested implements radio.TrackStorage
+func (ts TrackStorage) BeforeLastRequested(before time.Time) ([]radio.Song, error) {
+	const op errors.Op = "mariadb/TrackStorage.BeforeLastRequested"
+
+	var query = `
+		SELECT
+			esong.id AS id,
+			esong.hash AS hash,
+			esong.meta AS metadata,
+			esong.len AS length,
+			tracks.id AS trackid,
+			tracks.lastplayed,
+			tracks.artist,
+			tracks.track,
+			tracks.album,
+			tracks.path,
+			tracks.tags,
+			tracks.accepter AS acceptor,
+			tracks.lasteditor,
+			tracks.priority,
+			tracks.usable,
+			tracks.lastrequested,
+			tracks.requestcount
+		FROM
+			tracks
+		LEFT JOIN
+			esong ON tracks.hash = esong.hash
+		WHERE
+			lastrequested < ?
+		AND
+			requestcount > 0;
+	`
+
+	var tmps = []databaseTrack{}
+
+	err := sqlx.Select(ts.handle, &tmps, query, before)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	var songs = make([]radio.Song, len(tmps))
+	for i, tmp := range tmps {
+		songs[i] = tmp.ToSong()
+	}
+
+	return songs, nil
+}
+
+// DecrementRequestCount implements radio.TrackStorage
+func (ts TrackStorage) DecrementRequestCount(before time.Time) error {
+	const op errors.Op = "mariadb/TrackStorage.DecrementRequestCount"
+
+	var query = `
+		UPDATE
+			tracks
+		SET
+			requestcount=requestcount - 1
+		WHERE
+			lastrequested < ?
+		AND
+			requestcount > 0;
+	`
+
+	_, err := ts.handle.Exec(query, before)
 	if err != nil {
 		return errors.E(op, err)
 	}

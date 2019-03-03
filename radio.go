@@ -471,6 +471,8 @@ type TrackStorage interface {
 	All() ([]Song, error)
 	// Unusable returns all tracks that are deemed unusable by the streamer
 	Unusable() ([]Song, error)
+	// UpdateUsable sets usable to the state given
+	UpdateUsable(song Song, state int) error
 
 	// UpdateRequestInfo is called after a track has been requested, this should do any
 	// necessary book-keeping related to that
@@ -479,6 +481,13 @@ type TrackStorage interface {
 	UpdateLastPlayed(TrackID) error
 	// UpdateLastRequested sets the last time the track was requested to the current time
 	UpdateLastRequested(TrackID) error
+
+	// BeforeLastRequested returns all tracks that have their LastRequested before the
+	// time given
+	BeforeLastRequested(before time.Time) ([]Song, error)
+	// DecrementRequestCount decrements the RequestCount for all tracks that have
+	// their LastRequested before the time given
+	DecrementRequestCount(before time.Time) error
 
 	// QueueCandidates returns tracks that are candidates to be queue'd by the
 	// default queue implementation
@@ -511,4 +520,6 @@ type UserStorageService interface {
 type UserStorage interface {
 	// LookupName tries to resolve the name given to a specific user
 	LookupName(name string) (*User, error)
+	// RecordListeners records a history of listener count
+	RecordListeners(int, User) error
 }
