@@ -168,11 +168,6 @@ func (qe *QueueEntry) EqualTo(qe2 QueueEntry) bool {
 		qe.UserIdentifier == qe2.UserIdentifier
 }
 
-type QueueStorage interface {
-	Store(ctx context.Context, name string, queue []QueueEntry) error
-	Load(ctx context.Context, name string) ([]QueueEntry, error)
-}
-
 type QueueService interface {
 	// AddRequest requests the given song to be added to the queue, the string given
 	// is an identifier of the user that requested it
@@ -386,4 +381,124 @@ func (s *Song) FillMetadata() {
 // was allocated for the embedded field
 func (t *DatabaseTrack) HasTrack() bool {
 	return t != nil
+}
+
+// StorageService is an interface containing all *StorageService interfaces
+type StorageService interface {
+	QueueStorageService
+	SongStorageService
+	TrackStorageService
+	RequestStorageService
+	UserStorageService
+}
+
+// QueueStorageService is a service able to supply a QueueStorage
+type QueueStorageService interface {
+	Queue(context.Context) QueueStorage
+}
+
+// QueueStorage stores a queue
+type QueueStorage interface {
+	// Store stores the queue with the name given
+	Store(ctx context.Context, name string, queue []QueueEntry) error
+	// Load returns the queue associated with the name given
+	Load(ctx context.Context, name string) ([]QueueEntry, error)
+}
+
+// SongStorageService is a service able to supply a SongStorage
+type SongStorageService interface {
+	Song(context.Context) SongStorage
+}
+
+// SongStorage stores information about songs
+//
+// A song can be anything that plays on stream, unlike a track which is a specific
+// kind of song that we have an audio file for and can be played by the automated streamer
+type SongStorage interface {
+	// Create creates a new song with the metadata given
+	Create(metadata string) (*Song, error)
+	// FromMetadata returns the song associated with the metadata given
+	FromMetadata(metadata string) (*Song, error)
+	// FromHash returns the song associated with the SongHash given
+	FromHash(SongHash) (*Song, error)
+
+	// LastPlayed returns songs that have recently played, up to amount given after
+	// applying the offset
+	LastPlayed(offset, amount int) ([]Song, error)
+	// PlayedCount returns the amount of times the song has been played on stream
+	PlayedCount(Song) (int64, error)
+	// AddPlay adds a play to the song. If present, ldiff is the difference in amount
+	// of listeners between song-start and song-end
+	AddPlay(song Song, ldiff *int) error
+
+	// FavoriteCount returns the amount of users that have added this song to
+	// their favorite list
+	FavoriteCount(Song) (int64, error)
+	// Favorites returns all users that have this song on their favorite list
+	Favorites(Song) ([]string, error)
+	// FavoritesOf returns all songs that are on a users favorite list
+	FavoritesOf(nick string) ([]Song, error)
+	// AddFavorite adds the given song to nicks favorite list
+	AddFavorite(song Song, nick string) (bool, error)
+	// RemoveFavorite removes the given song from nicks favorite list
+	RemoveFavorite(song Song, nick string) (bool, error)
+
+	// UpdateLength updates the stored length of the song
+	UpdateLength(Song, time.Duration) error
+}
+
+// TrackStorageService is a service able to supply a TrackStorage
+type TrackStorageService interface {
+	Track(context.Context) TrackStorage
+}
+
+// TrackStorage stores information about tracks
+//
+// A track is a song that we have the audio file for and can thus be played by
+// the automated streaming system
+type TrackStorage interface {
+	// Get returns a single track with the TrackID given
+	Get(TrackID) (*Song, error)
+	// All returns all tracks in storage
+	All() ([]Song, error)
+	// UnusableTracks returns all tracks that are deemed unusable by the streamer
+	UnusableTracks() ([]Song, error)
+
+	// UpdateRequestInfo is called after a track has been requested, this should do any
+	// necessary book-keeping related to that
+	UpdateRequestInfo(TrackID) error
+	// UpdateLastPlayed sets the last time the track was played to the current time
+	UpdateLastPlayed(TrackID) error
+	// UpdateLastRequested sets the last time the track was requested to the current time
+	UpdateLastRequested(TrackID) error
+
+	// QueueCandidates returns tracks that are candidates to be queue'd by the
+	// default queue implementation
+	QueueCandidates() ([]TrackID, error)
+}
+
+// RequestStorageService is a service able to supply a RequestStorage
+type RequestStorageService interface {
+	Request(context.Context) RequestStorage
+}
+
+// RequestStorage stores things related to automated streamer song requests
+type RequestStorage interface {
+	// LastRequest returns the time of when the identifier given last requested
+	// a song from the streamer
+	LastRequest(identifier string) (time.Time, error)
+	// UpdateLastRequest updates the LastRequest time to the current time for the
+	// identifier given
+	UpdateLastRequest(identifier string) error
+}
+
+// UserStorageService is a service able to supply a UserStorage
+type UserStorageService interface {
+	User(context.Context) UserStorage
+}
+
+// UserStorage stores things related to users with actual accounts on the website
+type UserStorage interface {
+	// LookupName tries to resolve the name given to a specific user
+	LookupName(name string) (*User, error)
 }
