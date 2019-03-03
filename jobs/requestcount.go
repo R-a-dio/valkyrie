@@ -35,12 +35,12 @@ func ExecuteRequestCount(ctx context.Context, cfg config.Config) error {
 	defer tx.Rollback()
 
 	before := time.Now().Add(-duration)
-	songs, err := ts.BeforeLastRequested(before)
+	err = ts.DecrementRequestCount(before)
 	if err != nil {
 		return err
 	}
 
-	err = ts.DecrementRequestCount(before)
+	songs, err := ts.BeforeLastRequested(before)
 	if err != nil {
 		return err
 	}
