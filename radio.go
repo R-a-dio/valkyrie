@@ -469,8 +469,8 @@ type TrackStorage interface {
 	Get(TrackID) (*Song, error)
 	// All returns all tracks in storage
 	All() ([]Song, error)
-	// UnusableTracks returns all tracks that are deemed unusable by the streamer
-	UnusableTracks() ([]Song, error)
+	// Unusable returns all tracks that are deemed unusable by the streamer
+	Unusable() ([]Song, error)
 
 	// UpdateRequestInfo is called after a track has been requested, this should do any
 	// necessary book-keeping related to that

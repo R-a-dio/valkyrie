@@ -44,6 +44,7 @@ func Connect(cfg config.Config) (radio.StorageService, error) {
 	return &StorageService{db}, nil
 }
 
+// StorageService implements radio.StorageService with a sql database
 type StorageService struct {
 	db *sqlx.DB
 }

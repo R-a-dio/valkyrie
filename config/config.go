@@ -24,6 +24,9 @@ var defaultConfig = config{
 	UserRequestDelay: Duration(time.Hour * 1),
 	TemplatePath:     "templates/",
 	MusicPath:        "",
+	Storage: storage{
+		Name: "mariadb",
+	},
 	Database: database{
 		DriverName: "mysql",
 		DSN:        "",
@@ -64,13 +67,18 @@ type config struct {
 	// TemplatePath is the path where html templates are stored for the HTTP
 	// frontends
 	TemplatePath string
-	// Database contains the configuration to connect to the SQL database
+
+	Storage  storage
 	Database database
 
 	Streamer streamer
 	IRC      irc
 	Manager  manager
 	Elastic  elasticsearch
+}
+
+type storage struct {
+	Name string
 }
 
 // database is the configuration for the database/sql package
