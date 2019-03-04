@@ -1,4 +1,4 @@
-package search
+package elastic
 
 import (
 	"context"
@@ -8,9 +8,14 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/R-a-dio/valkyrie/search"
 
 	"github.com/olivere/elastic"
 )
+
+func init() {
+	search.Register("elastic", NewSearchService)
+}
 
 const (
 	songSearchIndex = "song-database"
@@ -79,10 +84,16 @@ const (
 	`
 )
 
+// NewSearchService is a wrapper around NewElasticSearchService to return a
+// radio.SearchService type instead
+func NewSearchService(cfg config.Config) (radio.SearchService, error) {
+	return NewElasticSearchService(cfg)
+}
+
 // NewElasticSearchService returns a new radio.SearchService that calls into
 // an elasticsearch instance for the implementation
-func NewElasticSearchService(ctx context.Context, cfg config.Config) (*ElasticService, error) {
-	const op errors.Op = "search/NewElasticSearchService"
+func NewElasticSearchService(cfg config.Config) (*ElasticService, error) {
+	const op errors.Op = "elastic/NewElasticSearchService"
 
 	conf := cfg.Conf()
 
@@ -116,7 +127,7 @@ type ElasticService struct {
 // CreateIndex creates all indices used by the service, it returns an error if the indices
 // already exist
 func (es *ElasticService) CreateIndex(ctx context.Context) error {
-	const op errors.Op = "search/ElasticService.CreateIndex"
+	const op errors.Op = "elastic/ElasticService.CreateIndex"
 	exists, err := es.es.IndexExists(songSearchIndex).Do(ctx)
 	if err != nil {
 		return errors.E(op, err)
@@ -138,7 +149,7 @@ func (es *ElasticService) CreateIndex(ctx context.Context) error {
 
 // DeleteIndex deletes all indices created by CreateIndex
 func (es *ElasticService) DeleteIndex(ctx context.Context) error {
-	const op errors.Op = "search/ElasticService.DeleteIndex"
+	const op errors.Op = "elastic/ElasticService.DeleteIndex"
 
 	del, err := es.es.DeleteIndex(songSearchIndex).Do(ctx)
 	if err != nil {
@@ -153,7 +164,7 @@ func (es *ElasticService) DeleteIndex(ctx context.Context) error {
 
 // Search implements radio.SearchService
 func (es *ElasticService) Search(ctx context.Context, query string, limit int, offset int) ([]radio.Song, error) {
-	const op errors.Op = "search/ElasticService.Search"
+	const op errors.Op = "elastic/ElasticService.Search"
 	esQuery := es.createSearchQuery(query)
 
 	action := es.es.Search().Index(songSearchIndex).
@@ -202,7 +213,7 @@ func (es *ElasticService) createSearchQuery(query string) elastic.Query {
 
 // Update implements radio.SearchService
 func (es *ElasticService) Update(ctx context.Context, songs ...radio.Song) error {
-	const op errors.Op = "search/ElasticService.Update"
+	const op errors.Op = "elastic/ElasticService.Update"
 	bulk := es.es.Bulk()
 
 	for _, song := range songs {
@@ -232,7 +243,7 @@ func (es *ElasticService) createUpsertRequest(song radio.Song) elastic.BulkableR
 
 // Delete implements radio.SearchService
 func (es *ElasticService) Delete(ctx context.Context, songs ...radio.Song) error {
-	const op errors.Op = "search/ElasticService.Delete"
+	const op errors.Op = "elastic/ElasticService.Delete"
 	bulk := es.es.Bulk()
 
 	for _, song := range songs {

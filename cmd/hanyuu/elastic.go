@@ -7,7 +7,7 @@ import (
 	"path"
 
 	"github.com/R-a-dio/valkyrie/config"
-	"github.com/R-a-dio/valkyrie/search"
+	"github.com/R-a-dio/valkyrie/search/elastic"
 	"github.com/R-a-dio/valkyrie/storage"
 	"github.com/google/subcommands"
 )
@@ -62,7 +62,7 @@ func (e elasticCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...interf
 }
 
 func (e elasticCmd) createIndex(ctx context.Context, cfg config.Config) error {
-	s, err := search.NewElasticSearchService(ctx, cfg)
+	s, err := elastic.NewElasticSearchService(cfg)
 	if err != nil {
 		return err
 	}
@@ -71,7 +71,7 @@ func (e elasticCmd) createIndex(ctx context.Context, cfg config.Config) error {
 }
 
 func (e elasticCmd) deleteIndex(ctx context.Context, cfg config.Config) error {
-	s, err := search.NewElasticSearchService(ctx, cfg)
+	s, err := elastic.NewElasticSearchService(cfg)
 	if err != nil {
 		return err
 	}
@@ -79,7 +79,7 @@ func (e elasticCmd) deleteIndex(ctx context.Context, cfg config.Config) error {
 }
 
 func (e elasticCmd) indexSongs(ctx context.Context, cfg config.Config) error {
-	s, err := search.NewElasticSearchService(ctx, cfg)
+	s, err := elastic.NewElasticSearchService(cfg)
 	if err != nil {
 		return err
 	}

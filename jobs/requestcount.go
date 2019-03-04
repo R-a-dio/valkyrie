@@ -43,7 +43,7 @@ func ExecuteRequestCount(ctx context.Context, cfg config.Config) error {
 	}
 
 	// update search index
-	search, err := search.NewElasticSearchService(ctx, cfg)
+	search, err := search.Open(cfg)
 	if err != nil {
 		return err
 	}

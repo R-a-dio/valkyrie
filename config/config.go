@@ -24,8 +24,9 @@ var defaultConfig = config{
 	UserRequestDelay: Duration(time.Hour * 1),
 	TemplatePath:     "templates/",
 	MusicPath:        "",
-	Storage: storage{
-		Name: "mariadb",
+	Providers: providers{
+		Storage: "mariadb",
+		Search:  "elastic",
 	},
 	Database: database{
 		DriverName: "mysql",
@@ -68,8 +69,8 @@ type config struct {
 	// frontends
 	TemplatePath string
 
-	Storage  storage
-	Database database
+	Providers providers
+	Database  database
 
 	Streamer streamer
 	IRC      irc
@@ -77,8 +78,11 @@ type config struct {
 	Elastic  elasticsearch
 }
 
-type storage struct {
-	Name string
+type providers struct {
+	// Storage is the name of the StorageService provider to use
+	Storage string
+	// Search is the name of the SearchService provider to use
+	Search string
 }
 
 // database is the configuration for the database/sql package

@@ -1,4 +1,4 @@
-package storage
+package search
 
 import (
 	radio "github.com/R-a-dio/valkyrie"
@@ -6,8 +6,8 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 )
 
-// OpenFn is a function that returns a StorageService configured with the config given
-type OpenFn func(config.Config) (radio.StorageService, error)
+// OpenFn is a function that returns a SearchService configured with the config given
+type OpenFn func(config.Config) (radio.SearchService, error)
 
 var providers = map[string]OpenFn{}
 
@@ -17,16 +17,16 @@ var providers = map[string]OpenFn{}
 // Register will panic if the name already exists
 func Register(name string, fn OpenFn) {
 	if _, ok := providers[name]; ok {
-		panic("storage already exists with name: " + name)
+		panic("search provider already exists with name: " + name)
 	}
 	providers[name] = fn
 }
 
-// Open returns a radio.StorageService as configured by the config given
-func Open(cfg config.Config) (radio.StorageService, error) {
-	const op errors.Op = "storage/Open"
+// Open returns a radio.SearchService as configured by the config given
+func Open(cfg config.Config) (radio.SearchService, error) {
+	const op errors.Op = "search/Open"
 
-	name := cfg.Conf().Providers.Storage
+	name := cfg.Conf().Providers.Search
 	fn, ok := providers[name]
 	if !ok {
 		return nil, errors.E(op, errors.ProviderUnknown, errors.Info(name))

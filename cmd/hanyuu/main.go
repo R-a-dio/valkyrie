@@ -14,6 +14,7 @@ import (
 	"github.com/R-a-dio/valkyrie/ircbot"
 	"github.com/R-a-dio/valkyrie/jobs"
 	"github.com/R-a-dio/valkyrie/manager"
+	_ "github.com/R-a-dio/valkyrie/search/elastic"  // elastic search interface
 	_ "github.com/R-a-dio/valkyrie/storage/mariadb" // mariadb storage interface
 	"github.com/google/subcommands"
 )

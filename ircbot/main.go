@@ -66,7 +66,7 @@ func NewBot(ctx context.Context, cfg config.Config) (*Bot, error) {
 		return nil, errors.E(op, err)
 	}
 
-	ss, err := search.NewElasticSearchService(ctx, cfg)
+	ss, err := search.Open(cfg)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
