@@ -167,7 +167,7 @@ func (ann *announceService) AnnounceSong(ctx context.Context, status radio.Statu
 	// time has passed since you connected, so we might get an ERR_TOOMANYTARGETS when
 	// sending notices, this handler resends any that come back as single-target.
 	ann.bot.c.Handlers.AddTmp("407", time.Second*10, func(c *girc.Client, e girc.Event) bool {
-		target := e.Params[len(e.Params)-1]
+		target := e.Params[len(e.Params)-2]
 		c.Cmd.Notice(target, message)
 		for _, target = range targetMapping[target] {
 			c.Cmd.Notice(target, message)

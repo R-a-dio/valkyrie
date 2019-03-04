@@ -9,7 +9,7 @@ require (
 	github.com/google/subcommands v0.0.0-20181012225330-46f0354f6315
 	github.com/grafov/m3u8 v0.6.1
 	github.com/jmoiron/sqlx v1.2.0
-	github.com/lrstanley/girc v0.0.0-20190102153329-c1e59a02f488
+	github.com/lrstanley/girc v0.0.0-20190210212025-51b8e096d398
 	github.com/mailru/easyjson v0.0.0-20180823135443-60711f1a8329 // indirect
 	github.com/olivere/elastic v6.2.16+incompatible
 	github.com/pkg/errors v0.8.0 // indirect

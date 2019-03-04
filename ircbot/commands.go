@@ -70,7 +70,7 @@ type RegexHandlers struct {
 
 // Execute implements girc.Handler
 func (rh RegexHandlers) Execute(c *girc.Client, e girc.Event) {
-	s := e.Trailing
+	s := e.Last()
 
 	for i, re := range rh.cache {
 		match := FindNamedSubmatches(re, s)
@@ -183,7 +183,7 @@ type Event struct {
 // Echo sends either a PRIVMSG to a channel or a NOTICE to a user based on the prefix
 // used when running the command
 func (e Event) Echo(message string, args ...interface{}) {
-	switch e.Trailing[0] {
+	switch e.Last()[0] {
 	case '.', '!':
 		e.EchoPrivate(message, args...)
 	case '@':
