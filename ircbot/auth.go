@@ -3,6 +3,8 @@ package ircbot
 import (
 	"time"
 
+	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/lrstanley/girc"
 )
 
@@ -89,24 +91,28 @@ func HasStreamAccess(c *girc.Client, e girc.Event) bool {
 	return HasAccess(c, e)
 }
 
-func HasAdminAccess(e Event) bool {
-	// for security purposes we also require admins to always have channel access
+func HasDeveloperAccess(e Event) (bool, error) {
+	const op errors.Op = "irc/HasDeveloperAccess"
+
+	// for security purposes we also require devs to always have channel access
 	if !HasAccess(e.Client, e.Event) {
-		return false
+		return false, nil
 	}
 
 	// we also require them to have authed with nickserv
 	if !IsAuthed(e) {
-		return false
+		return false, nil
 	}
 
-	/*
-		user, err := e.Storage.User(e.Ctx).ByNick(e.Source.Name)
-		if err != nil {
-			return false
-		}
+	us := e.Storage.User(e.Ctx)
+	user, err := us.ByNick(e.Source.Name)
+	if err != nil {
+		return false, errors.E(op, err)
+	}
 
-		return user.HasPermission("dev")
-	*/
-	return false
+	ok, err := us.HasPermission(*user, radio.PermDev)
+	if err != nil {
+		return false, errors.E(op, err)
+	}
+	return ok, nil
 }

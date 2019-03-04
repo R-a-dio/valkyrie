@@ -60,6 +60,27 @@ func (s Status) Copy() Status {
 // UserID is an identifier corresponding to an user
 type UserID uint64
 
+// UserPermission is a permission for user authorization
+type UserPermission string
+
+func (u UserPermission) String() string {
+	return string(u)
+}
+
+// List of permissions, this should be kept in sync with the database version
+const (
+	PermActive         = "active"          // User is active
+	PermNews           = "news"            // User has news creation/editing access
+	PermDJ             = "dj"              // User has access to the icecast proxy
+	PermDev            = "dev"             // User is a developer
+	PermAdmin          = "admin"           // User is an administrator
+	PermDatabaseDelete = "database_delete" // User can delete from the track database
+	PermDatabaseEdit   = "database_edit"   // User can edit the track database
+	PermDatabaseView   = "database_view"   // User can view the track database
+	PermPendingEdit    = "pending_edit"    // User can edit the pending track queue
+	PermPendingView    = "pending_view"    // User can view the pending track queue
+)
+
 // User is an user account in the database
 type User struct {
 	ID            UserID
@@ -521,6 +542,10 @@ type UserStorageService interface {
 type UserStorage interface {
 	// LookupName tries to resolve the name given to a specific user
 	LookupName(name string) (*User, error)
+	// ByNick returns an user that is associated with the nick given
+	ByNick(nick string) (*User, error)
+	// HasPermission returns wether the user has the permission given
+	HasPermission(User, UserPermission) (bool, error)
 	// RecordListeners records a history of listener count
 	RecordListeners(int, User) error
 }

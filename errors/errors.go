@@ -313,6 +313,7 @@ const (
 	TransactionRollback                // Database rollback transaction failure
 	TransactionCommit                  // Database commit transaction failure
 	StorageUnknown                     // Unknown storage name used
+	NotImplemented                     // Generic error indicating something is not implemented
 )
 
 func (k Kind) String() string {
@@ -361,6 +362,8 @@ func (k Kind) String() string {
 		return "failed to commit transaction"
 	case StorageUnknown:
 		return "unknown storage"
+	case NotImplemented:
+		return "not implemented"
 	}
 
 	return "unknown error kind"

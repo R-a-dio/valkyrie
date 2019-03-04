@@ -392,8 +392,13 @@ func KillStreamer(e Event) error {
 	}
 
 	force := e.Arguments.Bool("force")
-	if force && !HasAdminAccess(e) {
-		force = false
+	if force {
+		// check if the user has the authorization to use force
+		ok, err := HasDeveloperAccess(e)
+		if err != nil {
+			return errors.E(op, err)
+		}
+		force = ok
 	}
 
 	var quickErr = make(chan error, 1)
