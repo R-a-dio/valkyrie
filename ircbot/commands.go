@@ -138,6 +138,26 @@ func RegisterCommandHandlers(ctx context.Context, b *Bot) error {
 	return nil
 }
 
+// FindNamedSubmatches runs re.FindStringSubmatch(s) and only returns the groups that
+// are named in the regexp
+func FindNamedSubmatches(re *regexp.Regexp, s string) map[string]string {
+	groups := re.FindStringSubmatch(s)
+	if len(groups) == 0 {
+		return nil
+	}
+
+	m := make(map[string]string, 4)
+	for i, name := range re.SubexpNames() {
+		if name == "" {
+			continue
+		}
+
+		m[name] = groups[i]
+	}
+
+	return m
+}
+
 // Arguments is a map of key:value pairs from the named capturing groups used in
 // the regular expression used for the command
 type Arguments map[string]string
