@@ -9,6 +9,7 @@ import (
 func RegisterCommonHandlers(b *Bot, c *girc.Client) error {
 	ch := CommonHandlers{b}
 	c.Handlers.Add(girc.CONNECTED, ch.AuthenticateWithNickServ)
+	c.Handlers.Add(girc.NICK, ch.AuthenticateWithNickServ)
 	c.Handlers.Add(girc.CONNECTED, ch.JoinDefaultChannels)
 	return nil
 }
@@ -21,9 +22,16 @@ type CommonHandlers struct {
 
 // AuthenticateWithNickServ tries to authenticate with nickserv with the password
 // configured
-func (h CommonHandlers) AuthenticateWithNickServ(c *girc.Client, _ girc.Event) {
+func (h CommonHandlers) AuthenticateWithNickServ(c *girc.Client, e girc.Event) {
+	if e.Command == girc.NICK {
+		// ignore the event if it's not our nick being changed
+		if e.Params[0] != c.GetNick() {
+			return
+		}
+	}
+
 	conf := h.Conf()
-	if conf.IRC.NickPassword != "" {
+	if conf.IRC.NickPassword != "" && c.GetNick() == conf.IRC.Nick {
 		c.Cmd.Messagef("nickserv", "id %s", conf.IRC.NickPassword)
 	}
 }

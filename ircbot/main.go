@@ -71,9 +71,9 @@ func NewBot(ctx context.Context, cfg config.Config) (*Bot, error) {
 		return nil, errors.E(op, err)
 	}
 
+	// setup irc configuration
 	var ircConf girc.Config
 	c := cfg.Conf()
-
 	if c.IRC.EnableEcho {
 		ircConf.Out = os.Stdout
 	}
@@ -100,6 +100,7 @@ func NewBot(ctx context.Context, cfg config.Config) (*Bot, error) {
 	RegisterCommonHandlers(b, b.c)
 	RegisterCommandHandlers(ctx, b)
 
+	go b.syncConfiguration(ctx)
 	return b, nil
 }
 
@@ -146,4 +147,37 @@ func (b *Bot) runClient(ctx context.Context) error {
 	}
 
 	return backoff.Retry(doConnect, cbctx)
+}
+
+// syncConfiguration tries to keep the irc client state in sync with what is
+// configured, this includes channels and the nickname we want
+func (b *Bot) syncConfiguration(ctx context.Context) {
+	tick := time.NewTicker(time.Second * 30)
+	defer tick.Stop()
+
+	for {
+		select {
+		case <-tick.C:
+		case <-ctx.Done():
+			return
+		}
+
+		// check if we're connected at all
+		if !b.c.IsConnected() {
+			continue
+		}
+
+		c := b.Conf()
+		// check if we lost our nickname
+		if b.c.GetNick() != c.IRC.Nick {
+			b.c.Cmd.Nick(c.IRC.Nick)
+		}
+
+		// check if we're still on all our wanted channels
+		for _, wanted := range c.IRC.Channels {
+			if !b.c.IsInChannel(wanted) {
+				b.c.Cmd.Join(wanted)
+			}
+		}
+	}
 }
