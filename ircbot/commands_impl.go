@@ -629,9 +629,13 @@ func RequestTrack(e Event) error {
 // related errors
 func CooldownMessageFromError(err error) string {
 	// user cooldown messages
-	e, ok := errors.Select(errors.UserCooldown, err)
-	if ok {
-		switch d := time.Duration(e.Delay); {
+	if errors.Is(errors.UserCooldown, err) {
+		d, ok := errors.SelectDelay(err)
+		if !ok {
+			return "{green}No cooldown found."
+		}
+
+		switch d := time.Duration(d); {
 		case d < time.Minute*10:
 			return "{green}Only less than ten minutes before you can request again!"
 		case d < time.Minute*30:
@@ -642,13 +646,16 @@ func CooldownMessageFromError(err error) string {
 	}
 
 	// song cooldown messages
-	e, ok = errors.Select(errors.SongCooldown, err)
-	if !ok {
-		// ? error passed is neither of kind UserCooldown or SongCooldown
+	if !errors.Is(errors.SongCooldown, err) {
 		panic("invalid error passed to CooldownMessageFromError: " + err.Error())
 	}
 
-	switch d := time.Duration(e.Delay); {
+	d, ok := errors.SelectDelay(err)
+	if !ok {
+		return "{green}No cooldown found."
+	}
+
+	switch d := time.Duration(d); {
 	case d < time.Minute*5:
 		return "{green}Only five more minutes before I'll let you request that!"
 	case d < time.Minute*15:

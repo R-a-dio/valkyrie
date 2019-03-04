@@ -125,6 +125,23 @@ func E(args ...interface{}) error {
 	return e
 }
 
+// SelectDelay returns the first non-zero Delay found in the error given, if none
+// is found ok will be false
+func SelectDelay(err error) (Delay, bool) {
+	e, ok := err.(*Error)
+	if !ok {
+		return 0, false
+	}
+
+	if e.Delay != 0 {
+		return e.Delay, true
+	}
+	if e.Err != nil {
+		return SelectDelay(e.Err)
+	}
+	return 0, false
+}
+
 // Select returns an *Error with the given Kind from the error given
 func Select(kind Kind, err error) (*Error, bool) {
 	e, ok := err.(*Error)

@@ -250,7 +250,9 @@ func fromProtoError(stack []*Error) error {
 			top = err
 		}
 
-		prev.Err = err
+		if prev != nil {
+			prev.Err = err
+		}
 		prev = err
 	}
 
