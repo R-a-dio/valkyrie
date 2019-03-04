@@ -139,6 +139,63 @@ func FindNamedSubmatches(re *regexp.Regexp, s string) map[string]string {
 	return m
 }
 
+// IsAuthed checks if the source of the event is authenticated with nickserv
+func IsAuthed(e Event) bool {
+	nick := e.Source.Name
+	// wait at maximum timeout seconds for a reply before giving up
+	timeout := time.Second * 3
+	// channel to tell us if we got authed or not, we only care about the first value
+	// in the channel, the other one is a bogus result
+	authCh := make(chan bool, 2)
+
+	// prepare our handler for a whois reply, we either get the 307 reply we want to
+	// indicate that our user is authenticated, or we get back nothing and our
+	// ENDOFWHOIS handler will tell us that the whois end was reached without 307
+	id, _ := e.Client.Handlers.AddTmp("307", timeout, func(c *girc.Client, e girc.Event) bool {
+		if e.Params[1] != nick {
+			return false
+		}
+		select {
+		case authCh <- true:
+		default:
+			// this default cause should never happen, but it might be possible to
+			// trigger it by having the same user call a command that checks
+			// authentication in rapid succession, so we protect against that
+		}
+		return true
+	})
+	defer e.Client.Handlers.Remove(id)
+
+	id, _ = e.Client.Handlers.AddTmp(girc.RPL_ENDOFWHOIS, timeout, func(c *girc.Client, e girc.Event) bool {
+		if e.Params[1] != nick {
+			// not the nick we're looking for
+			return false
+		}
+		select {
+		case authCh <- false:
+		default:
+			// this default cause should never happen, but it might be possible to
+			// trigger it by having the same user call a command that checks
+			// authentication in rapid succession, so we protect against that
+		}
+		return true
+	})
+	defer e.Client.Handlers.Remove(id)
+
+	// send a whois and then wait for one of our handlers to be done
+	e.Client.Cmd.Whois(nick)
+
+	select {
+	case ok := <-authCh:
+		return ok
+	case <-time.After(timeout):
+		// girc gives us a done channel that is closed after the timeout, but we rather
+		// have a single synchronization point in the authCh such that we eliminate a
+		// race between girc internals and our temporary handlers.
+		return false
+	}
+}
+
 // HasAccess checks if the user that send the PRIVMSG to us has access +h or higher in
 // the channel it came from; HasAccess panics if the event is not PRIVMSG
 func HasAccess(c *girc.Client, e girc.Event) bool {
@@ -163,4 +220,26 @@ func HasAccess(c *girc.Client, e girc.Event) bool {
 // that don't have channel access, but do have the authorization to access the stream
 func HasStreamAccess(c *girc.Client, e girc.Event) bool {
 	return HasAccess(c, e)
+}
+
+func HasAdminAccess(e Event) bool {
+	// for security purposes we also require admins to always have channel access
+	if !HasAccess(e.Client, e.Event) {
+		return false
+	}
+
+	// we also require them to have authed with nickserv
+	if !IsAuthed(e) {
+		return false
+	}
+
+	/*
+		user, err := e.Storage.User(e.Ctx).ByNick(e.Source.Name)
+		if err != nil {
+			return false
+		}
+
+		return user.HasPermission("dev")
+	*/
+	return false
 }

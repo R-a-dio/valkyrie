@@ -392,6 +392,9 @@ func KillStreamer(e Event) error {
 	}
 
 	force := e.Arguments.Bool("force")
+	if force && !HasAdminAccess(e) {
+		force = false
+	}
 
 	var quickErr = make(chan error, 1)
 	go func() {
