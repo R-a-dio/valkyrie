@@ -352,6 +352,8 @@ func ThreadURL(e Event) error {
 var reTopicBit = regexp.MustCompile("(.*?r/)(.*)(/dio.*?)(.*)")
 
 func ChannelTopic(e Event) error {
+	const op errors.Op = "irc/ChannelTopic"
+
 	channel := e.Client.LookupChannel(e.Params[0])
 	if channel == nil {
 		log.Println("unknown channel in .topic")
@@ -363,6 +365,9 @@ func ChannelTopic(e Event) error {
 	if newTopic != "" && HasAccess(e.Client, e.Event) {
 		// we want to set the topic and have access for it
 		match := reTopicBit.FindStringSubmatch(channel.Topic)
+		if match == nil || len(match) < 2 {
+			return errors.E(op, errors.BrokenTopic, errors.Info(channel.Topic))
+		}
 		// regexp returns the full match as the first element, so we get rid of it
 		match = match[1:]
 		// now we replace the relevant bits between the forward slashes
