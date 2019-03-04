@@ -113,6 +113,9 @@ type irc struct {
 	Addr string
 	// ListenAddr is the address to listen on for the HTTP API
 	ListenAddr string
+	// BindAddr is the address to bind to when connecting to IRC, this has to resolve
+	// to an IPv4/IPv6 address bindable on the system.
+	BindAddr string
 	// Server is the address of the irc server to connect to
 	Server string
 	// Nick is the nickname to use

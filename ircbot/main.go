@@ -83,6 +83,7 @@ func NewBot(ctx context.Context, cfg config.Config) (*Bot, error) {
 	ircConf.Name = c.IRC.Nick
 	ircConf.SSL = true
 	ircConf.Port = 6697
+	ircConf.Bind = c.IRC.BindAddr
 	ircConf.AllowFlood = c.IRC.AllowFlood
 	ircConf.RecoverFunc = girc.DefaultRecoverHandler
 	ircConf.Version = c.UserAgent
