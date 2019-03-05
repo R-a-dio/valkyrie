@@ -1,6 +1,9 @@
 package search
 
 import (
+	"log"
+	"sync"
+
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
@@ -10,6 +13,8 @@ import (
 type OpenFn func(config.Config) (radio.SearchService, error)
 
 var providers = map[string]OpenFn{}
+var instancesMu sync.Mutex
+var instances = map[string]radio.SearchService{}
 
 // Register registers an OpenFn under the name given, it is not safe to
 // call Register from multiple goroutines
@@ -27,9 +32,28 @@ func Open(cfg config.Config) (radio.SearchService, error) {
 	const op errors.Op = "search/Open"
 
 	name := cfg.Conf().Providers.Search
+	instancesMu.Lock()
+	defer instancesMu.Unlock()
+
+	// see if there is already an instance available
+	ss, ok := instances[name]
+	if ok {
+		log.Printf("search: re-using existing SearchService instance for %s", name)
+		return ss, nil
+	}
+
+	// otherwise create a new one
 	fn, ok := providers[name]
 	if !ok {
 		return nil, errors.E(op, errors.ProviderUnknown, errors.Info(name))
 	}
-	return fn(cfg)
+
+	log.Printf("search: creating new SearchService instance for %s", name)
+	ss, err := fn(cfg)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	instances[name] = ss
+	return ss, nil
 }

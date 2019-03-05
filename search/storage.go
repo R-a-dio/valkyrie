@@ -29,27 +29,37 @@ type storageService struct {
 }
 
 func (ss storageService) Track(ctx context.Context) radio.TrackStorage {
-	return trackStorage{ctx, ss.search, ss.wrapped.Track(ctx)}
+	ts := ss.wrapped.Track(ctx)
+	return trackStorage{ctx, ss.search, ts, ts}
 }
 
 func (ss storageService) TrackTx(ctx context.Context, tx radio.StorageTx) (radio.TrackStorage, radio.StorageTx, error) {
 	ts, tx, err := ss.wrapped.TrackTx(ctx, tx)
-	return trackStorage{ctx, ss.search, ts}, tx, err
+	return trackStorage{ctx, ss.search, ts, ts}, tx, err
+}
+
+type partialTrackStorage interface {
+	Get(radio.TrackID) (*radio.Song, error)
+	All() ([]radio.Song, error)
+	Unusable() ([]radio.Song, error)
+	BeforeLastRequested(before time.Time) ([]radio.Song, error)
+	QueueCandidates() ([]radio.TrackID, error)
 }
 
 type trackStorage struct {
 	ctx    context.Context
 	search radio.SearchService
-	radio.TrackStorage
+	partialTrackStorage
+	wrapped radio.TrackStorage
 }
 
 func (ts trackStorage) UpdateUsable(song radio.Song, state int) error {
-	err := ts.TrackStorage.UpdateUsable(song, state)
+	err := ts.wrapped.UpdateUsable(song, state)
 	if err != nil {
 		return err
 	}
 
-	new, err := ts.TrackStorage.Get(song.TrackID)
+	new, err := ts.wrapped.Get(song.TrackID)
 	if err != nil {
 		return err
 	}
@@ -58,12 +68,12 @@ func (ts trackStorage) UpdateUsable(song radio.Song, state int) error {
 }
 
 func (ts trackStorage) UpdateRequestInfo(id radio.TrackID) error {
-	err := ts.TrackStorage.UpdateRequestInfo(id)
+	err := ts.wrapped.UpdateRequestInfo(id)
 	if err != nil {
 		return err
 	}
 
-	new, err := ts.TrackStorage.Get(id)
+	new, err := ts.wrapped.Get(id)
 	if err != nil {
 		return err
 	}
@@ -72,12 +82,12 @@ func (ts trackStorage) UpdateRequestInfo(id radio.TrackID) error {
 }
 
 func (ts trackStorage) UpdateLastPlayed(id radio.TrackID) error {
-	err := ts.TrackStorage.UpdateLastPlayed(id)
+	err := ts.wrapped.UpdateLastPlayed(id)
 	if err != nil {
 		return err
 	}
 
-	new, err := ts.TrackStorage.Get(id)
+	new, err := ts.wrapped.Get(id)
 	if err != nil {
 		return err
 	}
@@ -86,12 +96,12 @@ func (ts trackStorage) UpdateLastPlayed(id radio.TrackID) error {
 }
 
 func (ts trackStorage) UpdateLastRequested(id radio.TrackID) error {
-	err := ts.TrackStorage.UpdateLastRequested(id)
+	err := ts.wrapped.UpdateLastRequested(id)
 	if err != nil {
 		return err
 	}
 
-	new, err := ts.TrackStorage.Get(id)
+	new, err := ts.wrapped.Get(id)
 	if err != nil {
 		return err
 	}
@@ -100,12 +110,12 @@ func (ts trackStorage) UpdateLastRequested(id radio.TrackID) error {
 }
 
 func (ts trackStorage) DecrementRequestCount(before time.Time) error {
-	songs, err := ts.TrackStorage.BeforeLastRequested(before)
+	songs, err := ts.wrapped.BeforeLastRequested(before)
 	if err != nil {
 		return err
 	}
 
-	err = ts.TrackStorage.DecrementRequestCount(before)
+	err = ts.wrapped.DecrementRequestCount(before)
 	if err != nil {
 		return err
 	}
