@@ -14,6 +14,7 @@ func WrapStorageService(search radio.SearchService, storage radio.StorageService
 	return storageService{search, storage, storage}
 }
 
+// partialStorage is an interface containing all the methods we are NOT interested in.
 type partialStorage interface {
 	radio.QueueStorageService
 	radio.SongStorageService
@@ -23,8 +24,14 @@ type partialStorage interface {
 }
 
 type storageService struct {
+	// search service to update
 	search radio.SearchService
+	// only embed the partial interface, if we embed the full StorageService interface
+	// the compiler can't warn us about new methods that get added to it, this way there
+	// is human interaction required with this code if a new method is introduced
 	partialStorage
+	// wrapped is the full TrackStorageService interface such that we can access the
+	// methods we are wrapping in this implementation
 	wrapped radio.TrackStorageService
 }
 
@@ -38,6 +45,8 @@ func (ss storageService) TrackTx(ctx context.Context, tx radio.StorageTx) (radio
 	return trackStorage{ctx, ss.search, ts, ts}, tx, err
 }
 
+// partialTrackStorage is an interface containing all the methods of radio.TrackStorage
+// that we are NOT interested in.
 type partialTrackStorage interface {
 	Get(radio.TrackID) (*radio.Song, error)
 	All() ([]radio.Song, error)
@@ -47,9 +56,15 @@ type partialTrackStorage interface {
 }
 
 type trackStorage struct {
-	ctx    context.Context
+	ctx context.Context
+	// search service to update
 	search radio.SearchService
+	// only embed the partial interface, if we embed the full TrackStorage interface
+	// the compiler can't warn us about new methods that get added to it, this way there
+	// is human interaction required with this code if a new method is introduced
 	partialTrackStorage
+	// wrapped is the full TrackStorage interface such that we can access the methods
+	// we are wrapping in this implementation
 	wrapped radio.TrackStorage
 }
 
