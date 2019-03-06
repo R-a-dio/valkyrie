@@ -25,7 +25,7 @@ var defaultConfig = config{
 	TemplatePath:     "templates/",
 	MusicPath:        "",
 	Providers: providers{
-		Storage: "search-mariadb",
+		Storage: "index-mariadb",
 		Search:  "elastic",
 	},
 	Database: database{

@@ -29,6 +29,8 @@ func Register(name string, fn OpenFn) {
 	providers[name] = fn
 }
 
+const configPrefix = "index-"
+
 // Open returns a radio.StorageService as configured by the config given
 func Open(cfg config.Config) (radio.StorageService, error) {
 	const op errors.Op = "storage/Open"
@@ -40,9 +42,9 @@ func Open(cfg config.Config) (radio.StorageService, error) {
 	var searchWrapped bool
 
 	name := cfg.Conf().Providers.Storage
-	if strings.HasPrefix(name, "search-") {
+	if strings.HasPrefix(name, configPrefix) {
 		searchWrapped = true
-		name = name[7:]
+		name = name[len(configPrefix):]
 	}
 
 	instancesMu.Lock()
