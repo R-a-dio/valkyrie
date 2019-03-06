@@ -5,6 +5,7 @@ import (
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/errors"
 )
 
 // WrapStorageService wraps around a StorageService and intercepts calls to methods
@@ -69,70 +70,96 @@ type trackStorage struct {
 }
 
 func (ts trackStorage) UpdateUsable(song radio.Song, state int) error {
+	const op errors.Op = "search/trackStorage.UpdateUsable"
+
 	err := ts.wrapped.UpdateUsable(song, state)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 
 	new, err := ts.wrapped.Get(song.TrackID)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 
-	return ts.search.Update(ts.ctx, *new)
+	err = ts.search.Update(ts.ctx, *new)
+	if err != nil {
+		return errors.E(op, err)
+	}
+	return nil
 }
 
 func (ts trackStorage) UpdateRequestInfo(id radio.TrackID) error {
+	const op errors.Op = "search/trackStorage.UpdateRequestInfo"
+
 	err := ts.wrapped.UpdateRequestInfo(id)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 
 	new, err := ts.wrapped.Get(id)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 
-	return ts.search.Update(ts.ctx, *new)
+	err = ts.search.Update(ts.ctx, *new)
+	if err != nil {
+		return errors.E(op, err)
+	}
+	return nil
 }
 
 func (ts trackStorage) UpdateLastPlayed(id radio.TrackID) error {
+	const op errors.Op = "search/trackStorage.UpdateLastPlayed"
+
 	err := ts.wrapped.UpdateLastPlayed(id)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 
 	new, err := ts.wrapped.Get(id)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 
-	return ts.search.Update(ts.ctx, *new)
+	err = ts.search.Update(ts.ctx, *new)
+	if err != nil {
+		return errors.E(op, err)
+	}
+	return nil
 }
 
 func (ts trackStorage) UpdateLastRequested(id radio.TrackID) error {
+	const op errors.Op = "search/trackStorage.UpdateLastRequested"
+
 	err := ts.wrapped.UpdateLastRequested(id)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 
 	new, err := ts.wrapped.Get(id)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 
-	return ts.search.Update(ts.ctx, *new)
+	err = ts.search.Update(ts.ctx, *new)
+	if err != nil {
+		return errors.E(op, err)
+	}
+	return nil
 }
 
 func (ts trackStorage) DecrementRequestCount(before time.Time) error {
+	const op errors.Op = "search/trackStorage.DecrementRequestCount"
+
 	songs, err := ts.wrapped.BeforeLastRequested(before)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 
 	err = ts.wrapped.DecrementRequestCount(before)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 
 	// TODO(wessie): make this refresh from the actual storage
@@ -142,5 +169,9 @@ func (ts trackStorage) DecrementRequestCount(before time.Time) error {
 		}
 	}
 
-	return ts.search.Update(ts.ctx, songs...)
+	err = ts.search.Update(ts.ctx, songs...)
+	if err != nil {
+		return errors.E(op, err)
+	}
+	return nil
 }
