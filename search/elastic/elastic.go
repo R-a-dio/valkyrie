@@ -92,7 +92,7 @@ func NewSearchService(cfg config.Config) (radio.SearchService, error) {
 
 // NewElasticSearchService returns a new radio.SearchService that calls into
 // an elasticsearch instance for the implementation
-func NewElasticSearchService(cfg config.Config) (*ElasticService, error) {
+func NewElasticSearchService(cfg config.Config) (*SearchService, error) {
 	const op errors.Op = "elastic/NewElasticSearchService"
 
 	conf := cfg.Conf()
@@ -112,23 +112,23 @@ func NewElasticSearchService(cfg config.Config) (*ElasticService, error) {
 	}
 
 	log.Printf("search: elastic: using elasticsearch on %s with version %s", conf.Elastic.URL, version)
-	return &ElasticService{
+	return &SearchService{
 		es: client,
 	}, nil
 }
 
-var _ radio.SearchService = &ElasticService{}
+var _ radio.SearchService = &SearchService{}
 
-// ElasticService implements radio.SearchService
-type ElasticService struct {
+// SearchService implements radio.SearchService with an elasticsearch backend
+type SearchService struct {
 	es *elastic.Client
 }
 
 // CreateIndex creates all indices used by the service, it returns an error if the indices
 // already exist
-func (es *ElasticService) CreateIndex(ctx context.Context) error {
+func (ss *SearchService) CreateIndex(ctx context.Context) error {
 	const op errors.Op = "elastic/ElasticService.CreateIndex"
-	exists, err := es.es.IndexExists(songSearchIndex).Do(ctx)
+	exists, err := ss.es.IndexExists(songSearchIndex).Do(ctx)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -136,7 +136,7 @@ func (es *ElasticService) CreateIndex(ctx context.Context) error {
 		return errors.E(errors.SearchIndexExists, op)
 	}
 
-	create, err := es.es.CreateIndex(songSearchIndex).BodyString(songMapping).Do(ctx)
+	create, err := ss.es.CreateIndex(songSearchIndex).BodyString(songMapping).Do(ctx)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -148,10 +148,10 @@ func (es *ElasticService) CreateIndex(ctx context.Context) error {
 }
 
 // DeleteIndex deletes all indices created by CreateIndex
-func (es *ElasticService) DeleteIndex(ctx context.Context) error {
-	const op errors.Op = "elastic/ElasticService.DeleteIndex"
+func (ss *SearchService) DeleteIndex(ctx context.Context) error {
+	const op errors.Op = "elastic/SearchService.DeleteIndex"
 
-	del, err := es.es.DeleteIndex(songSearchIndex).Do(ctx)
+	del, err := ss.es.DeleteIndex(songSearchIndex).Do(ctx)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -163,11 +163,11 @@ func (es *ElasticService) DeleteIndex(ctx context.Context) error {
 }
 
 // Search implements radio.SearchService
-func (es *ElasticService) Search(ctx context.Context, query string, limit int, offset int) ([]radio.Song, error) {
-	const op errors.Op = "elastic/ElasticService.Search"
-	esQuery := es.createSearchQuery(query)
+func (ss *SearchService) Search(ctx context.Context, query string, limit int, offset int) ([]radio.Song, error) {
+	const op errors.Op = "elastic/SearchService.Search"
+	esQuery := ss.createSearchQuery(query)
 
-	action := es.es.Search().Index(songSearchIndex).
+	action := ss.es.Search().Index(songSearchIndex).
 		Query(esQuery).
 		Sort("priority", false). // sort by our custom priority field
 		From(offset).Size(limit).
@@ -202,7 +202,7 @@ func (es *ElasticService) Search(ctx context.Context, query string, limit int, o
 	return songs, nil
 }
 
-func (es *ElasticService) createSearchQuery(query string) elastic.Query {
+func (ss *SearchService) createSearchQuery(query string) elastic.Query {
 	/* query_string version, this is what has been done historically
 	return elastic.NewQueryStringQuery(query).
 		Field("title").Field("artist").Field("album").Field("tags").Field("track_id").
@@ -212,16 +212,36 @@ func (es *ElasticService) createSearchQuery(query string) elastic.Query {
 }
 
 // Update implements radio.SearchService
-func (es *ElasticService) Update(ctx context.Context, songs ...radio.Song) error {
-	const op errors.Op = "elastic/ElasticService.Update"
-	bulk := es.es.Bulk()
+func (ss *SearchService) Update(ctx context.Context, songs ...radio.Song) error {
+	const op errors.Op = "elastic/SearchService.Update"
+
+	// if we only get a single argument, don't do a bulk update
+	if len(songs) == 1 {
+		song := songs[0]
+
+		_, err := ss.es.Update().
+			Index(songSearchIndex).
+			Type(songSearchType).
+			Id(song.TrackID.String()).
+			Doc(song).DocAsUpsert(true).
+			Do(ctx)
+		if err != nil {
+			return errors.E(op, err)
+		}
+
+		log.Printf("%s: indexed 1 song", op)
+		return nil
+	}
+
+	// if more than one, we do a bulk update
+	bulk := ss.es.Bulk()
 
 	for _, song := range songs {
 		if !song.HasTrack() {
 			return errors.E(op, errors.SongWithoutTrack, song)
 		}
 
-		bulk = bulk.Add(es.createUpsertRequest(song))
+		bulk = bulk.Add(ss.createUpsertRequest(song))
 	}
 
 	resp, err := bulk.Do(ctx)
@@ -233,7 +253,7 @@ func (es *ElasticService) Update(ctx context.Context, songs ...radio.Song) error
 	return nil
 }
 
-func (es *ElasticService) createUpsertRequest(song radio.Song) elastic.BulkableRequest {
+func (ss *SearchService) createUpsertRequest(song radio.Song) elastic.BulkableRequest {
 	return elastic.NewBulkUpdateRequest().
 		Index(songSearchIndex).
 		Type(songSearchType).
@@ -242,15 +262,15 @@ func (es *ElasticService) createUpsertRequest(song radio.Song) elastic.BulkableR
 }
 
 // Delete implements radio.SearchService
-func (es *ElasticService) Delete(ctx context.Context, songs ...radio.Song) error {
-	const op errors.Op = "elastic/ElasticService.Delete"
-	bulk := es.es.Bulk()
+func (ss *SearchService) Delete(ctx context.Context, songs ...radio.Song) error {
+	const op errors.Op = "elastic/SearchService.Delete"
+	bulk := ss.es.Bulk()
 
 	for _, song := range songs {
 		if !song.HasTrack() {
 			return errors.E(op, errors.SongWithoutTrack, song)
 		}
-		bulk = bulk.Add(es.createDeleteRequest(song))
+		bulk = bulk.Add(ss.createDeleteRequest(song))
 	}
 
 	resp, err := bulk.Do(ctx)
@@ -262,7 +282,7 @@ func (es *ElasticService) Delete(ctx context.Context, songs ...radio.Song) error
 	return nil
 }
 
-func (es *ElasticService) createDeleteRequest(song radio.Song) elastic.BulkableRequest {
+func (ss *SearchService) createDeleteRequest(song radio.Song) elastic.BulkableRequest {
 	return elastic.NewBulkDeleteRequest().
 		Index(songSearchIndex).
 		Type(songSearchType).
