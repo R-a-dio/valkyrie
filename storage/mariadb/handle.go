@@ -4,11 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"strings"
+	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/storage"
-	_ "github.com/go-sql-driver/mysql" // mariadb
+	"github.com/go-sql-driver/mysql" // mariadb
 	"github.com/jmoiron/sqlx"
 )
 
@@ -28,7 +29,28 @@ var specialCasedColumnNames = map[string]string{
 func Connect(cfg config.Config) (radio.StorageService, error) {
 	info := cfg.Conf().Database
 
-	db, err := sqlx.Connect(info.DriverName, info.DSN)
+	// we require some specific arguments in the DSN to have code work properly, so make
+	// sure those are included
+	dsn, err := mysql.ParseDSN(info.DSN)
+	if err != nil {
+		return nil, err
+	}
+
+	// UTC location to handle time.Time location
+	dsn.Loc, err = time.LoadLocation("UTC")
+	if err != nil {
+		return nil, err
+	}
+	// parsetime to handle time.Time in the driver
+	dsn.ParseTime = true
+	// time_zone to have the database not try and interpret dates and times as the
+	// locale of the system, but as UTC+0 instead
+	if dsn.Params == nil {
+		dsn.Params = map[string]string{}
+	}
+	dsn.Params["time_zone"] = "'+00:00'"
+
+	db, err := sqlx.Connect("mysql", dsn.FormatDSN())
 	if err != nil {
 		return nil, err
 	}
