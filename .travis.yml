@@ -10,9 +10,12 @@ matrix:
 
 env:
 - GO111MODULE=on # use go modules
+cache:
+  directories:
+    - $HOME/gopath/pkg/mod/cache
 
 install:
-  - #nothing
+  - go get -v ./...
 script:
   - diff -u <(echo -n) <(gofmt -d -s .)
   - go generate migrations/generate.go && git add migrations && git diff --cached --exit-code migrations
