@@ -3,6 +3,7 @@ package mariadb
 import (
 	"context"
 	"database/sql"
+	"log"
 	"strings"
 	"time"
 
@@ -49,8 +50,15 @@ func Connect(cfg config.Config) (radio.StorageService, error) {
 		dsn.Params = map[string]string{}
 	}
 	dsn.Params["time_zone"] = "'+00:00'"
+	conndsn := dsn.FormatDSN()
 
-	db, err := sqlx.Connect("mysql", dsn.FormatDSN())
+	// we want to print what we're connecting to, but not print our password
+	if dsn.Passwd != "" {
+		dsn.Passwd = "<redacted>"
+	}
+	log.Printf("storage: mariadb: trying to connect to %s", dsn.FormatDSN())
+
+	db, err := sqlx.Connect("mysql", conndsn)
 	if err != nil {
 		return nil, err
 	}
