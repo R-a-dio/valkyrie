@@ -14,7 +14,6 @@ env:
 install:
   - #nothing
 script:
-  - go get -t -v ./...
   - diff -u <(echo -n) <(gofmt -d -s .)
   - go generate migrations/generate.go && git add migrations && git diff --cached --exit-code migrations
   - go vet ./...
