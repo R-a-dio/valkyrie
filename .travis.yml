@@ -15,7 +15,7 @@ cache:
     - $HOME/gopath/pkg/mod/cache
 
 install:
-  - go get -v ./...
+  - go mod download
 script:
   - diff -u <(echo -n) <(gofmt -d -s .)
   - go generate migrations/generate.go && git add migrations && git diff --cached --exit-code migrations
