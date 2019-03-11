@@ -26,8 +26,10 @@ var specialCasedColumnNames = map[string]string{
 	"RememberToken": "remember_token",
 }
 
-// Connect connects to the database configured in cfg
-func Connect(cfg config.Config) (radio.StorageService, error) {
+// ConnectDB connects to the configured mariadb instance and returns the raw database
+// object. Argument multistatement indicates if we should allow queries with multiple
+// statements in them.
+func ConnectDB(ctx context.Context, cfg config.Config, multistatement bool) (*sqlx.DB, error) {
 	info := cfg.Conf().Database
 
 	// we require some specific arguments in the DSN to have code work properly, so make
@@ -37,6 +39,10 @@ func Connect(cfg config.Config) (radio.StorageService, error) {
 		return nil, err
 	}
 
+	// enable multistatement queries if asked for
+	if multistatement {
+		dsn.MultiStatements = true
+	}
 	// UTC location to handle time.Time location
 	dsn.Loc, err = time.LoadLocation("UTC")
 	if err != nil {
@@ -58,7 +64,7 @@ func Connect(cfg config.Config) (radio.StorageService, error) {
 	}
 	log.Printf("storage: mariadb: trying to connect to %s", dsn.FormatDSN())
 
-	db, err := sqlx.Connect("mysql", conndsn)
+	db, err := sqlx.ConnectContext(ctx, "mysql", conndsn)
 	if err != nil {
 		return nil, err
 	}
@@ -71,6 +77,16 @@ func Connect(cfg config.Config) (radio.StorageService, error) {
 		return strings.ToLower(s)
 	})
 
+	return db, nil
+}
+
+// Connect connects to the database configured in cfg
+func Connect(cfg config.Config) (radio.StorageService, error) {
+	// TODO(wessie): pass a context here somehow?
+	db, err := ConnectDB(context.Background(), cfg, false)
+	if err != nil {
+		return nil, err
+	}
 	return &StorageService{db}, nil
 }
 
