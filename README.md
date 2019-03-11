@@ -34,9 +34,9 @@ an example configuration file is included as `example.toml`. Other documentation
 - the flag `-config` given to the executable
 - the environment variable `HANYUU_CONFIG` which can either be a relative or absolute path
 
-You can also run `hanyuu config` to see what the currently loaded configuration looks like
+You can also run `hanyuu config` to see what the currently loaded configuration looks like, the output is a valid TOML file so can also be piped into a file if so desired
 
 Before you commit
 -----
 
-If you've edited or added `.proto` files located in `rpc/` you should run the required generation step. If you've only edited files you can run `go generate` in the root of the project. If you've added files you need to include them in `generate.go` before running `go generate`.
+If you've edited `rpc/radio.proto` or added a migration file under `migrations/` you should run `go generate` before you commit.
