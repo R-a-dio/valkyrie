@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 )
 
 //go:generate go run generate.go
@@ -45,16 +44,9 @@ func main() {
 }
 
 func execBecky(filename string) error {
-	// remove sql extension, keep .down and .up
-	variable := strings.TrimSuffix(filename, ".sql")
-	// replace .down and .up with _down and _up
-	variable = strings.ReplaceAll(variable, ".", "_")
-	// add an underscore because Go variables have to start with a letter
-	variable = "_" + variable
-
 	cmd := exec.Command("go", "run", "asset.go",
 		"-lib=false",
-		"-var", variable,
+		"-var", "_",
 		"-wrap", "migration",
 		"--", filename)
 	cmd.Stdout = os.Stdout
