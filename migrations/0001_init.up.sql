@@ -183,36 +183,6 @@ CREATE TABLE `pending` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `permission_kinds`
---
-
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `permission_kinds` (
-  `permission` varchar(40) NOT NULL,
-  PRIMARY KEY (`permission`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `permissions`
---
-
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `permissions` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `user_id` int(12) unsigned NOT NULL,
-  `permission` varchar(40) NOT NULL,
-  PRIMARY KEY (`id`),
-  KEY `user_id` (`user_id`),
-  KEY `permission` (`permission`),
-  CONSTRAINT `permissions_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `permissions_ibfk_2` FOREIGN KEY (`permission`) REFERENCES `permission_kinds` (`permission`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
 -- Table structure for table `postpending`
 --
 
