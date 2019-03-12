@@ -16,6 +16,7 @@ import (
 	"github.com/R-a-dio/valkyrie/manager"
 	_ "github.com/R-a-dio/valkyrie/search/elastic"  // elastic search interface
 	_ "github.com/R-a-dio/valkyrie/storage/mariadb" // mariadb storage interface
+	"github.com/R-a-dio/valkyrie/website"
 	"github.com/google/subcommands"
 )
 
@@ -152,6 +153,15 @@ var verifierCmd = cmd{
 	execute: withConfig(jobs.ExecuteVerifier),
 }
 
+var websiteCmd = cmd{
+	name:     "website",
+	synopsis: "runs the r/a/dio website",
+	usage: `website:
+	runs the r/a/dio website
+	`,
+	execute: withConfig(website.Execute),
+}
+
 func main() {
 	// setup configuration file as top-level flag
 	flag.StringVar(&configFile, "config", "hanyuu.toml", "filepath to configuration file")
@@ -169,6 +179,7 @@ func main() {
 	// 		subcommands.Register(streamerCmd, "")
 	subcommands.Register(managerCmd, "")
 	subcommands.Register(ircCmd, "")
+	subcommands.Register(websiteCmd, "")
 
 	subcommands.Register(listenerLogCmd, "jobs")
 	subcommands.Register(requestCountCmd, "jobs")

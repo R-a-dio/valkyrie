@@ -32,6 +32,9 @@ var defaultConfig = config{
 		DriverName: "mysql",
 		DSN:        "",
 	},
+	Website: website{
+		ListenAddr: ":4747",
+	},
 	Streamer: streamer{
 		Addr:            ":4545",
 		ListenAddr:      ":4545",
@@ -72,6 +75,7 @@ type config struct {
 	Providers providers
 	Database  database
 
+	Website  website
 	Streamer streamer
 	IRC      irc
 	Manager  manager
@@ -91,6 +95,12 @@ type database struct {
 	DriverName string
 	// DSN to pass to database/sql, format depends on driver used
 	DSN string
+}
+
+// website contains configuration relevant to the website instance
+type website struct {
+	// ListenAddr is the address to listen on for the website
+	ListenAddr string
 }
 
 // streamer contains all the fields only relevant to the streamer
