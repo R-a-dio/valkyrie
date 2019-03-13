@@ -33,7 +33,9 @@ var defaultConfig = config{
 		DSN:        "",
 	},
 	Website: website{
-		ListenAddr: ":4747",
+		WebsiteAddr: "localhost:3241",
+		Addr:        ":4747",
+		ListenAddr:  ":4747",
 	},
 	Streamer: streamer{
 		Addr:            ":4545",
@@ -99,7 +101,11 @@ type database struct {
 
 // website contains configuration relevant to the website instance
 type website struct {
-	// ListenAddr is the address to listen on for the website
+	// Address to bind to for the public-facing website
+	WebsiteAddr string
+	// Addr is the address for the HTTP API
+	Addr string
+	// ListenAddr is the address to listen on for the HTTP API
 	ListenAddr string
 }
 

@@ -147,8 +147,18 @@ func (ss SongStorage) FromHash(hash radio.SongHash) (*radio.Song, error) {
 func (ss SongStorage) LastPlayed(offset, amount int) ([]radio.Song, error) {
 	const op errors.Op = "mariadb/SongStorage.LastPlayed"
 
-	var query = `SELECT esong.id AS id, esong.meta AS metadata FROM esong
-		RIGHT JOIN eplay ON esong.id = eplay.isong ORDER BY eplay.dt DESC LIMIT ? OFFSET ?;`
+	var query = `
+	SELECT
+		esong.id AS id,
+		esong.meta AS metadata,
+		eplay.dt AS lastplayed
+	FROM
+		esong
+	RIGHT JOIN
+		eplay ON esong.id = eplay.isong
+	ORDER BY 
+		eplay.dt DESC
+	LIMIT ? OFFSET ?;`
 
 	var songs = make([]radio.Song, 0, amount)
 

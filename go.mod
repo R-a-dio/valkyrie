@@ -8,6 +8,7 @@ require (
 	github.com/golang-migrate/migrate/v4 v4.2.5
 	github.com/golang/protobuf v1.2.0
 	github.com/google/subcommands v0.0.0-20181012225330-46f0354f6315
+	github.com/gorilla/mux v1.6.2
 	github.com/grafov/m3u8 v0.6.1
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/lrstanley/girc v0.0.0-20190210212025-51b8e096d398
