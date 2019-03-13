@@ -29,6 +29,23 @@ func CalculateRequestDelay(requestCount int) time.Duration {
 	return time.Duration(time.Duration(dur/2) * time.Second)
 }
 
+// CanUserRequest returns wether given the delay between requests, and the last time that
+// was requested at, if the user is eligible to request again, and if false it also
+// returns the time remaining until the user can request
+func CanUserRequest(delay time.Duration, last time.Time) (time.Duration, bool) {
+	// zero time indicates never requested before
+	if last.IsZero() {
+		return 0, true
+	}
+
+	since := time.Since(last)
+	if since > delay {
+		return 0, true
+	}
+
+	return delay - since, false
+}
+
 type Status struct {
 	// User is the user that is currently broadcasting on the stream
 	User User

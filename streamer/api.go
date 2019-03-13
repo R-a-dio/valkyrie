@@ -140,10 +140,9 @@ func (s *streamerService) RequestSong(ctx context.Context, song radio.Song, iden
 	}
 
 	// check if the user is allowed to request
-	withDelay := userLastRequest.Add(time.Duration(s.Conf().UserRequestDelay))
-	if !userLastRequest.IsZero() && withDelay.After(time.Now()) {
-		d := time.Until(withDelay)
-		return errors.E(op, errors.UserCooldown, errors.Delay(d), song)
+	waitTime, ok := radio.CanUserRequest(time.Duration(s.Conf().UserRequestDelay), userLastRequest)
+	if !ok {
+		return errors.E(op, errors.UserCooldown, errors.Delay(waitTime), song)
 	}
 
 	// check if the track can be decoded by the streamer

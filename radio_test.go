@@ -90,3 +90,22 @@ func TestSongRequestable(t *testing.T) {
 		}
 	}
 }
+
+func TestCanRequest(t *testing.T) {
+	tests := []struct {
+		delay time.Duration
+		last  time.Time
+		ok    bool
+	}{
+		{time.Hour, time.Now(), false},
+		{time.Hour, time.Now().Add(-time.Hour * 2), true},
+		{time.Hour, time.Now().Add(time.Hour * 2), false},
+	}
+
+	for _, test := range tests {
+		d, ok := CanUserRequest(test.delay, test.last)
+		if ok != test.ok {
+			t.Errorf("failed %s on %s, returned: %s", test.last, test.delay, d)
+		}
+	}
+}
