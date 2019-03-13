@@ -5,15 +5,17 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 	"sync/atomic"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/config"
 
 	"github.com/go-chi/chi"
 )
 
-func NewAPIv0(ctx context.Context, storage radio.StorageService,
+func NewAPIv0(ctx context.Context, cfg config.Config, storage radio.StorageService,
 	streamer radio.StreamerService, manager radio.ManagerService) (*APIv0, error) {
 
 	status, err := newV0Status(ctx, storage, streamer, manager)
@@ -22,17 +24,131 @@ func NewAPIv0(ctx context.Context, storage radio.StorageService,
 	}
 
 	api := APIv0{
-		status: status,
+		Config:   cfg,
+		storage:  storage,
+		streamer: streamer,
+		manager:  manager,
+		status:   status,
 	}
 	return &api, nil
 }
 
 type APIv0 struct {
-	status *v0Status
+	config.Config
+
+	storage  radio.StorageService
+	streamer radio.StreamerService
+	manager  radio.ManagerService
+	status   *v0Status
 }
 
 func (a *APIv0) Route(r chi.Router) {
 	r.Method("GET", "/", a.status)
+	r.Get("/ping", func(w http.ResponseWriter, _ *http.Request) {
+		w.Write([]byte(`{"ping":true}`))
+	})
+	r.Get("/song", a.getSong)
+	r.Get("/user-cooldown", a.getUserCooldown)
+	r.Get("/news", a.getNews)
+	r.Get("/search", a.getSearch)
+	r.Get("/can-request", a.getCanRequest)
+	r.Get("/dj-image", a.getDJImage)
+	r.Route(`/request/{TrackID:[0-9]+}`, func(r chi.Router) {
+		r.Use(TrackCtx(a.storage))
+		r.Post("/", a.postRequest)
+	})
+}
+
+func (a *APIv0) getSong(w http.ResponseWriter, r *http.Request) {
+
+}
+
+func (a *APIv0) getUserCooldown(w http.ResponseWriter, r *http.Request) {
+
+}
+
+func (a *APIv0) getNews(w http.ResponseWriter, r *http.Request) {
+}
+func (a *APIv0) getSearch(w http.ResponseWriter, r *http.Request) {
+}
+func (a *APIv0) getCanRequest(w http.ResponseWriter, r *http.Request) {
+	status, err := a.manager.Status(r.Context())
+	if err != nil {
+		return
+	}
+
+	type resp struct {
+		Requests bool `json:"requests"`
+	}
+
+	response := struct {
+		Main struct {
+			Requests bool `json:"requests"`
+		}
+	}{
+		Main: resp{false},
+	}
+
+	// send our response when we return
+	defer func() {
+		// but not if an error occured
+		if err != nil {
+			// TODO: handle error
+			http.Error(w, http.StatusText(501), 501)
+			return
+		}
+		err := json.NewEncoder(w).Encode(response)
+		if err != nil {
+			log.Println(err)
+		}
+	}()
+
+	// all requests are disabled
+	if !status.RequestsEnabled {
+		return
+	}
+
+	identifier := getIdentifier(r)
+	userLastRequest, err := a.storage.Request(r.Context()).LastRequest(identifier)
+	if err != nil {
+		return
+	}
+
+	_, ok := radio.CanUserRequest(
+		time.Duration(a.Conf().UserRequestDelay),
+		userLastRequest,
+	)
+	if !ok {
+		return
+	}
+
+	response.Main.Requests = true
+	return
+}
+
+func (a *APIv0) getDJImage(w http.ResponseWriter, r *http.Request) {
+}
+func (a *APIv0) postRequest(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	song, ok := ctx.Value(TrackKey).(radio.Song)
+	if !ok {
+		http.Error(w, http.StatusText(422), 422)
+		return
+	}
+
+	identifier := getIdentifier(r)
+	err := a.streamer.RequestSong(ctx, song, identifier)
+	if err != nil {
+		return
+	}
+}
+
+// getIdentifier returns a unique identifier for the user, currently uses the remote
+// address for this purpose
+func getIdentifier(r *http.Request) string {
+	i := strings.Index(r.RemoteAddr, ":")
+	return r.RemoteAddr[:i]
 }
 
 func newV0Status(ctx context.Context, storage radio.SongStorageService,

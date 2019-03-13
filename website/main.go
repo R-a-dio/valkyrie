@@ -22,6 +22,9 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	manager := cfg.Conf().Manager.Client()
 
 	r := chi.NewRouter()
+	// TODO(wessie): check if nginx is setup to send the correct headers for real IP
+	// passthrough, as it's required for request handling
+	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
@@ -31,8 +34,8 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	r.Get("/stream.mp3", RedirectLegacyStream)
 	r.Get("/stream", RedirectLegacyStream)
 	r.Get("/R-a-dio", RedirectLegacyStream)
-	// version 0 of the api
-	api, err := NewAPIv0(ctx, storage, streamer, manager)
+	// version 0 of the api (the legacy PHP version)
+	api, err := NewAPIv0(ctx, cfg, storage, streamer, manager)
 	if err != nil {
 		return err
 	}
