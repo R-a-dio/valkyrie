@@ -10,7 +10,7 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 
-	"github.com/gorilla/mux"
+	"github.com/go-chi/chi"
 )
 
 func NewAPIv0(ctx context.Context, storage radio.StorageService,
@@ -31,9 +31,8 @@ type APIv0 struct {
 	status *v0Status
 }
 
-func (a *APIv0) Route(r *mux.Router) http.Handler {
-	r.Handle("/", a.status)
-	return r
+func (a *APIv0) Route(r chi.Router) {
+	r.Method("GET", "/", a.status)
 }
 
 func newV0Status(ctx context.Context, storage radio.SongStorageService,

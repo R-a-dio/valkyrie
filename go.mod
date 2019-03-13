@@ -4,6 +4,7 @@ require (
 	github.com/BurntSushi/toml v0.3.1
 	github.com/boltdb/bolt v1.3.1
 	github.com/cenkalti/backoff v2.1.0+incompatible
+	github.com/go-chi/chi v4.0.2+incompatible
 	github.com/go-sql-driver/mysql v1.4.1
 	github.com/golang-migrate/migrate/v4 v4.2.5
 	github.com/golang/protobuf v1.2.0

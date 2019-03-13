@@ -7,7 +7,8 @@ import (
 
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/storage"
-	"github.com/gorilla/mux"
+	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/middleware"
 )
 
 // Execute runs a website instance with the configuration given
@@ -20,13 +21,22 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	streamer := cfg.Conf().Streamer.Client()
 	manager := cfg.Conf().Manager.Client()
 
+	r := chi.NewRouter()
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+
+	// legacy urls that once pointed to our stream, redirect them to the new url
+	r.Get("/main.mp3", RedirectLegacyStream)
+	r.Get("/main", RedirectLegacyStream)
+	r.Get("/stream.mp3", RedirectLegacyStream)
+	r.Get("/stream", RedirectLegacyStream)
+	r.Get("/R-a-dio", RedirectLegacyStream)
+	// version 0 of the api
 	api, err := NewAPIv0(ctx, storage, streamer, manager)
 	if err != nil {
 		return err
 	}
-
-	r := mux.NewRouter()
-	r.Handle("/api", api.Route(r.PathPrefix("/api").Subrouter()))
+	r.Route("/api", api.Route)
 
 	conf := cfg.Conf()
 	server := &http.Server{
@@ -50,4 +60,10 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	case err = <-errCh:
 		return err
 	}
+}
+
+// RedirectLegacyStream redirects a request to the (new) icecast stream url
+func RedirectLegacyStream(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Location", "//stream.r-a-d.io/main")
+	w.WriteHeader(http.StatusMovedPermanently)
 }
