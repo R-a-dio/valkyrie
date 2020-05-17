@@ -70,6 +70,8 @@ type config struct {
 	MusicPath string
 	// UserRequestDelay is the delay between user requests
 	UserRequestDelay Duration
+	// UserUploadDelay is the delay between song submissions
+	UserUploadDelay Duration
 	// TemplatePath is the path where html templates are stored for the HTTP
 	// frontends
 	TemplatePath string
