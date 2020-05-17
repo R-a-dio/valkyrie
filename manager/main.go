@@ -134,13 +134,17 @@ func (m *Manager) loadStreamStatus(ctx context.Context) (*radio.Status, error) {
 	// see if we can get more complete data than what we already have
 	if status.Song.Metadata != "" {
 		song, err := m.Storage.Song(ctx).FromMetadata(status.Song.Metadata)
-		if err == nil {
+		if err != nil {
+			log.Printf("manager: warning: %v", err)
+		} else {
 			status.Song = *song
 		}
 	}
 	if status.StreamerName != "" {
 		user, err := m.Storage.User(ctx).LookupName(status.StreamerName)
-		if err == nil {
+		if err != nil {
+			log.Printf("manager: warning: %v", err)
+		} else {
 			status.User = *user
 		}
 	}
