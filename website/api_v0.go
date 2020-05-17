@@ -486,6 +486,13 @@ func (s *v0Status) createStatusJSON(ctx context.Context) (v0StatusJSON, error) {
 		trackID = int(ms.Song.TrackID)
 	}
 
+	// Thread seems to be a literal "none" if no thread is supposed to be shown in
+	// the old API
+	thread := ms.Thread
+	if ms.Thread == "" {
+		thread = "none"
+	}
+
 	dj := ms.User.DJ
 	status.Main = v0StatusMain{
 		NowPlaying:  ms.Song.Metadata,
@@ -495,7 +502,7 @@ func (s *v0Status) createStatusJSON(ctx context.Context) (v0StatusJSON, error) {
 		EndTime:     endTime,
 		LastSet:     now.Format("2006-01-02 15:04:05"),
 		TrackID:     trackID,
-		Thread:      ms.Thread,
+		Thread:      thread,
 		// TODO(wessie): use RequestsEnabled again when it is implemented properly,
 		// right now nothing sets it and the streamer ignores the value too, only
 		// reading the configuration file instead
