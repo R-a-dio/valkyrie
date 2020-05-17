@@ -140,12 +140,19 @@ func fromProtoQueueEntry(entry *QueueEntry) *radio.QueueEntry {
 }
 
 func toProtoUser(u radio.User) *User {
-	// TODO: implement this fully
 	return &User{
-		Id:       int32(u.ID),
-		Username: u.Username,
-		Ip:       u.IP,
-		Dj:       toProtoDJ(u.DJ),
+		Id:        int32(u.ID),
+		Username:  u.Username,
+		Ip:        u.IP,
+		UpdatedAt: tp(u.UpdatedAt),
+		DeletedAt: tp(u.DeletedAt),
+		CreatedAt: tp(u.CreatedAt),
+		Dj:        toProtoDJ(u.DJ),
+		// These are disabled because they should probably never be used by a component
+		// that doesn't have direct-access to the database
+		//Password: 	 u.Password,
+		//Email:		 u.Email,
+		//RememberToken: u.RememberToken,
 	}
 }
 
@@ -154,23 +161,34 @@ func fromProtoUser(u *User) radio.User {
 		return radio.User{}
 	}
 	return radio.User{
-		ID:            radio.UserID(u.Id),
-		Username:      u.Username,
-		Password:      u.Password,
-		Email:         u.Email,
-		RememberToken: u.RememberToken,
-		IP:            u.Ip,
-		UpdatedAt:     t(u.UpdatedAt),
-		DeletedAt:     t(u.DeletedAt),
-		CreatedAt:     t(u.CreatedAt),
-		DJ:            fromProtoDJ(u.Dj),
+		ID:        radio.UserID(u.Id),
+		Username:  u.Username,
+		IP:        u.Ip,
+		UpdatedAt: t(u.UpdatedAt),
+		DeletedAt: t(u.DeletedAt),
+		CreatedAt: t(u.CreatedAt),
+		DJ:        fromProtoDJ(u.Dj),
+		// These are disabled because they should probably never be used by a component
+		// that doesn't have direct-access to the database
+		//Password:      u.Password,
+		//Email:         u.Email,
+		//RememberToken: u.RememberToken,
 	}
 }
 
 func toProtoDJ(d radio.DJ) *DJ {
-	// TODO: implement this fully
 	return &DJ{
-		Id: int32(d.ID),
+		Id:       int32(d.ID),
+		Name:     d.Name,
+		Regex:    d.Regex,
+		Text:     d.Text,
+		Image:    d.Image,
+		Visible:  d.Visible,
+		Priority: int32(d.Priority),
+		Role:     d.Role,
+		Css:      d.CSS,
+		Color:    d.Color,
+		Theme:    toProtoTheme(d.Theme),
 	}
 }
 
@@ -178,9 +196,40 @@ func fromProtoDJ(d *DJ) radio.DJ {
 	if d == nil {
 		return radio.DJ{}
 	}
-	// TODO: implement this fully
 	return radio.DJ{
-		ID: radio.DJID(d.Id),
+		ID:       radio.DJID(d.Id),
+		Name:     d.Name,
+		Regex:    d.Regex,
+		Text:     d.Text,
+		Image:    d.Image,
+		Visible:  d.Visible,
+		Priority: int(d.Priority),
+		Role:     d.Role,
+		CSS:      d.Css,
+		Color:    d.Color,
+		Theme:    fromProtoTheme(d.Theme),
+	}
+}
+
+func toProtoTheme(t radio.Theme) *Theme {
+	return &Theme{
+		Id:          int32(t.ID),
+		Name:        t.Name,
+		DisplayName: t.DisplayName,
+		Author:      t.Author,
+	}
+}
+
+func fromProtoTheme(t *Theme) radio.Theme {
+	if t == nil {
+		return radio.Theme{}
+	}
+
+	return radio.Theme{
+		ID:          radio.ThemeID(t.Id),
+		Name:        t.Name,
+		DisplayName: t.DisplayName,
+		Author:      t.Author,
 	}
 }
 
