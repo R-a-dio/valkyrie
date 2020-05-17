@@ -210,12 +210,15 @@ func (a *APIv0) getSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// temporary until we fix search api to return pagination help
-	songs := result
+	songs := result.Songs
 	// create pagination information for the result
 	var response = searchResponse{
+		Total:       result.TotalHits,
 		PerPage:     limit,
 		CurrentPage: page,
+		LastPage:    result.TotalHits/limit + 1,
+		From:        offset + 1,
+		To:          offset + len(songs),
 	}
 
 	// move over the results to sanitized output structs

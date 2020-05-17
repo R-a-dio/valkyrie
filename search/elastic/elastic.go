@@ -163,7 +163,8 @@ func (ss *SearchService) DeleteIndex(ctx context.Context) error {
 }
 
 // Search implements radio.SearchService
-func (ss *SearchService) Search(ctx context.Context, query string, limit int, offset int) ([]radio.Song, error) {
+func (ss *SearchService) Search(ctx context.Context, query string,
+	limit int, offset int) (*radio.SearchResult, error) {
 	const op errors.Op = "elastic/SearchService.Search"
 	esQuery := ss.createSearchQuery(query)
 
@@ -188,7 +189,7 @@ func (ss *SearchService) Search(ctx context.Context, query string, limit int, of
 	}
 
 	if res.Hits == nil || len(res.Hits.Hits) == 0 {
-		return []radio.Song{}, errors.E(op, errors.SearchNoResults, errors.Info(query))
+		return nil, errors.E(op, errors.SearchNoResults, errors.Info(query))
 	}
 
 	songs := make([]radio.Song, len(res.Hits.Hits))
@@ -199,7 +200,12 @@ func (ss *SearchService) Search(ctx context.Context, query string, limit int, of
 		}
 		songs[i].FillMetadata()
 	}
-	return songs, nil
+
+	result := &radio.SearchResult{
+		Songs:     songs,
+		TotalHits: int(res.TotalHits()),
+	}
+	return result, nil
 }
 
 func (ss *SearchService) createSearchQuery(query string) elastic.Query {

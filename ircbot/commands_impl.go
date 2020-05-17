@@ -475,10 +475,12 @@ func RandomTrackRequest(e Event) error {
 		}
 	} else if query != "" {
 		// query random, select of top 100 results
-		songs, err = e.Bot.Searcher.Search(e.Ctx, query, 100, 0)
+		var res *radio.SearchResult
+		res, err = e.Bot.Searcher.Search(e.Ctx, query, 100, 0)
 		if err != nil {
 			return errors.E(op, err)
 		}
+		songs = res.Songs
 	} else {
 		// purely random, just select from all tracks
 		songs, err = e.Storage.Track(e.Ctx).All()
@@ -537,7 +539,7 @@ func LuckyTrackRequest(e Event) error {
 		return errors.E(op, err)
 	}
 
-	for _, song := range res {
+	for _, song := range res.Songs {
 		if !song.Requestable() {
 			continue
 		}
@@ -576,11 +578,13 @@ func SearchTrack(e Event) error {
 		}
 		songs = []radio.Song{*song}
 	} else {
+		var res *radio.SearchResult
 		query := e.Arguments["Query"]
-		songs, err = e.Bot.Searcher.Search(e.Ctx, query, 5, 0)
+		res, err = e.Bot.Searcher.Search(e.Ctx, query, 5, 0)
 		if err != nil {
 			return errors.E(op, err)
 		}
+		songs = res.Songs
 	}
 
 	var (
