@@ -22,6 +22,7 @@ import (
 var defaultConfig = config{
 	UserAgent:        "hanyuu/2.0",
 	UserRequestDelay: Duration(time.Hour * 1),
+	UserUploadDelay:  Duration(time.Hour * 2),
 	TemplatePath:     "templates/",
 	MusicPath:        "",
 	Providers: providers{

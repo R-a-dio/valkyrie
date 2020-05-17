@@ -662,7 +662,7 @@ type SubmissionStorage interface {
 	// LastSubmissionTime returns the last known time of when the identifier
 	// was used to upload a submission
 	LastSubmissionTime(identifier string) (time.Time, error)
-	// UpdateSubmissionTime updates the time to the current time
+	// UpdateSubmissionTime updates the last submission time to the current time
 	// for the identifier given
 	UpdateSubmissionTime(identifier string) error
 }
