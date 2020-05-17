@@ -602,12 +602,12 @@ type NewsStorage interface {
 	// Update updates the news post entry
 	Update(NewsPost) error
 	// Delete deletes a news post
-	Delete(NewsPost) error
+	Delete(NewsPostID) error
 	// List returns a list of news post starting at offset and returning up to
 	// limit amount of posts, chronologically sorted by creation date
 	List(limit int, offset int) (NewsList, error)
 	// Comments returns all comments associated with the news post given
-	Comments(NewsPost) ([]NewsComment, error)
+	Comments(NewsPostID) ([]NewsComment, error)
 }
 
 // NewsList contains multiple news posts and a total count of posts
@@ -627,9 +627,9 @@ type NewsPost struct {
 	Body   string
 
 	User      User
-	DeletedAt time.Time
+	DeletedAt *time.Time
 	CreatedAt time.Time
-	UpdatedAt time.Time
+	UpdatedAt *time.Time
 	Private   bool
 }
 
@@ -645,9 +645,9 @@ type NewsComment struct {
 
 	// Optional, only filled if an account-holder comments
 	User      *User
-	DeletedAt time.Time
+	DeletedAt *time.Time
 	CreatedAt time.Time
-	UpdatedAt time.Time
+	UpdatedAt *time.Time
 }
 
 // SubmissionStorageService is a service able to supply a SubmissionStorage
