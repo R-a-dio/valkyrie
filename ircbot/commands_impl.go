@@ -734,7 +734,7 @@ func LastRequestInfo(e Event) error {
 	}
 
 	// calculate if enough time has passed since the last request
-	canRequest := time.Since(t) >= time.Duration(e.Bot.Conf().UserRequestDelay)
+	_, canRequest := radio.CalculateCooldown(time.Duration(e.Bot.Conf().UserRequestDelay), t)
 	if canRequest {
 		message += " {green}%s can request!"
 		args = append(args, name)

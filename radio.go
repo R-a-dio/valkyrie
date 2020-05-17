@@ -29,10 +29,10 @@ func CalculateRequestDelay(requestCount int) time.Duration {
 	return time.Duration(time.Duration(dur/2) * time.Second)
 }
 
-// CanUserRequest returns wether given the delay between requests, and the last time that
-// was requested at, if the user is eligible to request again, and if false it also
-// returns the time remaining until the user can request
-func CanUserRequest(delay time.Duration, last time.Time) (time.Duration, bool) {
+// CalculateCooldown sees if the cooldown given has passed since `last` and returns
+// the remaining time if any and a bool indicating if it has passed since then or
+// not. It always returns true if `last` is zero.
+func CalculateCooldown(delay time.Duration, last time.Time) (time.Duration, bool) {
 	// zero time indicates never requested before
 	if last.IsZero() {
 		return 0, true

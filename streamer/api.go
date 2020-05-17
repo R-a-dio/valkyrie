@@ -140,7 +140,7 @@ func (s *streamerService) RequestSong(ctx context.Context, song radio.Song, iden
 	}
 
 	// check if the user is allowed to request
-	waitTime, ok := radio.CanUserRequest(time.Duration(s.Conf().UserRequestDelay), userLastRequest)
+	waitTime, ok := radio.CalculateCooldown(time.Duration(s.Conf().UserRequestDelay), userLastRequest)
 	if !ok {
 		return errors.E(op, errors.UserCooldown, errors.Delay(waitTime), song)
 	}
