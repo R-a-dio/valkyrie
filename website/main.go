@@ -34,12 +34,18 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	r.Get("/stream.mp3", RedirectLegacyStream)
 	r.Get("/stream", RedirectLegacyStream)
 	r.Get("/R-a-dio", RedirectLegacyStream)
+
 	// version 0 of the api (the legacy PHP version)
-	api, err := NewAPIv0(ctx, cfg, storage, streamer, manager)
+	v0, err := NewAPIv0(ctx, cfg, storage, streamer, manager)
 	if err != nil {
 		return err
 	}
-	r.Route("/api", api.Route)
+	r.Mount("/api", v0.Router())
+	// request handling, part of v0 api
+	r.Route(`/request/{TrackID:[0-9]+}`, func(r chi.Router) {
+		r.Use(TrackCtx(storage))
+		r.Post("/", v0.postRequest)
+	})
 
 	conf := cfg.Conf()
 	server := &http.Server{

@@ -3,22 +3,32 @@ package website
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
+	"net"
 	"net/http"
-	"strings"
+	"net/url"
+	"strconv"
 	"sync/atomic"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
+	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/R-a-dio/valkyrie/search"
 
 	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/middleware"
 )
 
 func NewAPIv0(ctx context.Context, cfg config.Config, storage radio.StorageService,
 	streamer radio.StreamerService, manager radio.ManagerService) (*APIv0, error) {
 
 	status, err := newV0Status(ctx, storage, streamer, manager)
+	if err != nil {
+		return nil, err
+	}
+	searcher, err := search.Open(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -29,6 +39,7 @@ func NewAPIv0(ctx context.Context, cfg config.Config, storage radio.StorageServi
 		streamer: streamer,
 		manager:  manager,
 		status:   status,
+		search:   searcher,
 	}
 	return &api, nil
 }
@@ -36,31 +47,38 @@ func NewAPIv0(ctx context.Context, cfg config.Config, storage radio.StorageServi
 type APIv0 struct {
 	config.Config
 
+	search   radio.SearchService
 	storage  radio.StorageService
 	streamer radio.StreamerService
 	manager  radio.ManagerService
 	status   *v0Status
 }
 
-func (a *APIv0) Route(r chi.Router) {
+func (a *APIv0) Router() chi.Router {
+	r := chi.NewRouter()
+
+	r.Use(middleware.SetHeader("Content-Type", "application/json"))
 	r.Method("GET", "/", a.status)
 	r.Get("/ping", func(w http.ResponseWriter, _ *http.Request) {
 		w.Write([]byte(`{"ping":true}`))
 	})
-	r.Get("/song", a.getSong)
 	r.Get("/user-cooldown", a.getUserCooldown)
 	r.Get("/news", a.getNews)
-	r.Get("/search", a.getSearch)
+	r.Get("/search/{query}", a.getSearch)
 	r.Get("/can-request", a.getCanRequest)
 	r.Get("/dj-image", a.getDJImage)
-	r.Route(`/request/{TrackID:[0-9]+}`, func(r chi.Router) {
-		r.Use(TrackCtx(a.storage))
-		r.Post("/", a.postRequest)
-	})
+	// these are deprecated
+	r.Get("/song", a.getSong)
+	r.Get("/metadata", a.getMetadata)
+	return r
 }
 
 func (a *APIv0) getSong(w http.ResponseWriter, r *http.Request) {
+	http.Error(w, http.StatusText(410), 410)
+}
 
+func (a *APIv0) getMetadata(w http.ResponseWriter, r *http.Request) {
+	http.Error(w, http.StatusText(410), 410)
 }
 
 func (a *APIv0) getUserCooldown(w http.ResponseWriter, r *http.Request) {
@@ -71,22 +89,117 @@ func (a *APIv0) getNews(w http.ResponseWriter, r *http.Request) {
 }
 func (a *APIv0) getSearch(w http.ResponseWriter, r *http.Request) {
 }
-func (a *APIv0) getCanRequest(w http.ResponseWriter, r *http.Request) {
-	status, err := a.manager.Status(r.Context())
+
+func (a *APIv0) getSearch(w http.ResponseWriter, r *http.Request) {
+	// parse the query string for page and limit settings
+	values, err := url.ParseQuery(r.URL.RawQuery)
 	if err != nil {
+		// TODO: look at error handling
+		log.Println(err)
 		return
 	}
 
-	type resp struct {
-		Requests bool `json:"requests"`
+	var limit = 20
+	{
+		rawLimit := values.Get("limit")
+		parsedLimit, err := strconv.Atoi(rawLimit)
+		if err == nil && parsedLimit < 20 {
+			// TODO: check if we just want to throw a fit if NaN
+			// only use the value if it's a number and it's
+			// not above the allowed limit
+			limit = parsedLimit
+		}
+	}
+	var page = 1
+	{
+		rawPage := values.Get("page")
+		parsedPage, err := strconv.Atoi(rawPage)
+		if err == nil {
+			// TODO: check if we just want to throw a fit if NaN
+			// only use the value if it's a valid number
+			page = parsedPage
+		}
+	}
+	var offset = (page - 1) * limit
+	if offset < 0 {
+		offset = 0
 	}
 
-	response := struct {
-		Main struct {
-			Requests bool `json:"requests"`
-		}
-	}{
-		Main: resp{false},
+	ctx := r.Context()
+	// key from the url router, query is part of the url
+	query := chi.URLParamFromCtx(ctx, "query")
+	result, err := a.search.Search(ctx, query, limit, offset)
+	if err != nil {
+		// TODO: look at error handling
+		log.Println(err)
+		return
+	}
+
+	// temporary until we fix search api to return pagination help
+	songs := result
+	// create pagination information for the result
+	var response = searchResponse{
+		PerPage:     limit,
+		CurrentPage: page,
+	}
+
+	// move over the results to sanitized output structs
+	response.Results = make([]searchResponseItem, len(songs))
+	for i := range songs {
+		response.Results[i].fromSong(songs[i])
+	}
+
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		// TODO: look at error handling
+		log.Println(err)
+		return
+	}
+}
+
+type searchResponse struct {
+	Total       int `json:"total"`
+	PerPage     int `json:"per_page"`
+	CurrentPage int `json:"current_page"`
+	LastPage    int `json:"last_page"`
+	From        int `json:"from"`
+	To          int `json:"to"`
+
+	Results []searchResponseItem `json:"data"`
+}
+
+type searchResponseItem struct {
+	Artist        string        `json:"artist"`
+	Title         string        `json:"title"`
+	TrackID       radio.TrackID `json:"id"`
+	LastPlayed    int64         `json:"lastplayed"`
+	LastRequested int64         `json:"lastrequested"`
+	Requestable   bool          `json:"requestable"`
+}
+
+// fromSong copies relevant fields from the song given to the response item
+func (sri *searchResponseItem) fromSong(s radio.Song) error {
+	if !s.HasTrack() {
+		// TODO: look at error handling
+		return errors.New("Song without track found in search API")
+	}
+	sri.Artist = s.Artist
+	sri.Title = s.Title
+	sri.TrackID = s.TrackID
+	if s.LastPlayed.IsZero() {
+		sri.LastPlayed = 0
+	} else {
+		sri.LastPlayed = s.LastPlayed.Unix()
+	}
+	if s.LastRequested.IsZero() {
+		sri.LastRequested = 0
+	} else {
+		sri.LastRequested = s.LastRequested.Unix()
+	}
+	sri.Requestable = s.Requestable()
+	return nil
+}
+
 	}
 
 	// send our response when we return
@@ -126,29 +239,72 @@ func (a *APIv0) getCanRequest(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+type canRequestResponse struct {
+	Main struct {
+		Requests bool `json:"requests"`
+	}
+}
+
 func (a *APIv0) getDJImage(w http.ResponseWriter, r *http.Request) {
 }
+
+// postRequest handles /request in legacy PHP format
 func (a *APIv0) postRequest(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	response := map[string]string{}
+
+	defer func() {
+		err := json.NewEncoder(w).Encode(response)
+		if err != nil {
+			log.Println(err)
+		}
+	}()
+
 	song, ok := ctx.Value(TrackKey).(radio.Song)
 	if !ok {
-		http.Error(w, http.StatusText(422), 422)
+		response["error"] = "invalid parameter"
 		return
 	}
 
 	identifier := getIdentifier(r)
 	err := a.streamer.RequestSong(ctx, song, identifier)
-	if err != nil {
+	if err == nil {
+		response["success"] = "Thank you for making your request!"
 		return
 	}
+
+	switch {
+	case errors.Is(errors.SongCooldown, err):
+		response["error"] = "That song is still on cooldown, You'll have to wait longer to request it."
+	case errors.Is(errors.UserCooldown, err):
+		response["error"] = "You recently requested a song. You have to wait longer until you can request again."
+	case errors.Is(errors.StreamerNoRequests, err):
+		response["error"] = "Requests are disabled currently."
+	default:
+		log.Println(err)
+		response["error"] = "something broke, report to IRC."
+	}
 }
+
+type requestResponse map[string]string
 
 // getIdentifier returns a unique identifier for the user, currently uses the remote
 // address for this purpose
 func getIdentifier(r *http.Request) string {
-	i := strings.Index(r.RemoteAddr, ":")
-	return r.RemoteAddr[:i]
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		// constant used by the net package
+		const missingPort = "missing port in address"
+		aerr, ok := err.(*net.AddrError)
+		if ok && aerr.Err == missingPort {
+			return r.RemoteAddr
+		}
+
+		panic("getIdentifier: " + err.Error())
+	}
+
+	return host
 }
 
 func newV0Status(ctx context.Context, storage radio.SongStorageService,
