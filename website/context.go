@@ -25,8 +25,12 @@ func TrackCtx(storage radio.TrackStorageService) func(http.Handler) http.Handler
 			id := chi.URLParamFromCtx(ctx, "TrackID")
 			iid, err := strconv.Atoi(id)
 			if err != nil {
-				// TODO: handle error
-				return
+				// TODO: update this to 1.13 error handling
+				/*if errors.Is(err, strconv.ErrRange) {
+					return
+				}*/
+
+				panic("TrackCtx: non-number found: " + id)
 			}
 			trackid := radio.TrackID(iid)
 

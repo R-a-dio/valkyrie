@@ -66,6 +66,7 @@ func (a *APIv0) Router() chi.Router {
 	r.Get("/news", a.getNews)
 	r.Get("/search/{query}", a.getSearch)
 	r.Get("/can-request", a.getCanRequest)
+	// should be static-images only
 	r.Get("/dj-image", a.getDJImage)
 	// these are deprecated
 	r.Get("/song", a.getSong)
@@ -82,12 +83,86 @@ func (a *APIv0) getMetadata(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *APIv0) getUserCooldown(w http.ResponseWriter, r *http.Request) {
+	identifier := getIdentifier(r)
 
+	submissionTime, err := a.storage.Submissions(r.Context()).LastSubmissionTime(identifier)
+	if err != nil {
+		// TODO: look at error handling
+		log.Println(err)
+		return
+	}
+
+	_, ok := radio.CalculateCooldown(
+		time.Duration(a.Conf().UserUploadDelay),
+		submissionTime,
+	)
+
+	response := userCooldownResponse{
+		Cooldown: submissionTime.Unix(),
+		Now:      time.Now().Unix(),
+		Delay:    int64(time.Duration(a.Conf().UserUploadDelay) / time.Second),
+	}
+
+	if ok {
+		response.Message = "You can upload a song!"
+	} else {
+		response.Message = fmt.Sprintf(
+			"You cannot upload another song just yet. You can upload %s",
+			submissionTime.
+				Add(time.Duration(a.Conf().UserUploadDelay)).
+				Format(timeagoFormat),
+		)
+	}
+
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		// TODO: look at error handling
+		log.Println(err)
+		return
+	}
+}
+
+type userCooldownResponse struct {
+	// time of last upload
+	Cooldown int64 `json:"cooldown"`
+	// current time
+	Now int64 `json:"now"`
+	// configured cooldown in seconds
+	Delay int64 `json:"delay"`
+	// message to the user
+	Message string `json:"message"`
 }
 
 func (a *APIv0) getNews(w http.ResponseWriter, r *http.Request) {
+	result, err := a.storage.News(r.Context()).List(3, 0)
+	if err != nil {
+		// TODO: look at error handling
+		log.Println(err)
+		return
+	}
+
+	// copy the entries to sanitized output struct
+	entries := result.Entries
+	var response = make([]newsResponse, len(entries))
+
+	for i := range response {
+		response[i].Title = entries[i].Title
+		response[i].Header = entries[i].Header
+		response[i].Body = entries[i].Body
+	}
+
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		// TODO: look at error handling
+		log.Println(err)
+		return
+	}
 }
-func (a *APIv0) getSearch(w http.ResponseWriter, r *http.Request) {
+
+type newsResponse struct {
+	Title  string `json:"title"`
+	Header string `json:"header"`
+	Body   string `json:"text"`
 }
 
 func (a *APIv0) getSearch(w http.ResponseWriter, r *http.Request) {
@@ -200,7 +275,13 @@ func (sri *searchResponseItem) fromSong(s radio.Song) error {
 	return nil
 }
 
+func (a *APIv0) getCanRequest(w http.ResponseWriter, r *http.Request) {
+	status, err := a.manager.Status(r.Context())
+	if err != nil {
+		return
 	}
+
+	response := canRequestResponse{}
 
 	// send our response when we return
 	defer func() {
@@ -227,7 +308,7 @@ func (sri *searchResponseItem) fromSong(s radio.Song) error {
 		return
 	}
 
-	_, ok := radio.CanUserRequest(
+	_, ok := radio.CalculateCooldown(
 		time.Duration(a.Conf().UserRequestDelay),
 		userLastRequest,
 	)
