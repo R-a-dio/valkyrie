@@ -20,15 +20,31 @@ func (us UserStorage) LookupName(name string) (*radio.User, error) {
 
 	var query = `
 	SELECT
-		IFNULL(users.user, '') AS username,	
+		IFNULL(users.user, '') AS username,
 		djs.id AS 'dj.id',
-		djs.regex AS 'dj.regex'
+		djs.regex AS 'dj.regex',
+		djs.djname AS 'dj.name',
+
+		djs.djtext AS 'dj.text',
+		djs.djimage AS 'dj.image',
+
+		djs.visible AS 'dj.visible',
+		djs.priority AS 'dj.priority',
+		djs.role AS 'dj.role',
+
+		djs.css AS 'dj.css',
+		djs.djcolor AS 'dj.color',
+		themes.id AS 'dj.theme.id',
+		themes.name AS 'dj.theme.name',
+		themes.display_name AS 'dj.theme.displayname',
+		themes.author AS 'dj.theme.author'
 	FROM
 		djs
 	LEFT JOIN
-		users ON djs.id = users.djid;
+		users ON djs.id = users.djid
+	JOIN
+		themes ON djs.theme_id = themes.id;
 	`
-
 	var users []radio.User
 
 	err := sqlx.Select(us.handle, &users, query)
