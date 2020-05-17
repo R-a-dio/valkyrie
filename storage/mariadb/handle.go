@@ -201,6 +201,22 @@ func (s *StorageService) UserTx(ctx context.Context, tx radio.StorageTx) (radio.
 	return storage, txx, nil
 }
 
+func (s *StorageService) Submissions(ctx context.Context) radio.SubmissionStorage {
+	return nil
+}
+
+func (s *StorageService) SubmissionsTx(ctx context.Context, tx radio.StorageTx) (radio.SubmissionStorage, radio.StorageTx, error) {
+	return nil, nil, nil
+}
+
+func (s *StorageService) News(ctx context.Context) radio.NewsStorage {
+	return nil
+}
+
+func (s *StorageService) NewsTx(ctx context.Context, tx radio.StorageTx) (radio.NewsStorage, radio.StorageTx, error) {
+	return nil, nil, nil
+}
+
 func (s *StorageService) Status(ctx context.Context) radio.StatusStorage {
 	return StatusStorage{
 		handle: handle{s.db, ctx},

@@ -22,6 +22,8 @@ type partialStorage interface {
 	radio.RequestStorageService
 	radio.UserStorageService
 	radio.StatusStorageService
+	radio.SubmissionStorageService
+	radio.NewsStorageService
 }
 
 type storageService struct {

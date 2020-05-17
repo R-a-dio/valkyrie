@@ -434,6 +434,8 @@ type StorageService interface {
 	RequestStorageService
 	UserStorageService
 	StatusStorageService
+	SubmissionStorageService
+	NewsStorageService
 }
 
 // QueueStorageService is a service able to supply a QueueStorage
@@ -578,4 +580,141 @@ type StatusStorage interface {
 	Store(Status) error
 	// Load returns the previously stored Status
 	Load() (*Status, error)
+}
+
+// NewsStorageService is a service able to supply a NewsStorage
+type NewsStorageService interface {
+	News(context.Context) NewsStorage
+	NewsTx(context.Context, StorageTx) (NewsStorage, StorageTx, error)
+}
+
+// NewsStorage stores website news and its comments
+type NewsStorage interface {
+	// Get returns the news post associated with the id given
+	Get(NewsPostID) (*NewsPost, error)
+	// Create creates a new news post
+	Create(NewsPost) (NewsPostID, error)
+	// Update updates the news post entry
+	Update(NewsPost) error
+	// Delete deletes a news post
+	Delete(NewsPost) error
+	// List returns a list of news post starting at offset and returning up to
+	// limit amount of posts, chronologically sorted by creation date
+	List(limit int, offset int) (NewsList, error)
+	// Comments returns all comments associated with the news post given
+	Comments(NewsPost) ([]NewsComment, error)
+}
+
+// NewsList contains multiple news posts and a total count of posts
+type NewsList struct {
+	Entries []NewsPost
+	Total   int
+}
+
+// NewsPostID is an identifier for a news post
+type NewsPostID int64
+
+// NewsPost is a single news post created on the website
+type NewsPost struct {
+	ID     NewsPostID
+	Title  string
+	Header string
+	Body   string
+
+	User      User
+	DeletedAt time.Time
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	Private   bool
+}
+
+// NewsCommentID is an identifier for a news comment
+type NewsCommentID int64
+
+// NewsComment is a single comment under a news post on the website
+type NewsComment struct {
+	ID         NewsCommentID
+	PostID     NewsPostID
+	Body       string
+	Identifier string
+
+	// Optional, only filled if an account-holder comments
+	User      *User
+	DeletedAt time.Time
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+// SubmissionStorageService is a service able to supply a SubmissionStorage
+type SubmissionStorageService interface {
+	Submissions(context.Context) SubmissionStorage
+	SubmissionsTx(context.Context, StorageTx) (SubmissionStorage, StorageTx, error)
+}
+
+// SubmissionStorage stores stuff related to the reviewing of submissions
+// and associated information
+type SubmissionStorage interface {
+	// LastSubmissionTime returns the last known time of when the identifier
+	// was used to upload a submission
+	LastSubmissionTime(identifier string) (time.Time, error)
+	// UpdateSubmissionTime updates the time to the current time
+	// for the identifier given
+	UpdateSubmissionTime(identifier string) error
+}
+
+// SubmissionID is the ID of a pending song
+type SubmissionID int
+
+// SubmissionStatus is the status of a submitted song
+type SubmissionStatus string
+
+// Possible status for song submissions
+const (
+	SubmissionAccepted       SubmissionStatus = "accepted"
+	SubmissionDeclined                        = "declined"
+	SubmissionAwaitingReview                  = "awaiting-review"
+)
+
+// PendingSong is a song currently awaiting approval in the pending queue
+type PendingSong struct {
+	ID SubmissionID
+	// Status of the song (accepted/declined/pending)
+	Status SubmissionStatus
+	// Artist of the song
+	Artist string
+	// Title of the song
+	Title string
+	// Album of the song
+	Album string
+	// FilePath on disk
+	FilePath string
+	// Comment given by the uploader
+	Comment string
+	// Filename is the original filename from the uploader
+	Filename string
+	// UserIdentifier is the unique identifier for the uploader
+	UserIdentifier string
+	// SubmittedAt is the time of submission
+	SubmittedAt time.Time
+	// ReviewedAt tells you when the song was reviewed
+	ReviewedAt time.Time
+	// Duplicate indicates if this might be a duplicate
+	Duplicate bool
+	// ReplacementID is the TrackID that this upload will replace
+	ReplacementID TrackID
+	// Bitrate of the file
+	Bitrate int
+	// Length of the song
+	Length time.Duration
+	// Format of the song
+	Format string
+	// EncodingMode is the encoding mode used for the file
+	EncodingMode string
+
+	// Decline fields
+	Reason string
+
+	// Accepted fields
+	GoodUpload   bool
+	AcceptedSong *Song
 }
