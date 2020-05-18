@@ -332,6 +332,12 @@ type canRequestResponse struct {
 func (a *APIv0) getDJImage(w http.ResponseWriter, r *http.Request) {
 }
 
+// RequestRoute is the router setup for handling requests
+func (a *APIv0) RequestRoute(r chi.Router) {
+	r.Use(TrackCtx(a.storage))
+	r.Post("/", a.postRequest)
+}
+
 // postRequest handles /request in legacy PHP format
 func (a *APIv0) postRequest(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

@@ -36,16 +36,18 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	r.Get("/R-a-dio", RedirectLegacyStream)
 
 	// version 0 of the api (the legacy PHP version)
-	v0, err := NewAPIv0(ctx, cfg, storage, streamer, manager)
+	// it's mostly self-contained to the /api/* route, except for /request that
+	// leaked out at some point
+	v0, err := apiv0.NewAPI(ctx, cfg, storage, streamer, manager)
 	if err != nil {
 		return err
 	}
 	r.Mount("/api", v0.Router())
-	// request handling, part of v0 api
-	r.Route(`/request/{TrackID:[0-9]+}`, func(r chi.Router) {
-		r.Use(TrackCtx(storage))
-		r.Post("/", v0.postRequest)
-	})
+	r.Route(`/request/{TrackID:[0-9]+}`, v0.RequestRoute)
+
+	// other routes
+	// other routes
+	// other routes
 
 	conf := cfg.Conf()
 	server := &http.Server{
