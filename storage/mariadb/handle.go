@@ -26,6 +26,16 @@ var specialCasedColumnNames = map[string]string{
 	"RememberToken": "remember_token",
 }
 
+// mapperFunc implements the MapperFunc for sqlx to specialcase column names
+// and lowercase them for scan matching
+func mapperFunc(s string) string {
+	n, ok := specialCasedColumnNames[s]
+	if ok {
+		s = n
+	}
+	return strings.ToLower(s)
+}
+
 // ConnectDB connects to the configured mariadb instance and returns the raw database
 // object. Argument multistatement indicates if we should allow queries with multiple
 // statements in them.
@@ -69,13 +79,7 @@ func ConnectDB(ctx context.Context, cfg config.Config, multistatement bool) (*sq
 		return nil, err
 	}
 
-	db.MapperFunc(func(s string) string {
-		n, ok := specialCasedColumnNames[s]
-		if ok {
-			s = n
-		}
-		return strings.ToLower(s)
-	})
+	db.MapperFunc(mapperFunc)
 
 	return db, nil
 }

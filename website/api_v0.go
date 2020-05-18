@@ -134,7 +134,7 @@ type userCooldownResponse struct {
 }
 
 func (a *APIv0) getNews(w http.ResponseWriter, r *http.Request) {
-	result, err := a.storage.News(r.Context()).List(3, 0)
+	result, err := a.storage.News(r.Context()).ListPublic(3, 0)
 	if err != nil {
 		// TODO: look at error handling
 		log.Println(err)

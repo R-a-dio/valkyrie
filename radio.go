@@ -598,6 +598,8 @@ type NewsStorage interface {
 	// Get returns the news post associated with the id given
 	Get(NewsPostID) (*NewsPost, error)
 	// Create creates a new news post
+	//
+	// Required fields to create a post are (title, header, body, user)
 	Create(NewsPost) (NewsPostID, error)
 	// Update updates the news post entry
 	Update(NewsPost) error
@@ -606,6 +608,9 @@ type NewsStorage interface {
 	// List returns a list of news post starting at offset and returning up to
 	// limit amount of posts, chronologically sorted by creation date
 	List(limit int, offset int) (NewsList, error)
+	// ListPublic returns the same thing as List but with deleted and private
+	// posts filtered out
+	ListPublic(limit int, offset int) (NewsList, error)
 	// Comments returns all comments associated with the news post given
 	Comments(NewsPostID) ([]NewsComment, error)
 }
@@ -631,6 +636,24 @@ type NewsPost struct {
 	CreatedAt time.Time
 	UpdatedAt *time.Time
 	Private   bool
+}
+
+// HasRequired tells if you all required fields in a news post are filled,
+// returns the field name that is missing and a boolean
+func (np NewsPost) HasRequired() (string, bool) {
+	var field string
+	switch {
+	case np.Title == "":
+		field = "title"
+	case np.Header == "":
+		field = "header"
+	case np.Body == "":
+		field = "body"
+	case np.User.ID == 0:
+		field = "user"
+	}
+
+	return field, field == ""
 }
 
 // NewsCommentID is an identifier for a news comment
