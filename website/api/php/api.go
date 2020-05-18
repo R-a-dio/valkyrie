@@ -1,4 +1,4 @@
-package website
+package php
 
 import (
 	"context"
@@ -16,13 +16,14 @@ import (
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/search"
+	"github.com/R-a-dio/valkyrie/website/middleware"
 
 	"github.com/go-chi/chi"
-	"github.com/go-chi/chi/middleware"
+	chiware "github.com/go-chi/chi/middleware"
 )
 
-func NewAPIv0(ctx context.Context, cfg config.Config, storage radio.StorageService,
-	streamer radio.StreamerService, manager radio.ManagerService) (*APIv0, error) {
+func NewAPI(ctx context.Context, cfg config.Config, storage radio.StorageService,
+	streamer radio.StreamerService, manager radio.ManagerService) (*API, error) {
 
 	status, err := newV0Status(ctx, storage, streamer, manager)
 	if err != nil {
@@ -33,7 +34,7 @@ func NewAPIv0(ctx context.Context, cfg config.Config, storage radio.StorageServi
 		return nil, err
 	}
 
-	api := APIv0{
+	api := API{
 		Config:   cfg,
 		storage:  storage,
 		streamer: streamer,
@@ -44,7 +45,7 @@ func NewAPIv0(ctx context.Context, cfg config.Config, storage radio.StorageServi
 	return &api, nil
 }
 
-type APIv0 struct {
+type API struct {
 	config.Config
 
 	search   radio.SearchService
@@ -54,10 +55,10 @@ type APIv0 struct {
 	status   *v0Status
 }
 
-func (a *APIv0) Router() chi.Router {
+func (a *API) Router() chi.Router {
 	r := chi.NewRouter()
 
-	r.Use(middleware.SetHeader("Content-Type", "application/json"))
+	r.Use(chiware.SetHeader("Content-Type", "application/json"))
 	r.Method("GET", "/", a.status)
 	r.Get("/ping", func(w http.ResponseWriter, _ *http.Request) {
 		w.Write([]byte(`{"ping":true}`))
@@ -74,15 +75,15 @@ func (a *APIv0) Router() chi.Router {
 	return r
 }
 
-func (a *APIv0) getSong(w http.ResponseWriter, r *http.Request) {
+func (a *API) getSong(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, http.StatusText(410), 410)
 }
 
-func (a *APIv0) getMetadata(w http.ResponseWriter, r *http.Request) {
+func (a *API) getMetadata(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, http.StatusText(410), 410)
 }
 
-func (a *APIv0) getUserCooldown(w http.ResponseWriter, r *http.Request) {
+func (a *API) getUserCooldown(w http.ResponseWriter, r *http.Request) {
 	identifier := getIdentifier(r)
 
 	submissionTime, err := a.storage.Submissions(r.Context()).LastSubmissionTime(identifier)
@@ -133,7 +134,7 @@ type userCooldownResponse struct {
 	Message string `json:"message"`
 }
 
-func (a *APIv0) getNews(w http.ResponseWriter, r *http.Request) {
+func (a *API) getNews(w http.ResponseWriter, r *http.Request) {
 	result, err := a.storage.News(r.Context()).ListPublic(3, 0)
 	if err != nil {
 		// TODO: look at error handling
@@ -165,7 +166,7 @@ type newsResponse struct {
 	Body   string `json:"text"`
 }
 
-func (a *APIv0) getSearch(w http.ResponseWriter, r *http.Request) {
+func (a *API) getSearch(w http.ResponseWriter, r *http.Request) {
 	// parse the query string for page and limit settings
 	values, err := url.ParseQuery(r.URL.RawQuery)
 	if err != nil {
@@ -278,7 +279,7 @@ func (sri *searchResponseItem) fromSong(s radio.Song) error {
 	return nil
 }
 
-func (a *APIv0) getCanRequest(w http.ResponseWriter, r *http.Request) {
+func (a *API) getCanRequest(w http.ResponseWriter, r *http.Request) {
 	status, err := a.manager.Status(r.Context())
 	if err != nil {
 		return
@@ -329,17 +330,17 @@ type canRequestResponse struct {
 	}
 }
 
-func (a *APIv0) getDJImage(w http.ResponseWriter, r *http.Request) {
+func (a *API) getDJImage(w http.ResponseWriter, r *http.Request) {
 }
 
 // RequestRoute is the router setup for handling requests
-func (a *APIv0) RequestRoute(r chi.Router) {
-	r.Use(TrackCtx(a.storage))
+func (a *API) RequestRoute(r chi.Router) {
+	r.Use(middleware.TrackCtx(a.storage))
 	r.Post("/", a.postRequest)
 }
 
 // postRequest handles /request in legacy PHP format
-func (a *APIv0) postRequest(w http.ResponseWriter, r *http.Request) {
+func (a *API) postRequest(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	response := map[string]string{}
@@ -351,7 +352,7 @@ func (a *APIv0) postRequest(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	song, ok := ctx.Value(TrackKey).(radio.Song)
+	song, ok := ctx.Value(middleware.TrackKey).(radio.Song)
 	if !ok {
 		response["error"] = "invalid parameter"
 		return

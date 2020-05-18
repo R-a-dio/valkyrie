@@ -7,6 +7,8 @@ import (
 
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/storage"
+	phpapi "github.com/R-a-dio/valkyrie/website/api/php"
+
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 )
@@ -38,7 +40,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	// version 0 of the api (the legacy PHP version)
 	// it's mostly self-contained to the /api/* route, except for /request that
 	// leaked out at some point
-	v0, err := apiv0.NewAPI(ctx, cfg, storage, streamer, manager)
+	v0, err := phpapi.NewAPI(ctx, cfg, storage, streamer, manager)
 	if err != nil {
 		return err
 	}

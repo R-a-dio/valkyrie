@@ -1,4 +1,4 @@
-package website
+package middleware
 
 import (
 	"context"

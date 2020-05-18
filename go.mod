@@ -1,7 +1,10 @@
 module github.com/R-a-dio/valkyrie
 
+go 1.14
+
 require (
 	github.com/BurntSushi/toml v0.3.1
+	github.com/DATA-DOG/go-sqlmock v1.4.1
 	github.com/boltdb/bolt v1.3.1
 	github.com/cenkalti/backoff v2.1.0+incompatible
 	github.com/go-chi/chi v4.0.2+incompatible
