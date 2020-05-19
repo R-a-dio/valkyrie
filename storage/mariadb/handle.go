@@ -116,6 +116,24 @@ func (s *StorageService) tx(ctx context.Context, tx radio.StorageTx) (*sqlx.Tx, 
 	return txx, nil
 }
 
+func (s *StorageService) Sessions(ctx context.Context) radio.SessionStorage {
+	return SessionStorage{
+		handle: handle{s.db, ctx},
+	}
+}
+
+func (s *StorageService) SessionsTx(ctx context.Context, tx radio.StorageTx) (radio.SessionStorage, radio.StorageTx, error) {
+	txx, err := s.tx(ctx, tx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	storage := SessionStorage{
+		handle: handle{txx, ctx},
+	}
+	return storage, txx, nil
+}
+
 func (s *StorageService) Queue(ctx context.Context) radio.QueueStorage {
 	return QueueStorage{
 		handle: handle{s.db, ctx},

@@ -17,6 +17,7 @@ func WrapStorageService(search radio.SearchService, storage radio.StorageService
 
 // partialStorage is an interface containing all the methods we are NOT interested in.
 type partialStorage interface {
+	radio.SessionStorageService
 	radio.QueueStorageService
 	radio.SongStorageService
 	radio.RequestStorageService

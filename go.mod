@@ -5,6 +5,7 @@ go 1.14
 require (
 	github.com/BurntSushi/toml v0.3.1
 	github.com/DATA-DOG/go-sqlmock v1.4.1
+	github.com/alexedwards/scs/v2 v2.3.1
 	github.com/boltdb/bolt v1.3.1
 	github.com/cenkalti/backoff v2.1.0+incompatible
 	github.com/go-chi/chi v4.0.2+incompatible
@@ -20,5 +21,6 @@ require (
 	github.com/olivere/elastic v6.2.16+incompatible
 	github.com/tcolgate/mp3 v0.0.0-20170426193717-e79c5a46d300
 	github.com/twitchtv/twirp v5.5.1+incompatible
+	golang.org/x/crypto v0.0.0-20190103213133-ff983b9c42bc
 	golang.org/x/sync v0.0.0-20181221193216-37e7f081c4d4
 )

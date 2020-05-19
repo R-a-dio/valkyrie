@@ -1,6 +1,7 @@
 package radio
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha1"
 	"database/sql/driver"
@@ -82,6 +83,39 @@ type UserPermission string
 
 func (u UserPermission) String() string {
 	return string(u)
+}
+
+type UserPermissions map[UserPermission]struct{}
+
+// Has returns true if the permission given is in the UserPermissions
+func (up UserPermissions) Has(perm UserPermission) bool {
+	_, ok := up[perm]
+	return ok
+}
+
+// Scan implements sql.Scanner
+//
+// Done in a way that it expects all permissions to be a single string or []byte
+// separated by a comma
+func (upp *UserPermissions) Scan(src interface{}) error {
+	*upp = make(UserPermissions)
+	up := *upp
+
+	switch perms := src.(type) {
+	case []byte:
+		for _, p := range bytes.Split(perms, []byte(",")) {
+			up[UserPermission(p)] = struct{}{}
+		}
+	case string:
+		for _, p := range strings.Split(perms, ",") {
+			up[UserPermission(p)] = struct{}{}
+		}
+	case nil: // no permissions, we made the map above though
+	default:
+		return fmt.Errorf("invalid argument passed to Scan")
+	}
+
+	return nil
 }
 
 // List of permissions, this should be kept in sync with the database version
@@ -433,6 +467,7 @@ type StorageTx interface {
 
 // StorageService is an interface containing all *StorageService interfaces
 type StorageService interface {
+	SessionStorageService
 	QueueStorageService
 	SongStorageService
 	TrackStorageService
@@ -441,6 +476,29 @@ type StorageService interface {
 	StatusStorageService
 	SubmissionStorageService
 	NewsStorageService
+}
+
+// SessionStorageService is a service that supplies a SessionStorage
+type SessionStorageService interface {
+	Sessions(context.Context) SessionStorage
+	SessionsTx(context.Context, StorageTx) (SessionStorage, StorageTx, error)
+}
+
+// SessionStorage stores Session's by a SessionToken
+type SessionStorage interface {
+	Delete(SessionToken) error
+	Get(SessionToken) (Session, error)
+	Save(Session) error
+}
+
+// SessionToken is the token associated with a singular session
+type SessionToken string
+
+// Session is a website user session
+type Session struct {
+	Token  SessionToken
+	Expiry time.Time
+	Data   []byte
 }
 
 // QueueStorageService is a service able to supply a QueueStorage
@@ -564,7 +622,9 @@ type UserStorageService interface {
 
 // UserStorage stores things related to users with actual accounts on the website
 type UserStorage interface {
-	// LookupName tries to resolve the name given to a specific user
+	// Get returns the user matching the name given
+	Get(name string) (*User, error)
+	// LookupName matches the name given fuzzily to a user
 	LookupName(name string) (*User, error)
 	// ByNick returns an user that is associated with the nick given
 	ByNick(nick string) (*User, error)

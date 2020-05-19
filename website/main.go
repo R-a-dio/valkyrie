@@ -7,6 +7,7 @@ import (
 
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/storage"
+	"github.com/R-a-dio/valkyrie/website/admin"
 	phpapi "github.com/R-a-dio/valkyrie/website/api/php"
 
 	"github.com/go-chi/chi"
@@ -47,6 +48,8 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	r.Mount("/api", v0.Router())
 	r.Route(`/request/{TrackID:[0-9]+}`, v0.RequestRoute)
 
+	// admin routes
+	r.Mount("/admin", admin.Router(ctx, cfg, storage))
 	// other routes
 	// other routes
 	// other routes

@@ -14,6 +14,13 @@ type UserStorage struct {
 	handle handle
 }
 
+// Get implements radio.UserStorage
+func (us UserStorage) Get(name string) (*radio.User, error) {
+	const op errors.Op = "mariadb/UserStorage.Get"
+
+	return nil, errors.E(op, errors.NotImplemented)
+}
+
 // LookupName implements radio.UserStorage
 func (us UserStorage) LookupName(name string) (*radio.User, error) {
 	const op errors.Op = "mariadb/UserStorage.LookupName"
