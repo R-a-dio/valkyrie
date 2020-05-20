@@ -496,9 +496,16 @@ type SessionToken string
 
 // Session is a website user session
 type Session struct {
-	Token  SessionToken
-	Expiry time.Time
-	Data   []byte
+	Token    SessionToken
+	Expiry   time.Time
+	Username *string
+
+	SessionData
+}
+
+// SessionData is data stored non-indexable in the session storage
+type SessionData struct {
+	UserPermissions UserPermissions
 }
 
 // QueueStorageService is a service able to supply a QueueStorage

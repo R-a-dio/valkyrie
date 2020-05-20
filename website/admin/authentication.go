@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"reflect"
 	"time"
+	"unsafe"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
@@ -13,7 +15,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-const permissionsKey = "permissions"
+const sessionKey = "admin-session"
 
 func NewAuthentication(storage radio.StorageService, sessions *scs.SessionManager) authentication {
 	return authentication{
@@ -31,8 +33,8 @@ func (a authentication) LoginMiddleware(next http.Handler) http.Handler {
 	const op errors.Op = "admin/authentication.LoginMiddleware"
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		perms := a.sessions.Get(r.Context(), permissionsKey).(radio.UserPermissions)
-		if !perms.Has(radio.PermActive) {
+		session := a.sessions.Get(r.Context(), sessionKey).(*radio.Session)
+		if !session.UserPermissions.Has(radio.PermActive) {
 			a.GetLogin(w, r)
 		} else {
 			next.ServeHTTP(w, r)
@@ -77,6 +79,13 @@ func (a *authentication) PostLogin(w http.ResponseWriter, r *http.Request) error
 
 func (a *authentication) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	const op errors.Op = "admin/authentication.GetLogout"
+
+	err := a.sessions.Destroy(r.Context())
+	if err != nil {
+		return
+	}
+
+	return
 }
 
 // NewSessionStore returns a new SessionStore that uses the storage provided
@@ -106,17 +115,13 @@ func (ss SessionStore) Find(token string) ([]byte, bool, error) {
 		return nil, false, nil
 	}
 
-	return session.Data, true, nil
+	return PtrCodec.encode(&session), true, nil
 }
 
 // Commit implements scs.Store
 func (ss SessionStore) Commit(token string, b []byte, expiry time.Time) error {
-	session := radio.Session{
-		Token:  radio.SessionToken(token),
-		Expiry: expiry,
-		Data:   b,
-	}
-	return ss.storage.Sessions(ss.ctx).Save(session)
+	session := PtrCodec.decode(b)
+	return ss.storage.Sessions(ss.ctx).Save(*session)
 }
 
 // JSONCodec implements scs.Codec
@@ -153,4 +158,42 @@ func (JSONCodec) Decode(b []byte) (time.Time, map[string]interface{}, error) {
 	}
 
 	return aux.Deadline, aux.Values, nil
+}
+
+type ptrCodec struct{}
+
+// PtrCodec is an instance of ptrCodec, safe to use concurrently
+var PtrCodec = ptrCodec{}
+
+// encode puts a *radio.Session into a byte slice by putting the pointer in the
+// array ptr field of the slice. The returned []byte is empty and unusable as a
+// normal slice. To retrieve the session again call decode on the slice.
+func (ptrCodec) encode(s *radio.Session) []byte {
+	var b []byte
+	tmp := (*reflect.SliceHeader)(unsafe.Pointer(&b))
+	tmp.Data = uintptr(unsafe.Pointer(s))
+	tmp.Len = 0
+	tmp.Cap = 0
+	return b
+}
+
+func (ptrCodec) Encode(deadline time.Time, values map[string]interface{}) ([]byte, error) {
+	s := values[sessionKey].(*radio.Session)
+	s.Expiry = deadline
+
+	return PtrCodec.encode(s), nil
+}
+
+// decode pulls out a *radio.Session from the []byte given. Where the session
+// was previously encoded into it by the encode method
+func (ptrCodec) decode(b []byte) *radio.Session {
+	tmp := (*reflect.SliceHeader)(unsafe.Pointer(&b))
+	return (*radio.Session)(unsafe.Pointer(tmp.Data))
+}
+
+func (ptrCodec) Decode(b []byte) (time.Time, map[string]interface{}, error) {
+	s := PtrCodec.decode(b)
+	return s.Expiry, map[string]interface{}{
+		sessionKey: s,
+	}, nil
 }
