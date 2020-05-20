@@ -23,9 +23,15 @@ func newSessionManager() *scs.SessionManager {
 }
 
 func Router(ctx context.Context, cfg config.Config, storage radio.StorageService) chi.Router {
-	sessionManager := newSessionManager()
+	sessionManager := scs.New()
 	sessionManager.Store = NewSessionStore(ctx, storage)
 	sessionManager.Codec = PtrCodec
+	sessionManager.Lifetime = 150 * 24 * time.Hour
+	sessionManager.Cookie = scs.SessionCookie{
+		Name: "admin",
+		//SameSite: http.SameSiteStrictMode,
+		Secure: true,
+	}
 
 	authentication := NewAuthentication(storage, sessionManager)
 

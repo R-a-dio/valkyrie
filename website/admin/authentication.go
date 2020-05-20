@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"reflect"
 	"time"
@@ -15,7 +14,10 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-const sessionKey = "admin-session"
+const (
+	sessionKey     = "admin-session"
+	failedLoginKey = "admin-failed-login"
+)
 
 func NewAuthentication(storage radio.StorageService, sessions *scs.SessionManager) authentication {
 	return authentication{
@@ -29,16 +31,40 @@ type authentication struct {
 	sessions *scs.SessionManager
 }
 
+func (a authentication) getSession(r *http.Request) *radio.Session {
+	return a.sessions.Get(r.Context(), sessionKey).(*radio.Session)
+}
+
+func (a authentication) setSession(r *http.Request, session *radio.Session) {
+	a.sessions.Put(r.Context(), sessionKey, session)
+}
+
 func (a authentication) LoginMiddleware(next http.Handler) http.Handler {
 	const op errors.Op = "admin/authentication.LoginMiddleware"
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		session := a.sessions.Get(r.Context(), sessionKey).(*radio.Session)
-		if !session.UserPermissions.Has(radio.PermActive) {
-			a.GetLogin(w, r)
-		} else {
+		session := a.getSession(r)
+		if session.UserPermissions.Has(radio.PermActive) {
 			next.ServeHTTP(w, r)
+			return
 		}
+
+		if r.Method != "POST" {
+			a.GetLogin(w, r)
+			return
+		}
+
+		err := a.PostLogin(w, r)
+		if err == nil {
+			// login successful, send them back to the page they requested at first
+			http.Redirect(w, r, r.URL.String(), 302)
+			return
+		}
+
+		// record that we failed a login, then return back to the login page
+		a.sessions.Put(r.Context(), failedLoginKey, true)
+		// either way we're going to send them back to the login page again
+		http.Redirect(w, r, r.URL.String(), 302)
 	})
 }
 
@@ -71,9 +97,13 @@ func (a *authentication) PostLogin(w http.ResponseWriter, r *http.Request) error
 
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
 	if err != nil {
-		return errors.E(op, err)
+		return errors.E(op, err, errors.InvalidArgument)
 	}
 
+	session := a.getSession(r)
+	session.Username = &user.Username
+	session.UserPermissions = user.UserPermissions
+	a.setSession(r, session)
 	return nil
 }
 
@@ -82,21 +112,28 @@ func (a *authentication) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 
 	err := a.sessions.Destroy(r.Context())
 	if err != nil {
+		// failed to logout
+		// TODO: handle errors
 		return
 	}
 
+	// success, redirect to the home page (or try to)
+	home := *r.URL
+	home.Path = ""
+	http.Redirect(w, r, home.String(), 302)
 	return
 }
 
 // NewSessionStore returns a new SessionStore that uses the storage provided
-func NewSessionStore(ctx context.Context, storage radio.StorageService) SessionStore {
+func NewSessionStore(ctx context.Context, storage radio.SessionStorageService) SessionStore {
 	return SessionStore{ctx, storage}
 }
 
-// SessionStore implements scs.Store
+// SessionStore implements scs.Store by using a radio.SessionStorageService as its
+// backing storage.
 type SessionStore struct {
 	ctx     context.Context
-	storage radio.StorageService
+	storage radio.SessionStorageService
 }
 
 // Delete implements scs.Store
@@ -115,49 +152,18 @@ func (ss SessionStore) Find(token string) ([]byte, bool, error) {
 		return nil, false, nil
 	}
 
+	// put the new session in the extra map, because it is used by the package to
+	// implement the other values
+	session.Extra[sessionKey] = &session
 	return PtrCodec.encode(&session), true, nil
 }
 
 // Commit implements scs.Store
 func (ss SessionStore) Commit(token string, b []byte, expiry time.Time) error {
 	session := PtrCodec.decode(b)
+	// delete the session from the extra values map, otherwise it would be recursive
+	delete(session.Extra, sessionKey)
 	return ss.storage.Sessions(ss.ctx).Save(*session)
-}
-
-// JSONCodec implements scs.Codec
-type JSONCodec struct{}
-
-// Encode implements scs.Codec
-func (JSONCodec) Encode(deadline time.Time, values map[string]interface{}) ([]byte, error) {
-	aux := &struct {
-		Deadline time.Time
-		Values   map[string]interface{}
-	}{
-		Deadline: deadline,
-		Values:   values,
-	}
-
-	b, err := json.Marshal(aux)
-	if err != nil {
-		return nil, err
-	}
-
-	return b, nil
-}
-
-// Decode implements scs.Codec
-func (JSONCodec) Decode(b []byte) (time.Time, map[string]interface{}, error) {
-	aux := &struct {
-		Deadline time.Time
-		Values   map[string]interface{}
-	}{}
-
-	err := json.Unmarshal(b, aux)
-	if err != nil {
-		return time.Time{}, nil, err
-	}
-
-	return aux.Deadline, aux.Values, nil
 }
 
 type ptrCodec struct{}
@@ -180,6 +186,7 @@ func (ptrCodec) encode(s *radio.Session) []byte {
 func (ptrCodec) Encode(deadline time.Time, values map[string]interface{}) ([]byte, error) {
 	s := values[sessionKey].(*radio.Session)
 	s.Expiry = deadline
+	s.Extra = values
 
 	return PtrCodec.encode(s), nil
 }
@@ -193,7 +200,5 @@ func (ptrCodec) decode(b []byte) *radio.Session {
 
 func (ptrCodec) Decode(b []byte) (time.Time, map[string]interface{}, error) {
 	s := PtrCodec.decode(b)
-	return s.Expiry, map[string]interface{}{
-		sessionKey: s,
-	}, nil
+	return s.Expiry, s.Extra, nil
 }

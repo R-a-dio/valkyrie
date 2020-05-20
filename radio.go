@@ -145,7 +145,8 @@ type User struct {
 	DeletedAt time.Time
 	CreatedAt time.Time
 
-	DJ DJ
+	DJ              DJ
+	UserPermissions UserPermissions
 }
 
 // DJID is an identifier corresponding to a dj
@@ -506,6 +507,8 @@ type Session struct {
 // SessionData is data stored non-indexable in the session storage
 type SessionData struct {
 	UserPermissions UserPermissions
+	// Extra unknown values that might be stored in a session
+	Extra map[string]interface{}
 }
 
 // QueueStorageService is a service able to supply a QueueStorage
