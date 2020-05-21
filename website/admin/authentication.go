@@ -3,7 +3,9 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
+	"text/template"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -37,28 +39,50 @@ func (a authentication) LoginMiddleware(next http.Handler) http.Handler {
 		ctx := r.Context()
 		username := a.sessions.GetString(ctx, usernameKey)
 
-		user, err := a.storage.User(ctx).Get(username)
-		if err != nil {
-			// TODO: handle errors
-			return
-		}
-		if user.UserPermissions.Has(radio.PermActive) {
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		if r.Method != "POST" {
+		// no known username yet, so we're not logged in, give them a login box
+		if username == "" && r.Method != "POST" {
 			a.GetLogin(w, r)
 			return
 		}
 
-		err = a.PostLogin(w, r)
+		// we have a username, this suggests we are logged in, try and retrieve
+		// the permissions for the user and check if it's an active account
+		if username != "" {
+			user, err := a.storage.User(ctx).Get(username)
+			if err != nil {
+				if errors.Is(errors.UserUnknown, err) {
+					// unknown user, we force log them out
+					a.LogoutHandler(w, r)
+					return
+				}
+
+				// other unknown error, just internal server and log stuff
+				http.Error(w,
+					http.StatusText(http.StatusInternalServerError),
+					http.StatusInternalServerError)
+				log.Println(err)
+				return
+			}
+
+			if user.UserPermissions.Has(radio.PermActive) {
+				// user is indeed active, so forward them to their actual destination
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			// user account is inactive, force log them out
+			a.LogoutHandler(w, r)
+			return
+		}
+
+		err := a.PostLogin(w, r)
 		if err == nil {
 			// login successful, send them back to the page they requested at first
 			http.Redirect(w, r, r.URL.String(), 302)
 			return
 		}
 
+		log.Println(err)
 		// record that we failed a login, then return back to the login page
 		a.sessions.Put(ctx, failedLoginKey, true)
 		// either way we're going to send them back to the login page again
@@ -68,10 +92,28 @@ func (a authentication) LoginMiddleware(next http.Handler) http.Handler {
 
 func (a *authentication) GetLogin(w http.ResponseWriter, r *http.Request) {
 	const op errors.Op = "admin/authentication.GetLogin"
+
+	isFailed := a.sessions.PopBool(r.Context(), failedLoginKey)
+
+	log.Println("parsing login template")
+	tmpl, err := template.ParseFiles(`Z:\git\valkyrie\templates\admin\login.tmpl`)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	log.Println("outputting login template")
+	err = tmpl.ExecuteTemplate(w, "login", isFailed)
+	if err != nil {
+		log.Println(err)
+	}
+
+	_ = isFailed
 }
 
 func (a *authentication) PostLogin(w http.ResponseWriter, r *http.Request) error {
 	const op errors.Op = "admin/authentication.PostLogin"
+	var ctx = r.Context()
 
 	err := r.ParseForm()
 	if err != nil {
@@ -88,9 +130,14 @@ func (a *authentication) PostLogin(w http.ResponseWriter, r *http.Request) error
 		return errors.E(op, errors.InvalidArgument)
 	}
 
-	user, err := a.storage.User(r.Context()).Get(username)
+	user, err := a.storage.User(ctx).Get(username)
 	if err != nil {
 		return errors.E(op, err)
+	}
+
+	if !user.UserPermissions.Has(radio.PermActive) {
+		// inactive user account, don't allow login attempts
+		return errors.E(op, errors.InvalidArgument)
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
@@ -98,7 +145,7 @@ func (a *authentication) PostLogin(w http.ResponseWriter, r *http.Request) error
 		return errors.E(op, err, errors.InvalidArgument)
 	}
 
-	a.sessions.Put(r.Context(), usernameKey, username)
+	a.sessions.Put(ctx, usernameKey, username)
 	return nil
 }
 

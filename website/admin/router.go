@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -24,7 +25,7 @@ func newSessionManager() *scs.SessionManager {
 
 func Router(ctx context.Context, cfg config.Config, storage radio.StorageService) chi.Router {
 	sessionManager := scs.New()
-	sessionManager.Store = NewSessionStore(ctx, storage)
+	//sessionManager.Store = NewSessionStore(ctx, storage)
 	sessionManager.Codec = JSONCodec{}
 	sessionManager.Lifetime = 150 * 24 * time.Hour
 	sessionManager.Cookie = scs.SessionCookie{
@@ -37,7 +38,12 @@ func Router(ctx context.Context, cfg config.Config, storage radio.StorageService
 
 	r := chi.NewRouter()
 	r.Use(sessionManager.LoadAndSave)
-	r.Use(authentication.LoginMiddleware)
 	r.Get("/logout", authentication.LogoutHandler)
+	adminRouter := chi.NewRouter()
+	adminRouter.Use(authentication.LoginMiddleware)
+	adminRouter.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("hello"))
+	})
+	r.Mount("/", adminRouter)
 	return r
 }

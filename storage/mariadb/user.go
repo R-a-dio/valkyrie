@@ -18,7 +18,56 @@ type UserStorage struct {
 func (us UserStorage) Get(name string) (*radio.User, error) {
 	const op errors.Op = "mariadb/UserStorage.Get"
 
-	return nil, errors.E(op, errors.NotImplemented)
+	var query = `
+	SELECT
+		users.id AS id,
+		users.user AS username,
+		users.pass AS password,
+		IFNULL(users.email, '') AS email,
+		users.ip AS ip,
+		users.updated_at AS updated_at,
+		users.deleted_at AS deleted_at,
+		users.created_at AS created_at,
+		group_concat(permissions.permission) AS userpermissions,
+		IFNULL(djs.id, 0) AS 'dj.id',
+		IFNULL(djs.regex, '') AS 'dj.regex',
+		IFNULL(djs.djname, '') AS 'dj.name',
+
+		IFNULL(djs.djtext, '') AS 'dj.text',
+		IFNULL(djs.djimage, '') AS 'dj.image',
+
+		IFNULL(djs.visible, 0) AS 'dj.visible',
+		IFNULL(djs.priority, 0) AS 'dj.priority',
+		IFNULL(djs.role, '') AS 'dj.role',
+
+		IFNULL(djs.css, '') AS 'dj.css',
+		IFNULL(djs.djcolor, '') AS 'dj.color',
+		IFNULL(themes.id, 0) AS 'dj.theme.id',
+		IFNULL(themes.name, '') AS 'dj.theme.name',
+		IFNULL(themes.display_name, '') AS 'dj.theme.displayname',
+		IFNULL(themes.author, '') AS 'dj.theme.author'
+	FROM
+		users
+	LEFT JOIN
+		djs ON users.djid = djs.id
+	LEFT JOIN
+		themes ON djs.theme_id = themes.id
+	LEFT JOIN
+		permissions ON users.id=permissions.user_id
+	WHERE
+		users.user=?
+	GROUP BY
+		users.id;
+	`
+
+	var user radio.User
+
+	err := sqlx.Get(us.handle, &user, query, name)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	return &user, nil
 }
 
 // LookupName implements radio.UserStorage
