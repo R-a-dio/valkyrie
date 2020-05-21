@@ -19,9 +19,23 @@ func t(x *timestamp.Timestamp) time.Time {
 	return y
 }
 
+// ptrt is a pointer version of t
+func ptrt(x *timestamp.Timestamp) *time.Time {
+	tmp := t(x)
+	return &tmp
+}
+
 func tp(x time.Time) *timestamp.Timestamp {
 	y, _ := ptypes.TimestampProto(x)
 	return y
+}
+
+// ptrtp is a pointer version of tp
+func ptrtp(x *time.Time) *timestamp.Timestamp {
+	if x == nil {
+		return nil
+	}
+	return tp(*x)
 }
 
 func d(x *duration.Duration) time.Duration {
@@ -144,8 +158,8 @@ func toProtoUser(u radio.User) *User {
 		Id:        int32(u.ID),
 		Username:  u.Username,
 		Ip:        u.IP,
-		UpdatedAt: tp(u.UpdatedAt),
-		DeletedAt: tp(u.DeletedAt),
+		UpdatedAt: ptrtp(u.UpdatedAt),
+		DeletedAt: ptrtp(u.DeletedAt),
 		CreatedAt: tp(u.CreatedAt),
 		Dj:        toProtoDJ(u.DJ),
 		// These are disabled because they should probably never be used by a component
@@ -164,8 +178,8 @@ func fromProtoUser(u *User) radio.User {
 		ID:        radio.UserID(u.Id),
 		Username:  u.Username,
 		IP:        u.Ip,
-		UpdatedAt: t(u.UpdatedAt),
-		DeletedAt: t(u.DeletedAt),
+		UpdatedAt: ptrt(u.UpdatedAt),
+		DeletedAt: ptrt(u.DeletedAt),
 		CreatedAt: t(u.CreatedAt),
 		DJ:        fromProtoDJ(u.Dj),
 		// These are disabled because they should probably never be used by a component

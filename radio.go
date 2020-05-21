@@ -141,8 +141,8 @@ type User struct {
 	RememberToken string
 	IP            string
 
-	UpdatedAt time.Time
-	DeletedAt time.Time
+	UpdatedAt *time.Time
+	DeletedAt *time.Time
 	CreatedAt time.Time
 
 	DJ              DJ
