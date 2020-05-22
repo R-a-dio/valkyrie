@@ -3,9 +3,9 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"html/template"
 	"log"
 	"net/http"
-	"text/template"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -16,8 +16,9 @@ import (
 )
 
 const (
-	usernameKey    = "admin-username"
-	failedLoginKey = "admin-failed-login"
+	usernameKey           = "admin-username"
+	failedLoginKey        = "admin-failed-login"
+	failedLoginMessageKey = "admin-failed-login-message"
 )
 
 func NewAuthentication(storage radio.StorageService, sessions *scs.SessionManager) authentication {
@@ -83,8 +84,17 @@ func (a authentication) LoginMiddleware(next http.Handler) http.Handler {
 		}
 
 		log.Println(err)
-		// record that we failed a login, then return back to the login page
+
+		// record that we failed a login, and give a very generic error so that
+		// bruteforcing isn't made easier by having us tell them what was wrong
 		a.sessions.Put(ctx, failedLoginKey, true)
+		var message string
+		if errors.Is(errors.InvalidArgument, err) {
+			message = "invalid credentials"
+		} else {
+			message = "internal server error"
+		}
+		a.sessions.Put(ctx, failedLoginMessageKey, message)
 		// either way we're going to send them back to the login page again
 		http.Redirect(w, r, r.URL.String(), 302)
 	})
@@ -93,22 +103,28 @@ func (a authentication) LoginMiddleware(next http.Handler) http.Handler {
 func (a *authentication) GetLogin(w http.ResponseWriter, r *http.Request) {
 	const op errors.Op = "admin/authentication.GetLogin"
 
-	isFailed := a.sessions.PopBool(r.Context(), failedLoginKey)
+	// check if a previous request failed a login
+	failed := a.sessions.PopBool(r.Context(), failedLoginKey)
+	var failedMessage string
+	if failed {
+		failedMessage = a.sessions.PopString(r.Context(), failedLoginMessageKey)
+	}
 
-	log.Println("parsing login template")
 	tmpl, err := template.ParseFiles(`Z:\git\valkyrie\templates\admin\login.tmpl`)
 	if err != nil {
 		log.Println(err)
 		return
 	}
 
-	log.Println("outputting login template")
-	err = tmpl.ExecuteTemplate(w, "login", isFailed)
+	err = tmpl.ExecuteTemplate(w, "login", loginInfo{failed, failedMessage})
 	if err != nil {
 		log.Println(err)
 	}
+}
 
-	_ = isFailed
+type loginInfo struct {
+	Failed  bool
+	Message string
 }
 
 func (a *authentication) PostLogin(w http.ResponseWriter, r *http.Request) error {
@@ -117,32 +133,37 @@ func (a *authentication) PostLogin(w http.ResponseWriter, r *http.Request) error
 
 	err := r.ParseForm()
 	if err != nil {
-		return err
+		return errors.E(op, err, "failed to parse form data")
 	}
 
 	username := r.PostFormValue("username")
 	if username == "" || len(username) > 50 {
-		return errors.E(op, errors.InvalidArgument)
+		return errors.E(op, errors.InvalidArgument, "empty or long username")
 	}
 
 	password := r.PostFormValue("password")
 	if password == "" {
-		return errors.E(op, errors.InvalidArgument)
+		return errors.E(op, errors.InvalidArgument, "empty password")
 	}
 
 	user, err := a.storage.User(ctx).Get(username)
 	if err != nil {
+		// if it was an unknown username, turn it into a generic invalid argument
+		// error instead so the user gets a generic message
+		if errors.Is(errors.UserUnknown, err) {
+			return errors.E(op, err, errors.InvalidArgument)
+		}
 		return errors.E(op, err)
 	}
 
 	if !user.UserPermissions.Has(radio.PermActive) {
 		// inactive user account, don't allow login attempts
-		return errors.E(op, errors.InvalidArgument)
+		return errors.E(op, errors.InvalidArgument, "inactive user")
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
 	if err != nil {
-		return errors.E(op, err, errors.InvalidArgument)
+		return errors.E(op, err, errors.InvalidArgument, "invalid password")
 	}
 
 	a.sessions.Put(ctx, usernameKey, username)
@@ -154,15 +175,16 @@ func (a *authentication) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 
 	err := a.sessions.Destroy(r.Context())
 	if err != nil {
-		// failed to logout
-		// TODO: handle errors
+		// TODO: log error in a clean way
+		log.Println(err)
+		http.Error(w,
+			http.StatusText(http.StatusInternalServerError),
+			http.StatusInternalServerError)
 		return
 	}
 
-	// success, redirect to the home page (or try to)
-	home := *r.URL
-	home.Path = ""
-	http.Redirect(w, r, home.String(), 302)
+	// success, redirect to the home page
+	http.Redirect(w, r, "/", 302)
 	return
 }
 
