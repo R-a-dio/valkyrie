@@ -6,11 +6,35 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
+	"text/tabwriter"
 )
+
+type Templates map[string]map[string]Template
 
 type theme struct {
 	partials []string
 	pages    []string
+}
+
+type filecache map[string]string
+
+func (cache *filecache) readFile(filename string) (string, error) {
+	if *cache == nil {
+		*cache = make(map[string]string)
+	}
+	content, ok := (*cache)[filename]
+	if ok {
+		return content, nil
+	}
+
+	b, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return "", err
+	}
+	content = string(b)
+	(*cache)[filename] = content
+	return content, nil
 }
 
 // LoadTemplates loads the directory specified as several templates
@@ -21,7 +45,7 @@ type theme struct {
 //		dir/<theme>/partials/*.tmpl
 //		dir/default/<page>.tmpl
 //		dir/<theme>/<page>.tmpl
-func LoadTemplates(dir string) (map[string]string, error) {
+func LoadTemplates(dir string) (Templates, error) {
 	// top-level of the directory we're getting should be filled with directories
 	// named after themes. We special case "default" here to mean the fallback
 	// option if a theme doesn't replace something
@@ -50,6 +74,7 @@ func LoadTemplates(dir string) (map[string]string, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		pages, err := filepath.Glob(filepath.Join(dir, name, "*.tmpl"))
 		if err != nil {
 			return nil, err
@@ -58,12 +83,11 @@ func LoadTemplates(dir string) (map[string]string, error) {
 		themes[name] = theme{partials, pages}
 	}
 
-	// third: grab the default theme
+	// setup quick access to default pages by making a map of page -> filename
 	defaultTheme, ok := themes["default"]
 	if !ok {
 		panic("missing default theme")
 	}
-
 	// setup quick access to default pages
 	defaultPages := make(map[string]string, len(defaultTheme.pages))
 	for _, page := range defaultTheme.pages {
@@ -71,43 +95,53 @@ func LoadTemplates(dir string) (map[string]string, error) {
 	}
 
 	// dummy invocation template so we can use .Execute
-	dummy := template.Must(template.New("dummy-invocation").Parse(`{{ template "base" . }}`))
+	dummy := template.Must(template.New("invocation").Parse(`{{ template "base" . }}`))
+	var cache filecache
 	// fourth: matchup our base, defaults and theme templates
 	//
 	// each template will contain [base, default-partials, theme-partials] and then
 	// the default page template if available and the actual page template from
-	completed := make(map[string]map[string]*template.Template)
+	completed := make(map[string]map[string]Template)
 	for name, theme := range themes {
-		var bundle []string
-		bundle = append(bundle, baseFiles...)
-		bundle = append(bundle, defaultTheme.partials...)
-		bundle = append(bundle, theme.partials...)
-		// now go through each page
 		for _, page := range theme.pages {
+			var bundle []string
+			bundle = append(bundle, baseFiles...)
+			if name != "default" {
+				bundle = append(bundle, defaultTheme.partials...)
+			}
+			bundle = append(bundle, theme.partials...)
+			// finish off the bundle with the default page
 			d, ok := defaultPages[filepath.Base(page)]
-			if ok {
+			if ok && name != "default" {
 				bundle = append(bundle, d)
 			}
+			// and the themed page
 			bundle = append(bundle, page)
 
+			// now we're ready to construct the template, create a clone of our
+			// dummy-invocation and then start reading the files in the bundle to
+			// add to the template
 			pageTmpl := template.Must(dummy.Clone())
-			pageTmpl, err := pageTmpl.ParseFiles(bundle...)
-			if err != nil {
-				return nil, err
+			for _, filename := range bundle {
+				contents, err := cache.readFile(filename)
+				if err != nil {
+					return nil, err
+				}
+				_, err = pageTmpl.Parse(contents)
+				if err != nil {
+					return nil, err
+				}
 			}
 
 			if completed[name] == nil {
-				completed[name] = make(map[string]*template.Template)
+				completed[name] = make(map[string]Template)
 			}
 
-			completed[name][filepath.Base(page)] = pageTmpl
+			completed[name][filepath.Base(page)] = Template{bundle, pageTmpl}
 		}
 	}
 
-	err = completed["default"]["search.tmpl"].ExecuteTemplate(os.Stdout, "base", nil)
-	err = completed["default"]["search.tmpl"].Execute(os.Stdout, nil)
-	fmt.Println(err)
-	fmt.Println(completed)
+	return completed, nil
 	for theme, m := range completed {
 		for page, tmpl := range m {
 			var names []string
@@ -117,5 +151,80 @@ func LoadTemplates(dir string) (map[string]string, error) {
 			fmt.Printf("(%s) %s: %s\n", theme, page, names)
 		}
 	}
+	completed["default"]["search.tmpl"].Definitions()
 	return nil, nil
+}
+
+type Template struct {
+	// Files this template was constructed from, they are loaded in order,
+	// starting from the start
+	Files []string
+	// Tmpl the actual template construct
+	*template.Template
+}
+
+func (t Template) Definitions() error {
+	const noop = "--noop--"
+	columns := []string{"filename"}
+	var cc = make(map[string]bool)
+	type row struct {
+		filename string
+		names    map[string]bool
+	}
+
+	rows := []row{}
+
+	// go through each file
+	var cache filecache
+
+	for _, filename := range t.Files {
+		contents, err := cache.readFile(filename)
+		if err != nil {
+			return err
+		}
+
+		tmpl, err := template.New(noop).Parse(contents)
+		if err != nil {
+			return err
+		}
+
+		var r row
+		r.filename = filename
+		r.names = make(map[string]bool)
+		for _, a := range tmpl.Templates() {
+			name := a.Name()
+			if name == noop { // skip our noop
+				continue
+			}
+			r.names[name] = true
+			// check if it's a new template we found
+			if !cc[name] {
+				cc[name] = true
+				columns = append(columns, name)
+			}
+		}
+
+		rows = append(rows, r)
+	}
+
+	data := make([][]string, 0, len(rows))
+
+	data = append(data, columns)
+	for _, r := range rows {
+		s := []string{r.filename}
+		for _, c := range columns[1:] {
+			if r.names[c] {
+				s = append(s, "  X")
+			} else {
+				s = append(s, "")
+			}
+		}
+		data = append(data, s)
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', tabwriter.Debug)
+	for a := range data {
+		fmt.Fprintln(w, strings.Join(data[a], "\t"))
+	}
+	return w.Flush()
 }
