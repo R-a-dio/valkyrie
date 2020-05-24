@@ -7,10 +7,18 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
+	"github.com/R-a-dio/valkyrie/templates"
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi"
 )
+
+type State struct {
+	config.Config
+
+	Storage   radio.StorageService
+	Templates templates.Templates
+}
 
 func newSessionManager() *scs.SessionManager {
 	s := scs.New()
@@ -23,7 +31,7 @@ func newSessionManager() *scs.SessionManager {
 	return s
 }
 
-func Router(ctx context.Context, cfg config.Config, storage radio.StorageService) chi.Router {
+func Router(ctx context.Context, s State) chi.Router {
 	sessionManager := scs.New()
 	//sessionManager.Store = NewSessionStore(ctx, storage)
 	sessionManager.Codec = JSONCodec{}
@@ -34,7 +42,7 @@ func Router(ctx context.Context, cfg config.Config, storage radio.StorageService
 		Secure: true,
 	}
 
-	authentication := NewAuthentication(storage, sessionManager)
+	authentication := NewAuthentication(s.Storage, s.Templates, sessionManager)
 
 	r := chi.NewRouter()
 	r.Use(sessionManager.LoadAndSave)

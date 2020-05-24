@@ -6,7 +6,9 @@ import (
 	"net/http"
 
 	"github.com/R-a-dio/valkyrie/config"
+	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/storage"
+	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/R-a-dio/valkyrie/website/admin"
 	phpapi "github.com/R-a-dio/valkyrie/website/api/php"
 
@@ -16,13 +18,21 @@ import (
 
 // Execute runs a website instance with the configuration given
 func Execute(ctx context.Context, cfg config.Config) error {
+	const op errors.Op = "website/Execute"
+
+	// database access
 	storage, err := storage.Open(cfg)
 	if err != nil {
-		return err
+		return errors.E(op, err, "failed to open storage")
 	}
-
+	// RPC clients
 	streamer := cfg.Conf().Streamer.Client()
 	manager := cfg.Conf().Manager.Client()
+	// templates
+	tmpl, err := templates.LoadTemplates(cfg.Conf().TemplatePath)
+	if err != nil {
+		return errors.E(op, err, "failed to load templates")
+	}
 
 	r := chi.NewRouter()
 	// TODO(wessie): check if nginx is setup to send the correct headers for real IP
@@ -49,7 +59,11 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	r.Route(`/request/{TrackID:[0-9]+}`, v0.RequestRoute)
 
 	// admin routes
-	r.Mount("/admin", admin.Router(ctx, cfg, storage))
+	r.Mount("/admin", admin.Router(ctx, admin.State{
+		Config:    cfg,
+		Storage:   storage,
+		Templates: tmpl,
+	}))
 	// other routes
 	// other routes
 	// other routes

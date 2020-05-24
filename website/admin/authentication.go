@@ -3,13 +3,13 @@ package admin
 import (
 	"context"
 	"encoding/json"
-	"html/template"
 	"log"
 	"net/http"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/alexedwards/scs/v2"
 
 	"golang.org/x/crypto/bcrypt"
@@ -21,18 +21,23 @@ const (
 	failedLoginMessageKey = "admin-failed-login-message"
 )
 
-func NewAuthentication(storage radio.StorageService, sessions *scs.SessionManager) authentication {
+func NewAuthentication(storage radio.StorageService, tmpl templates.Templates, sessions *scs.SessionManager) authentication {
 	return authentication{
-		storage:  storage,
-		sessions: sessions,
+		storage:   storage,
+		sessions:  sessions,
+		templates: tmpl,
 	}
 }
 
 type authentication struct {
-	storage  radio.StorageService
-	sessions *scs.SessionManager
+	storage   radio.StorageService
+	sessions  *scs.SessionManager
+	templates templates.Templates
 }
 
+// LoginMiddleware makes all routes require requests to be from logged in users
+// with permissions Active (active user account). Otherwise they get redirected
+// to a login page
 func (a authentication) LoginMiddleware(next http.Handler) http.Handler {
 	const op errors.Op = "admin/authentication.LoginMiddleware"
 
@@ -83,8 +88,6 @@ func (a authentication) LoginMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		log.Println(err)
-
 		// record that we failed a login, and give a very generic error so that
 		// bruteforcing isn't made easier by having us tell them what was wrong
 		a.sessions.Put(ctx, failedLoginKey, true)
@@ -110,15 +113,10 @@ func (a *authentication) GetLogin(w http.ResponseWriter, r *http.Request) {
 		failedMessage = a.sessions.PopString(r.Context(), failedLoginMessageKey)
 	}
 
-	tmpl, err := template.ParseFiles(`Z:\git\valkyrie\templates\admin\login.tmpl`)
+	err := a.templates["admin"]["login.tmpl"].Execute(w, loginInfo{failed, failedMessage})
 	if err != nil {
 		log.Println(err)
 		return
-	}
-
-	err = tmpl.ExecuteTemplate(w, "login", loginInfo{failed, failedMessage})
-	if err != nil {
-		log.Println(err)
 	}
 }
 
@@ -149,7 +147,7 @@ func (a *authentication) PostLogin(w http.ResponseWriter, r *http.Request) error
 	user, err := a.storage.User(ctx).Get(username)
 	if err != nil {
 		// if it was an unknown username, turn it into a generic invalid argument
-		// error instead so the user gets a generic message
+		// error instead so the user doesn't get an internal server error
 		if errors.Is(errors.UserUnknown, err) {
 			return errors.E(op, err, errors.InvalidArgument)
 		}
