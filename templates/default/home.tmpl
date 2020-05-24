@@ -1,0 +1,3 @@
+{{define "content"}}
+Home
+{{end}}
