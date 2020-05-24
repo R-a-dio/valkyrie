@@ -69,6 +69,7 @@ func Open(cfg config.Config) (radio.StorageService, error) {
 
 	// no search wrapping
 	if !searchWrapped {
+		instances[name] = store
 		return store, nil
 	}
 
