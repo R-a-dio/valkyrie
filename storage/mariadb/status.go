@@ -69,12 +69,7 @@ func (ss StatusStorage) Store(status radio.Status) error {
 
 	// now try the UPDATE and if that fails do the same with an INSERT
 	for _, query := range queries {
-		query, args, err := sqlx.Named(query, status)
-		if err != nil {
-			return errors.E(op, err)
-		}
-
-		res, err := ss.handle.Exec(query, args...)
+		res, err := sqlx.NamedExec(ss.handle, query, status)
 		if err != nil {
 			return errors.E(op, err)
 		}
