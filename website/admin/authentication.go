@@ -206,7 +206,7 @@ func (ss SessionStore) Delete(token string) error {
 // Find implements scs.Store
 func (ss SessionStore) Find(token string) ([]byte, bool, error) {
 	session, err := ss.storage.Sessions(ss.ctx).Get(radio.SessionToken(token))
-	if err != nil {
+	if err != nil && !errors.Is(errors.SessionUnknown, err) {
 		return nil, false, err
 	}
 

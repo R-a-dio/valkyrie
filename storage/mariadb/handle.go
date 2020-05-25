@@ -268,6 +268,11 @@ func (s *StorageService) Status(ctx context.Context) radio.StatusStorage {
 type extContext interface {
 	sqlx.ExecerContext
 	sqlx.QueryerContext
+	// these are methods on sqlx.binder that is private, we need to implement these
+	// to be a sqlx.Ext so that we can use all extensions added by sqlx
+	DriverName() string
+	Rebind(string) string
+	BindNamed(string, interface{}) (string, []interface{}, error)
 }
 
 // requireTx returns a handle that uses a transaction, if the handle given already is
@@ -314,5 +319,18 @@ func (h handle) QueryRowx(query string, args ...interface{}) *sqlx.Row {
 	return h.ext.QueryRowxContext(h.ctx, query, args...)
 }
 
+func (h handle) BindNamed(query string, arg interface{}) (string, []interface{}, error) {
+	return h.ext.BindNamed(query, arg)
+}
+
+func (h handle) Rebind(query string) string {
+	return h.ext.Rebind(query)
+}
+
+func (h handle) DriverName() string {
+	return h.ext.DriverName()
+}
+
 var _ sqlx.Execer = handle{}
 var _ sqlx.Queryer = handle{}
+var _ sqlx.Ext = handle{}

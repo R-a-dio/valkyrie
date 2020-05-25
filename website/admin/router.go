@@ -33,7 +33,7 @@ func newSessionManager() *scs.SessionManager {
 
 func Router(ctx context.Context, s State) chi.Router {
 	sessionManager := scs.New()
-	//sessionManager.Store = NewSessionStore(ctx, storage)
+	sessionManager.Store = NewSessionStore(ctx, s.Storage)
 	sessionManager.Codec = JSONCodec{}
 	sessionManager.Lifetime = 150 * 24 * time.Hour
 	sessionManager.Cookie = scs.SessionCookie{

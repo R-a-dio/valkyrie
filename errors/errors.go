@@ -315,6 +315,7 @@ const (
 	ProviderUnknown                    // Unknown service provider name used
 	NotImplemented                     // Generic error indicating something is not implemented
 	NewsUnknown                        // News post does not exist
+	SessionUnknown                     // Session does not exist
 )
 
 func (k Kind) String() string {
