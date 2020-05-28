@@ -1,0 +1,122 @@
+{{define "styles"}}
+<style type="text/css">
+    {{template "water.css"}}
+</style>
+<style type="text/css">
+    .profile {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .profile img {
+        max-height: 180px;
+        max-width: 180px;
+        margin-bottom: 5px;
+    }
+    .profile > form,
+    .flex-form input[type=text] {
+        width: 100%;
+        max-width: 800px;
+    }
+    .flex-form input[type=checkbox] {
+        width: 29px;
+        height: 29px;
+        margin: 8px 0px;
+    }
+    .flex-form button {
+        background-color: var(--background-alt);
+    }
+    .flex-form button:hover {
+        background-color: var(--radio-color);
+    }
+    .flex-form li,
+    .flex-form-inner {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+    .flex-form > li > label {
+        flex: 1 0 60px;
+        max-width: 150px;
+    }
+    .flex-form > li > label + * {
+        flex: 1 0 60px;
+    }
+</style>
+{{end}}
+{{define "content"}}
+<div class="profile">
+    <form method="post" enctype="multipart/form-data">
+        <ul class="flex-form">
+            <li>
+                <label for="username">Username:</label>
+                <input type="text" name="username" value={{.User.Username}} required disabled>
+                <input type="hidden" name="username" value={{.User.Username}}>
+            </li>
+            <li>
+                <label>Change password:</label>
+                <input type="text" name="password" placeholder="current password">
+            </li>
+            <li>
+                <label></label>
+                <input type="text" name="new-password" placeholder="new password">
+            </li>
+            <li>
+                <label></label>
+                <input type="text" name="repeated-password" placeholder="repeated password">
+            </li>
+            <li>
+                <label for="ip-address">IP Address:</label>
+                <input type="text" name="ip-address" value={{.User.IP}}>
+                <button type="button" onclick="document.querySelector('input[name=ip-address]').value = '{{.CurrentIP}}'">(You)</button>
+            </li>
+            {{if ne .DJ.ID 0}}
+            <li>
+                -
+            </li>
+            <li>
+                <label for="visible">Visible?</label>
+                <div>
+                    <input autocomplete="off" type="checkbox" name="visible" {{if .DJ.Visible}}checked{{end}}>
+                </div>
+            </li>
+            <li>
+                <label for="priority">Priority:</label>
+                <input type="number" name="priority" value={{.DJ.Priority}}>
+            </li>
+            <li>
+                <label for="dj-name">DJ name:</label>
+                <input type="text" name="dj-name" value={{.DJ.Name}}>
+            </li>
+            <li>
+                <label for="dj-image">DJ Image:</label>
+                <input type="file" name="dj-image">
+            </li>
+            <li>
+                <label>Current image:</label>
+                <img src="https://r-a-d.io/api/dj-image/{{.DJ.Image}}.png" alt="current DJ image">
+            </li>
+            <li>
+                <label for="regex">Nickname Regex:</label>
+                <input type="text" name="regex" value={{.DJ.Regex}}>
+            </li>
+            <li>
+                <label for="theme">Theme:</label>
+                <select name="theme" value={{.Theme.Name}}>
+                    <option value="default">Default</option>
+                </select>
+            </li>
+            {{else if .IsAdmin}}
+            <li>
+                <label></label>
+                <button type="submit">Create DJ account</button>
+            </li>
+            {{end}}
+            <li>
+                <label></label>
+                <button type="submit">Submit Changes</button>
+            </li>
+        </ul>
+    </form>
+</div>
+{{end}}
