@@ -66,9 +66,9 @@ func (us UserStorage) Get(name string) (*radio.User, error) {
 	err := sqlx.Get(us.handle, &user, query, name)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, errors.E(op, errors.UserUnknown)
+			return nil, errors.E(op, errors.UserUnknown, errors.Info(name))
 		}
-		return nil, errors.E(op, err)
+		return nil, errors.E(op, err, errors.Info(name))
 	}
 
 	return &user, nil

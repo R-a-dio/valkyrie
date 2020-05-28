@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -84,7 +83,7 @@ func (a *API) getMetadata(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) getUserCooldown(w http.ResponseWriter, r *http.Request) {
-	identifier := getIdentifier(r)
+	identifier := r.RemoteAddr
 
 	submissionTime, err := a.storage.Submissions(r.Context()).LastSubmissionTime(identifier)
 	if err != nil {
@@ -306,7 +305,7 @@ func (a *API) getCanRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	identifier := getIdentifier(r)
+	identifier := r.RemoteAddr
 	userLastRequest, err := a.storage.Request(r.Context()).LastRequest(identifier)
 	if err != nil {
 		return
@@ -358,8 +357,7 @@ func (a *API) postRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	identifier := getIdentifier(r)
-	err := a.streamer.RequestSong(ctx, song, identifier)
+	err := a.streamer.RequestSong(ctx, song, r.RemoteAddr)
 	if err == nil {
 		response["success"] = "Thank you for making your request!"
 		return
@@ -379,24 +377,6 @@ func (a *API) postRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 type requestResponse map[string]string
-
-// getIdentifier returns a unique identifier for the user, currently uses the remote
-// address for this purpose
-func getIdentifier(r *http.Request) string {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		// constant used by the net package
-		const missingPort = "missing port in address"
-		aerr, ok := err.(*net.AddrError)
-		if ok && aerr.Err == missingPort {
-			return r.RemoteAddr
-		}
-
-		panic("getIdentifier: " + err.Error())
-	}
-
-	return host
-}
 
 func newV0Status(ctx context.Context, storage radio.SongStorageService,
 	streamer radio.StreamerService, manager radio.ManagerService) (*v0Status, error) {

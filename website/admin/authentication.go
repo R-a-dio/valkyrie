@@ -15,10 +15,20 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// keys used in sessions
+//
+// they can't be typed because of the sessions API wanting strings
 const (
 	usernameKey           = "admin-username"
 	failedLoginKey        = "admin-failed-login"
 	failedLoginMessageKey = "admin-failed-login-message"
+)
+
+// contextKey is used for values stored in a context
+type contextKey string
+
+const (
+	userContextKey contextKey = "user-struct"
 )
 
 func NewAuthentication(storage radio.StorageService, tmpl templates.Templates, sessions *scs.SessionManager) authentication {
@@ -72,6 +82,7 @@ func (a authentication) LoginMiddleware(next http.Handler) http.Handler {
 
 			if user.UserPermissions.Has(radio.PermActive) {
 				// user is indeed active, so forward them to their actual destination
+				r = RequestWithUser(r, user)
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -261,4 +272,23 @@ func (JSONCodec) Decode(b []byte) (time.Time, map[string]interface{}, error) {
 	}
 
 	return aux.Deadline, aux.Values, nil
+}
+
+// UserFromContext returns the user stored in the context, a user is available after
+// the LoginMiddleware
+func UserFromContext(ctx context.Context) *radio.User {
+	u, ok := ctx.Value(userContextKey).(*radio.User)
+	if !ok {
+		panic("UserFromContext: called from handler not behind LoginMiddleware")
+	} else if u == nil {
+		panic("UserFromContext: someone stored a nil user")
+	}
+	return u
+}
+
+// RequestWithUser adds a user to a requests context and returns the new updated
+// request after, user can be retrieved by UserFromContext
+func RequestWithUser(r *http.Request, u *radio.User) *http.Request {
+	ctx := context.WithValue(r.Context(), userContextKey, u)
+	return r.WithContext(ctx)
 }

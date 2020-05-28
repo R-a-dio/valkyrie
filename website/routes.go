@@ -19,8 +19,8 @@ api routes, some of these might never have been implemented in PHP
 	GET /api/ping - done
 	GET /api/song -> links only valid one day, not implemented
 	GET /api/user-cooldown - done
-	GET /api/news
-	GET /api/search
+	GET /api/news - done
+	GET /api/search - done
 	GET /api/metadata - useless, not implemented
 	GET /api/can-request - done
 	POST /request - done

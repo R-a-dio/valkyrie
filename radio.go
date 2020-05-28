@@ -90,6 +90,10 @@ type UserPermissions map[UserPermission]struct{}
 // Has returns true if the permission given is in the UserPermissions
 func (up UserPermissions) Has(perm UserPermission) bool {
 	_, ok := up[perm]
+	if !ok {
+		_, ok = up[PermDev]
+		return ok
+	}
 	return ok
 }
 

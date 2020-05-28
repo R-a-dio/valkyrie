@@ -366,6 +366,10 @@ func (k Kind) String() string {
 		return "unknown provider"
 	case NotImplemented:
 		return "not implemented"
+	case NewsUnknown:
+		return "unknown news entry"
+	case SessionUnknown:
+		return "session does not exist"
 	}
 
 	return "unknown error kind"

@@ -38,6 +38,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	// TODO(wessie): check if nginx is setup to send the correct headers for real IP
 	// passthrough, as it's required for request handling
 	r.Use(middleware.RealIP)
+	r.Use(removePortFromAddress)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
@@ -96,4 +97,33 @@ func Execute(ctx context.Context, cfg config.Config) error {
 func RedirectLegacyStream(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Location", "//stream.r-a-d.io/main")
 	w.WriteHeader(http.StatusMovedPermanently)
+}
+
+// removePortFromAddress is a middleware that should be behind RealIP to
+// remove any potential port number that is present on r.RemoteAddr, since
+// we use it to identify users and don't want the port to be used in those
+// cases.
+//
+// This middleware will panic if the address is unparseable by net.SplitHostPort
+func removePortFromAddress(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.RemoteAddr == "" {
+			panic("removePortFromAddress: empty address")
+		}
+		host, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			// constant used by the net package
+			const missingPort = "missing port in address"
+			aerr, ok := err.(*net.AddrError)
+			if !ok || aerr.Err != missingPort {
+				panic("removePortFromAddress: " + err.Error())
+			}
+		} else {
+			// only set it if there is no error, if there was an error we will
+			// either panic above, or there was no port involved and so we
+			// don't need to touch the RemoteAddr
+			r.RemoteAddr = host
+		}
+		next.ServeHTTP(w, r)
+	})
 }

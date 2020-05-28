@@ -1,5 +1,37 @@
 {{define "navbar"}}
-<nav>
+<style type="text/css">
+nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--background-alt);
+}
+nav > ul {
+    display: flex;
+    list-style: none;
+}
+nav > ul > li > a {
+    display: inline-block;
+    padding: 10px 15px;
+    text-decoration: none;
+    color: #999;
+}
+nav > ul > li > a:hover {
+    background: #111111;
+}
+nav > a {
+    display: inline-block;
+    padding-left: 20px;
+}
+nav img {
+    max-width: 100px;
+    height: auto;
+}
+</style>
+<nav id="top-nav">
+    <a href="/">
+        <img src="https://r-a-d.io/assets/logotitle_2.png" alt="r/a/dio logo">
+    </a>
     <ul>
         <li><a href="#">Home</a></li>
         <li><a href="#">News</a></li>

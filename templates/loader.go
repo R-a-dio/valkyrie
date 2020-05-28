@@ -3,6 +3,7 @@ package templates
 import (
 	"fmt"
 	"html/template"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -95,7 +96,7 @@ func LoadTemplates(dir string) (Templates, error) {
 	}
 
 	// dummy invocation template so we can use .Execute
-	dummy := template.Must(template.New("invocation").Parse(`{{ template "base" . }}`))
+	dummy := createDummy()
 	var cache filecache
 	// fourth: matchup our base, defaults and theme templates
 	//
@@ -121,23 +122,17 @@ func LoadTemplates(dir string) (Templates, error) {
 			// now we're ready to construct the template, create a clone of our
 			// dummy-invocation and then start reading the files in the bundle to
 			// add to the template
-			pageTmpl := template.Must(dummy.Clone())
-			for _, filename := range bundle {
-				contents, err := cache.readFile(filename)
-				if err != nil {
-					return nil, err
-				}
-				_, err = pageTmpl.Parse(contents)
-				if err != nil {
-					return nil, err
-				}
+			parent := template.Must(dummy.Clone())
+			pageTmpl, err := loadTemplate(parent, cache, bundle)
+			if err != nil {
+				return nil, err
 			}
 
 			if completed[name] == nil {
 				completed[name] = make(map[string]Template)
 			}
 
-			completed[name][filepath.Base(page)] = Template{bundle, pageTmpl}
+			completed[name][filepath.Base(page)] = *pageTmpl
 		}
 	}
 
@@ -153,6 +148,42 @@ func LoadTemplates(dir string) (Templates, error) {
 	}
 	completed["default"]["search.tmpl"].Definitions()
 	return nil, nil
+}
+
+func createDummy() *template.Template {
+	return template.Must(template.New("invocation").Parse(`{{ template "base" . }}`))
+}
+
+func loadTemplate(parent *template.Template, cache filecache, bundle []string) (*Template, error) {
+	for _, filename := range bundle {
+		contents, err := cache.readFile(filename)
+		if err != nil {
+			return nil, err
+		}
+		_, err = parent.Parse(contents)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &Template{bundle, parent}, nil
+}
+
+// Reload the template from disk and returns the new version
+func (t Template) Reload() (*Template, error) {
+	dummy := createDummy()
+	var cache filecache
+
+	return loadTemplate(dummy, cache, t.Files)
+}
+
+func (t Template) ExecuteDev(w io.Writer, data interface{}) error {
+	new, err := t.Reload()
+	if err != nil {
+		return err
+	}
+
+	return new.Execute(w, data)
 }
 
 type Template struct {

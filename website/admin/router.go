@@ -20,6 +20,11 @@ type State struct {
 	Templates templates.Templates
 }
 
+type admin struct {
+	storage   radio.StorageService
+	templates templates.Templates
+}
+
 func newSessionManager() *scs.SessionManager {
 	s := scs.New()
 	s.Lifetime = 150 * 24 * time.Hour
@@ -43,6 +48,7 @@ func Router(ctx context.Context, s State) chi.Router {
 	}
 
 	authentication := NewAuthentication(s.Storage, s.Templates, sessionManager)
+	admin := admin{s.Storage, s.Templates}
 
 	r := chi.NewRouter()
 	r.Use(sessionManager.LoadAndSave)
@@ -52,6 +58,8 @@ func Router(ctx context.Context, s State) chi.Router {
 	adminRouter.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("hello"))
 	})
+	adminRouter.Get("/profile", admin.GetProfile)
+	adminRouter.Post("/profile", admin.PostProfile)
 	r.Mount("/", adminRouter)
 	return r
 }
