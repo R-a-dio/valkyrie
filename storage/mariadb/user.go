@@ -15,6 +15,11 @@ type UserStorage struct {
 	handle handle
 }
 
+// UpdateUser implements radio.UserStorage
+func (us UserStorage) UpdateUser(user radio.User) error {
+	return nil
+}
+
 // Get implements radio.UserStorage
 func (us UserStorage) Get(name string) (*radio.User, error) {
 	const op errors.Op = "mariadb/UserStorage.Get"
