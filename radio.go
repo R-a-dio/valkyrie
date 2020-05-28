@@ -631,7 +631,7 @@ type UserStorage interface {
 	// Get returns the user matching the name given
 	Get(name string) (*User, error)
 	// UpdateUser updates the given user
-	UpdateUser(User) error
+	UpdateUser(User) (User, error)
 	// LookupName matches the name given fuzzily to a user
 	LookupName(name string) (*User, error)
 	// ByNick returns an user that is associated with the nick given

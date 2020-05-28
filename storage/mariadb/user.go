@@ -16,8 +16,170 @@ type UserStorage struct {
 }
 
 // UpdateUser implements radio.UserStorage
-func (us UserStorage) UpdateUser(user radio.User) error {
-	return nil
+func (us UserStorage) UpdateUser(user radio.User) (radio.User, error) {
+	const op errors.Op = "mariadb/UserStorage.UpdateUser"
+
+	var query string;
+
+	// start trans
+	handle, tx, err := requireTx(us.handle)
+	if err != nil {
+		return user, errors.E(op, err)
+	}
+	defer tx.Rollback()
+	// if userid is 0, insert new user
+
+	if user.ID == 0 {
+		query = `
+			INSERT INTO users (
+				user,
+				pass,
+				email,
+				ip,
+				updated_at,
+				created_at
+			)
+			VALUES (
+				:Username,
+				:Password,
+				:Email,
+				:IP,
+				CURRENT_TIMESTAMP(),
+				CURRENT_TIMESTAMP()
+			);
+		`
+	} else {
+		query = `
+			UPDATE users (
+				pass,
+				email,
+				ip,
+				updated_at
+			)
+			SET (
+				:Password,
+				:Email,
+				:IP,
+				CURRENT_TIMESTAMP()
+			)
+			WHERE
+				users.id = :ID
+			;
+		`
+	}
+	result, err := sqlx.NamedExec(handle, query, user)
+	if err != nil {
+		return user, errors.E(op, err)
+	}
+	if user.ID == 0 {
+		last, err := result.LastInsertId()
+		if err != nil {
+			return user, errors.E(op, err)
+		}
+		user.ID = radio.UserID(last)
+	}
+
+	// delete perms
+	query = `
+		DELETE FROM permissions
+		WHERE
+			permissions.user_id = ?
+		;
+	`
+	_, err = handle.Exec(query, user.ID)
+	if err != nil {
+		return user, errors.E(op, err)
+	}
+
+	// insert perms
+	query = `
+		INSERT INTO permissions (
+			user_id,
+			permission
+		)
+		VALUES (?, ?);
+	`
+	for perm, _ := range user.UserPermissions {
+		_, err := handle.Exec(query, user.ID, perm)
+		if err != nil {
+			return user, errors.E(op, err)
+		}
+	}
+
+	// If djid is zero and dj is nondefault, insert
+	// Otherwise, if djid is nonzero, update
+	if user.DJ.ID == 0 && user.DJ != (radio.DJ{}) {
+		query = `
+			INSERT INTO djs (
+				djname,
+				djtext,
+				djimage,
+				visible,
+				priority,
+				css,
+				djcolor,
+				role,
+				theme_id,
+				regex
+			)
+			VALUES (
+				:name,
+				:text,
+				:image,
+				:visible,
+				:priority,
+				:css,
+				:color,
+				:role,
+				:theme.ID,
+				:regex
+			)
+			;
+		`
+		result, err = sqlx.NamedExec(handle, query, user.DJ)
+		if err != nil {
+			return user, errors.E(op, err)
+		}
+		last, err := result.LastInsertId()
+		if err != nil {
+			return user, errors.E(op, err)
+		}
+		user.DJ.ID = radio.DJID(last)
+	} else if user.DJ.ID != 0 {
+		query = `
+			UPDATE djs (
+				djname,
+				djtext,
+				djimage,
+				visible,
+				priority,
+				css,
+				djcolor,
+				role,
+				theme_id,
+				regex
+			)
+			SET (
+				:name,
+				:text,
+				:image,
+				:visible,
+				:priority,
+				:css,
+				:color,
+				:role,
+				:theme.ID,
+				:regex
+			)
+			;
+		`
+		_, err = sqlx.NamedExec(handle, query, user.DJ)
+		if err != nil {
+			return user, errors.E(op, err)
+		}
+	}
+
+	return user, tx.Commit()
 }
 
 // Get implements radio.UserStorage
