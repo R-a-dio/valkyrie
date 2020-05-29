@@ -15,6 +15,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+const bcryptCost = 14
+
 // keys used in sessions
 //
 // they can't be typed because of the sessions API wanting strings

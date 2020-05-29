@@ -50,47 +50,55 @@
         <ul class="flex-form">
             <li>
                 <label for="username">Username:</label>
-                <input type="text" name="username" value={{.User.Username}} required disabled>
-                <input type="hidden" name="username" value={{.User.Username}}>
+                {{if .IsNew}}
+                <input type="text" name="Username" placeholder="username" required>
+                {{else}}
+                <input type="text" name="Username" value={{.User.Username}} required disabled>
+                <input type="hidden" name="Username" value={{.User.Username}}>
+                {{end}}
             </li>
+            {{if or (not .IsAdmin) (.IsNew)}}
             <li>
-                <label>Change password:</label>
-                <input type="text" name="password" placeholder="current password">
+                <label>{{if .IsNew}}New{{else}}Change{{end}} password:</label>
+                <input type="password" name="Change.Password" placeholder="{{if not .IsNew}}current {{end}}password">
+            </li>
+            {{end}}
+            {{if not .IsNew}}
+            <li>
+                <label>{{if not (or (not .IsAdmin) (.IsNew))}}Change password:{{end}}</label>
+                <input type="password" name="Change.NewPassword" placeholder="new password">
             </li>
             <li>
                 <label></label>
-                <input type="text" name="new-password" placeholder="new password">
+                <input type="password" name="Change.RepeatedPassword" placeholder="repeated password">
             </li>
-            <li>
-                <label></label>
-                <input type="text" name="repeated-password" placeholder="repeated password">
-            </li>
+            {{end}}
             <li>
                 <label for="ip-address">IP Address:</label>
-                <input type="text" name="ip-address" value={{.User.IP}}>
-                <button type="button" onclick="document.querySelector('input[name=ip-address]').value = '{{.CurrentIP}}'">(You)</button>
+                <input type="text" name="IP" value={{.User.IP}}>
+                <button type="button" onclick="document.querySelector('input[name=IP]').value = '{{.CurrentIP}}'">(You)</button>
             </li>
-            {{if ne .DJ.ID 0}}
+            {{if or (ne .DJ.ID 0) (.IsNewProfile)}}
             <li>
                 -
             </li>
             <li>
                 <label for="visible">Visible?</label>
                 <div>
-                    <input autocomplete="off" type="checkbox" name="visible" {{if .DJ.Visible}}checked{{end}}>
+                    <input autocomplete="off" type="checkbox" name="DJ.Visible" {{if .DJ.Visible}}checked{{end}}>
                 </div>
             </li>
             <li>
                 <label for="priority">Priority:</label>
-                <input type="number" name="priority" value={{.DJ.Priority}}>
+                <input type="number" name="DJ.Priority" value={{.DJ.Priority}}>
             </li>
             <li>
                 <label for="dj-name">DJ name:</label>
-                <input type="text" name="dj-name" value={{.DJ.Name}}>
+                <input type="text" name="DJ.Name" value={{.DJ.Name}}>
             </li>
             <li>
                 <label for="dj-image">DJ Image:</label>
-                <input type="file" name="dj-image">
+                <input type="file" name="DJ.Image">
             </li>
             <li>
                 <label>Current image:</label>
@@ -98,23 +106,24 @@
             </li>
             <li>
                 <label for="regex">Nickname Regex:</label>
-                <input type="text" name="regex" value={{.DJ.Regex}}>
+                <input type="text" name="DJ.Regex" value={{.DJ.Regex}}>
             </li>
             <li>
                 <label for="theme">Theme:</label>
-                <select name="theme" value={{.Theme.Name}}>
+                <select name="DJ.Theme.Name" value={{.Theme.Name}}>
                     <option value="default">Default</option>
                 </select>
             </li>
-            {{else if .IsAdmin}}
+            {{end}}
+            {{if and (and .IsAdmin (eq .DJ.ID 0)) (not .IsNewProfile)}}
             <li>
                 <label></label>
-                <button type="submit">Create DJ account</button>
+                <button type="button" onclick="window.location.search += '&newprofile';">Add DJ profile</button>
             </li>
             {{end}}
             <li>
                 <label></label>
-                <button type="submit">Submit Changes</button>
+                <button type="submit">{{if .IsNew}}Create Account{{else}}Submit Changes{{end}}</button>
             </li>
         </ul>
     </form>
