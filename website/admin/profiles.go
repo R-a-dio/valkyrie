@@ -9,11 +9,9 @@ import (
 	"log"
 	"mime/multipart"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
-	"strconv"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
@@ -409,48 +407,4 @@ func postProfileImage(cfg config.Config, new *radio.User, header *multipart.File
 
 	new.DJ.Image = imageFilenameDB
 	return nil
-}
-
-type extraProfileInfo struct {
-	// password change fields
-	current  string
-	new      string
-	repeated string
-
-	// image change fields
-	image *multipart.FileHeader
-}
-
-func userFromPostForm(form *multipart.Form) (radio.User, extraProfileInfo) {
-	v, files := url.Values(form.Value), form.File
-	var user radio.User
-	var info extraProfileInfo
-
-	// username, should be immutable but we read it anyway
-	user.Username = v.Get("username")
-	// password change info, should generally be empty
-	info.current = v.Get("password")
-	info.new = v.Get("new-password")
-	info.repeated = v.Get("repeated-password")
-	// ip address for stream access
-	user.IP = v.Get("ip-address")
-
-	user.DJ.Name = v.Get("dj-name")
-	if f := files["dj-image"]; len(f) > 0 {
-		info.image = f[0]
-	}
-
-	// visibilty on staff page, this is only present if checked
-	user.DJ.Visible = v["visible"] != nil
-	{
-		// ordering on the staff page, ignore the value if not a number
-		p := v.Get("priority")
-		priority, err := strconv.Atoi(p)
-		if err == nil {
-			user.DJ.Priority = priority
-		}
-	}
-	user.DJ.Regex = v.Get("regex")
-	user.DJ.Theme.Name = v.Get("theme")
-	return user, info
 }
