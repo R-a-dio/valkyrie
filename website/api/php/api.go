@@ -7,6 +7,8 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -67,7 +69,10 @@ func (a *API) Router() chi.Router {
 	r.Get("/search/{query}", a.getSearch)
 	r.Get("/can-request", a.getCanRequest)
 	// should be static-images only
-	r.Get("/dj-image", a.getDJImage)
+	r.With(middleware.UserByDJIDCtx(a.storage)).
+		Get("/dj-image/{DJID}-*", a.getDJImage)
+	r.With(middleware.UserByDJIDCtx(a.storage)).
+		Get("/dj-image/{DJID:[0-9]+}", a.getDJImage)
 	// these are deprecated
 	r.Get("/song", a.getSong)
 	r.Get("/metadata", a.getMetadata)
@@ -330,6 +335,34 @@ type canRequestResponse struct {
 }
 
 func (a *API) getDJImage(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	w.Header().Del("Content-Type")
+	w.Header().Set("Content-Type", "image/png")
+
+	user, ok := ctx.Value(middleware.UserKey).(radio.User)
+	if !ok {
+		panic("missing UserByDJIDCtx middleware")
+		return
+	}
+
+	sid := chi.URLParamFromCtx(ctx, "DJID")
+	filename := filepath.Join(a.Conf().Website.DJImagePath, sid)
+
+	f, err := os.Open(filename)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	defer f.Close()
+
+	fi, err := f.Stat()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	http.ServeContent(w, r, user.DJ.Image+".png", fi.ModTime(), f)
 }
 
 // RequestRoute is the router setup for handling requests

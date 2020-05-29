@@ -630,6 +630,8 @@ type UserStorageService interface {
 type UserStorage interface {
 	// Get returns the user matching the name given
 	Get(name string) (*User, error)
+	// GetByDJID returns the user associated with the DJID
+	GetByDJID(DJID) (*User, error)
 	// UpdateUser updates the given user
 	UpdateUser(User) (User, error)
 	// LookupName matches the name given fuzzily to a user

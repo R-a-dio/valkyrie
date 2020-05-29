@@ -2,6 +2,7 @@ package mariadb
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"regexp"
 
@@ -184,51 +185,55 @@ func (us UserStorage) UpdateUser(user radio.User) (radio.User, error) {
 	return user, nil
 }
 
+// getQuery is for single-row returns on the users table, the only thing you can
+// change by using fmt is the WHERE clause. Just read the query really
+const getUserQuery = `
+SELECT
+	users.id AS id,
+	users.user AS username,
+	users.pass AS password,
+	IFNULL(users.email, '') AS email,
+	users.ip AS ip,
+	users.updated_at AS updated_at,
+	users.deleted_at AS deleted_at,
+	users.created_at AS created_at,
+	group_concat(permissions.permission) AS userpermissions,
+	IFNULL(djs.id, 0) AS 'dj.id',
+	IFNULL(djs.regex, '') AS 'dj.regex',
+	IFNULL(djs.djname, '') AS 'dj.name',
+
+	IFNULL(djs.djtext, '') AS 'dj.text',
+	IFNULL(djs.djimage, '') AS 'dj.image',
+
+	IFNULL(djs.visible, 0) AS 'dj.visible',
+	IFNULL(djs.priority, 0) AS 'dj.priority',
+	IFNULL(djs.role, '') AS 'dj.role',
+
+	IFNULL(djs.css, '') AS 'dj.css',
+	IFNULL(djs.djcolor, '') AS 'dj.color',
+	IFNULL(themes.id, 0) AS 'dj.theme.id',
+	IFNULL(themes.name, '') AS 'dj.theme.name',
+	IFNULL(themes.display_name, '') AS 'dj.theme.displayname',
+	IFNULL(themes.author, '') AS 'dj.theme.author'
+FROM
+	users
+LEFT JOIN
+	djs ON users.djid = djs.id
+LEFT JOIN
+	themes ON djs.theme_id = themes.id
+LEFT JOIN
+	permissions ON users.id=permissions.user_id
+WHERE
+	%s
+GROUP BY
+	users.id;
+`
+
 // Get implements radio.UserStorage
 func (us UserStorage) Get(name string) (*radio.User, error) {
 	const op errors.Op = "mariadb/UserStorage.Get"
 
-	var query = `
-	SELECT
-		users.id AS id,
-		users.user AS username,
-		users.pass AS password,
-		IFNULL(users.email, '') AS email,
-		users.ip AS ip,
-		users.updated_at AS updated_at,
-		users.deleted_at AS deleted_at,
-		users.created_at AS created_at,
-		group_concat(permissions.permission) AS userpermissions,
-		IFNULL(djs.id, 0) AS 'dj.id',
-		IFNULL(djs.regex, '') AS 'dj.regex',
-		IFNULL(djs.djname, '') AS 'dj.name',
-
-		IFNULL(djs.djtext, '') AS 'dj.text',
-		IFNULL(djs.djimage, '') AS 'dj.image',
-
-		IFNULL(djs.visible, 0) AS 'dj.visible',
-		IFNULL(djs.priority, 0) AS 'dj.priority',
-		IFNULL(djs.role, '') AS 'dj.role',
-
-		IFNULL(djs.css, '') AS 'dj.css',
-		IFNULL(djs.djcolor, '') AS 'dj.color',
-		IFNULL(themes.id, 0) AS 'dj.theme.id',
-		IFNULL(themes.name, '') AS 'dj.theme.name',
-		IFNULL(themes.display_name, '') AS 'dj.theme.displayname',
-		IFNULL(themes.author, '') AS 'dj.theme.author'
-	FROM
-		users
-	LEFT JOIN
-		djs ON users.djid = djs.id
-	LEFT JOIN
-		themes ON djs.theme_id = themes.id
-	LEFT JOIN
-		permissions ON users.id=permissions.user_id
-	WHERE
-		users.user=?
-	GROUP BY
-		users.id;
-	`
+	var query = fmt.Sprintf(getUserQuery, "users.user=?")
 
 	var user radio.User
 
@@ -238,6 +243,25 @@ func (us UserStorage) Get(name string) (*radio.User, error) {
 			return nil, errors.E(op, errors.UserUnknown, errors.Info(name))
 		}
 		return nil, errors.E(op, err, errors.Info(name))
+	}
+
+	return &user, nil
+}
+
+// GetByDJID implements radio.UserStorage
+func (us UserStorage) GetByDJID(id radio.DJID) (*radio.User, error) {
+	const op errors.Op = "mariadb/UserStorage.GetByDJID"
+
+	var query = fmt.Sprintf(getUserQuery, "djs.id=?")
+
+	var user radio.User
+
+	err := sqlx.Get(us.handle, &user, query, id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, errors.E(op, errors.UserUnknown)
+		}
+		return nil, errors.E(op, err)
 	}
 
 	return &user, nil

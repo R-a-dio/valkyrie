@@ -1,16 +1,22 @@
 package admin
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"html/template"
+	"io"
+	"io/ioutil"
 	"log"
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 	"golang.org/x/crypto/bcrypt"
 
@@ -266,9 +272,8 @@ func (a admin) postProfile(w http.ResponseWriter, r *http.Request) error {
 			errors.Info("DJ.Name"),
 			"required field",
 		)
-	} else {
-		new.DJ.Name = form.DJ.Name
 	}
+	new.DJ.Name = form.DJ.Name
 
 	if isNewProfile && form.DJ.Theme.Name == "" {
 		new.DJ.Theme.Name = "default"
@@ -278,7 +283,7 @@ func (a admin) postProfile(w http.ResponseWriter, r *http.Request) error {
 
 	// now handle dj image changes
 	if f := r.MultipartForm.File["DJ.Image"]; len(f) > 0 {
-		err := postProfileImage(&new, f[0])
+		err := postProfileImage(a.Config, &new, f[0])
 		if err != nil {
 			// error, something failed in image handling
 			return errors.E(op, err)
@@ -337,8 +342,72 @@ func postProfilePassword(new *radio.User, isAdmin bool, form ProfileFormChange) 
 	return nil
 }
 
-func postProfileImage(new *radio.User, header *multipart.FileHeader) error {
+func postProfileImage(cfg config.Config, new *radio.User, header *multipart.FileHeader) error {
+	const op errors.Op = "website/admin.postProfileImage"
 
+	imageDir := cfg.Conf().Website.DJImagePath
+	if imageDir == "" { // not configured, we will panic here
+		panic(".Website.DJImagePath not set in configuration file")
+	}
+	if header.Size > cfg.Conf().Website.DJImageMaxSize {
+		return errors.E(op, errors.InvalidForm)
+	}
+
+	// make the parent directories if they don't exist
+	err := os.MkdirAll(imageDir, 0755)
+	if err != nil {
+		return errors.E(op, errors.InternalServer, err)
+	}
+
+	in, err := header.Open()
+	if err != nil {
+		return errors.E(op, errors.InternalServer, err)
+	}
+	defer in.Close()
+
+	out, err := ioutil.TempFile(imageDir, "upload")
+	if err != nil {
+		return errors.E(op, errors.InternalServer, err)
+	}
+	defer func(f *os.File) {
+		out.Close()
+		// cleanup file, but after a successful rename it shouldn't exist anymore
+		// so this is just for if we exit early
+		os.Remove(f.Name())
+		// TODO: probably log any errors so we don't have millions
+		// of temp files leftover at some point
+	}(out)
+
+	hash := sha256.New()
+
+	// copy it to the final destination, but with a temporary name so we can hash
+	// it and use that in the final name
+	_, err = io.Copy(io.MultiWriter(hash, out), in)
+	if err != nil {
+		return errors.E(op, errors.InternalServer, err)
+	}
+	// successfully copied it to the final destination, just doesn't have its final
+	// name yet
+	if err = out.Close(); err != nil {
+		return errors.E(op, errors.InternalServer, err)
+	}
+
+	// grab the final sha256 hash, we only use the first few bytes of it because we
+	// don't really want extremely long filenames
+	sum := hash.Sum(nil)[:8]
+	// we store the file on-disk with just the DJ ID, but in the database with the
+	// ID prefixed and a hash affixed, so we can use cloudflare cacheing
+	imageFilename := fmt.Sprintf("%d", new.DJ.ID)
+	imageFilenameDB := fmt.Sprintf("%d-%x", new.DJ.ID, sum)
+	imagePath := filepath.Join(imageDir, imageFilename)
+
+	// and rename the file to the final resting place
+	err = os.Rename(out.Name(), imagePath)
+	if err != nil && !os.IsExist(err) {
+		return errors.E(op, errors.InternalServer, err)
+	}
+
+	new.DJ.Image = imageFilenameDB
 	return nil
 }
 

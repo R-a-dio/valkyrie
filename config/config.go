@@ -34,9 +34,10 @@ var defaultConfig = config{
 		DSN:        "",
 	},
 	Website: website{
-		WebsiteAddr: "localhost:3241",
-		Addr:        ":4747",
-		ListenAddr:  ":4747",
+		WebsiteAddr:    "localhost:3241",
+		Addr:           ":4747",
+		ListenAddr:     ":4747",
+		DJImageMaxSize: 10 * 1024 * 1024,
 	},
 	Streamer: streamer{
 		Addr:            ":4545",
@@ -110,6 +111,10 @@ type website struct {
 	Addr string
 	// ListenAddr is the address to listen on for the HTTP API
 	ListenAddr string
+	// DJImageMaxSize is the maximum size of dj images in bytes
+	DJImageMaxSize int64
+	// DJImagePath is the path where to store dj images
+	DJImagePath string // required
 }
 
 // streamer contains all the fields only relevant to the streamer

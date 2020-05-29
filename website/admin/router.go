@@ -21,6 +21,8 @@ type State struct {
 }
 
 type admin struct {
+	config.Config
+
 	storage   radio.StorageService
 	templates templates.Templates
 }
@@ -48,7 +50,7 @@ func Router(ctx context.Context, s State) chi.Router {
 	}
 
 	authentication := NewAuthentication(s.Storage, s.Templates, sessionManager)
-	admin := admin{s.Storage, s.Templates}
+	admin := admin{s.Config, s.Storage, s.Templates}
 
 	r := chi.NewRouter()
 	r.Use(sessionManager.LoadAndSave)
