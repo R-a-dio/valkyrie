@@ -316,6 +316,9 @@ const (
 	NotImplemented                     // Generic error indicating something is not implemented
 	NewsUnknown                        // News post does not exist
 	SessionUnknown                     // Session does not exist
+	InvalidForm                        // Form submitted was invalid
+	InternalServer                     // InternalServer error, these return 501
+	AccessDenied                       // Someone tried to access something they're not allowed to
 )
 
 func (k Kind) String() string {
@@ -370,6 +373,12 @@ func (k Kind) String() string {
 		return "unknown news entry"
 	case SessionUnknown:
 		return "session does not exist"
+	case InvalidForm:
+		return "form input was invalid"
+	case InternalServer:
+		return "internal server error"
+	case AccessDenied:
+		return "access denied"
 	}
 
 	return "unknown error kind"

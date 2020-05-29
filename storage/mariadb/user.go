@@ -19,7 +19,7 @@ type UserStorage struct {
 func (us UserStorage) UpdateUser(user radio.User) (radio.User, error) {
 	const op errors.Op = "mariadb/UserStorage.UpdateUser"
 
-	var query string;
+	var query string
 
 	// start trans
 	handle, tx, err := requireTx(us.handle)
@@ -40,31 +40,25 @@ func (us UserStorage) UpdateUser(user radio.User) (radio.User, error) {
 				created_at
 			)
 			VALUES (
-				:Username,
-				:Password,
-				:Email,
-				:IP,
+				:username,
+				:password,
+				:email,
+				:ip,
 				CURRENT_TIMESTAMP(),
 				CURRENT_TIMESTAMP()
 			);
 		`
 	} else {
 		query = `
-			UPDATE users (
-				pass,
-				email,
-				ip,
-				updated_at
-			)
-			SET (
-				:Password,
-				:Email,
-				:IP,
-				CURRENT_TIMESTAMP()
-			)
+			UPDATE 
+				users
+			SET
+				pass=:password,
+				email=:email,
+				ip=:ip,
+				updated_at=CURRENT_TIMESTAMP()
 			WHERE
-				users.id = :ID
-			;
+				users.id=:id;
 		`
 	}
 	result, err := sqlx.NamedExec(handle, query, user)
@@ -99,7 +93,7 @@ func (us UserStorage) UpdateUser(user radio.User) (radio.User, error) {
 		)
 		VALUES (?, ?);
 	`
-	for perm, _ := range user.UserPermissions {
+	for perm := range user.UserPermissions {
 		_, err := handle.Exec(query, user.ID, perm)
 		if err != nil {
 			return user, errors.E(op, err)
@@ -121,8 +115,7 @@ func (us UserStorage) UpdateUser(user radio.User) (radio.User, error) {
 				role,
 				theme_id,
 				regex
-			)
-			VALUES (
+			) VALUES (
 				:name,
 				:text,
 				:image,
@@ -131,10 +124,9 @@ func (us UserStorage) UpdateUser(user radio.User) (radio.User, error) {
 				:css,
 				:color,
 				:role,
-				:theme.ID,
+				:theme.id,
 				:regex
-			)
-			;
+			);
 		`
 		result, err = sqlx.NamedExec(handle, query, user.DJ)
 		if err != nil {
@@ -145,33 +137,38 @@ func (us UserStorage) UpdateUser(user radio.User) (radio.User, error) {
 			return user, errors.E(op, err)
 		}
 		user.DJ.ID = radio.DJID(last)
+
+		// insert the new ID into the users table
+		query = `
+			UPDATE
+				users
+			SET
+				djid=:dj.id
+			WHERE
+				id=:id;
+		`
+
+		_, err = sqlx.NamedExec(handle, query, user)
+		if err != nil {
+			return user, errors.E(op, err)
+		}
 	} else if user.DJ.ID != 0 {
 		query = `
-			UPDATE djs (
-				djname,
-				djtext,
-				djimage,
-				visible,
-				priority,
-				css,
-				djcolor,
-				role,
-				theme_id,
-				regex
-			)
-			SET (
-				:name,
-				:text,
-				:image,
-				:visible,
-				:priority,
-				:css,
-				:color,
-				:role,
-				:theme.ID,
-				:regex
-			)
-			;
+			UPDATE
+				djs 
+			SET 
+				djname=:name,
+				djtext=:text,
+				djimage=:image,
+				visible=:visible,
+				priority=:priority,
+				css=:css,
+				djcolor=:color,
+				role=:role,
+				theme_id=:theme.id,
+				regex=:regex
+			WHERE
+				id=:id;
 		`
 		_, err = sqlx.NamedExec(handle, query, user.DJ)
 		if err != nil {
@@ -179,7 +176,12 @@ func (us UserStorage) UpdateUser(user radio.User) (radio.User, error) {
 		}
 	}
 
-	return user, tx.Commit()
+	err = tx.Commit()
+	if err != nil {
+		return user, errors.E(op, err)
+	}
+
+	return user, nil
 }
 
 // Get implements radio.UserStorage
