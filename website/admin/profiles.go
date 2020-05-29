@@ -282,12 +282,14 @@ func (a admin) postProfile(w http.ResponseWriter, r *http.Request) error {
 	beforeSave := new // only stored for debugging purpose
 	_ = beforeSave
 	// now, we only have the DJ image left to handle, but since it uses the DJID
-	// to save the image, and we don't have one yet. We're going to store what we
-	// have so far. And then store it again afterwards once the image handling
+	// to save the image, and we might not have one yet. We're going to store what
+	// we have so far. And then store it again afterwards once the image handling
 	// is done.
-	new, err = userStorage.UpdateUser(new)
-	if err != nil {
-		return errors.E(op, errors.InternalServer, err)
+	if isNewProfile {
+		new, err = userStorage.UpdateUser(new)
+		if err != nil {
+			return errors.E(op, errors.InternalServer, err)
+		}
 	}
 
 	// now handle dj image changes, then save again after
@@ -297,12 +299,12 @@ func (a admin) postProfile(w http.ResponseWriter, r *http.Request) error {
 			// error, something failed in image handling
 			return errors.E(op, err)
 		}
-		new, err = userStorage.UpdateUser(new)
-		if err != nil {
-			return errors.E(op, errors.InternalServer, err)
-		}
 	}
 
+	new, err = userStorage.UpdateUser(new)
+	if err != nil {
+		return errors.E(op, errors.InternalServer, err)
+	}
 	// fmt.Printf("result: %#v\ninput: %#v\nform: %#v\n", new, beforeSave, form)
 	return nil
 }
