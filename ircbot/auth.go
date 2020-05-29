@@ -110,9 +110,5 @@ func HasDeveloperAccess(e Event) (bool, error) {
 		return false, errors.E(op, err)
 	}
 
-	ok, err := us.HasPermission(*user, radio.PermDev)
-	if err != nil {
-		return false, errors.E(op, err)
-	}
-	return ok, nil
+	return user.UserPermissions.Has(radio.PermDev), nil
 }

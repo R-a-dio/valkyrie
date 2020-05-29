@@ -332,11 +332,22 @@ func (us UserStorage) ByNick(nick string) (*radio.User, error) {
 	return nil, errors.E(op, errors.NotImplemented)
 }
 
-// HasPermission implements radio.UserStorage
-func (us UserStorage) HasPermission(user radio.User, perm radio.UserPermission) (bool, error) {
-	const op errors.Op = "mariadb/UserStorage.HasPermission"
+// Permissions implements radio.UserStorage
+func (us UserStorage) Permissions() ([]radio.UserPermission, error) {
+	const op errors.Op = "mariadb/UserStorage.Permissions"
 
-	return false, errors.E(op, errors.NotImplemented)
+	var query = `
+	SELECT permission FROM permission_kinds;
+	`
+
+	var perms []radio.UserPermission
+
+	err := sqlx.Select(us.handle, &perms, query)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	return perms, nil
 }
 
 // RecordListeners implements radio.UserStorage

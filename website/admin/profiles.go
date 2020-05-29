@@ -47,23 +47,17 @@ func (a admin) GetProfile(w http.ResponseWriter, r *http.Request) {
 
 	isAdmin := user.UserPermissions.Has(radio.PermAdmin)
 	var availablePermissions []radio.UserPermission
+	var err error
 
 	// output is the user we want to show the profile page of, in non-admin
 	// cases this will always be the current user
 	output := user
 	if isAdmin {
 		// admin can change permissions, so load all available ones
-		availablePermissions = []radio.UserPermission{
-			"active",
-			"news",
-			"dj",
-			"dev",
-			"admin",
-			"database_delete",
-			"database_edit",
-			"database_view",
-			"pending_edit",
-			"pending_view",
+		availablePermissions, err = a.storage.User(ctx).Permissions()
+		if err != nil {
+			log.Println(err)
+			return
 		}
 	}
 
@@ -109,7 +103,7 @@ func (a admin) GetProfile(w http.ResponseWriter, r *http.Request) {
 		AvailableThemes:      []string{},
 	}
 
-	err := a.templates["admin"]["profile.tmpl"].ExecuteDev(w, profileInput)
+	err = a.templates["admin"]["profile.tmpl"].ExecuteDev(w, profileInput)
 	if err != nil {
 		log.Println(err)
 		return
@@ -140,7 +134,6 @@ func (a admin) PostProfile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a admin) postProfile(w http.ResponseWriter, r *http.Request) error {
-	// TODO: handle new accounts
 	const op errors.Op = "website/admin.postProfile"
 
 	ctx := r.Context()

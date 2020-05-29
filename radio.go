@@ -638,8 +638,8 @@ type UserStorage interface {
 	LookupName(name string) (*User, error)
 	// ByNick returns an user that is associated with the nick given
 	ByNick(nick string) (*User, error)
-	// HasPermission returns wether the user has the permission given
-	HasPermission(User, UserPermission) (bool, error)
+	// Permissions returns all available permissions
+	Permissions() ([]UserPermission, error)
 	// RecordListeners records a history of listener count
 	RecordListeners(int, User) error
 }
