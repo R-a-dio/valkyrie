@@ -402,7 +402,7 @@ func postProfileImage(cfg config.Config, new *radio.User, header *multipart.File
 	// we store the file on-disk with just the DJ ID, but in the database with the
 	// ID prefixed and a hash affixed, so we can use cloudflare cacheing
 	imageFilename := fmt.Sprintf("%d", new.DJ.ID)
-	imageFilenameDB := fmt.Sprintf("%d-%x", new.DJ.ID, sum)
+	imageFilenameDB := fmt.Sprintf("%d-%x.png", new.DJ.ID, sum)
 	imagePath := filepath.Join(imageDir, imageFilename)
 
 	// and rename the file to the final resting place

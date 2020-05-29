@@ -362,7 +362,7 @@ func (a *API) getDJImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.ServeContent(w, r, user.DJ.Image+".png", fi.ModTime(), f)
+	http.ServeContent(w, r, user.DJ.Image, fi.ModTime(), f)
 }
 
 // RequestRoute is the router setup for handling requests
