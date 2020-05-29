@@ -42,6 +42,30 @@
     .flex-form > li > label + * {
         flex: 1 0 60px;
     }
+    input[name="Permissions"] + label {
+        background-color: var(--background);
+        border-radius: 6px;
+        padding: 3px;
+        min-width: 50px;
+        text-align: center;
+        user-select: none;
+    }
+    input[name="Permissions"]:checked + label {
+        background-color: var(--background-alt);
+    }
+    #permissions {
+        display: flex;
+        flex-wrap: wrap;
+        padding: 0px;
+    }
+    #permissions > li {
+        justify-content: space-between;
+        flex-grow: 1;
+        margin: 0px 5px 5px 0px;
+    }
+    #permissions input {
+        display: none;
+    }
 </style>
 {{end}}
 {{define "content"}}
@@ -73,6 +97,24 @@
                 <input type="password" name="Change.RepeatedPassword" placeholder="repeated password">
             </li>
             {{end}}
+            <li>
+                <label>Permissions:</label>
+                <ul id="permissions">
+                    {{range .AvailablePermissions}}
+                    {{$checked := index $.User.UserPermissions .}}
+                    <li>
+                        <input id="perm-{{.}}"
+                            autocomplete="off"
+                            type="checkbox"
+                            name="Permissions"
+                            value="{{.}}" 
+                            {{if $checked}}checked{{end}}
+                            {{if not $.IsAdmin}}disabled{{end}}>
+                        <label for="perm-{{.}}">{{.}}</label>
+                    </li>
+                    {{end}}
+                </ul>
+            </li>
             <li>
                 <label for="ip-address">IP Address:</label>
                 <input type="text" name="IP" value={{.User.IP}}>
@@ -115,7 +157,7 @@
                 </select>
             </li>
             {{end}}
-            {{if and (and .IsAdmin (eq .DJ.ID 0)) (not .IsNewProfile)}}
+            {{if and (and .IsAdmin (eq .DJ.ID 0)) (and (not .IsNew) (not .IsNewProfile))}}
             <li>
                 <label></label>
                 <button type="button" onclick="window.location.search += '&newprofile';">Add DJ profile</button>

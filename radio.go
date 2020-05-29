@@ -85,7 +85,7 @@ func (u UserPermission) String() string {
 	return string(u)
 }
 
-type UserPermissions map[UserPermission]struct{}
+type UserPermissions map[UserPermission]bool
 
 // Has returns true if the permission given is in the UserPermissions
 func (up UserPermissions) Has(perm UserPermission) bool {
@@ -108,11 +108,11 @@ func (upp *UserPermissions) Scan(src interface{}) error {
 	switch perms := src.(type) {
 	case []byte:
 		for _, p := range bytes.Split(perms, []byte(",")) {
-			up[UserPermission(p)] = struct{}{}
+			up[UserPermission(p)] = true
 		}
 	case string:
 		for _, p := range strings.Split(perms, ",") {
-			up[UserPermission(p)] = struct{}{}
+			up[UserPermission(p)] = true
 		}
 	case nil: // no permissions, we made the map above though
 	default:

@@ -7,6 +7,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -23,6 +24,8 @@ type ProfileForm struct {
 	radio.User
 	// separate struct for password change handling
 	Change ProfileFormChange
+
+	Permissions []radio.UserPermission
 }
 
 type ProfileFormChange struct {
@@ -39,14 +42,25 @@ func (a admin) GetProfile(w http.ResponseWriter, r *http.Request) {
 	user := UserFromContext(ctx)
 
 	isAdmin := user.UserPermissions.Has(radio.PermAdmin)
-	var availablePermissions []string
+	var availablePermissions []radio.UserPermission
 
 	// output is the user we want to show the profile page of, in non-admin
 	// cases this will always be the current user
 	output := user
 	if isAdmin {
 		// admin can change permissions, so load all available ones
-		availablePermissions = []string{"test"}
+		availablePermissions = []radio.UserPermission{
+			"active",
+			"news",
+			"dj",
+			"dev",
+			"admin",
+			"database_delete",
+			"database_edit",
+			"database_view",
+			"pending_edit",
+			"pending_view",
+		}
 	}
 
 	// if it's an admin user they can look at all user accounts, so we
@@ -74,7 +88,7 @@ func (a admin) GetProfile(w http.ResponseWriter, r *http.Request) {
 		IsNew                bool
 		IsNewProfile         bool
 		CurrentIP            template.JS
-		AvailablePermissions []string
+		AvailablePermissions []radio.UserPermission
 		User                 *radio.User
 		DJ                   radio.DJ
 		Theme                radio.Theme
@@ -102,27 +116,23 @@ func (a admin) GetProfile(w http.ResponseWriter, r *http.Request) {
 
 func (a admin) PostProfile(w http.ResponseWriter, r *http.Request) {
 	err := a.postProfile(w, r)
-	if err == nil {
-		http.Redirect(w, r, r.URL.String(), 303)
-		return
+	if err != nil {
+		log.Println(err)
+		// we expect 3 types of errors
+		switch {
+		case errors.Is(errors.InvalidForm, err):
+			// form input was invalid, slap them back to rendering the form
+			// with an error to indicate what was wrong
+		case errors.Is(errors.InternalServer, err):
+			// something broke internally, we don't know what, just tell them
+			// when we try to recover to a profile page
+		case errors.Is(errors.AccessDenied, err):
+			// user wasn't allowed to do the thing they tried to do
+		default:
+			// unknown error?
+		}
 	}
-
-	log.Println(err)
-	// we expect 3 types of errors
-	switch {
-	case errors.Is(errors.InvalidForm, err):
-		// form input was invalid, slap them back to rendering the form
-		// with an error to indicate what was wrong
-	case errors.Is(errors.InternalServer, err):
-		// something broke internally, we don't know what, just tell them
-		// when we try to recover to a profile page
-	case errors.Is(errors.AccessDenied, err):
-		// user wasn't allowed to do the thing they tried to do
-	default:
-		// unknown error?
-	}
-	return
-
+	http.Redirect(w, r, r.URL.String(), 303)
 }
 
 func (a admin) postProfile(w http.ResponseWriter, r *http.Request) error {
@@ -200,13 +210,30 @@ func (a admin) postProfile(w http.ResponseWriter, r *http.Request) error {
 		)
 	}
 
-	isNewProfile := new.DJ.ID == 0
+	// and permissions, these should only be editable if we're admin
+	if isAdmin {
+		newPerms := make(radio.UserPermissions)
+		for _, perm := range form.Permissions {
+			newPerms[perm] = true
+		}
+		new.UserPermissions = newPerms
+	}
+
+	isNewProfile := new.DJ.ID == 0 && r.MultipartForm.Value["DJ.Name"] != nil
 	// if the user has no DJ profile we're basically done here, unless
 	// an admin is trying to create a profile.
-	if isNewProfile && !isAdmin {
+	if isNewAccount || (isNewProfile && !isAdmin) {
 		_, err = userStorage.UpdateUser(new)
 		if err != nil {
 			return errors.E(op, errors.InternalServer, err)
+		}
+		// we want to go back to where we came from, unless we just made a new
+		// account, in which case we want to redirect to the new account
+		if isNewAccount {
+			q := r.URL.Query()
+			q.Del("new")
+			q.Add("username", new.Username)
+			r.URL.RawQuery = q.Encode()
 		}
 		return nil
 	}
@@ -214,6 +241,15 @@ func (a admin) postProfile(w http.ResponseWriter, r *http.Request) error {
 	// copy over fields, and supply defaults if it's a new profile with no input
 	new.IP = form.IP
 	new.DJ.Visible = form.DJ.Visible
+
+	// check if the regex input compiles
+	_, err = regexp.Compile(`(?i)` + form.DJ.Regex)
+	if err != nil {
+		return errors.E(op, errors.InvalidForm,
+			errors.Info("DJ.Regex"),
+			err,
+		)
+	}
 	new.DJ.Regex = form.DJ.Regex
 
 	// only set a default priority if it's a new profile, otherwise 0 is a valid
@@ -248,8 +284,6 @@ func (a admin) postProfile(w http.ResponseWriter, r *http.Request) error {
 			return errors.E(op, err)
 		}
 	}
-
-	// TODO: handle permissions
 
 	res, err := userStorage.UpdateUser(new)
 	if err != nil {
