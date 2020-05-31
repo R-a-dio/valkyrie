@@ -298,6 +298,12 @@ func (a admin) postProfile(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return errors.E(op, errors.InternalServer, err)
 	}
+
+	if isNewProfile {
+		q := r.URL.Query()
+		q.Del("newprofile")
+		r.URL.RawQuery = q.Encode()
+	}
 	// fmt.Printf("result: %#v\ninput: %#v\nform: %#v\n", new, beforeSave, form)
 	return nil
 }
