@@ -99,21 +99,36 @@ type StorageService struct {
 	db *sqlx.DB
 }
 
+// fakeTx is a *sqlx.Tx with the Commit method disabled
+type fakeTx struct {
+	*sqlx.Tx
+}
+
+// Commit does nothing
+func (fakeTx) Commit() error {
+	return nil
+}
+
 // tx either unwraps the tx given to a *sqlx.Tx, or creates a new transaction if tx is
 // nil. Passing in a StorageTx not returned by this package will panic
-func (s *StorageService) tx(ctx context.Context, tx radio.StorageTx) (*sqlx.Tx, error) {
+func (s *StorageService) tx(ctx context.Context, tx radio.StorageTx) (*sqlx.Tx, radio.StorageTx, error) {
 	if tx == nil {
 		// new transaction
-		return s.db.BeginTxx(ctx, nil)
+		tx, err := s.db.BeginTxx(ctx, nil)
+		return tx, tx, err
 	}
 
 	// existing transaction, make sure it's one of ours and then use it
-	txx, ok := tx.(*sqlx.Tx)
-	if !ok {
+	switch txx := tx.(type) {
+	case *sqlx.Tx:
+		// if this is a real tx, we disable the commit so that the transaction can't
+		// be committed earlier than expected by the creator
+		return txx, fakeTx{txx}, nil
+	case fakeTx:
+		return txx.Tx, txx, nil
+	default:
 		panic("mariadb: invalid tx passed to StorageService")
 	}
-
-	return txx, nil
 }
 
 func (s *StorageService) Sessions(ctx context.Context) radio.SessionStorage {
@@ -123,15 +138,15 @@ func (s *StorageService) Sessions(ctx context.Context) radio.SessionStorage {
 }
 
 func (s *StorageService) SessionsTx(ctx context.Context, tx radio.StorageTx) (radio.SessionStorage, radio.StorageTx, error) {
-	txx, err := s.tx(ctx, tx)
+	db, tx, err := s.tx(ctx, tx)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	storage := SessionStorage{
-		handle: handle{txx, ctx},
+		handle: handle{db, ctx},
 	}
-	return storage, txx, nil
+	return storage, tx, nil
 }
 
 func (s *StorageService) Queue(ctx context.Context) radio.QueueStorage {
@@ -141,15 +156,15 @@ func (s *StorageService) Queue(ctx context.Context) radio.QueueStorage {
 }
 
 func (s *StorageService) QueueTx(ctx context.Context, tx radio.StorageTx) (radio.QueueStorage, radio.StorageTx, error) {
-	txx, err := s.tx(ctx, tx)
+	db, tx, err := s.tx(ctx, tx)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	storage := QueueStorage{
-		handle: handle{txx, ctx},
+		handle: handle{db, ctx},
 	}
-	return storage, txx, nil
+	return storage, tx, nil
 }
 
 func (s *StorageService) Song(ctx context.Context) radio.SongStorage {
@@ -159,15 +174,15 @@ func (s *StorageService) Song(ctx context.Context) radio.SongStorage {
 }
 
 func (s *StorageService) SongTx(ctx context.Context, tx radio.StorageTx) (radio.SongStorage, radio.StorageTx, error) {
-	txx, err := s.tx(ctx, tx)
+	db, tx, err := s.tx(ctx, tx)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	storage := SongStorage{
-		handle: handle{txx, ctx},
+		handle: handle{db, ctx},
 	}
-	return storage, txx, nil
+	return storage, tx, nil
 }
 
 func (s *StorageService) Track(ctx context.Context) radio.TrackStorage {
@@ -177,15 +192,15 @@ func (s *StorageService) Track(ctx context.Context) radio.TrackStorage {
 }
 
 func (s *StorageService) TrackTx(ctx context.Context, tx radio.StorageTx) (radio.TrackStorage, radio.StorageTx, error) {
-	txx, err := s.tx(ctx, tx)
+	db, tx, err := s.tx(ctx, tx)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	storage := TrackStorage{
-		handle: handle{txx, ctx},
+		handle: handle{db, ctx},
 	}
-	return storage, txx, nil
+	return storage, tx, nil
 }
 
 func (s *StorageService) Request(ctx context.Context) radio.RequestStorage {
@@ -194,15 +209,15 @@ func (s *StorageService) Request(ctx context.Context) radio.RequestStorage {
 	}
 }
 func (s *StorageService) RequestTx(ctx context.Context, tx radio.StorageTx) (radio.RequestStorage, radio.StorageTx, error) {
-	txx, err := s.tx(ctx, tx)
+	db, tx, err := s.tx(ctx, tx)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	storage := RequestStorage{
-		handle: handle{txx, ctx},
+		handle: handle{db, ctx},
 	}
-	return storage, txx, nil
+	return storage, tx, nil
 }
 
 func (s *StorageService) User(ctx context.Context) radio.UserStorage {
@@ -212,15 +227,15 @@ func (s *StorageService) User(ctx context.Context) radio.UserStorage {
 }
 
 func (s *StorageService) UserTx(ctx context.Context, tx radio.StorageTx) (radio.UserStorage, radio.StorageTx, error) {
-	txx, err := s.tx(ctx, tx)
+	db, tx, err := s.tx(ctx, tx)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	storage := UserStorage{
-		handle: handle{txx, ctx},
+		handle: handle{db, ctx},
 	}
-	return storage, txx, nil
+	return storage, tx, nil
 }
 
 func (s *StorageService) Submissions(ctx context.Context) radio.SubmissionStorage {
@@ -230,15 +245,15 @@ func (s *StorageService) Submissions(ctx context.Context) radio.SubmissionStorag
 }
 
 func (s *StorageService) SubmissionsTx(ctx context.Context, tx radio.StorageTx) (radio.SubmissionStorage, radio.StorageTx, error) {
-	txx, err := s.tx(ctx, tx)
+	db, tx, err := s.tx(ctx, tx)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	storage := SubmissionStorage{
-		handle: handle{txx, ctx},
+		handle: handle{db, ctx},
 	}
-	return storage, txx, nil
+	return storage, tx, nil
 }
 
 func (s *StorageService) News(ctx context.Context) radio.NewsStorage {
@@ -248,15 +263,15 @@ func (s *StorageService) News(ctx context.Context) radio.NewsStorage {
 }
 
 func (s *StorageService) NewsTx(ctx context.Context, tx radio.StorageTx) (radio.NewsStorage, radio.StorageTx, error) {
-	txx, err := s.tx(ctx, tx)
+	db, tx, err := s.tx(ctx, tx)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	storage := NewsStorage{
-		handle: handle{txx, ctx},
+		handle: handle{db, ctx},
 	}
-	return storage, txx, nil
+	return storage, tx, nil
 }
 
 func (s *StorageService) Status(ctx context.Context) radio.StatusStorage {
@@ -279,7 +294,7 @@ type extContext interface {
 // one using a transaction it returns it as-is, otherwise makes a new transaction
 func requireTx(h handle) (handle, radio.StorageTx, error) {
 	if tx, ok := h.ext.(*sqlx.Tx); ok {
-		return h, tx, nil
+		return h, fakeTx{tx}, nil
 	}
 
 	db, ok := h.ext.(*sqlx.DB)
