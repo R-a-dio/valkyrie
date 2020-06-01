@@ -200,6 +200,25 @@ func (e *Error) isZero() bool {
 	return e == nil || *e == Error{}
 }
 
+// Is reports whether err is the same kind as the receiver, but does not unwrap
+// wrapped errors to check them. This is left to the Is function.
+func (e *Error) Is(err error) bool {
+	o, ok := err.(*Error)
+	if !ok {
+		return false
+	}
+	if o.Kind != Other {
+		return o.Kind == e.Kind
+	}
+
+	return false
+}
+
+// Unwrap returns the wrapped error value
+func (e *Error) Unwrap() error {
+	return e.Err
+}
+
 // pad appends s to the buffer if the buffer already contains data
 func pad(b *bytes.Buffer, s string) {
 	if b.Len() != 0 {
