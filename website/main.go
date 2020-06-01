@@ -11,6 +11,7 @@ import (
 	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/R-a-dio/valkyrie/website/admin"
 	phpapi "github.com/R-a-dio/valkyrie/website/api/php"
+	"github.com/R-a-dio/valkyrie/website/public"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
@@ -65,9 +66,12 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		Storage:   storage,
 		Templates: tmpl,
 	}))
-	// other routes
-	// other routes
-	// other routes
+
+	// public routes
+	r.Mount("/", public.Router(ctx, public.State{
+		Config:    cfg,
+		Templates: tmpl,
+	}))
 
 	conf := cfg.Conf()
 	server := &http.Server{

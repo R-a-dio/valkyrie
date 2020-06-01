@@ -132,11 +132,11 @@ func LoadTemplates(dir string) (Templates, error) {
 				completed[name] = make(map[string]Template)
 			}
 
-			completed[name][filepath.Base(page)] = *pageTmpl
+			nonAffix := strings.TrimSuffix(filepath.Base(page), filepath.Ext(page))
+			completed[name][nonAffix] = *pageTmpl
 		}
 	}
 
-	return completed, nil
 	for theme, m := range completed {
 		for page, tmpl := range m {
 			var names []string
@@ -146,8 +146,8 @@ func LoadTemplates(dir string) (Templates, error) {
 			fmt.Printf("(%s) %s: %s\n", theme, page, names)
 		}
 	}
-	completed["default"]["search.tmpl"].Definitions()
-	return nil, nil
+	//completed["default"]["search.tmpl"].Definitions()
+	return completed, nil
 }
 
 func createDummy() *template.Template {
