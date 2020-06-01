@@ -16,3 +16,7 @@ func (s State) GetNews(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
+
+func (s State) PostNews(w http.ResponseWriter, r *http.Request) {
+	return
+}

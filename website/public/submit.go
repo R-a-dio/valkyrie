@@ -16,3 +16,7 @@ func (s State) GetSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
+
+func (s State) PostSubmit(w http.ResponseWriter, r *http.Request) {
+	return
+}
