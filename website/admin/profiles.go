@@ -103,7 +103,7 @@ func (a admin) GetProfile(w http.ResponseWriter, r *http.Request) {
 		AvailableThemes:      []string{},
 	}
 
-	err = a.templates["admin"]["profile.tmpl"].ExecuteDev(w, profileInput)
+	err = a.templates["admin"]["profile"].ExecuteDev(w, profileInput)
 	if err != nil {
 		log.Println(err)
 		return

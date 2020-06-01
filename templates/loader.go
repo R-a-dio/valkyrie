@@ -1,6 +1,7 @@
 package templates
 
 import (
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
@@ -151,7 +152,16 @@ func LoadTemplates(dir string) (Templates, error) {
 }
 
 func createDummy() *template.Template {
-	return template.Must(template.New("invocation").Parse(`{{ template "base" . }}`))
+	return template.Must(
+		template.New("invocation").
+			Funcs(map[string]interface{}{
+				"printjson": func(v interface{}) (template.HTML, error) {
+					b, err := json.MarshalIndent(v, "", "\t")
+					return template.HTML("<pre>" + string(b) + "</pre>"), err
+				},
+			}).
+			Parse(`{{ template "base" . }}`),
+	)
 }
 
 func loadTemplate(parent *template.Template, cache filecache, bundle []string) (*Template, error) {

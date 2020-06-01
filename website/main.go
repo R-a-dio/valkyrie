@@ -71,6 +71,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	r.Mount("/", public.Router(ctx, public.State{
 		Config:    cfg,
 		Templates: tmpl,
+		Manager:   manager,
 	}))
 
 	conf := cfg.Conf()

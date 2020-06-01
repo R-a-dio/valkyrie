@@ -3,6 +3,7 @@ package public
 import (
 	"context"
 
+	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/templates"
 
@@ -15,6 +16,7 @@ type State struct {
 	config.Config
 
 	Templates templates.Templates
+	Manager   radio.ManagerService
 }
 
 type sharedInput struct {
