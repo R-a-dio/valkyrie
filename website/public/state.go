@@ -17,6 +17,8 @@ type State struct {
 
 	Templates templates.Templates
 	Manager   radio.ManagerService
+	Streamer  radio.StreamerService
+	Storage   radio.StorageService
 }
 
 type sharedInput struct {

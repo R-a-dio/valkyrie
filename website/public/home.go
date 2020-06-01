@@ -18,7 +18,24 @@ func (s State) GetHome(w http.ResponseWriter, r *http.Request) {
 func (s State) getHome(w http.ResponseWriter, r *http.Request) error {
 	const op errors.Op = "website/public.getHome"
 
-	status, err := s.Manager.Status(r.Context())
+	ctx := r.Context()
+
+	status, err := s.Manager.Status(ctx)
+	if err != nil {
+		return errors.E(op, errors.InternalServer, err)
+	}
+
+	queue, err := s.Streamer.Queue(ctx)
+	if err != nil {
+		return errors.E(op, errors.InternalServer, err)
+	}
+
+	lp, err := s.Storage.Song(ctx).LastPlayed(0, 5)
+	if err != nil {
+		return errors.E(op, errors.InternalServer, err)
+	}
+
+	news, err := s.Storage.News(ctx).ListPublic(3, 0)
 	if err != nil {
 		return errors.E(op, errors.InternalServer, err)
 	}
@@ -26,9 +43,15 @@ func (s State) getHome(w http.ResponseWriter, r *http.Request) error {
 	homeInput := struct {
 		sharedInput
 
-		Status *radio.Status
+		Status     *radio.Status
+		Queue      []radio.QueueEntry
+		LastPlayed []radio.Song
+		News       []radio.NewsPost
 	}{
-		Status: status,
+		Status:     status,
+		Queue:      queue,
+		LastPlayed: lp,
+		News:       news.Entries,
 	}
 
 	err = s.Templates[theme]["home"].ExecuteDev(w, homeInput)

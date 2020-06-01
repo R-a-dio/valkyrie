@@ -72,6 +72,8 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		Config:    cfg,
 		Templates: tmpl,
 		Manager:   manager,
+		Streamer:  streamer,
+		Storage:   storage,
 	}))
 
 	conf := cfg.Conf()

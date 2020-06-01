@@ -150,21 +150,43 @@ func (ss SongStorage) LastPlayed(offset, amount int) ([]radio.Song, error) {
 	var query = `
 	SELECT
 		esong.id AS id,
+		esong.hash AS hash,
 		esong.meta AS metadata,
-		eplay.dt AS lastplayed
+		esong.len AS length,
+		tracks.id AS trackid,
+		eplay.dt AS lastplayed,
+		tracks.id AS trackid,
+		tracks.artist,
+		tracks.track,
+		tracks.album,
+		tracks.path,
+		tracks.tags,
+		tracks.accepter AS acceptor,
+		tracks.lasteditor,
+		tracks.priority,
+		tracks.usable,
+		tracks.lastrequested,
+		tracks.requestcount
 	FROM
 		esong
 	RIGHT JOIN
 		eplay ON esong.id = eplay.isong
+	LEFT JOIN
+		tracks ON esong.hash = tracks.hash
 	ORDER BY 
 		eplay.dt DESC
 	LIMIT ? OFFSET ?;`
 
-	var songs = make([]radio.Song, 0, amount)
+	var tmps = make([]databaseTrack, 0, amount)
 
-	err := sqlx.Select(ss.handle, &songs, query, amount, offset)
+	err := sqlx.Select(ss.handle, &tmps, query, amount, offset)
 	if err != nil {
 		return nil, errors.E(op, err)
+	}
+
+	var songs = make([]radio.Song, len(tmps))
+	for i, tmp := range tmps {
+		songs[i] = tmp.ToSong()
 	}
 
 	return songs, nil
