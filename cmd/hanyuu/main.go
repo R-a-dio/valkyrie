@@ -143,16 +143,6 @@ var requestCountCmd = cmd{
 	execute: withConfig(jobs.ExecuteRequestCount),
 }
 
-var verifierCmd = cmd{
-	name:     "verifier",
-	synopsis: "verifies that tracks marked unusable can be decoded with ffmpeg",
-	usage: `verifier:
-	verifies that all tracks marked with usable=0 can be decoded with ffmpeg
-	and marks them with usable=1 if it succeeds
-	`,
-	execute: withConfig(jobs.ExecuteVerifier),
-}
-
 var websiteCmd = cmd{
 	name:     "website",
 	synopsis: "runs the r/a/dio website",
@@ -183,7 +173,7 @@ func main() {
 
 	subcommands.Register(listenerLogCmd, "jobs")
 	subcommands.Register(requestCountCmd, "jobs")
-	subcommands.Register(verifierCmd, "jobs")
+	// verifier job is in streamer.go for the above reason
 
 	subcommands.Register(elasticCmd{}, "search")
 	subcommands.Register(&migrateCmd{}, "migrate")
