@@ -273,6 +273,14 @@ func (us UserStorage) LookupName(name string) (*radio.User, error) {
 
 	var query = `
 	SELECT
+		users.id AS id,
+		users.user AS username,
+		users.pass AS password,
+		IFNULL(users.email, '') AS email,
+		users.ip AS ip,
+		users.updated_at AS updated_at,
+		users.deleted_at AS deleted_at,
+		users.created_at AS created_at,
 		IFNULL(users.user, '') AS username,
 		djs.id AS 'dj.id',
 		djs.regex AS 'dj.regex',
@@ -293,7 +301,7 @@ func (us UserStorage) LookupName(name string) (*radio.User, error) {
 		themes.author AS 'dj.theme.author'
 	FROM
 		djs
-	LEFT JOIN
+	JOIN
 		users ON djs.id = users.djid
 	JOIN
 		themes ON djs.theme_id = themes.id;

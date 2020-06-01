@@ -209,9 +209,16 @@ type SearchResult struct {
 type ManagerService interface {
 	Status(context.Context) (*Status, error)
 
-	UpdateUser(context.Context, string, User) error
+	// UpdateUser updates the user that is currently streaming, the display name
+	// is shown instead of the users name if given.
+	UpdateUser(ctx context.Context, displayName string, u User) error
+	// UpdateSong updates the currently playing song information, it only
+	// requires the Metadata field to be set but others are allowed.
 	UpdateSong(context.Context, Song, SongInfo) error
+	// UpdateThread updates the current thread shown on the website and in chat,
+	// the string can basically be any content to be shown to the users
 	UpdateThread(ctx context.Context, thread string) error
+	// UpdateListeners updates the current listener count across all streams
 	UpdateListeners(context.Context, int) error
 }
 

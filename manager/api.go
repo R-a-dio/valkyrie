@@ -40,10 +40,14 @@ func (m *Manager) Status(ctx context.Context) (*radio.Status, error) {
 }
 
 // UpdateUser sets information about the current streamer
-func (m *Manager) UpdateUser(ctx context.Context, n string, u radio.User) error {
+func (m *Manager) UpdateUser(ctx context.Context, displayName string, u radio.User) error {
 	defer m.updateStreamStatus()
 	m.mu.Lock()
-	m.status.StreamerName = n
+	if displayName != "" {
+		m.status.StreamerName = displayName
+	} else {
+		m.status.StreamerName = u.DJ.Name
+	}
 	m.status.User = u
 
 	isRobot := u.Username == "AFK"
@@ -57,7 +61,7 @@ func (m *Manager) UpdateUser(ctx context.Context, n string, u radio.User) error 
 	}
 
 	m.mu.Unlock()
-	log.Printf("manager: updating user to: %s (%s)", n, u.Username)
+	log.Printf("manager: updating user to: %s (%s)", displayName, u.Username)
 	return nil
 }
 
