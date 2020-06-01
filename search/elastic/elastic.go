@@ -25,56 +25,56 @@ const (
 	"mappings": {
 		"track": {
 			"properties": {
-				  "track_id": {
+				  "TrackID": {
 					"type": "keyword"
 				  },
-				  "title": {
+				  "Title": {
 					"type": "text",
 					"norms": false
 				  },
-				  "album": {
+				  "Album": {
 					"type": "text",
 					"norms": false
 				  },
-				  "artist": {
+				  "Artist": {
 					"type": "text",
 					"norms": false
 				  },
-				  "tags": {
+				  "Tags": {
 					"type": "text",
 					"norms": false
 				  },
-				  "hash": {
+				  "Hash": {
 					"type": "keyword"
 				  },
-				  "last_editor": {
+				  "LastEditor": {
 					"type": "keyword"
 				  },
-				  "last_played": {
+				  "LastPlayed": {
 					"type": "date"
 				  },
-				  "last_requested": {
+				  "LastRequested": {
 					"type": "date"
 				  },
-				  "length": {
+				  "Length": {
 					"type": "long"
 				  },
-				  "need_reupload": {
+				  "NeedReupload": {
 					"type": "boolean"
 				  },
-				  "priority": {
+				  "Priority": {
 					"type": "long"
 				  },
-				  "request_count": {
+				  "RequestCount": {
 					"type": "long"
 				  },
-				  "request_delay": {
+				  "RequestDelay": {
 					"type": "long"
 				  },
-				  "acceptor": {
+				  "Acceptor": {
 					"type": "keyword"
 				  },
-				  "usable": {
+				  "Usable": {
 					"type": "boolean"
 				  }
 			}
@@ -170,7 +170,7 @@ func (ss *SearchService) Search(ctx context.Context, query string,
 
 	action := ss.es.Search().Index(songSearchIndex).
 		Query(esQuery).
-		Sort("priority", false). // sort by our custom priority field
+		Sort("Priority", false). // sort by our custom priority field
 		From(offset).Size(limit).
 		Pretty(true)
 
@@ -178,7 +178,7 @@ func (ss *SearchService) Search(ctx context.Context, query string,
 	if usableOnly {
 		action = action.PostFilter(
 			elastic.NewBoolQuery().Must(
-				elastic.NewTermQuery("usable", true),
+				elastic.NewTermQuery("Usable", true),
 			),
 		)
 	}
@@ -213,7 +213,7 @@ func (ss *SearchService) createSearchQuery(query string) elastic.Query {
 	return elastic.NewQueryStringQuery(query).
 		Field("title").Field("artist").Field("album").Field("tags").Field("track_id").
 		DefaultOperator("AND") */
-	return elastic.NewMultiMatchQuery(query, "title", "artist", "album", "tags", "track_id").
+	return elastic.NewMultiMatchQuery(query, "Title", "Artist", "Album", "Tags", "TrackID").
 		Type("cross_fields").Operator("AND")
 }
 

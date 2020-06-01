@@ -338,20 +338,20 @@ func (s *SongHash) UnmarshalJSON(b []byte) error {
 
 // Song is a song we've seen played on the stream
 type Song struct {
-	ID SongID `json:"-"`
+	ID SongID
 	// Hash is a sha1 of the contents of Metadata
-	Hash SongHash `json:"hash"`
+	Hash SongHash
 	// Metadata is simple metadata for this song in the format 'artist - title'
-	Metadata string `json:"-"`
+	Metadata string
 	// Length is the length of the song
-	Length time.Duration `json:"length"`
+	Length time.Duration
 	// LastPlayed is the last time this song played on stream
-	LastPlayed time.Time `json:"last_played"`
+	LastPlayed time.Time
 	// DatabaseTrack is only available if the song is in our streamer database
 	*DatabaseTrack
 
 	// SyncTime is the time this Song was returned by the database layer
-	SyncTime time.Time `json:"-"`
+	SyncTime time.Time
 }
 
 // EqualTo returns s == d based on unique fields
@@ -385,25 +385,25 @@ func (t TrackID) String() string {
 // DatabaseTrack is a song we have the actual audio file for and is available to the
 // automated streamer
 type DatabaseTrack struct {
-	TrackID TrackID `json:"track_id"`
+	TrackID TrackID
 
-	Artist   string `json:"artist"`
-	Title    string `json:"title"`
-	Album    string `json:"album"`
-	FilePath string `json:"-"`
-	Tags     string `json:"tags"`
+	Artist   string
+	Title    string
+	Album    string
+	FilePath string
+	Tags     string
 
-	Acceptor   string `json:"acceptor"`
-	LastEditor string `json:"last_editor"`
+	Acceptor   string
+	LastEditor string
 
-	Priority     int  `json:"priority"`
-	Usable       bool `json:"usable"`
-	NeedReupload bool `json:"need_reupload"`
+	Priority     int
+	Usable       bool
+	NeedReupload bool
 
-	LastRequested time.Time `json:"last_requested"`
+	LastRequested time.Time
 
-	RequestCount int           `json:"request_count"`
-	RequestDelay time.Duration `json:"request_delay"`
+	RequestCount int
+	RequestDelay time.Duration
 }
 
 // Requestable returns whether this song can be requested by a user
