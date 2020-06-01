@@ -1,3 +1,5 @@
+// +build !nostreamer
+
 package jobs
 
 import (
