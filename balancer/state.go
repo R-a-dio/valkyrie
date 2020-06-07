@@ -52,9 +52,7 @@ func health(ctx context.Context, c *http.Client, relay *radio.Relay, wg *sync.Wa
 
 func (br *Balancer) choose() {
 	for _, relay := range br.relays {
-		relay.RLock()
 		if !relay.Online || relay.Noredir || relay.Disabled {
-			relay.RUnlock()
 			continue
 		}
 
@@ -62,10 +60,8 @@ func (br *Balancer) choose() {
 		if score < br.min {
 			br.min = score
 			br.current.Store(relay.Stream)
-			relay.RUnlock()
 			return
 		}
-		relay.RUnlock()
 	}
 	br.current.Store(br.Config.Conf().Balancer.Fallback)
 	return
