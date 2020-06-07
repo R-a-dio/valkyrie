@@ -830,12 +830,7 @@ type Relay struct {
 	Name, Status, Stream               string
 	Online, Primary, Disabled, Noredir bool
 	Listeners, Max, Weight             int
-}
-
-// Relays is a thread-safe wrapper around an array of relays.
-type Relays struct {
-	M []*Relay
-	sync.Mutex
+	sync.RWMutex
 }
 
 // Activate sets a relay as online and clears its error.

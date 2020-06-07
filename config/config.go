@@ -62,7 +62,7 @@ var defaultConfig = config{
 		URL: "http://127.0.0.1:9200/",
 	},
 	Balancer: balancer{
-		Addr:     "127.0.0.1:4747",
+		Addr:     "127.0.0.1:4848",
 		Fallback: "https://relay0.r-a-d.io/main.mp3",
 	},
 }

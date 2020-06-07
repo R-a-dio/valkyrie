@@ -12,10 +12,11 @@ import (
 	"github.com/R-a-dio/valkyrie/config"
 )
 
+// Balancer represents the state of the load balancer.
 type Balancer struct {
 	config.Config
 	Manager radio.ManagerService
-	relays  radio.Relays
+	relays  []*radio.Relay
 
 	serv      *http.Server
 	listeners int
@@ -24,9 +25,12 @@ type Balancer struct {
 	mtime     time.Time
 }
 
-func health(c *http.Client, relay *radio.Relay, wg *sync.WaitGroup) {
+func health(ctx context.Context, c *http.Client, relay *radio.Relay, wg *sync.WaitGroup) {
+	relay.Lock()
+	defer relay.Unlock()
 	defer wg.Done()
-	resp, err := c.Get(relay.Status)
+	req, _ := http.NewRequestWithContext(ctx, "GET", relay.Status, nil)
+	resp, err := c.Do(req)
 	if err != nil {
 		relay.Deactivate()
 		return
@@ -47,10 +51,10 @@ func health(c *http.Client, relay *radio.Relay, wg *sync.WaitGroup) {
 }
 
 func (br *Balancer) choose() {
-	br.relays.Lock()
-	defer br.relays.Unlock()
-	for _, relay := range br.relays.M {
+	for _, relay := range br.relays {
+		relay.RLock()
 		if !relay.Online || relay.Noredir || relay.Disabled {
+			relay.RUnlock()
 			continue
 		}
 
@@ -58,26 +62,26 @@ func (br *Balancer) choose() {
 		if score < br.min {
 			br.min = score
 			br.current.Store(relay.Stream)
+			relay.RUnlock()
 			return
 		}
+		relay.RUnlock()
 	}
 	br.current.Store(br.Config.Conf().Balancer.Fallback)
 	return
 }
 
-func (br *Balancer) check() {
+func (br *Balancer) check(ctx context.Context) {
 	client := &http.Client{
 		Timeout: 3 * time.Second,
 	}
 	var wg sync.WaitGroup
-	br.relays.Lock()
-	defer br.relays.Unlock()
-	for _, relay := range br.relays.M {
+	for _, relay := range br.relays {
 		if relay.Disabled {
 			continue
 		}
 		wg.Add(1)
-		go health(client, relay, &wg)
+		go health(ctx, client, relay, &wg)
 	}
 	wg.Wait()
 	return
@@ -87,13 +91,17 @@ func (br *Balancer) start(ctx context.Context) error {
 	go func() {
 		for {
 			select {
-			case <-time.After(10 * time.Second):
-				br.check()
+			case <-time.After(3 * time.Second):
+				br.check(ctx)
 				br.choose()
 			case <-ctx.Done():
-				br.serv.Close()
+				br.stop()
 			}
 		}
 	}()
 	return br.serv.ListenAndServe()
+}
+
+func (br *Balancer) stop() error {
+	return br.serv.Close()
 }

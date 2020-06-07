@@ -8,27 +8,24 @@ import (
 	"github.com/R-a-dio/valkyrie/config"
 )
 
+// Execute executes the balancer with the context ctx and config cfg.
+// Execution of the balancer can be halted by cancelling ctx.
 func Execute(ctx context.Context, cfg config.Config) error {
 	br := NewBalancer(ctx, cfg)
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- br.start(ctx)
-	}()
-	select {
-	case err := <-errCh:
-		return err
-	}
+	return br.start(ctx)
 }
 
+// NewBalancer returns an initialized Balancer.
 func NewBalancer(ctx context.Context, cfg config.Config) *Balancer {
 	c := cfg.Conf()
 	br := &Balancer{
 		Config:  cfg,
 		Manager: c.Manager.Client(),
 	}
+
+	br.relays = c.Balancer.Relays
 
 	br.current.Store(c.Balancer.Fallback)
 	mux := http.NewServeMux()

@@ -1,22 +1,36 @@
 package balancer
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 )
 
 func (br *Balancer) getStatus() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		br.relays.Lock()
-		defer br.relays.Unlock()
-		b, err := json.Marshal(br.relays.M)
-		if err != nil {
-			http.Error(w, "error marshalling relay map", http.StatusTeapot)
-			return
+		var buf bytes.Buffer
+		enc := json.NewEncoder(&buf)
+		// start the JSON array
+		buf.WriteString("[")
+		for i, relay := range br.relays {
+			relay.RLock()
+			err := enc.Encode(relay)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusTeapot)
+				relay.RUnlock()
+				return
+			}
+			relay.RUnlock()
+			if i != len(br.relays)-1 {
+				buf.WriteString(",")
+			}
 		}
-		fmt.Fprintln(w, string(b))
+		// end the JSON array and flush
+		buf.WriteString("]")
+		io.Copy(w, &buf)
 		return
 	}
 }
