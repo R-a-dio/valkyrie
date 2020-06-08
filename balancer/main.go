@@ -22,7 +22,7 @@ func NewBalancer(ctx context.Context, cfg config.Config) *Balancer {
 	c := cfg.Conf()
 	br := &Balancer{
 		Config:  cfg,
-		Manager: c.Manager.Client(),
+		manager: c.Manager.Client(),
 	}
 
 	br.relays = c.Balancer.Relays

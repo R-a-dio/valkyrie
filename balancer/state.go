@@ -15,14 +15,13 @@ import (
 // Balancer represents the state of the load balancer.
 type Balancer struct {
 	config.Config
-	Manager radio.ManagerService
+	manager radio.ManagerService
 	relays  []*radio.Relay
 
 	serv      *http.Server
 	listeners int
 	min       float64
 	current   atomic.Value
-	mtime     time.Time
 }
 
 func health(ctx context.Context, c *http.Client, relay *radio.Relay, wg *sync.WaitGroup) {
@@ -35,12 +34,12 @@ func health(ctx context.Context, c *http.Client, relay *radio.Relay, wg *sync.Wa
 		relay.Deactivate()
 		return
 	}
-	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		relay.Deactivate()
 		return
 	}
+	resp.Body.Close()
 	l, err := parsexml(body)
 	if err != nil {
 		relay.Deactivate()
