@@ -111,6 +111,7 @@ func (a authentication) LoginMiddleware(next http.Handler) http.Handler {
 			message = "internal server error"
 		}
 		a.sessions.Put(ctx, failedLoginMessageKey, message)
+		log.Println(err)
 		// either way we're going to send them back to the login page again
 		http.Redirect(w, r, r.URL.String(), 302)
 	})
