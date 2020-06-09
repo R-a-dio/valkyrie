@@ -127,7 +127,7 @@ func (a *authentication) GetLogin(w http.ResponseWriter, r *http.Request) {
 		failedMessage = a.sessions.PopString(r.Context(), failedLoginMessageKey)
 	}
 
-	err := a.templates["admin"]["login.tmpl"].Execute(w, loginInfo{failed, failedMessage})
+	err := a.templates["admin"]["login"].Execute(w, loginInfo{failed, failedMessage})
 	if err != nil {
 		log.Println(err)
 		return
