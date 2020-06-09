@@ -24,7 +24,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	// database access
 	storage, err := storage.Open(cfg)
 	if err != nil {
-		return errors.E(op, err, "failed to open storage")
+		return errors.E(op, err)
 	}
 	// RPC clients
 	streamer := cfg.Conf().Streamer.Client()
@@ -32,7 +32,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	// templates
 	tmpl, err := templates.LoadTemplates(cfg.Conf().TemplatePath)
 	if err != nil {
-		return errors.E(op, err, "failed to load templates")
+		return errors.E(op, err)
 	}
 
 	r := chi.NewRouter()
