@@ -1,11 +1,10 @@
-{{define "water.css"}}
 /**
  * Standalone dark-themed version.
  * Includes dark variables and core, left as CSS variables
  * so the theming can be adjusted at runtime.
  */
 
-:root {
+ :root {
     /*
     #bc9152
     #e1cb95
@@ -544,5 +543,3 @@ footer {
 }
 
 /*# sourceMappingURL=dark.standalone.css.map */
-
-{{end}}
