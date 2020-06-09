@@ -25,6 +25,7 @@ var defaultConfig = config{
 	UserUploadDelay:  Duration(time.Hour * 2),
 	TemplatePath:     "templates/",
 	MusicPath:        "",
+	AssetsPath:       "./assets/",
 	Providers: providers{
 		Storage: "index-mariadb",
 		Search:  "elastic",
@@ -77,6 +78,9 @@ type config struct {
 	// TemplatePath is the path where html templates are stored for the HTTP
 	// frontends
 	TemplatePath string
+	// AssetsPath is the path where assets are loaded from. The files in this
+	// directory are simply served from the file system.
+	AssetsPath string
 
 	Providers providers
 	Database  database
