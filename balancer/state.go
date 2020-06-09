@@ -26,6 +26,7 @@ type Balancer struct {
 
 func health(ctx context.Context, c *http.Client, r radio.Relay) radio.Relay {
 	res := r
+	res.Online, res.Listeners = false, 0
 	req, err := http.NewRequestWithContext(ctx, "GET", r.Status, nil)
 	if err != nil {
 		return res
@@ -61,8 +62,8 @@ func checker(ctx context.Context, in, out chan radio.Relay) {
 			if ok {
 				log.Println("balancer: checking", relay.Name)
 				out <- health(ctx, c, relay)
-			} else { // we've received every value and the channel is closed.
-				close(out)
+			} else { // we've received every value and the channel is closed
+				close(out) // we're not sending anymore
 				return
 			}
 		}
@@ -78,6 +79,7 @@ func (br *Balancer) update(ctx context.Context) {
 		log.Println("balancer: error getting relays:", err)
 		return
 	}
+	// we already know that len(relays) != 0
 	in := make(chan radio.Relay, len(relays))
 	out := make(chan radio.Relay, len(relays))
 
@@ -94,6 +96,7 @@ func (br *Balancer) update(ctx context.Context) {
 		}
 	}
 	close(in)
+
 	for {
 		select {
 		case <-ctx.Done():

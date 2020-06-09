@@ -36,9 +36,9 @@ func (rs RelayStorage) All() ([]radio.Relay, error) {
 	if err != nil {
 		return relays, errors.E(op, err)
 	}
-	if len(relays) == 0 {
+	/* if len(relays) == 0 {
 		return relays, errors.E(op, errors.NoRelays)
-	}
+	} */
 
 	return relays, nil
 }
