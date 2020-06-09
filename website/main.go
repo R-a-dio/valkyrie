@@ -50,6 +50,10 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	r.Get("/stream", RedirectLegacyStream)
 	r.Get("/R-a-dio", RedirectLegacyStream)
 
+	// serve assets from the assets directory
+	fs := http.FileServer(http.Dir(cfg.Conf().AssetsPath))
+	r.Handle("/assets/*", http.StripPrefix("/assets/", fs))
+
 	// version 0 of the api (the legacy PHP version)
 	// it's mostly self-contained to the /api/* route, except for /request that
 	// leaked out at some point
