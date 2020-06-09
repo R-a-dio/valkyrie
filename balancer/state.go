@@ -25,29 +25,24 @@ type Balancer struct {
 }
 
 func health(ctx context.Context, c *http.Client, r radio.Relay) radio.Relay {
-	deactivate := func(r radio.Relay) radio.Relay {
-		res := r
-		res.Online, res.Listeners = false, 0
-		return res
-	}
+	res := r
 	req, err := http.NewRequestWithContext(ctx, "GET", r.Status, nil)
 	if err != nil {
-		return deactivate(r)
+		return res
 	}
 	resp, err := c.Do(req)
 	if err != nil {
-		return deactivate(r)
+		return res
 	}
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return deactivate(r)
+		return res
 	}
 	resp.Body.Close()
 	l, err := parsexml(body)
 	if err != nil {
-		return deactivate(r)
+		return res
 	}
-	res := r
 	res.Online, res.Listeners = true, l
 	return res
 }
@@ -67,11 +62,11 @@ func checker(ctx context.Context, in, out chan radio.Relay) {
 				log.Println("balancer: checking", relay.Name)
 				out <- health(ctx, c, relay)
 			} else { // we've received every value and the channel is closed.
+				close(out)
 				return
 			}
 		}
 	}
-	return
 }
 
 func (br *Balancer) update(ctx context.Context) {
@@ -92,13 +87,26 @@ func (br *Balancer) update(ctx context.Context) {
 		if relay.Disabled {
 			continue
 		}
-		in <- relay
+		select {
+		case <-ctx.Done():
+			return
+		case in <- relay:
+		}
 	}
 	close(in)
-	for relay := range out {
-		err := br.storage.Relay(ctx).Update(relay)
-		if err != nil {
-			log.Printf("balancer: error updating relay %s:%s\n", relay.Name, err)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case relay, ok := <-out:
+			if ok {
+				err := br.storage.Relay(ctx).Update(relay)
+				if err != nil {
+					log.Printf("balancer: error updating relay %s:%s\n", relay.Name, err)
+				}
+			} else {
+				return
+			}
 		}
 	}
 }

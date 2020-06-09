@@ -1,8 +1,6 @@
 package mariadb
 
 import (
-	"database/sql"
-
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/jmoiron/sqlx"
@@ -36,10 +34,10 @@ func (rs RelayStorage) All() ([]radio.Relay, error) {
 
 	err := sqlx.Select(rs.handle, &relays, query)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return relays, errors.E(op, errors.NoRelays)
-		}
 		return relays, errors.E(op, err)
+	}
+	if len(relays) == 0 {
+		return relays, errors.E(op, errors.NoRelays)
 	}
 
 	return relays, nil
