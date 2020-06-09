@@ -1,0 +1,121 @@
+
+
+/* ===== Navbar ===== */
+
+nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--background-alt);
+}
+nav > ul {
+    display: flex;
+    list-style: none;
+}
+nav > ul > li > a {
+    padding: 10px 15px;
+    text-decoration: none;
+    color: #999;
+}
+nav > ul > li > a:hover {
+    background: var(--selection);
+}
+nav > a {
+    display: inline-block;
+    padding-left: 20px;
+}
+nav img {
+    max-width: 100px;
+    height: auto;
+}
+
+/* ===== Login ===== */
+
+#login {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+}
+#login-submit > button {
+    width: 100%;
+    background-color: #df4c3a;
+}
+#login input {
+    text-align: center;
+    width: 100%;
+}
+#login-image {
+    padding: 15px;
+}
+#login-error {
+    text-align: center;
+}
+
+/* ===== Profile ===== */
+
+/* TODO: some of these probably need to be specialized. */
+
+/* FIXME: why is this a class? */
+.profile {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.profile img {
+    max-height: 180px;
+    max-width: 180px;
+    margin-bottom: 5px;
+}
+.profile > form,
+.flex-form input[type=text] {
+    width: 100%;
+    max-width: 800px;
+}
+.flex-form input[type=checkbox] {
+    width: 29px;
+    height: 29px;
+    margin: 8px 0px;
+}
+.flex-form button {
+    background-color: var(--background-alt);
+}
+.flex-form button:hover {
+    background-color: var(--radio-color);
+}
+.flex-form li,
+.flex-form-inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.flex-form > li > label {
+    flex: 1 0 60px;
+    max-width: 150px;
+}
+.flex-form > li > label + * {
+    flex: 1 0 60px;
+}
+input[name="Permissions"] + label {
+    background-color: var(--background);
+    border-radius: 6px;
+    padding: 3px;
+    min-width: 50px;
+    text-align: center;
+    user-select: none;
+}
+input[name="Permissions"]:checked + label {
+    background-color: var(--background-alt);
+}
+#permissions {
+    display: flex;
+    flex-wrap: wrap;
+    padding: 0px;
+}
+#permissions > li {
+    justify-content: space-between;
+    margin: 0px 5px 5px 0px;
+}
+#permissions input {
+    display: none;
+}
