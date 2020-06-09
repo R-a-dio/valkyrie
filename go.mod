@@ -20,5 +20,7 @@ require (
 	github.com/olivere/elastic v6.2.16+incompatible
 	github.com/tcolgate/mp3 v0.0.0-20170426193717-e79c5a46d300
 	github.com/twitchtv/twirp v5.5.1+incompatible
-	golang.org/x/crypto v0.0.0-20190103213133-ff983b9c42bc
+	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550
+	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b // indirect
+	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e // indirect
 )

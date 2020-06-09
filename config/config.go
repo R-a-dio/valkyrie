@@ -200,7 +200,6 @@ type balancer struct {
 	Addr string
 	// Fallback is the stream to default to.
 	Fallback string
-	Relays   []*radio.Relay
 }
 
 // prepareTwirpClient prepares a http client and an usable address string for creating

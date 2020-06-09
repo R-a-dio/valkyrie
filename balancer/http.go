@@ -1,37 +1,30 @@
 package balancer
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
+	"log"
 	"net/http"
 	"time"
+
+	"github.com/R-a-dio/valkyrie/errors"
 )
 
 func (br *Balancer) getStatus() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var buf bytes.Buffer
-		enc := json.NewEncoder(&buf)
-		// start the JSON array
-		buf.WriteString("[")
-		for i, relay := range br.relays {
-			relay.RLock()
-			err := enc.Encode(relay)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusTeapot)
-				relay.RUnlock()
+		relays, err := br.storage.Relay(r.Context()).All()
+		if err != nil {
+			if errors.Is(errors.NoRelays, err) {
+				http.Error(w, "no relays", 418)
 				return
 			}
-			relay.RUnlock()
-			if i != len(br.relays)-1 {
-				buf.WriteString(",")
-			}
 		}
-		// end the JSON array and flush
-		buf.WriteString("]")
-		io.Copy(w, &buf)
-		return
+		err = json.NewEncoder(w).Encode(relays)
+		if err != nil {
+			log.Println(err)
+			http.Error(w, "error encoding json", 500)
+			return
+		}
 	}
 }
 

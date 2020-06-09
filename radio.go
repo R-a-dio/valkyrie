@@ -10,7 +10,6 @@ import (
 	"math"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -481,6 +480,7 @@ type StorageTx interface {
 // StorageService is an interface containing all *StorageService interfaces
 type StorageService interface {
 	SessionStorageService
+	RelayStorageService
 	QueueStorageService
 	SongStorageService
 	TrackStorageService
@@ -825,22 +825,24 @@ type PendingSong struct {
 	AcceptedSong *Song
 }
 
+// RelayStorage deals with the relays table.
+type RelayStorage interface {
+	Update(r Relay) error
+	All() ([]Relay, error)
+}
+
+// RelayStorageService is a service able to supply a RelayStorage
+type RelayStorageService interface {
+	Relay(context.Context) RelayStorage
+	RelayTx(context.Context, StorageTx) (RelayStorage, StorageTx, error)
+}
+
+// RelayName is the unique name of a relay.
+type RelayName string
+
 // Relay is a stream relay for use by the load balancer.
 type Relay struct {
 	Name, Status, Stream               string
 	Online, Primary, Disabled, Noredir bool
-	Listeners, Max, Weight             int
-	sync.RWMutex
-}
-
-// Activate sets a relay as online and clears its error.
-func (r *Relay) Activate(l int) {
-	r.Online = true
-	r.Listeners = l
-}
-
-// Deactivate marks a relay as offline and the error that caused it to be so.
-func (r *Relay) Deactivate() {
-	r.Online = false
-	r.Listeners = 0
+	ID, Listeners, Max, Weight         int
 }

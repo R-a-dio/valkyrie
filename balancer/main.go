@@ -6,26 +6,37 @@ import (
 	"time"
 
 	"github.com/R-a-dio/valkyrie/config"
+	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/R-a-dio/valkyrie/storage"
 )
 
 // Execute executes the balancer with the context ctx and config cfg.
 // Execution of the balancer can be halted by cancelling ctx.
 func Execute(ctx context.Context, cfg config.Config) error {
-	br := NewBalancer(ctx, cfg)
+	br, err := NewBalancer(ctx, cfg)
+	if err != nil {
+		return err
+	}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	return br.start(ctx)
 }
 
 // NewBalancer returns an initialized Balancer.
-func NewBalancer(ctx context.Context, cfg config.Config) *Balancer {
+func NewBalancer(ctx context.Context, cfg config.Config) (*Balancer, error) {
+	const op errors.Op = "balancer/NewBalancer"
+
 	c := cfg.Conf()
-	br := &Balancer{
-		Config:  cfg,
-		manager: c.Manager.Client(),
+	store, err := storage.Open(cfg)
+	if err != nil {
+		return nil, errors.E(op, err)
 	}
 
-	br.relays = c.Balancer.Relays
+	br := &Balancer{
+		Config:  cfg,
+		storage: store,
+		manager: c.Manager.Client(),
+	}
 
 	br.current.Store(c.Balancer.Fallback)
 	mux := http.NewServeMux()
@@ -40,5 +51,5 @@ func NewBalancer(ctx context.Context, cfg config.Config) *Balancer {
 		ReadTimeout:  15 * time.Second,
 	}
 
-	return br
+	return br, nil
 }

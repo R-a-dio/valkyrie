@@ -21,7 +21,3 @@ nick = "dev-valkyrie"
 [balancer]
 addr = "127.0.0.1:4747"
 fallback = "http://relay0.r-a-d.io/main.mp3"
-
-[[balancer.relays]]
-name = "main"
-stream = "http://relay/main.mp3"
