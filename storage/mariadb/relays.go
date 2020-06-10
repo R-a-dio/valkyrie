@@ -14,9 +14,19 @@ type RelayStorage struct {
 // Update implements radio.RelayStorage
 func (rs RelayStorage) Update(r radio.Relay) error {
 	const op errors.Op = "mariadb/RelayStorage.Update"
-	var query string
 
-	_, err := rs.handle.Exec(query, r)
+	var query = `UPDATE relays SET 
+	status = :status,
+	stream = :stream,
+	online = :online,
+	disabled = :disabled,
+	noredir = :noredir,
+	listeners = :listeners,
+	max = :max,
+	weight = :weight 
+	WHERE name = :name;`
+
+	_, err := sqlx.NamedExec(rs.handle, query, r)
 	if err != nil {
 		return errors.E(op, err)
 	}

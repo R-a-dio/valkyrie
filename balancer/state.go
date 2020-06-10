@@ -60,7 +60,6 @@ func checker(ctx context.Context, in, out chan radio.Relay) {
 			return
 		case relay, ok := <-in:
 			if ok {
-				log.Println("balancer: checking", relay.Name)
 				out <- health(ctx, c, relay)
 			} else { // we've received every value and the channel is closed
 				close(out) // we're not sending anymore
