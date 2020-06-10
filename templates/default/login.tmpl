@@ -1,4 +1,28 @@
 {{define "title"}}R/a/dio Admin Panel{{end}}
+{{define "styles"}}
+<style>
+#login {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+}
+#login-submit > button {
+    width: 100%;
+    background-color: #df4c3a;
+}
+#login input {
+    text-align: center;
+    width: 100%;
+}
+#login-image {
+    padding: 15px;
+}
+#login-error {
+    text-align: center;
+}
+</style>
+{{end}}
 {{define "content"}}
 <div id="login">
     <form method="post">
