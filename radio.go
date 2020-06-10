@@ -850,5 +850,5 @@ type Relay struct {
 // Score takes in a relay and returns its score. Score ranges from 0 to 1, where 1 is perfect.
 // Score punishes a relay for having a high ratio of listeners to its max.
 func (r Relay) Score() float64 {
-	return float64(1 - (2*r.Listeners)/(r.Listeners+r.Max))
+	return 1.0 - float64(2.0*r.Listeners)/float64(r.Listeners+r.Max)
 }
