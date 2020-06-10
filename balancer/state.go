@@ -2,7 +2,6 @@ package balancer
 
 import (
 	"context"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -23,6 +22,9 @@ type Balancer struct {
 
 	// The current stream to re-direct clients to.
 	current atomic.Value
+
+	// The amount of listeners from every relay.
+	listeners int
 }
 
 func (br *Balancer) getCurrent() string {
@@ -71,7 +73,6 @@ func checker(ctx context.Context, in, out chan radio.Relay) {
 			return
 		case relay, ok := <-in:
 			if ok {
-				fmt.Println("checking", relay.Name)
 				out <- health(ctx, c, relay)
 			} else { // we've received every value and the channel is closed
 				close(out) // we're not sending anymore
@@ -110,6 +111,7 @@ func (br *Balancer) update(ctx context.Context) {
 	close(in)
 
 	var winner float64
+	br.listeners = 0
 	for {
 		select {
 		case <-ctx.Done():
@@ -118,9 +120,11 @@ func (br *Balancer) update(ctx context.Context) {
 			if ok {
 				err := br.storage.Relay(ctx).Update(relay)
 				if err != nil {
-					log.Printf("balancer: error updating relay %s:%s\n", relay.Name, err)
+					log.Printf("balancer: error updating relay %s: %s\n", relay.Name, err)
 					continue
 				}
+				br.listeners += relay.Listeners
+
 				if !relay.Online || relay.Disabled || relay.Noredir || relay.Max <= 0 {
 					continue
 				}
@@ -142,6 +146,10 @@ func (br *Balancer) start(ctx context.Context) error {
 			select {
 			case <-time.After(5 * time.Second):
 				br.update(ctx)
+				err := br.manager.UpdateListeners(ctx, br.listeners)
+				if err != nil {
+					log.Printf("balancer: error updating listeners: %s", err)
+				}
 			case <-ctx.Done():
 				br.stop()
 				return
