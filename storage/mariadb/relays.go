@@ -22,8 +22,7 @@ func (rs RelayStorage) Update(r radio.Relay) error {
 	disabled = :disabled,
 	noredir = :noredir,
 	listeners = :listeners,
-	max = :max,
-	weight = :weight 
+	max = :max
 	WHERE name = :name;`
 
 	_, err := sqlx.NamedExec(rs.handle, query, r)

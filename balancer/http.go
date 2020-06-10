@@ -37,7 +37,7 @@ func (br *Balancer) getIndex() http.HandlerFunc {
 
 func (br *Balancer) getMain() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, br.current.Load().(string), http.StatusFound)
+		http.Redirect(w, r, br.getCurrent(), http.StatusFound)
 		return
 	}
 }

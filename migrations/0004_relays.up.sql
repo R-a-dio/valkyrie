@@ -7,8 +7,8 @@ CREATE TABLE `relays` (
     `primary` boolean NOT NULL,
     `disabled` boolean NOT NULL,
     `noredir` boolean NOT NULL,
+    `listeners` int NOT NULL,
     `max` int NOT NULL,
-    `weight` int NOT NULL,
 PRIMARY KEY (`id`),
 UNIQUE KEY `name` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;

@@ -38,7 +38,7 @@ func NewBalancer(ctx context.Context, cfg config.Config) (*Balancer, error) {
 		manager: c.Manager.Client(),
 	}
 
-	br.current.Store(c.Balancer.Fallback)
+	br.setCurrent(c.Balancer.Fallback)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", br.getIndex())
 	mux.HandleFunc("/status", br.getStatus())
