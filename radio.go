@@ -837,18 +837,19 @@ type RelayStorageService interface {
 	RelayTx(context.Context, StorageTx) (RelayStorage, StorageTx, error)
 }
 
-// RelayName is the unique name of a relay.
-type RelayName string
-
 // Relay is a stream relay for use by the load balancer.
 type Relay struct {
-	Name, Status, Stream               string
-	Online, Primary, Disabled, Noredir bool
-	ID, Listeners, Max                 int
+	Name, Status, Stream, Err string
+	Online, Disabled, Noredir bool
+	Listeners, Max            int
 }
 
 // Score takes in a relay and returns its score. Score ranges from 0 to 1, where 1 is perfect.
 // Score punishes a relay for having a high ratio of listeners to its max.
 func (r Relay) Score() float64 {
+	// Avoid a division by zero panic.
+	if r.Max <= 0 {
+		return 0
+	}
 	return 1.0 - float64(2.0*r.Listeners)/float64(r.Listeners+r.Max)
 }

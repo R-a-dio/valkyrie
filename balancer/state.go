@@ -5,10 +5,10 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"sync/atomic"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/balancer/current"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 )
@@ -21,40 +21,36 @@ type Balancer struct {
 	serv    *http.Server
 
 	// The current stream to re-direct clients to.
-	current atomic.Value
+	c *current.Current
 
 	// The amount of listeners from every relay.
 	listeners int
 }
 
-func (br *Balancer) getCurrent() string {
-	return br.current.Load().(string)
-}
-
-// we know statically that current will only be of type string.
-func (br *Balancer) setCurrent(str string) {
-	br.current.Store(str)
-}
-
 // health checks the status of r using c, returning a copy of r.
 func health(ctx context.Context, c *http.Client, r radio.Relay) radio.Relay {
 	res := r
-	res.Online, res.Listeners = false, 0
+	res.Online, res.Listeners, res.Err = false, 0, ""
+
 	req, err := http.NewRequestWithContext(ctx, "GET", r.Status, nil)
 	if err != nil {
+		res.Err = err.Error()
 		return res
 	}
 	resp, err := c.Do(req)
 	if err != nil {
+		res.Err = err.Error()
 		return res
 	}
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
+		res.Err = err.Error()
 		return res
 	}
 	resp.Body.Close()
 	l, err := parsexml(body)
 	if err != nil {
+		res.Err = err.Error()
 		return res
 	}
 	res.Online, res.Listeners = true, l
@@ -72,12 +68,10 @@ func checker(ctx context.Context, in, out chan radio.Relay) {
 		case <-ctx.Done():
 			return
 		case relay, ok := <-in:
-			if ok {
-				out <- health(ctx, c, relay)
-			} else { // we've received every value and the channel is closed
-				close(out) // we're not sending anymore
+			if !ok {
 				return
 			}
+			out <- health(ctx, c, relay)
 		}
 	}
 }
@@ -87,7 +81,8 @@ func (br *Balancer) update(ctx context.Context) {
 	relays, err := br.storage.Relay(ctx).All()
 	if err != nil {
 		if errors.Is(errors.NoRelays, err) {
-			return // do nothing
+			log.Println("balancer: no relays in database")
+			return
 		}
 		log.Println("balancer: error getting relays:", err)
 		return
@@ -110,37 +105,39 @@ func (br *Balancer) update(ctx context.Context) {
 	}
 	close(in)
 
-	var winner float64
+	var winner radio.Relay
 	br.listeners = 0
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case relay, ok := <-out:
-			if ok {
-				err := br.storage.Relay(ctx).Update(relay)
-				if err != nil {
-					log.Printf("balancer: error updating relay %s: %s\n", relay.Name, err)
-					continue
-				}
-				br.listeners += relay.Listeners
-
-				if !relay.Online || relay.Disabled || relay.Noredir || relay.Max <= 0 {
-					continue
-				}
-				score := relay.Score()
-				if score > winner {
-					winner = score
-					br.setCurrent(relay.Stream)
-				}
-			} else {
+			if !ok {
+				br.c.Set(winner.Stream)
 				return
+			}
+			err := br.storage.Relay(ctx).Update(relay)
+			if err != nil {
+				log.Printf("balancer: error updating relay %s: %s\n", relay.Name, err)
+				continue
+			}
+
+			if !relay.Online || relay.Disabled || relay.Noredir || relay.Max <= 0 {
+				continue
+			}
+
+			br.listeners += relay.Listeners
+			score := relay.Score()
+			if score > winner.Score() {
+				winner = relay
 			}
 		}
 	}
 }
 
 func (br *Balancer) start(ctx context.Context) error {
+	const op errors.Op = "balancer/start"
+
 	go func() {
 		for {
 			select {
@@ -151,15 +148,22 @@ func (br *Balancer) start(ctx context.Context) error {
 					log.Printf("balancer: error updating listeners: %s", err)
 				}
 			case <-ctx.Done():
-				br.stop()
+				br.stop(ctx)
 				return
 			}
 		}
 	}()
 	log.Println("balancer: listening on", br.serv.Addr)
-	return br.serv.ListenAndServe()
+	return errors.E(op, br.serv.ListenAndServe())
 }
 
-func (br *Balancer) stop() error {
-	return br.serv.Close()
+func (br *Balancer) stop(ctx context.Context) error {
+	const op errors.Op = "balancer/stop"
+
+	err := br.serv.Shutdown(ctx)
+	if err != nil {
+		return errors.E(op, err)
+	}
+
+	return nil
 }

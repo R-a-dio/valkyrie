@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/R-a-dio/valkyrie/balancer/current"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/storage"
@@ -13,13 +14,13 @@ import (
 // Execute executes the balancer with the context ctx and config cfg.
 // Execution of the balancer can be halted by cancelling ctx.
 func Execute(ctx context.Context, cfg config.Config) error {
+	const op errors.Op = "balancer/Execute"
+
 	br, err := NewBalancer(ctx, cfg)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	return br.start(ctx)
+	return errors.E(op, br.start(ctx))
 }
 
 // NewBalancer returns an initialized Balancer.
@@ -38,7 +39,7 @@ func NewBalancer(ctx context.Context, cfg config.Config) (*Balancer, error) {
 		manager: c.Manager.Client(),
 	}
 
-	br.setCurrent(c.Balancer.Fallback)
+	br.c = current.NewCurrent(c.Balancer.Fallback)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", br.getIndex())
 	mux.HandleFunc("/status", br.getStatus())
