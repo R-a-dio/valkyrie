@@ -85,6 +85,7 @@ func checker(ctx context.Context, in, out chan radio.Relay) {
 }
 
 // update checks all relays and sets the current relay to re-direct to.
+// update also accumulates listeners from each relay.
 func (br *Balancer) update(ctx context.Context) {
 	relays, err := br.storage.Relay(ctx).All()
 	if err != nil {
@@ -95,7 +96,7 @@ func (br *Balancer) update(ctx context.Context) {
 		log.Println("balancer: error getting relays:", err)
 		return
 	}
-	// we already know that len(relays) != 0
+	// we already know that len(relays) != 0, so sends are non-blocking.
 	in := make(chan radio.Relay, len(relays))
 	out := make(chan radio.Relay, len(relays))
 
