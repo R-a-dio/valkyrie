@@ -22,6 +22,7 @@ func (rs RelayStorage) Update(r radio.Relay) error {
 	disabled = :disabled,
 	noredir = :noredir,
 	listeners = :listeners,
+	err = :err,
 	max = :max
 	WHERE name = :name;`
 
@@ -45,9 +46,9 @@ func (rs RelayStorage) All() ([]radio.Relay, error) {
 	if err != nil {
 		return relays, errors.E(op, err)
 	}
-	/* if len(relays) == 0 {
+	if len(relays) == 0 {
 		return relays, errors.E(op, errors.NoRelays)
-	} */
+	}
 
 	return relays, nil
 }

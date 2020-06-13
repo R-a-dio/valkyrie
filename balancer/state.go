@@ -69,6 +69,7 @@ func checker(ctx context.Context, in, out chan radio.Relay) {
 			return
 		case relay, ok := <-in:
 			if !ok {
+				close(out)
 				return
 			}
 			out <- health(ctx, c, relay)
