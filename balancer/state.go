@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -60,6 +61,7 @@ func health(ctx context.Context, c *http.Client, r radio.Relay) radio.Relay {
 // checker receives relays on in and sends updated relays on out.
 // the execution of checker can be halted by cancelling ctx.
 func checker(ctx context.Context, in, out chan radio.Relay) {
+	var wg sync.WaitGroup
 	c := &http.Client{
 		Timeout: 3 * time.Second,
 	}
@@ -69,10 +71,15 @@ func checker(ctx context.Context, in, out chan radio.Relay) {
 			return
 		case relay, ok := <-in:
 			if !ok {
+				wg.Wait()
 				close(out)
 				return
 			}
-			out <- health(ctx, c, relay)
+			wg.Add(1)
+			go func(r radio.Relay) {
+				defer wg.Done()
+				out <- health(ctx, c, relay)
+			}(relay)
 		}
 	}
 }
