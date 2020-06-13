@@ -113,7 +113,9 @@ func (br *Balancer) update(ctx context.Context) {
 	}
 	close(in)
 
+	// we assume the worst relay is the fallback, which has a score of zero.
 	var winner radio.Relay
+	winner.Stream = br.Conf().Balancer.Fallback
 	br.listeners = 0
 	for {
 		select {
