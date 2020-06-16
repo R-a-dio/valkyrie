@@ -41,9 +41,9 @@ func NewBalancer(ctx context.Context, cfg config.Config) (*Balancer, error) {
 
 	br.c = current.NewCurrent(c.Balancer.Fallback)
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", br.getIndex())
-	mux.HandleFunc("/status", br.getStatus())
-	mux.HandleFunc("/main", br.getMain())
+	mux.HandleFunc("/", br.getIndex)
+	mux.HandleFunc("/status", br.getStatus)
+	mux.HandleFunc("/main", br.getMain)
 
 	br.serv = &http.Server{
 		Handler:      mux,
