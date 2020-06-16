@@ -22,7 +22,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	}
 	err = br.start(ctx)
 	if err != nil {
-		return errors.E(op, br.start(ctx))
+		return errors.E(op, err)
 	}
 	return nil
 }

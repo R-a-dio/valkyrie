@@ -155,8 +155,9 @@ func (br *Balancer) start(ctx context.Context) error {
 		for {
 			select {
 			case <-time.After(5 * time.Second):
-				ctx, _ := context.WithTimeout(ctx, 5*time.Second)
-				br.update(ctx)
+				ctxx, cancel := context.WithTimeout(ctx, 5*time.Second)
+				br.update(ctxx)
+				cancel()
 				err := br.manager.UpdateListeners(ctx, br.listeners)
 				if err != nil {
 					log.Printf("balancer: error updating listeners: %s", err)
@@ -168,8 +169,9 @@ func (br *Balancer) start(ctx context.Context) error {
 		}
 	}()
 	log.Println("balancer: listening on", br.serv.Addr)
-	if !xerrors.Is(http.ErrServerClosed, br.serv.ListenAndServe()) {
-		return errors.E(op, br.serv.ListenAndServe())
+	err := br.serv.ListenAndServe()
+	if !xerrors.Is(http.ErrServerClosed, err) {
+		return errors.E(op, err)
 	}
 	return nil
 }
