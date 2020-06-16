@@ -32,14 +32,14 @@ func NewBalancer(ctx context.Context, cfg config.Config) (*Balancer, error) {
 	const op errors.Op = "balancer/NewBalancer"
 
 	c := cfg.Conf()
-	store, err := storage.Open(cfg)
+	ss, err := storage.Open(cfg)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
 
 	br := &Balancer{
 		Config:  cfg,
-		storage: store,
+		storage: ss,
 		manager: c.Manager.Client(),
 	}
 

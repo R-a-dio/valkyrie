@@ -20,7 +20,7 @@ import (
 type Balancer struct {
 	config.Config
 	manager radio.ManagerService
-	storage radio.StorageService
+	storage radio.RelayStorageService
 	serv    *http.Server
 
 	// The current stream to re-direct clients to.
