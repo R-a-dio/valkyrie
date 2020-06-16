@@ -153,6 +153,7 @@ func (br *Balancer) start(ctx context.Context) error {
 		for {
 			select {
 			case <-time.After(5 * time.Second):
+				ctx, _ := context.WithTimeout(ctx, 5*time.Second)
 				br.update(ctx)
 				err := br.manager.UpdateListeners(ctx, br.listeners)
 				if err != nil {
