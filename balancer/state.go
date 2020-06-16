@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	xerrors "errors"
+
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/balancer/current"
 	"github.com/R-a-dio/valkyrie/config"
@@ -166,7 +168,10 @@ func (br *Balancer) start(ctx context.Context) error {
 		}
 	}()
 	log.Println("balancer: listening on", br.serv.Addr)
-	return errors.E(op, br.serv.ListenAndServe())
+	if !xerrors.Is(http.ErrServerClosed, br.serv.ListenAndServe()) {
+		return errors.E(op, br.serv.ListenAndServe())
+	}
+	return nil
 }
 
 func (br *Balancer) stop(ctx context.Context) error {
