@@ -16,11 +16,11 @@ var (
 func parsexml(x []byte) (int, error) {
 	const op errors.Op = "balancer/parsexml"
 
-	res := rgx.FindSubmatch(x)
+	res := rgx.FindStringSubmatch(string(x))
 	if len(res) == 0 {
 		return -1, errors.E(op, errNoListeners)
 	}
-	listeners, err := strconv.Atoi(string(res[1]))
+	listeners, err := strconv.Atoi(res[1])
 	if err != nil {
 		return -1, errors.E(op, err)
 	}
