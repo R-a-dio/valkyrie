@@ -43,12 +43,12 @@ func health(ctx context.Context, c *http.Client, r radio.Relay) radio.Relay {
 		res.Err = err.Error()
 		return res
 	}
+	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		res.Err = err.Error()
 		return res
 	}
-	resp.Body.Close()
 	l, err := parsexml(body)
 	if err != nil {
 		res.Err = err.Error()
