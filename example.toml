@@ -19,5 +19,5 @@ channels = ["#test"]
 nick = "dev-valkyrie"
 
 [balancer]
-addr = "127.0.0.1:4848"
-fallback = "http://relay0.r-a-d.io/main.mp3"
+addr = "addr.local:port"
+fallback = "http://stream:80/main.mp3"
