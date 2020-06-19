@@ -62,6 +62,10 @@ var defaultConfig = config{
 	Elastic: elasticsearch{
 		URL: "http://127.0.0.1:9200/",
 	},
+	Balancer: balancer{
+		Addr:     "127.0.0.1:4848",
+		Fallback: "https://relay0.r-a-d.io/main.mp3",
+	},
 }
 
 // config represents a full configuration file of this project, each tool part
@@ -90,6 +94,7 @@ type config struct {
 	IRC      irc
 	Manager  manager
 	Elastic  elasticsearch
+	Balancer balancer
 }
 
 type providers struct {
@@ -191,6 +196,14 @@ func (m manager) Client() radio.ManagerService {
 
 type elasticsearch struct {
 	URL string
+}
+
+// balancer contains fields for the load balancer.
+type balancer struct {
+	// Addr is the public facing address for the balancer.
+	Addr string
+	// Fallback is the stream to default to.
+	Fallback string
 }
 
 // prepareTwirpClient prepares a http client and an usable address string for creating

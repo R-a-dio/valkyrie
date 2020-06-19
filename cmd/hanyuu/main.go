@@ -10,6 +10,7 @@ import (
 	"runtime/debug"
 	"syscall"
 
+	"github.com/R-a-dio/valkyrie/balancer"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/ircbot"
 	"github.com/R-a-dio/valkyrie/jobs"
@@ -152,6 +153,15 @@ var websiteCmd = cmd{
 	execute: withConfig(website.Execute),
 }
 
+var balancerCmd = cmd{
+	name:     "balancer",
+	synopsis: "runs the stream load balancer",
+	usage: `balancer:
+	run the stream load balancer
+	`,
+	execute: withConfig(balancer.Execute),
+}
+
 func main() {
 	// setup configuration file as top-level flag
 	flag.StringVar(&configFile, "config", "hanyuu.toml", "filepath to configuration file")
@@ -170,6 +180,7 @@ func main() {
 	subcommands.Register(managerCmd, "")
 	subcommands.Register(ircCmd, "")
 	subcommands.Register(websiteCmd, "")
+	subcommands.Register(balancerCmd, "")
 
 	subcommands.Register(listenerLogCmd, "jobs")
 	subcommands.Register(requestCountCmd, "jobs")

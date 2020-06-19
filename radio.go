@@ -480,6 +480,7 @@ type StorageTx interface {
 // StorageService is an interface containing all *StorageService interfaces
 type StorageService interface {
 	SessionStorageService
+	RelayStorageService
 	QueueStorageService
 	SongStorageService
 	TrackStorageService
@@ -822,4 +823,33 @@ type PendingSong struct {
 	// Accepted fields
 	GoodUpload   bool
 	AcceptedSong *Song
+}
+
+// RelayStorage deals with the relays table.
+type RelayStorage interface {
+	Update(r Relay) error
+	All() ([]Relay, error)
+}
+
+// RelayStorageService is a service able to supply a RelayStorage
+type RelayStorageService interface {
+	Relay(context.Context) RelayStorage
+	RelayTx(context.Context, StorageTx) (RelayStorage, StorageTx, error)
+}
+
+// Relay is a stream relay for use by the load balancer.
+type Relay struct {
+	Name, Status, Stream, Err string
+	Online, Disabled, Noredir bool
+	Listeners, Max            int
+}
+
+// Score takes in a relay and returns its score. Score ranges from 0 to 1, where 1 is perfect.
+// Score punishes a relay for having a high ratio of listeners to its max.
+func (r Relay) Score() float64 {
+	// Avoid a division by zero panic.
+	if r.Max <= 0 {
+		return 0
+	}
+	return 1.0 - float64(2.0*r.Listeners)/float64(r.Listeners+r.Max)
 }
