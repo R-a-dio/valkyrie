@@ -1,0 +1,49 @@
+{{define "title"}}R/a/dio Admin Panel{{end}}
+{{define "styles"}}
+<style>
+#login {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+}
+#login-submit > button {
+    width: 100%;
+    background-color: #df4c3a;
+}
+#login input {
+    text-align: center;
+    width: 100%;
+}
+#login-image {
+    padding: 15px;
+}
+#login-error {
+    text-align: center;
+}
+</style>
+{{end}}
+{{define "content"}}
+<div id="login">
+    <form method="post">
+        <div id="login-image">
+            <img src="/assets/images/logo_image_small.png">
+        </div>
+        <div id="login-error">
+            {{if .Failed}}
+            <h2>{{.Message}}</h2>
+            {{end}}
+        </div>
+        <div id="login-username">
+            <input type="text" placeholder="Username" name="username" required>
+        </div>
+        <div id="login-password">
+            <input type="password" placeholder="Password" name="password" required>
+        </div>
+        <div id="login-submit">
+            <button type="submit">Login</button>
+        </div>
+    </form>
+</div>
+{{end}}
+{{define "navbar"}}<!-- disabled -->{{end}}
