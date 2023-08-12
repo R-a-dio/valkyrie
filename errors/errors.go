@@ -338,6 +338,7 @@ const (
 	InvalidForm                        // Form submitted was invalid
 	InternalServer                     // InternalServer error, these return 501
 	AccessDenied                       // Someone tried to access something they're not allowed to
+	NoRelays                           // No relays were found in the DB.
 )
 
 func (k Kind) String() string {
@@ -398,6 +399,8 @@ func (k Kind) String() string {
 		return "internal server error"
 	case AccessDenied:
 		return "access denied"
+	case NoRelays:
+		return "no relays found"
 	}
 
 	return "unknown error kind"

@@ -280,6 +280,24 @@ func (s *StorageService) Status(ctx context.Context) radio.StatusStorage {
 	}
 }
 
+func (s *StorageService) Relay(ctx context.Context) radio.RelayStorage {
+	return RelayStorage{
+		handle: handle{s.db, ctx},
+	}
+}
+
+func (s *StorageService) RelayTx(ctx context.Context, tx radio.StorageTx) (radio.RelayStorage, radio.StorageTx, error) {
+	db, tx, err := s.tx(ctx, tx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	storage := RelayStorage{
+		handle: handle{db, ctx},
+	}
+	return storage, tx, nil
+}
+
 type extContext interface {
 	sqlx.ExecerContext
 	sqlx.QueryerContext

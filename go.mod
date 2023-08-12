@@ -13,7 +13,6 @@ require (
 	github.com/golang-migrate/migrate/v4 v4.2.5
 	github.com/golang/protobuf v1.2.0
 	github.com/google/subcommands v0.0.0-20181012225330-46f0354f6315
-	github.com/gorilla/mux v1.6.2
 	github.com/gorilla/schema v1.1.0
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/lrstanley/girc v0.0.0-20190210212025-51b8e096d398
@@ -21,5 +20,7 @@ require (
 	github.com/olivere/elastic v6.2.16+incompatible
 	github.com/tcolgate/mp3 v0.0.0-20170426193717-e79c5a46d300
 	github.com/twitchtv/twirp v5.5.1+incompatible
-	golang.org/x/crypto v0.0.0-20190103213133-ff983b9c42bc
+	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550
+	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b // indirect
+	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e // indirect
 )

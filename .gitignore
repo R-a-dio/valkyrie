@@ -16,3 +16,6 @@ cmd/hanyuu/hanyuu
 
 # configuration file format we use, only example.toml should be committed
 *.toml
+
+# vscode settings, ignore these
+.vscode/

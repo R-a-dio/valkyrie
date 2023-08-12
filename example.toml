@@ -17,3 +17,7 @@ streamurl = "http://username:password@stream:80/mount.mp3"
 server = "irc.rizon.net"
 channels = ["#test"]
 nick = "dev-valkyrie"
+
+[balancer]
+addr = "addr.local:port"
+fallback = "http://stream:80/main.mp3"
