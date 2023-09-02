@@ -156,6 +156,10 @@ type User struct {
 // DJID is an identifier corresponding to a dj
 type DJID uint64
 
+func (id DJID) String() string {
+	return strconv.Itoa(int(id))
+}
+
 // DJ is someone that has access to streaming
 type DJ struct {
 	ID    DJID

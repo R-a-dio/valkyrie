@@ -1,6 +1,7 @@
 package templates
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -9,9 +10,37 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"text/tabwriter"
 )
 
+var bufferPool syncBufferPool
+
+type syncBufferPool struct {
+	p sync.Pool
+}
+
+func (p *syncBufferPool) Get() *bytes.Buffer {
+	return p.p.Get().(*bytes.Buffer)
+}
+
+func (p *syncBufferPool) Put(buf *bytes.Buffer) {
+	buf.Reset()
+	p.p.Put(buf)
+}
+
+func init() {
+	// initialize global buffer pool, this should probably not be global. But as we
+	// don't have a nice type to encapsulate it in yet this will do for now. It should
+	// be moved to said type once it exists
+	bufferPool = syncBufferPool{
+		sync.Pool{
+			New: func() interface{} { return new(bytes.Buffer) },
+		},
+	}
+}
+
+// Templates is a mapping of theme > page > template
 type Templates map[string]map[string]Template
 
 type theme struct {
@@ -19,12 +48,17 @@ type theme struct {
 	pages    []string
 }
 
+// filecache is a super simple cache of file contents, this is NOT a threadsafe or
+// very optimized cache. It's purely to avoid repeatedly reading the same file from disk
+// inside of LoadTemplates
 type filecache map[string]string
 
 func (cache *filecache) readFile(filename string) (string, error) {
 	if *cache == nil {
-		*cache = make(map[string]string)
+		*cache = make(filecache)
 	}
+
+	// grab our cached file, the zero value is usable so we do that
 	content, ok := (*cache)[filename]
 	if ok {
 		return content, nil
@@ -34,6 +68,7 @@ func (cache *filecache) readFile(filename string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	content = string(b)
 	(*cache)[filename] = content
 	return content, nil
@@ -151,6 +186,8 @@ func LoadTemplates(dir string) (Templates, error) {
 	return completed, nil
 }
 
+// createDummy creates a dummy template that calls a template called "base" and
+// adds utility functions to the funcs map.
 func createDummy() *template.Template {
 	return template.Must(
 		template.New("invocation").
@@ -179,7 +216,7 @@ func loadTemplate(parent *template.Template, cache filecache, bundle []string) (
 	return &Template{bundle, parent}, nil
 }
 
-// Reload the template from disk and returns the new version
+// Reload the template from disk and returns the new template
 func (t Template) Reload() (*Template, error) {
 	dummy := createDummy()
 	var cache filecache
@@ -187,6 +224,7 @@ func (t Template) Reload() (*Template, error) {
 	return loadTemplate(dummy, cache, t.Files)
 }
 
+// ExecuteDev calls Reload before calling Execute
 func (t Template) ExecuteDev(w io.Writer, data interface{}) error {
 	new, err := t.Reload()
 	if err != nil {
@@ -196,14 +234,35 @@ func (t Template) ExecuteDev(w io.Writer, data interface{}) error {
 	return new.Execute(w, data)
 }
 
+// Execute executes the template with the data given and writes it to w, uses
+// a buffer internally to avoid partial-writes to the writer
+func (t Template) Execute(w io.Writer, data interface{}) error {
+	buf := bufferPool.Get()
+	defer bufferPool.Put(buf)
+
+	err := t.Template.Execute(buf, data)
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(w, buf)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Template contains the templates that constructs a singular page
 type Template struct {
 	// Files this template was constructed from, they are loaded in order,
-	// starting from the start
+	// starting from the front
 	Files []string
 	// Tmpl the actual template construct
 	*template.Template
 }
 
+// Definitions prints a table showing what templates are defined in this Template and
+// from what file it was loaded. The last template in the table is the one in-use.
 func (t Template) Definitions() error {
 	const noop = "--noop--"
 	columns := []string{"filename"}

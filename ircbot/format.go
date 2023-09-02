@@ -78,7 +78,7 @@ func FormatPlaybackDurationHours(t time.Duration) string {
 }
 
 var (
-	year  = time.Duration(float64(day) * 365.25)
+	year  = time.Duration(float64(day) * 365.2422)
 	month = year / 12
 	week  = day * 7
 	day   = time.Hour * 24

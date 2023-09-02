@@ -344,7 +344,7 @@ func (s *Streamer) decodeFiles(task streamerTask) error {
 			return nil
 		}
 
-		track.pcm, err = audio.DecodeFile(track.filepath)
+		track.pcm, err = audio.DecodeFileGain(track.filepath)
 		if err != nil {
 			s.errored(task, track)
 			continue

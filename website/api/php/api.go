@@ -340,14 +340,13 @@ func (a *API) getDJImage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Del("Content-Type")
 	w.Header().Set("Content-Type", "image/png")
 
-	user, ok := ctx.Value(middleware.UserKey).(radio.User)
+	user, ok := middleware.GetUser(ctx)
 	if !ok {
 		panic("missing UserByDJIDCtx middleware")
 		return
 	}
 
-	sid := chi.URLParamFromCtx(ctx, "DJID")
-	filename := filepath.Join(a.Conf().Website.DJImagePath, sid)
+	filename := filepath.Join(a.Conf().Website.DJImagePath, user.DJ.ID.String())
 
 	f, err := os.Open(filename)
 	if err != nil {
@@ -384,7 +383,7 @@ func (a *API) postRequest(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	song, ok := ctx.Value(middleware.TrackKey).(radio.Song)
+	song, ok := middleware.GetTrack(ctx)
 	if !ok {
 		response["error"] = "invalid parameter"
 		return

@@ -6,6 +6,7 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/R-a-dio/valkyrie/website/middleware"
 )
 
 func (s State) GetHome(w http.ResponseWriter, r *http.Request) {
@@ -54,6 +55,7 @@ func (s State) getHome(w http.ResponseWriter, r *http.Request) error {
 		News:       news.Entries,
 	}
 
+	theme := middleware.GetTheme(ctx)
 	err = s.Templates[theme]["home"].ExecuteDev(w, homeInput)
 	if err != nil {
 		return errors.E(op, errors.InternalServer, err)

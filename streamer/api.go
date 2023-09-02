@@ -120,7 +120,7 @@ func (s *streamerService) RequestSong(ctx context.Context, song radio.Song, iden
 	}
 	defer tx.Rollback()
 
-	rs, tx, err := s.Storage.RequestTx(ctx, tx)
+	rs, _, err := s.Storage.RequestTx(ctx, tx)
 	if err != nil {
 		return errors.E(op, errors.TransactionBegin, err, song)
 	}

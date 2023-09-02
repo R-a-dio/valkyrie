@@ -12,8 +12,9 @@ import (
 type ctxKey int
 
 const (
-	TrackKey ctxKey = iota
-	UserKey  ctxKey = iota
+	trackKey ctxKey = iota
+	userKey
+	themeKey
 )
 
 // TrackCtx reads an URL parameter named TrackID and tries to find the track associated
@@ -41,14 +42,21 @@ func TrackCtx(storage radio.TrackStorageService) func(http.Handler) http.Handler
 				return
 			}
 
-			ctx = context.WithValue(ctx, TrackKey, *song)
+			ctx = context.WithValue(ctx, trackKey, *song)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }
 
+// GetTrack returns the track from the given context if one exists.
+// See TrackCtx for supplier of this
+func GetTrack(ctx context.Context) (radio.Song, bool) {
+	song, ok := ctx.Value(trackKey).(radio.Song)
+	return song, ok
+}
+
 // UserByDJIDCtx reads an URL router parameter named DJID and tries to find the user
-// associated with it. The result is found in the request context with key UserKey
+// associated with it. The result can be retrieved with GetUser
 func UserByDJIDCtx(storage radio.UserStorageService) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -68,8 +76,14 @@ func UserByDJIDCtx(storage radio.UserStorageService) func(http.Handler) http.Han
 				panic("UserBYDJIDCtx: fuck do I know")
 			}
 
-			ctx = context.WithValue(ctx, UserKey, *user)
+			ctx = context.WithValue(ctx, userKey, *user)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+// GetUser returns the user from the given context if one exists.
+func GetUser(ctx context.Context) (radio.User, bool) {
+	user, ok := ctx.Value(userKey).(radio.User)
+	return user, ok
 }
