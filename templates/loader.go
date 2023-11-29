@@ -14,30 +14,38 @@ import (
 	"text/tabwriter"
 )
 
-var bufferPool syncBufferPool
+var bufferPool *Pool[*bytes.Buffer]
 
-type syncBufferPool struct {
+type Resetable interface {
+	Reset()
+}
+
+type Pool[T Resetable] struct {
 	p sync.Pool
 }
 
-func (p *syncBufferPool) Get() *bytes.Buffer {
-	return p.p.Get().(*bytes.Buffer)
+func NewPool[T Resetable](newFn func() T) *Pool[T] {
+	return &Pool[T]{
+		sync.Pool{
+			New: func() interface{} { return newFn() },
+		},
+	}
 }
 
-func (p *syncBufferPool) Put(buf *bytes.Buffer) {
-	buf.Reset()
-	p.p.Put(buf)
+func (p *Pool[T]) Get() T {
+	return p.p.Get().(T)
+}
+
+func (p *Pool[T]) Put(v T) {
+	v.Reset()
+	p.p.Put(v)
 }
 
 func init() {
 	// initialize global buffer pool, this should probably not be global. But as we
 	// don't have a nice type to encapsulate it in yet this will do for now. It should
 	// be moved to said type once it exists
-	bufferPool = syncBufferPool{
-		sync.Pool{
-			New: func() interface{} { return new(bytes.Buffer) },
-		},
-	}
+	bufferPool = NewPool(func() *bytes.Buffer { return new(bytes.Buffer) })
 }
 
 // Templates is a mapping of theme > page > template
@@ -77,11 +85,12 @@ func (cache *filecache) readFile(filename string) (string, error) {
 // LoadTemplates loads the directory specified as several templates
 //
 // Load Order:
-//		dir/*.tmpl
-//		dir/default/partials/*.tmpl
-//		dir/<theme>/partials/*.tmpl
-//		dir/default/<page>.tmpl
-//		dir/<theme>/<page>.tmpl
+//
+//	dir/*.tmpl
+//	dir/default/partials/*.tmpl
+//	dir/<theme>/partials/*.tmpl
+//	dir/default/<page>.tmpl
+//	dir/<theme>/<page>.tmpl
 func LoadTemplates(dir string) (Templates, error) {
 	// top-level of the directory we're getting should be filled with directories
 	// named after themes. We special case "default" here to mean the fallback
