@@ -1,26 +1,33 @@
 module github.com/R-a-dio/valkyrie
 
-go 1.14
+go 1.21
 
 require (
-	github.com/BurntSushi/toml v0.3.1
-	github.com/DATA-DOG/go-sqlmock v1.4.1
-	github.com/alexedwards/scs/v2 v2.3.1
-	github.com/cenkalti/backoff v2.1.0+incompatible
-	github.com/fortytw2/leaktest v1.3.0 // indirect
-	github.com/go-chi/chi v4.0.2+incompatible
-	github.com/go-sql-driver/mysql v1.4.1
-	github.com/golang-migrate/migrate/v4 v4.2.5
-	github.com/golang/protobuf v1.2.0
-	github.com/google/subcommands v0.0.0-20181012225330-46f0354f6315
-	github.com/gorilla/schema v1.1.0
-	github.com/jmoiron/sqlx v1.2.0
-	github.com/lrstanley/girc v0.0.0-20190210212025-51b8e096d398
-	github.com/mailru/easyjson v0.0.0-20180823135443-60711f1a8329 // indirect
-	github.com/olivere/elastic v6.2.16+incompatible
+	github.com/BurntSushi/toml v1.3.2
+	github.com/DATA-DOG/go-sqlmock v1.5.0
+	github.com/alexedwards/scs/v2 v2.7.0
+	github.com/cenkalti/backoff v2.2.1+incompatible
+	github.com/go-chi/chi v4.1.2+incompatible
+	github.com/go-sql-driver/mysql v1.7.1
+	github.com/golang-migrate/migrate/v4 v4.16.2
+	github.com/golang/protobuf v1.5.3
+	github.com/google/subcommands v1.2.0
+	github.com/gorilla/schema v1.2.1
+	github.com/jmoiron/sqlx v1.3.5
+	github.com/lrstanley/girc v0.0.0-20230911164840-f47717952bf9
+	github.com/olivere/elastic v6.2.37+incompatible
 	github.com/tcolgate/mp3 v0.0.0-20170426193717-e79c5a46d300
-	github.com/twitchtv/twirp v5.5.1+incompatible
-	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550
-	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b // indirect
-	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e // indirect
+	github.com/twitchtv/twirp v8.1.3+incompatible
+	golang.org/x/crypto v0.16.0
+)
+
+require (
+	github.com/fortytw2/leaktest v1.3.0 // indirect
+	github.com/hashicorp/errwrap v1.1.0 // indirect
+	github.com/hashicorp/go-multierror v1.1.1 // indirect
+	github.com/josharian/intern v1.0.0 // indirect
+	github.com/mailru/easyjson v0.7.7 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
+	go.uber.org/atomic v1.11.0 // indirect
+	google.golang.org/protobuf v1.31.0 // indirect
 )
