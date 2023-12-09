@@ -178,6 +178,14 @@ type DJ struct {
 	Theme Theme
 }
 
+// TrackState is the state of a Track in storage
+type TrackState int
+
+const (
+	TrackStateUnverified TrackState = iota
+	TrackStatePlayable
+)
+
 // ThemeID is the identifier of a website theme
 type ThemeID uint64
 
@@ -594,7 +602,7 @@ type TrackStorage interface {
 	// Unusable returns all tracks that are deemed unusable by the streamer
 	Unusable() ([]Song, error)
 	// UpdateUsable sets usable to the state given
-	UpdateUsable(song Song, state int) error
+	UpdateUsable(song Song, state TrackState) error
 
 	// UpdateRequestInfo is called after a track has been requested, this should do any
 	// necessary book-keeping related to that

@@ -503,7 +503,7 @@ func (ts TrackStorage) Unusable() ([]radio.Song, error) {
 	return tracks, nil
 }
 
-func (ts TrackStorage) UpdateUsable(song radio.Song, state int) error {
+func (ts TrackStorage) UpdateUsable(song radio.Song, state radio.TrackState) error {
 	const op errors.Op = "mariadb/TrackStorage.UpdateUsable"
 
 	var query = `
