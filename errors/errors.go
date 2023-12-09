@@ -17,6 +17,9 @@ var Errorf = fmt.Errorf
 // New is equavalent to errors.New
 var New = errors.New
 
+// IsE is equavalent to errors.Is
+var IsE = errors.Is
+
 // E builds an error value from its arguments.
 // There must be at least one argument or E panics.
 // The type of each argument determines its meaning.
@@ -24,26 +27,27 @@ var New = errors.New
 // only the last one is recorded.
 //
 // The types are:
-// 		radio.SongID:
-//			The song identifier of the song involved
-//		radio.TrackID:
-//			The track identifier of the song involved
-//		radio.Song, radio.QueueEntry:
-//			The song involved, fills in both SongID and TrackID above
-//		errors.Delay:
-//			The delay until this error is resolved
-//		errors.Info:
-//			Extra info useful to this class of error, think argument
-//			name when using InvalidArgument
-//		errors.Op:
-//			The operation being performed
-//		string:
-//			Treated as an error message and assigned to the
-//			Err field after a call to errors.New
-// 		errors.Kind:
-//			The class of error
-//		error:
-//			The underlying error that triggered this one
+//
+//	radio.SongID:
+//		The song identifier of the song involved
+//	radio.TrackID:
+//		The track identifier of the song involved
+//	radio.Song, radio.QueueEntry:
+//		The song involved, fills in both SongID and TrackID above
+//	errors.Delay:
+//		The delay until this error is resolved
+//	errors.Info:
+//		Extra info useful to this class of error, think argument
+//		name when using InvalidArgument
+//	errors.Op:
+//		The operation being performed
+//	string:
+//		Treated as an error message and assigned to the
+//		Err field after a call to errors.New
+//	errors.Kind:
+//		The class of error
+//	error:
+//		The underlying error that triggered this one
 //
 // If the error is printed, only those items that have been
 // set to non-zero values will appear in the result.
@@ -339,6 +343,8 @@ const (
 	InternalServer                     // InternalServer error, these return 501
 	AccessDenied                       // Someone tried to access something they're not allowed to
 	NoRelays                           // No relays were found in the DB.
+	TemplateUnknown                    // Template does not exist
+	TemplateParseError                 // Template failed to parse
 )
 
 func (k Kind) String() string {
@@ -401,6 +407,10 @@ func (k Kind) String() string {
 		return "access denied"
 	case NoRelays:
 		return "no relays found"
+	case TemplateUnknown:
+		return "template does not exist"
+	case TemplateParseError:
+		return "template parse error"
 	}
 
 	return "unknown error kind"

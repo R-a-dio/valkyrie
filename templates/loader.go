@@ -5,7 +5,6 @@ package templates
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"html/template"
 	"io/fs"
@@ -16,6 +15,8 @@ import (
 	"strings"
 	"sync"
 	"text/tabwriter"
+
+	"github.com/R-a-dio/valkyrie/errors"
 )
 
 const (
@@ -36,9 +37,11 @@ type Site struct {
 }
 
 func (s *Site) Reload() error {
+	const op errors.Op = "templates/Reload"
+
 	themes, err := s.loader.Load()
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 	s.themes = themes
 	return nil
@@ -58,18 +61,20 @@ func (s *Site) Template(theme, page string) (*template.Template, error) {
 // devTemplate is the Template implementation used during development such that
 // all files are reread and reparsed on every invocation.
 func (s *Site) devTemplate(theme, page string) (*template.Template, error) {
+	const op errors.Op = "templates/devTemplate"
+
 	if err := s.Reload(); err != nil {
-		return nil, err
+		return nil, errors.E(op, err)
 	}
 
 	pb, err := s.Theme(theme).Page(page)
 	if err != nil {
-		return nil, err
+		return nil, errors.E(op, err)
 	}
 
 	tmpl, err := pb.Template()
 	if err != nil {
-		return nil, err
+		return nil, errors.E(op, err)
 	}
 
 	return tmpl, nil
@@ -78,6 +83,8 @@ func (s *Site) devTemplate(theme, page string) (*template.Template, error) {
 // prodTemplate is the Template implementation used for production, this implementation
 // caches a *template.Template after its first use
 func (s *Site) prodTemplate(theme, page string) (*template.Template, error) {
+	const op errors.Op = "templates/prodTemplate"
+
 	// resolve theme name so that it's either an existing theme or default
 	theme = s.ResolveThemeName(theme)
 	// merge theme and page into a key we can use for our cache map
@@ -87,7 +94,7 @@ func (s *Site) prodTemplate(theme, page string) (*template.Template, error) {
 		return tmpl, nil
 	}
 
-	return nil, errors.New("unknown theme/page key")
+	return nil, errors.E(op, errors.TemplateUnknown)
 }
 
 func (s *Site) Theme(name string) ThemeBundle {
@@ -105,13 +112,15 @@ func (s *Site) ResolveThemeName(name string) string {
 }
 
 func (s *Site) makeCache() error {
+	const op errors.Op = "templates/makeCache"
+
 	cache := make(map[string]*template.Template)
 	for themeName, theme := range s.themes {
 		for name, bundle := range theme.pages {
 			key := themeName + "/" + name
 			tmpl, err := bundle.Template()
 			if err != nil {
-				return err
+				return errors.E(op, err)
 			}
 			cache[key] = tmpl
 		}
@@ -122,11 +131,19 @@ func (s *Site) makeCache() error {
 }
 
 func FromDirectory(dir string) (*Site, error) {
+	const op errors.Op = "templates/FromDirectory"
+
 	fsys := os.DirFS(dir)
-	return FromFS(fsys)
+	s, err := FromFS(fsys)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+	return s, nil
 }
 
 func FromFS(fsys fs.FS) (*Site, error) {
+	const op errors.Op = "templates/FromFS"
+
 	var err error
 	tmpl := Site{
 		loader: NewLoader(fsys),
@@ -136,7 +153,7 @@ func FromFS(fsys fs.FS) (*Site, error) {
 
 	tmpl.themes, err = tmpl.loader.Load()
 	if err != nil {
-		return nil, err
+		return nil, errors.E(op, err)
 	}
 
 	return &tmpl, nil
@@ -192,7 +209,13 @@ func (tb *TemplateBundle) Files() []string {
 
 // Template returns a *html.Template with all files contained in this bundle
 func (tb *TemplateBundle) Template() (*template.Template, error) {
-	return createRoot().ParseFiles(tb.Files()...)
+	const op errors.Op = "templates/TemplateBundle.Template"
+
+	tmpl, err := createRoot().ParseFiles(tb.Files()...)
+	if err != nil {
+		return nil, errors.E(op, errors.TemplateParseError, err)
+	}
+	return tmpl, nil
 }
 
 // createRoot creates a root template that adds global utility functions to
@@ -216,29 +239,33 @@ type ThemeBundle struct {
 }
 
 func (tb ThemeBundle) Page(name string) (*TemplateBundle, error) {
+	const op errors.Op = "templates/ThemeBundle.Page"
+
 	tlb, ok := tb.pages[name]
 	if !ok {
-		return nil, errors.New("unknown page")
+		return nil, errors.E(op, errors.TemplateUnknown)
 	}
 
 	return tlb, nil
 }
 
 func (l *Loader) Load() (Themes, error) {
+	const op errors.Op = "templates/Loader.Load"
+
 	bt, err := readDirFilterString(l.fs, ".", isTemplate)
 	if err != nil {
-		return nil, err
+		return nil, errors.E(op, err)
 	}
 	l.baseTemplates = bt
 
 	// find our default directory
 	defaultBundle, err := l.loadSubDir(DEFAULT_DIR)
 	if err != nil {
-		return nil, err
+		return nil, errors.E(op, err)
 	}
 	// sanity check that we have atleast 1 bundle
 	if len(defaultBundle) == 0 {
-		return nil, errors.New("default bundle empty")
+		return nil, errors.E(op, "default bundle empty")
 	}
 
 	// grab the partials from the first bundle
@@ -253,7 +280,7 @@ func (l *Loader) Load() (Themes, error) {
 	// read the rest of the directories
 	subdirs, err := readDirFilterString(l.fs, ".", func(e fs.DirEntry) bool { return e.IsDir() })
 	if err != nil {
-		return nil, err
+		return nil, errors.E(op, err)
 	}
 
 	themes := Themes{
@@ -265,7 +292,7 @@ func (l *Loader) Load() (Themes, error) {
 		}
 		bundles, err := l.loadSubDir(subdir)
 		if err != nil {
-			return nil, err
+			return nil, errors.E(op, err)
 		}
 
 		themes[subdir] = ThemeBundle{
@@ -288,6 +315,8 @@ func noExt(s string) string {
 // if one exists. Returns a map of `filename:bundle` where the bundle is a TemplateBundle
 // that contains all the filenames required to construct the page named after the filename.
 func (l *Loader) loadSubDir(dir string) (map[string]*TemplateBundle, error) {
+	const op errors.Op = "templates/Loader.loadSubDir"
+
 	var bundle = TemplateBundle{
 		base:            l.baseTemplates,
 		defaultPartials: l.defaultPartials,
@@ -297,8 +326,8 @@ func (l *Loader) loadSubDir(dir string) (map[string]*TemplateBundle, error) {
 	partialDir := path.Join(dir, PARTIAL_DIR)
 
 	entries, err := readDirFilter(l.fs, partialDir, isTemplate)
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return nil, err
+	if err != nil && !errors.IsE(err, fs.ErrNotExist) {
+		return nil, errors.E(op, err)
 	}
 
 	var partials = make([]string, 0, len(entries))
@@ -311,7 +340,7 @@ func (l *Loader) loadSubDir(dir string) (map[string]*TemplateBundle, error) {
 	// read the actual directory
 	entries, err = readDirFilter(l.fs, dir, isTemplate)
 	if err != nil {
-		return nil, err
+		return nil, errors.E(op, err)
 	}
 
 	var bundles = make(map[string]*TemplateBundle, len(entries))
@@ -349,9 +378,11 @@ func (l *Loader) loadSubDir(dir string) (map[string]*TemplateBundle, error) {
 
 // readDirFilter is fs.ReadDir but with an added filter function.
 func readDirFilter(fsys fs.FS, name string, fn func(fs.DirEntry) bool) ([]fs.DirEntry, error) {
+	const op errors.Op = "templates/readDirFilter"
+
 	entries, err := fs.ReadDir(fsys, name)
 	if err != nil {
-		return nil, err
+		return nil, errors.E(op, err)
 	}
 
 	var fe []fs.DirEntry
@@ -367,9 +398,11 @@ func readDirFilter(fsys fs.FS, name string, fn func(fs.DirEntry) bool) ([]fs.Dir
 // readDirFilterString is readDirFilter but with the returned entries turned into strings
 // by using entry.Name()
 func readDirFilterString(fsys fs.FS, name string, fn func(fs.DirEntry) bool) ([]string, error) {
+	const op errors.Op = "templates/readDirFilterString"
+
 	entries, err := readDirFilter(fsys, ".", fn)
 	if err != nil {
-		return nil, err
+		return nil, errors.E(op, err)
 	}
 
 	s := make([]string, 0, len(entries))
@@ -415,7 +448,9 @@ func (p *Pool[T]) Put(v T) {
 // Definitions prints a table showing what templates are defined in this Template and
 // from what file it was loaded. The last template in the table is the one in-use.
 func Definitions(fsys fs.FS, files []string) error {
+	const op errors.Op = "templates/Definitions"
 	const noop = "--noop--"
+
 	columns := []string{"filename"}
 	var cc = make(map[string]bool)
 	type row struct {
@@ -437,7 +472,7 @@ func Definitions(fsys fs.FS, files []string) error {
 
 		tmpl, err := createRoot().New(noop).Parse(contents)
 		if err != nil {
-			return err
+			return errors.E(op, err)
 		}
 
 		var r row
