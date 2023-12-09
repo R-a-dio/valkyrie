@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"sync"
 	"text/tabwriter"
 
 	"github.com/R-a-dio/valkyrie/errors"
@@ -49,6 +48,10 @@ func (s *Site) Reload() error {
 
 type TemplateSelector interface {
 	Template(theme, page string) (*template.Template, error)
+}
+
+func (s *Site) Executor() *Executor {
+	return NewExecutor(s)
 }
 
 // Template returns a Template associated with the theme and page name given.
@@ -416,33 +419,6 @@ func readDirFilterString(fsys fs.FS, name string, fn func(fs.DirEntry) bool) ([]
 // isTemplate checks if this entry is a template according to our definition
 func isTemplate(e os.DirEntry) bool {
 	return !e.IsDir() && filepath.Ext(e.Name()) == TEMPLATE_EXT
-}
-
-type Resetable interface {
-	Reset()
-}
-
-// Pool is a sync.Pool wrapped with a generic Resetable interface, the pool calls
-// Reset before returning an item to the pool.
-type Pool[T Resetable] struct {
-	p sync.Pool
-}
-
-func NewPool[T Resetable](newFn func() T) *Pool[T] {
-	return &Pool[T]{
-		sync.Pool{
-			New: func() interface{} { return newFn() },
-		},
-	}
-}
-
-func (p *Pool[T]) Get() T {
-	return p.p.Get().(T)
-}
-
-func (p *Pool[T]) Put(v T) {
-	v.Reset()
-	p.p.Put(v)
 }
 
 // Definitions prints a table showing what templates are defined in this Template and

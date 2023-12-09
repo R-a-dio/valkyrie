@@ -10,7 +10,7 @@ func (s State) GetFaves(w http.ResponseWriter, r *http.Request) {
 		sharedInput
 	}{}
 
-	err := s.Templates[theme]["faves"].ExecuteDev(w, favesInput)
+	err := s.TemplateExecutor.ExecuteFull(theme, "faves", w, favesInput)
 	if err != nil {
 		log.Println(err)
 		return

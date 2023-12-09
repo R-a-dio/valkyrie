@@ -17,14 +17,14 @@ type State struct {
 	config.Config
 
 	Storage   radio.StorageService
-	Templates templates.Templates
+	Templates *templates.Site
 }
 
 type admin struct {
 	config.Config
 
 	storage   radio.StorageService
-	templates templates.Templates
+	templates *templates.Executor
 }
 
 func newSessionManager() *scs.SessionManager {
@@ -49,8 +49,9 @@ func Router(ctx context.Context, s State) chi.Router {
 		Secure: true,
 	}
 
-	authentication := NewAuthentication(s.Storage, s.Templates, sessionManager)
-	admin := admin{s.Config, s.Storage, s.Templates}
+	executor := s.Templates.Executor()
+	authentication := NewAuthentication(s.Storage, executor, sessionManager)
+	admin := admin{s.Config, s.Storage, executor}
 
 	r := chi.NewRouter()
 	r.Use(sessionManager.LoadAndSave)

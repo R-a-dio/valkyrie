@@ -30,7 +30,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	streamer := cfg.Conf().Streamer.Client()
 	manager := cfg.Conf().Manager.Client()
 	// templates
-	tmpl, err := templates.LoadTemplates(cfg.Conf().TemplatePath)
+	siteTemplates, err := templates.FromDirectory(cfg.Conf().TemplatePath)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -68,16 +68,17 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	r.Mount("/admin", admin.Router(ctx, admin.State{
 		Config:    cfg,
 		Storage:   storage,
-		Templates: tmpl,
+		Templates: siteTemplates,
 	}))
 
 	// public routes
 	r.Mount("/", public.Router(ctx, public.State{
-		Config:    cfg,
-		Templates: tmpl,
-		Manager:   manager,
-		Streamer:  streamer,
-		Storage:   storage,
+		Config:           cfg,
+		Templates:        siteTemplates,
+		TemplateExecutor: siteTemplates.Executor(),
+		Manager:          manager,
+		Streamer:         streamer,
+		Storage:          storage,
 	}))
 
 	conf := cfg.Conf()

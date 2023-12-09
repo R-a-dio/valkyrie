@@ -10,7 +10,7 @@ func (s State) GetSearch(w http.ResponseWriter, r *http.Request) {
 		sharedInput
 	}{}
 
-	err := s.Templates[theme]["search"].ExecuteDev(w, searchInput)
+	err := s.TemplateExecutor.ExecuteFull(theme, "search", w, searchInput)
 	if err != nil {
 		log.Println(err)
 		return

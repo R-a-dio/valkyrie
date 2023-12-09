@@ -33,7 +33,7 @@ const (
 	userContextKey contextKey = "user-struct"
 )
 
-func NewAuthentication(storage radio.StorageService, tmpl templates.Templates, sessions *scs.SessionManager) authentication {
+func NewAuthentication(storage radio.StorageService, tmpl *templates.Executor, sessions *scs.SessionManager) authentication {
 	return authentication{
 		storage:   storage,
 		sessions:  sessions,
@@ -44,7 +44,7 @@ func NewAuthentication(storage radio.StorageService, tmpl templates.Templates, s
 type authentication struct {
 	storage   radio.StorageService
 	sessions  *scs.SessionManager
-	templates templates.Templates
+	templates *templates.Executor
 }
 
 // LoginMiddleware makes all routes require requests to be from logged in users
@@ -127,7 +127,7 @@ func (a *authentication) GetLogin(w http.ResponseWriter, r *http.Request) {
 		failedMessage = a.sessions.PopString(r.Context(), failedLoginMessageKey)
 	}
 
-	err := a.templates["default"]["admin-login"].Execute(w, loginInfo{failed, failedMessage})
+	err := a.templates.ExecuteFull("default", "admin-login", w, loginInfo{failed, failedMessage})
 	if err != nil {
 		log.Println(err)
 		return

@@ -10,7 +10,7 @@ func (s State) GetSubmit(w http.ResponseWriter, r *http.Request) {
 		sharedInput
 	}{}
 
-	err := s.Templates[theme]["submit"].ExecuteDev(w, submitInput)
+	err := s.TemplateExecutor.ExecuteFull(theme, "submit", w, submitInput)
 	if err != nil {
 		log.Println(err)
 		return

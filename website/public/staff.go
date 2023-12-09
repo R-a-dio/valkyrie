@@ -10,7 +10,7 @@ func (s State) GetStaff(w http.ResponseWriter, r *http.Request) {
 		sharedInput
 	}{}
 
-	err := s.Templates[theme]["staff"].ExecuteDev(w, staffInput)
+	err := s.TemplateExecutor.ExecuteFull(theme, "staff", w, staffInput)
 	if err != nil {
 		log.Println(err)
 		return

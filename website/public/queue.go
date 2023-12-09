@@ -10,7 +10,7 @@ func (s State) GetQueue(w http.ResponseWriter, r *http.Request) {
 		sharedInput
 	}{}
 
-	err := s.Templates[theme]["queue"].ExecuteDev(w, queueInput)
+	err := s.TemplateExecutor.ExecuteFull(theme, "queue", w, queueInput)
 	if err != nil {
 		log.Println(err)
 		return

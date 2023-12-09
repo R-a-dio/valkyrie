@@ -10,7 +10,7 @@ func (s State) GetChat(w http.ResponseWriter, r *http.Request) {
 		sharedInput
 	}{}
 
-	err := s.Templates[theme]["chat"].ExecuteDev(w, chatInput)
+	err := s.TemplateExecutor.ExecuteFull(theme, "chat", w, chatInput)
 	if err != nil {
 		log.Println(err)
 		return

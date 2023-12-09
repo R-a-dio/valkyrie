@@ -10,7 +10,7 @@ func (s State) GetLastPlayed(w http.ResponseWriter, r *http.Request) {
 		sharedInput
 	}{}
 
-	err := s.Templates[theme]["lastplayed"].ExecuteDev(w, lpInput)
+	err := s.TemplateExecutor.ExecuteFull(theme, "lastplayed", w, lpInput)
 	if err != nil {
 		log.Println(err)
 		return

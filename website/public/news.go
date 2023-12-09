@@ -10,7 +10,7 @@ func (s State) GetNews(w http.ResponseWriter, r *http.Request) {
 		sharedInput
 	}{}
 
-	err := s.Templates[theme]["news"].ExecuteDev(w, newsInput)
+	err := s.TemplateExecutor.ExecuteFull(theme, "news", w, newsInput)
 	if err != nil {
 		log.Println(err)
 		return

@@ -16,10 +16,11 @@ const theme = "default"
 type State struct {
 	config.Config
 
-	Templates templates.Templates
-	Manager   radio.ManagerService
-	Streamer  radio.StreamerService
-	Storage   radio.StorageService
+	Templates        *templates.Site
+	TemplateExecutor *templates.Executor
+	Manager          radio.ManagerService
+	Streamer         radio.StreamerService
+	Storage          radio.StorageService
 }
 
 type sharedInput struct {
