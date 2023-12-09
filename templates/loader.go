@@ -1,25 +1,396 @@
+// Package templates handles the website templating system.
+//
+// This supports several 'themes' and partials for template-reuse
 package templates
 
 import (
-	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
-	"io"
-	"io/ioutil"
+	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"text/tabwriter"
 )
 
-var bufferPool *Pool[*bytes.Buffer]
+const (
+	// the extension used for template files
+	TEMPLATE_EXT = ".tmpl"
+	// the directory name used for shared templates inside of a subdirectory
+	PARTIAL_DIR = "partials"
+	// directory name of the default templates
+	DEFAULT_DIR = "default"
+)
+
+// Site is an overarching struct containing all the themes of the website.
+type Site struct {
+	loader Loader
+
+	themes Themes
+	cache  map[string]*template.Template
+}
+
+func (s *Site) Reload() error {
+	themes, err := s.loader.Load()
+	if err != nil {
+		return err
+	}
+	s.themes = themes
+	return nil
+}
+
+type TemplateSelector interface {
+	Template(theme, page string) (*template.Template, error)
+}
+
+// Template returns a Template associated with the theme and page name given.
+//
+// If theme does not exist it uses the default-theme
+func (s *Site) Template(theme, page string) (*template.Template, error) {
+	return s.devTemplate(theme, page)
+}
+
+// devTemplate is the Template implementation used during development such that
+// all files are reread and reparsed on every invocation.
+func (s *Site) devTemplate(theme, page string) (*template.Template, error) {
+	if err := s.Reload(); err != nil {
+		return nil, err
+	}
+
+	pb, err := s.Theme(theme).Page(page)
+	if err != nil {
+		return nil, err
+	}
+
+	tmpl, err := pb.Template()
+	if err != nil {
+		return nil, err
+	}
+
+	return tmpl, nil
+}
+
+// prodTemplate is the Template implementation used for production, this implementation
+// caches a *template.Template after its first use
+func (s *Site) prodTemplate(theme, page string) (*template.Template, error) {
+	// resolve theme name so that it's either an existing theme or default
+	theme = s.ResolveThemeName(theme)
+	// merge theme and page into a key we can use for our cache map
+	key := theme + "/" + page
+
+	if tmpl, ok := s.cache[key]; ok {
+		return tmpl, nil
+	}
+
+	return nil, errors.New("unknown theme/page key")
+}
+
+func (s *Site) Theme(name string) ThemeBundle {
+	if ps, ok := s.themes[name]; ok {
+		return ps
+	}
+	return s.themes[DEFAULT_DIR]
+}
+
+func (s *Site) ResolveThemeName(name string) string {
+	if _, ok := s.themes[name]; ok {
+		return name
+	}
+	return DEFAULT_DIR
+}
+
+func (s *Site) makeCache() error {
+	cache := make(map[string]*template.Template)
+	for themeName, theme := range s.themes {
+		for name, bundle := range theme.pages {
+			key := themeName + "/" + name
+			tmpl, err := bundle.Template()
+			if err != nil {
+				return err
+			}
+			cache[key] = tmpl
+		}
+	}
+
+	s.cache = cache
+	return nil
+}
+
+func FromDirectory(dir string) (*Site, error) {
+	fsys := os.DirFS(dir)
+	return FromFS(fsys)
+}
+
+func FromFS(fsys fs.FS) (*Site, error) {
+	var err error
+	tmpl := Site{
+		loader: NewLoader(fsys),
+		//bufferPool: NewPool(func() *bytes.Buffer { return new(bytes.Buffer) }),
+		cache: make(map[string]*template.Template),
+	}
+
+	tmpl.themes, err = tmpl.loader.Load()
+	if err != nil {
+		return nil, err
+	}
+
+	return &tmpl, nil
+}
+
+func NewLoader(fsys fs.FS) Loader {
+	return Loader{fs: fsys}
+}
+
+type Loader struct {
+	// fs is the filesystem we're loading files from
+	fs fs.FS
+
+	// baseTemplates contain the files at the base of the directory hierarchy and are included
+	// in all bundles
+	baseTemplates []string
+	// defaultTheme is a mapping of page-name to default-template-bundle for easy backfilling of
+	// undefined pages in themes
+	defaultTheme map[string]*TemplateBundle
+	// defaultPartials contain the files in the DEFAULT_DIR/partials directory and are included
+	// in all themes as partials
+	defaultPartials []string
+}
+
+// TemplateBundle contains all the filenames required to construct a template instance
+// for the page
+type TemplateBundle struct {
+	// the following fields contain all the filenames of the templates we're parsing
+	// into a html/template.Template. They're listed in load-order, last one wins.
+	base            []string
+	defaultPartials []string
+	partials        []string
+	defaultPage     string
+	page            string
+
+	cache *template.Template
+}
+
+// Files returns all the files in this bundle sorted in load-order
+func (tb *TemplateBundle) Files() []string {
+	s := make([]string, 0, len(tb.base)+len(tb.defaultPartials)+len(tb.partials)+2)
+	s = append(s, tb.base...)
+	s = append(s, tb.defaultPartials...)
+	s = append(s, tb.partials...)
+	if tb.defaultPage != "" {
+		s = append(s, tb.defaultPage)
+	}
+	if tb.page != "" {
+		s = append(s, tb.page)
+	}
+	return s
+}
+
+// Template returns a *html.Template with all files contained in this bundle
+func (tb *TemplateBundle) Template() (*template.Template, error) {
+	return createRoot().ParseFiles(tb.Files()...)
+}
+
+// createRoot creates a root template that adds global utility functions to
+// all other template files.
+func createRoot() *template.Template {
+	return template.New("root").
+		Funcs(map[string]interface{}{
+			"printjson": func(v interface{}) (template.HTML, error) {
+				b, err := json.MarshalIndent(v, "", "\t")
+				return template.HTML("<pre>" + string(b) + "</pre>"), err
+			},
+		})
+}
+
+type Themes map[string]ThemeBundle
+
+// ThemeBundle
+type ThemeBundle struct {
+	name  string
+	pages map[string]*TemplateBundle
+}
+
+func (tb ThemeBundle) Page(name string) (*TemplateBundle, error) {
+	tlb, ok := tb.pages[name]
+	if !ok {
+		return nil, errors.New("unknown page")
+	}
+
+	return tlb, nil
+}
+
+func (l *Loader) Load() (Themes, error) {
+	bt, err := readDirFilterString(l.fs, ".", isTemplate)
+	if err != nil {
+		return nil, err
+	}
+	l.baseTemplates = bt
+
+	// find our default directory
+	defaultBundle, err := l.loadSubDir(DEFAULT_DIR)
+	if err != nil {
+		return nil, err
+	}
+	// sanity check that we have atleast 1 bundle
+	if len(defaultBundle) == 0 {
+		return nil, errors.New("default bundle empty")
+	}
+
+	// grab the partials from the first bundle
+	for _, v := range defaultBundle {
+		l.defaultPartials = v.partials
+		break
+	}
+
+	// plant the defaults in the loader so the other themes can use them
+	l.defaultTheme = defaultBundle
+
+	// read the rest of the directories
+	subdirs, err := readDirFilterString(l.fs, ".", func(e fs.DirEntry) bool { return e.IsDir() })
+	if err != nil {
+		return nil, err
+	}
+
+	themes := Themes{
+		DEFAULT_DIR: ThemeBundle{DEFAULT_DIR, defaultBundle},
+	}
+	for _, subdir := range subdirs {
+		if subdir == DEFAULT_DIR { // skip the default dir since we already loaded it earlier
+			continue
+		}
+		bundles, err := l.loadSubDir(subdir)
+		if err != nil {
+			return nil, err
+		}
+
+		themes[subdir] = ThemeBundle{
+			name:  subdir,
+			pages: bundles,
+		}
+	}
+
+	return themes, nil
+}
+
+// noExt removes the extension of s as returned by filepath.Ext
+func noExt(s string) string {
+	return strings.TrimSuffix(filepath.Base(s), filepath.Ext(s))
+}
+
+// loadSubDir searches a subdirectory of the FS used in the creation of the loader.
+//
+// it looks for `*.tmpl` files in this subdirectory and in a `partials/` subdirectory
+// if one exists. Returns a map of `filename:bundle` where the bundle is a TemplateBundle
+// that contains all the filenames required to construct the page named after the filename.
+func (l *Loader) loadSubDir(dir string) (map[string]*TemplateBundle, error) {
+	var bundle = TemplateBundle{
+		base:            l.baseTemplates,
+		defaultPartials: l.defaultPartials,
+	}
+
+	// read the partials subdirectory
+	partialDir := path.Join(dir, PARTIAL_DIR)
+
+	entries, err := readDirFilter(l.fs, partialDir, isTemplate)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return nil, err
+	}
+
+	var partials = make([]string, 0, len(entries))
+	for _, entry := range entries {
+		partials = append(partials, path.Join(partialDir, entry.Name()))
+	}
+
+	bundle.partials = partials
+
+	// read the actual directory
+	entries, err = readDirFilter(l.fs, dir, isTemplate)
+	if err != nil {
+		return nil, err
+	}
+
+	var bundles = make(map[string]*TemplateBundle, len(entries))
+	for _, entry := range entries {
+		name := entry.Name()
+		// create a bundle for each page in this directory
+		bundle := bundle
+		defaultPage := l.defaultTheme[noExt(name)]
+		if defaultPage != nil {
+			bundle.defaultPage = defaultPage.page
+		}
+		bundle.page = path.Join(dir, name)
+
+		bundles[noExt(name)] = &bundle
+	}
+
+	// if there are no defaults to handle, we're done
+	if l.defaultTheme == nil {
+		return bundles, nil
+	}
+
+	// otherwise check for missing pages, these are pages defined
+	// in the default theme but not in this current theme. Copy over
+	// the default pages if they're missing.
+	for name, page := range l.defaultTheme {
+		_, ok := bundles[name]
+		if ok {
+			continue
+		}
+		bundles[name] = page
+	}
+
+	return bundles, nil
+}
+
+// readDirFilter is fs.ReadDir but with an added filter function.
+func readDirFilter(fsys fs.FS, name string, fn func(fs.DirEntry) bool) ([]fs.DirEntry, error) {
+	entries, err := fs.ReadDir(fsys, name)
+	if err != nil {
+		return nil, err
+	}
+
+	var fe []fs.DirEntry
+	for _, entry := range entries {
+		if fn(entry) {
+			fe = append(fe, entry)
+		}
+	}
+
+	return fe, nil
+}
+
+// readDirFilterString is readDirFilter but with the returned entries turned into strings
+// by using entry.Name()
+func readDirFilterString(fsys fs.FS, name string, fn func(fs.DirEntry) bool) ([]string, error) {
+	entries, err := readDirFilter(fsys, ".", fn)
+	if err != nil {
+		return nil, err
+	}
+
+	s := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		s = append(s, entry.Name())
+	}
+
+	return s, nil
+}
+
+// isTemplate checks if this entry is a template according to our definition
+func isTemplate(e os.DirEntry) bool {
+	return !e.IsDir() && filepath.Ext(e.Name()) == TEMPLATE_EXT
+}
 
 type Resetable interface {
 	Reset()
 }
 
+// Pool is a sync.Pool wrapped with a generic Resetable interface, the pool calls
+// Reset before returning an item to the pool.
 type Pool[T Resetable] struct {
 	p sync.Pool
 }
@@ -41,238 +412,9 @@ func (p *Pool[T]) Put(v T) {
 	p.p.Put(v)
 }
 
-func init() {
-	// initialize global buffer pool, this should probably not be global. But as we
-	// don't have a nice type to encapsulate it in yet this will do for now. It should
-	// be moved to said type once it exists
-	bufferPool = NewPool(func() *bytes.Buffer { return new(bytes.Buffer) })
-}
-
-// Templates is a mapping of theme > page > template
-type Templates map[string]map[string]Template
-
-type theme struct {
-	partials []string
-	pages    []string
-}
-
-// filecache is a super simple cache of file contents, this is NOT a threadsafe or
-// very optimized cache. It's purely to avoid repeatedly reading the same file from disk
-// inside of LoadTemplates
-type filecache map[string]string
-
-func (cache *filecache) readFile(filename string) (string, error) {
-	if *cache == nil {
-		*cache = make(filecache)
-	}
-
-	// grab our cached file, the zero value is usable so we do that
-	content, ok := (*cache)[filename]
-	if ok {
-		return content, nil
-	}
-
-	b, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return "", err
-	}
-
-	content = string(b)
-	(*cache)[filename] = content
-	return content, nil
-}
-
-// LoadTemplates loads the directory specified as several templates
-//
-// Load Order:
-//
-//	dir/*.tmpl
-//	dir/default/partials/*.tmpl
-//	dir/<theme>/partials/*.tmpl
-//	dir/default/<page>.tmpl
-//	dir/<theme>/<page>.tmpl
-func LoadTemplates(dir string) (Templates, error) {
-	// top-level of the directory we're getting should be filled with directories
-	// named after themes. We special case "default" here to mean the fallback
-	// option if a theme doesn't replace something
-	all, err := ioutil.ReadDir(dir)
-	if err != nil {
-		return nil, err
-	}
-	// filter out directories
-	themeNames := make([]string, 0, len(all))
-	for _, fi := range all {
-		if fi.IsDir() {
-			themeNames = append(themeNames, fi.Name())
-		}
-	}
-
-	// first we load all .tmpl files at the top level, this is our base
-	baseFiles, err := filepath.Glob(filepath.Join(dir, "*.tmpl"))
-	if err != nil {
-		return nil, err
-	}
-
-	// second collect all partials and pages for the themes
-	themes := make(map[string]theme, len(themeNames))
-	for _, name := range themeNames {
-		partials, err := filepath.Glob(filepath.Join(dir, name, "partials", "*.tmpl"))
-		if err != nil {
-			return nil, err
-		}
-
-		pages, err := filepath.Glob(filepath.Join(dir, name, "*.tmpl"))
-		if err != nil {
-			return nil, err
-		}
-
-		themes[name] = theme{partials, pages}
-	}
-
-	// setup quick access to default pages by making a map of page -> filename
-	defaultTheme, ok := themes["default"]
-	if !ok {
-		panic("missing default theme")
-	}
-	// setup quick access to default pages
-	defaultPages := make(map[string]string, len(defaultTheme.pages))
-	for _, page := range defaultTheme.pages {
-		defaultPages[filepath.Base(page)] = page
-	}
-
-	// dummy invocation template so we can use .Execute
-	dummy := createDummy()
-	var cache filecache
-	// fourth: matchup our base, defaults and theme templates
-	//
-	// each template will contain [base, default-partials, theme-partials] and then
-	// the default page template if available and the actual page template from
-	completed := make(map[string]map[string]Template)
-	for name, theme := range themes {
-		for _, page := range theme.pages {
-			var bundle []string
-			bundle = append(bundle, baseFiles...)
-			if name != "default" {
-				bundle = append(bundle, defaultTheme.partials...)
-			}
-			bundle = append(bundle, theme.partials...)
-			// finish off the bundle with the default page
-			d, ok := defaultPages[filepath.Base(page)]
-			if ok && name != "default" {
-				bundle = append(bundle, d)
-			}
-			// and the themed page
-			bundle = append(bundle, page)
-
-			// now we're ready to construct the template, create a clone of our
-			// dummy-invocation and then start reading the files in the bundle to
-			// add to the template
-			parent := template.Must(dummy.Clone())
-			pageTmpl, err := loadTemplate(parent, cache, bundle)
-			if err != nil {
-				return nil, err
-			}
-
-			if completed[name] == nil {
-				completed[name] = make(map[string]Template)
-			}
-
-			nonAffix := strings.TrimSuffix(filepath.Base(page), filepath.Ext(page))
-			completed[name][nonAffix] = *pageTmpl
-		}
-	}
-
-	for theme, m := range completed {
-		for page, tmpl := range m {
-			var names []string
-			for _, t := range tmpl.Templates() {
-				names = append(names, t.Name())
-			}
-			fmt.Printf("(%s) %s: %s\n", theme, page, names)
-		}
-	}
-	//completed["default"]["search.tmpl"].Definitions()
-	return completed, nil
-}
-
-// createDummy creates a dummy template that calls a template called "base" and
-// adds utility functions to the funcs map.
-func createDummy() *template.Template {
-	return template.Must(
-		template.New("invocation").
-			Funcs(map[string]interface{}{
-				"printjson": func(v interface{}) (template.HTML, error) {
-					b, err := json.MarshalIndent(v, "", "\t")
-					return template.HTML("<pre>" + string(b) + "</pre>"), err
-				},
-			}).
-			Parse(`{{ template "base" . }}`),
-	)
-}
-
-func loadTemplate(parent *template.Template, cache filecache, bundle []string) (*Template, error) {
-	for _, filename := range bundle {
-		contents, err := cache.readFile(filename)
-		if err != nil {
-			return nil, err
-		}
-		_, err = parent.Parse(contents)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return &Template{bundle, parent}, nil
-}
-
-// Reload the template from disk and returns the new template
-func (t Template) Reload() (*Template, error) {
-	dummy := createDummy()
-	var cache filecache
-
-	return loadTemplate(dummy, cache, t.Files)
-}
-
-// ExecuteDev calls Reload before calling Execute
-func (t Template) ExecuteDev(w io.Writer, data interface{}) error {
-	new, err := t.Reload()
-	if err != nil {
-		return err
-	}
-
-	return new.Execute(w, data)
-}
-
-// Execute executes the template with the data given and writes it to w, uses
-// a buffer internally to avoid partial-writes to the writer
-func (t Template) Execute(w io.Writer, data interface{}) error {
-	buf := bufferPool.Get()
-	defer bufferPool.Put(buf)
-
-	err := t.Template.Execute(buf, data)
-	if err != nil {
-		return err
-	}
-	_, err = io.Copy(w, buf)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// Template contains the templates that constructs a singular page
-type Template struct {
-	// Files this template was constructed from, they are loaded in order,
-	// starting from the front
-	Files []string
-	// Tmpl the actual template construct
-	*template.Template
-}
-
 // Definitions prints a table showing what templates are defined in this Template and
 // from what file it was loaded. The last template in the table is the one in-use.
-func (t Template) Definitions() error {
+func Definitions(fsys fs.FS, files []string) error {
 	const noop = "--noop--"
 	columns := []string{"filename"}
 	var cc = make(map[string]bool)
@@ -284,15 +426,16 @@ func (t Template) Definitions() error {
 	rows := []row{}
 
 	// go through each file
-	var cache filecache
+	//var cache filecache
 
-	for _, filename := range t.Files {
-		contents, err := cache.readFile(filename)
+	for _, filename := range files {
+		b, err := fs.ReadFile(fsys, filename)
 		if err != nil {
 			return err
 		}
+		contents := string(b)
 
-		tmpl, err := template.New(noop).Parse(contents)
+		tmpl, err := createRoot().New(noop).Parse(contents)
 		if err != nil {
 			return err
 		}
@@ -307,7 +450,7 @@ func (t Template) Definitions() error {
 			}
 			r.names[name] = true
 			// check if it's a new template we found
-			if !cc[name] {
+			if !cc[name] && name != "root" {
 				cc[name] = true
 				columns = append(columns, name)
 			}
@@ -315,6 +458,8 @@ func (t Template) Definitions() error {
 
 		rows = append(rows, r)
 	}
+
+	slices.Sort(columns[1:])
 
 	data := make([][]string, 0, len(rows))
 

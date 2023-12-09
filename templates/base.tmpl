@@ -1,14 +1,17 @@
-{{define "base"}}
+{{define "full-page"}}
 <html>
 <head>
     {{ template "head" . }}
+    {{ template "scripts" . }}
 </head>
 <body>
-    {{ template "scripts" . }}
-    {{ template "navbar" . }}
-    {{ template "content" . }}
+    {{ template "partial-page" . }}
 </body>
 </html>
+{{end}}
+{{define "partial-page"}}
+    {{ template "navbar" . }}
+    {{ template "content" . }}
 {{end}}
 {{ define "navbar" }}{{ end }}
 {{ define "scripts" }}{{ end }}
