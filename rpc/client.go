@@ -4,8 +4,8 @@ import (
 	"context"
 
 	radio "github.com/R-a-dio/valkyrie"
-	"github.com/golang/protobuf/ptypes/empty"
-	"github.com/golang/protobuf/ptypes/wrappers"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // NewAnnouncerClient returns a new AnnouncerClient with the client connecting to the given
@@ -62,7 +62,7 @@ var _ radio.ManagerService = ManagerClient{}
 
 // Status implements radio.ManagerService
 func (m ManagerClient) Status(ctx context.Context) (*radio.Status, error) {
-	s, err := m.twirp.Status(ctx, new(empty.Empty))
+	s, err := m.twirp.Status(ctx, new(emptypb.Empty))
 	if err != nil {
 		return nil, err
 	}
@@ -98,9 +98,7 @@ func (m ManagerClient) UpdateSong(ctx context.Context, s radio.Song, i radio.Son
 
 // UpdateThread implements radio.ManagerService
 func (m ManagerClient) UpdateThread(ctx context.Context, thread string) error {
-	_, err := m.twirp.SetThread(ctx, &wrappers.StringValue{
-		Value: thread,
-	})
+	_, err := m.twirp.SetThread(ctx, wrapperspb.String(thread))
 	return err
 }
 
@@ -128,7 +126,7 @@ var _ radio.StreamerService = StreamerClient{}
 
 // Start implements radio.StreamerService
 func (s StreamerClient) Start(ctx context.Context) error {
-	resp, err := s.twirp.Start(ctx, new(empty.Empty))
+	resp, err := s.twirp.Start(ctx, new(emptypb.Empty))
 	if err != nil {
 		return err
 	}
@@ -137,9 +135,7 @@ func (s StreamerClient) Start(ctx context.Context) error {
 
 // Stop implements radio.StreamerService
 func (s StreamerClient) Stop(ctx context.Context, force bool) error {
-	resp, err := s.twirp.Stop(ctx, &wrappers.BoolValue{
-		Value: force,
-	})
+	resp, err := s.twirp.Stop(ctx, wrapperspb.Bool(force))
 	if err != nil {
 		return err
 	}
@@ -165,7 +161,7 @@ func (s StreamerClient) RequestSong(ctx context.Context, song radio.Song, identi
 
 // Queue implements radio.StreamerService
 func (s StreamerClient) Queue(ctx context.Context) ([]radio.QueueEntry, error) {
-	resp, err := s.twirp.Queue(ctx, new(empty.Empty))
+	resp, err := s.twirp.Queue(ctx, new(emptypb.Empty))
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +200,7 @@ func (q QueueClient) AddRequest(ctx context.Context, s radio.Song, identifier st
 
 // ReserveNext implements radio.QueueService
 func (q QueueClient) ReserveNext(ctx context.Context) (*radio.QueueEntry, error) {
-	resp, err := q.twirp.ReserveNext(ctx, new(empty.Empty))
+	resp, err := q.twirp.ReserveNext(ctx, new(emptypb.Empty))
 	if err != nil {
 		return nil, err
 	}
@@ -229,7 +225,7 @@ func (q QueueClient) Remove(ctx context.Context, entry radio.QueueEntry) (bool, 
 
 // Entries implements radio.QueueService
 func (q QueueClient) Entries(ctx context.Context) ([]radio.QueueEntry, error) {
-	resp, err := q.twirp.Entries(ctx, new(empty.Empty))
+	resp, err := q.twirp.Entries(ctx, new(emptypb.Empty))
 	if err != nil {
 		return nil, err
 	}

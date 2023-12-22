@@ -4,8 +4,8 @@ import (
 	"context"
 
 	radio "github.com/R-a-dio/valkyrie"
-	"github.com/golang/protobuf/ptypes/empty"
-	"github.com/golang/protobuf/ptypes/wrappers"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // NewAnnouncer returns a new shim around the service given
@@ -21,19 +21,19 @@ type AnnouncerShim struct {
 }
 
 // AnnounceSong implements Announcer
-func (as AnnouncerShim) AnnounceSong(ctx context.Context, a *SongAnnouncement) (*empty.Empty, error) {
+func (as AnnouncerShim) AnnounceSong(ctx context.Context, a *SongAnnouncement) (*emptypb.Empty, error) {
 	err := as.announcer.AnnounceSong(ctx, radio.Status{
 		Song:      fromProtoSong(a.Song),
 		SongInfo:  fromProtoSongInfo(a.Info),
 		Listeners: int(a.ListenerInfo.Listeners),
 	})
-	return new(empty.Empty), err
+	return new(emptypb.Empty), err
 }
 
 // AnnounceRequest implements Announcer
-func (as AnnouncerShim) AnnounceRequest(ctx context.Context, ar *SongRequestAnnouncement) (*empty.Empty, error) {
+func (as AnnouncerShim) AnnounceRequest(ctx context.Context, ar *SongRequestAnnouncement) (*emptypb.Empty, error) {
 	err := as.announcer.AnnounceRequest(ctx, fromProtoSong(ar.Song))
-	return new(empty.Empty), err
+	return new(emptypb.Empty), err
 }
 
 // NewManager returns a new shim around the service given
@@ -49,7 +49,7 @@ type ManagerShim struct {
 }
 
 // Status implements Manager
-func (m ManagerShim) Status(ctx context.Context, _ *empty.Empty) (*StatusResponse, error) {
+func (m ManagerShim) Status(ctx context.Context, _ *emptypb.Empty) (*StatusResponse, error) {
 	s, err := m.manager.Status(ctx)
 	if err != nil {
 		return nil, err
@@ -71,33 +71,33 @@ func (m ManagerShim) Status(ctx context.Context, _ *empty.Empty) (*StatusRespons
 }
 
 // SetUser implements Manager
-func (m ManagerShim) SetUser(ctx context.Context, u *UserUpdate) (*empty.Empty, error) {
+func (m ManagerShim) SetUser(ctx context.Context, u *UserUpdate) (*emptypb.Empty, error) {
 	err := m.manager.UpdateUser(ctx, u.StreamerName, fromProtoUser(u.User))
-	return new(empty.Empty), err
+	return new(emptypb.Empty), err
 }
 
 // SetSong implements Manager
-func (m ManagerShim) SetSong(ctx context.Context, su *SongUpdate) (*empty.Empty, error) {
+func (m ManagerShim) SetSong(ctx context.Context, su *SongUpdate) (*emptypb.Empty, error) {
 	err := m.manager.UpdateSong(ctx, fromProtoSong(su.Song), fromProtoSongInfo(su.Info))
-	return new(empty.Empty), err
+	return new(emptypb.Empty), err
 }
 
 // SetStreamerConfig implements Manager
-func (m ManagerShim) SetStreamerConfig(ctx context.Context, c *StreamerConfig) (*empty.Empty, error) {
+func (m ManagerShim) SetStreamerConfig(ctx context.Context, c *StreamerConfig) (*emptypb.Empty, error) {
 	// TODO: implement this
-	return new(empty.Empty), nil
+	return new(emptypb.Empty), nil
 }
 
 // SetThread implements Manager
-func (m ManagerShim) SetThread(ctx context.Context, t *wrappers.StringValue) (*empty.Empty, error) {
+func (m ManagerShim) SetThread(ctx context.Context, t *wrapperspb.StringValue) (*emptypb.Empty, error) {
 	err := m.manager.UpdateThread(ctx, t.Value)
-	return new(empty.Empty), err
+	return new(emptypb.Empty), err
 }
 
 // SetListenerInfo implements Manager
-func (m ManagerShim) SetListenerInfo(ctx context.Context, i *ListenerInfo) (*empty.Empty, error) {
+func (m ManagerShim) SetListenerInfo(ctx context.Context, i *ListenerInfo) (*emptypb.Empty, error) {
 	err := m.manager.UpdateListeners(ctx, int(i.Listeners))
-	return new(empty.Empty), err
+	return new(emptypb.Empty), err
 }
 
 // NewStreamer returns a new shim around the service given
@@ -113,7 +113,7 @@ type StreamerShim struct {
 }
 
 // Start implements Streamer
-func (ss StreamerShim) Start(ctx context.Context, _ *empty.Empty) (*StreamerResponse, error) {
+func (ss StreamerShim) Start(ctx context.Context, _ *emptypb.Empty) (*StreamerResponse, error) {
 	err := ss.streamer.Start(ctx)
 	resp := new(StreamerResponse)
 	resp.Error, err = toProtoError(err)
@@ -121,7 +121,7 @@ func (ss StreamerShim) Start(ctx context.Context, _ *empty.Empty) (*StreamerResp
 }
 
 // Stop implements Streamer
-func (ss StreamerShim) Stop(ctx context.Context, force *wrappers.BoolValue) (*StreamerResponse, error) {
+func (ss StreamerShim) Stop(ctx context.Context, force *wrapperspb.BoolValue) (*StreamerResponse, error) {
 	err := ss.streamer.Stop(ctx, force.Value)
 	resp := new(StreamerResponse)
 	resp.Error, err = toProtoError(err)
@@ -137,7 +137,7 @@ func (ss StreamerShim) RequestSong(ctx context.Context, req *SongRequest) (*Requ
 }
 
 // Queue implements Streamer
-func (ss StreamerShim) Queue(ctx context.Context, _ *empty.Empty) (*QueueInfo, error) {
+func (ss StreamerShim) Queue(ctx context.Context, _ *emptypb.Empty) (*QueueInfo, error) {
 	entries, err := ss.streamer.Queue(ctx)
 	if err != nil {
 		return nil, err
@@ -154,9 +154,9 @@ func (ss StreamerShim) Queue(ctx context.Context, _ *empty.Empty) (*QueueInfo, e
 }
 
 // SetConfig implements Streamer
-func (ss StreamerShim) SetConfig(ctx context.Context, c *StreamerConfig) (*empty.Empty, error) {
+func (ss StreamerShim) SetConfig(ctx context.Context, c *StreamerConfig) (*emptypb.Empty, error) {
 	// TODO: implement this
-	return new(empty.Empty), nil
+	return new(emptypb.Empty), nil
 }
 
 // NewQueue returns a new shim around the service given
@@ -172,16 +172,16 @@ type QueueShim struct {
 }
 
 // AddRequest implements Queue
-func (q QueueShim) AddRequest(ctx context.Context, e *QueueEntry) (*empty.Empty, error) {
+func (q QueueShim) AddRequest(ctx context.Context, e *QueueEntry) (*emptypb.Empty, error) {
 	err := q.queue.AddRequest(ctx, fromProtoSong(e.Song), e.UserIdentifier)
 	if err != nil {
 		return nil, err
 	}
-	return new(empty.Empty), nil
+	return new(emptypb.Empty), nil
 }
 
 // ReserveNext implements Queue
-func (q QueueShim) ReserveNext(ctx context.Context, _ *empty.Empty) (*QueueEntry, error) {
+func (q QueueShim) ReserveNext(ctx context.Context, _ *emptypb.Empty) (*QueueEntry, error) {
 	e, err := q.queue.ReserveNext(ctx)
 	if err != nil {
 		return nil, err
@@ -191,19 +191,17 @@ func (q QueueShim) ReserveNext(ctx context.Context, _ *empty.Empty) (*QueueEntry
 }
 
 // Remove implements Queue
-func (q QueueShim) Remove(ctx context.Context, e *QueueEntry) (*wrappers.BoolValue, error) {
+func (q QueueShim) Remove(ctx context.Context, e *QueueEntry) (*wrapperspb.BoolValue, error) {
 	ok, err := q.queue.Remove(ctx, *fromProtoQueueEntry(e))
 	if err != nil {
 		return nil, err
 	}
 
-	return &wrappers.BoolValue{
-		Value: ok,
-	}, nil
+	return wrapperspb.Bool(ok), nil
 }
 
 // Entries implements Queue
-func (q QueueShim) Entries(ctx context.Context, _ *empty.Empty) (*QueueInfo, error) {
+func (q QueueShim) Entries(ctx context.Context, _ *emptypb.Empty) (*QueueInfo, error) {
 	entries, err := q.queue.Entries(ctx)
 	if err != nil {
 		return nil, err

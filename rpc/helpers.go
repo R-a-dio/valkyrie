@@ -6,17 +6,17 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
-	"github.com/golang/protobuf/ptypes"
-	duration "github.com/golang/protobuf/ptypes/duration"
-	timestamp "github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/golang/protobuf/ptypes/duration"
+	"github.com/golang/protobuf/ptypes/timestamp"
+	durationpb "google.golang.org/protobuf/types/known/durationpb"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func t(x *timestamp.Timestamp) time.Time {
 	if x == nil {
 		return time.Time{}
 	}
-	y, _ := ptypes.Timestamp(x)
-	return y
+	return x.AsTime()
 }
 
 // ptrt is a pointer version of t
@@ -26,8 +26,7 @@ func ptrt(x *timestamp.Timestamp) *time.Time {
 }
 
 func tp(x time.Time) *timestamp.Timestamp {
-	y, _ := ptypes.TimestampProto(x)
-	return y
+	return timestamppb.New(x)
 }
 
 // ptrtp is a pointer version of tp
@@ -42,12 +41,11 @@ func d(x *duration.Duration) time.Duration {
 	if x == nil {
 		return 0
 	}
-	y, _ := ptypes.Duration(x)
-	return y
+	return x.AsDuration()
 }
 
 func dp(x time.Duration) *duration.Duration {
-	return ptypes.DurationProto(x)
+	return durationpb.New(x)
 }
 
 func toProtoSong(s radio.Song) *Song {
@@ -86,7 +84,6 @@ func fromProtoSong(s *Song) radio.Song {
 
 	var track *radio.DatabaseTrack
 	if s.TrackId != 0 {
-		delay, _ := ptypes.Duration(s.RequestDelay)
 		track = &radio.DatabaseTrack{
 			TrackID:       radio.TrackID(s.TrackId),
 			Artist:        s.Artist,
@@ -100,7 +97,7 @@ func fromProtoSong(s *Song) radio.Song {
 			Usable:        s.Usable,
 			LastRequested: t(s.LastRequested),
 			RequestCount:  int(s.RequestCount),
-			RequestDelay:  delay,
+			RequestDelay:  s.RequestDelay.AsDuration(),
 		}
 	}
 

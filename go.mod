@@ -4,12 +4,12 @@ go 1.21
 
 require (
 	github.com/BurntSushi/toml v1.3.2
-	github.com/DATA-DOG/go-sqlmock v1.5.0
+	github.com/DATA-DOG/go-sqlmock v1.5.1
 	github.com/alexedwards/scs/v2 v2.7.0
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/davecgh/go-spew v1.1.1
 	github.com/go-sql-driver/mysql v1.7.1
-	github.com/golang-migrate/migrate/v4 v4.16.2
+	github.com/golang-migrate/migrate/v4 v4.17.0
 	github.com/golang/protobuf v1.5.3
 	github.com/google/subcommands v1.2.0
 	github.com/gorilla/schema v1.2.1
@@ -18,7 +18,7 @@ require (
 	github.com/olivere/elastic v6.2.37+incompatible
 	github.com/tcolgate/mp3 v0.0.0-20170426193717-e79c5a46d300
 	github.com/twitchtv/twirp v8.1.3+incompatible
-	golang.org/x/crypto v0.16.0
+	golang.org/x/crypto v0.17.0
 )
 
 require golang.org/x/net v0.19.0 // indirect
@@ -33,5 +33,5 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	golang.org/x/tools v0.16.0 // indirect
-	google.golang.org/protobuf v1.31.0 // indirect
+	google.golang.org/protobuf v1.32.0
 )
