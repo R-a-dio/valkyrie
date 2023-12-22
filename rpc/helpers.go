@@ -6,13 +6,11 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
-	"github.com/golang/protobuf/ptypes/duration"
-	"github.com/golang/protobuf/ptypes/timestamp"
 	durationpb "google.golang.org/protobuf/types/known/durationpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func t(x *timestamp.Timestamp) time.Time {
+func t(x *timestamppb.Timestamp) time.Time {
 	if x == nil {
 		return time.Time{}
 	}
@@ -20,31 +18,31 @@ func t(x *timestamp.Timestamp) time.Time {
 }
 
 // ptrt is a pointer version of t
-func ptrt(x *timestamp.Timestamp) *time.Time {
+func ptrt(x *timestamppb.Timestamp) *time.Time {
 	tmp := t(x)
 	return &tmp
 }
 
-func tp(x time.Time) *timestamp.Timestamp {
+func tp(x time.Time) *timestamppb.Timestamp {
 	return timestamppb.New(x)
 }
 
 // ptrtp is a pointer version of tp
-func ptrtp(x *time.Time) *timestamp.Timestamp {
+func ptrtp(x *time.Time) *timestamppb.Timestamp {
 	if x == nil {
 		return nil
 	}
 	return tp(*x)
 }
 
-func d(x *duration.Duration) time.Duration {
+func d(x *durationpb.Duration) time.Duration {
 	if x == nil {
 		return 0
 	}
 	return x.AsDuration()
 }
 
-func dp(x time.Duration) *duration.Duration {
+func dp(x time.Duration) *durationpb.Duration {
 	return durationpb.New(x)
 }
 
