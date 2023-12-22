@@ -54,15 +54,17 @@ func Router(ctx context.Context, s State) chi.Router {
 	admin := admin{s.Config, s.Storage, executor}
 
 	r := chi.NewRouter()
-	r.Use(sessionManager.LoadAndSave)
+	r.Use(sessionManager.LoadAndSave) // use session manager
+	// logout page has to be accessable without being logged in, so register it outside of the group
 	r.Get("/logout", authentication.LogoutHandler)
-	adminRouter := chi.NewRouter()
-	adminRouter.Use(authentication.LoginMiddleware)
-	adminRouter.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("hello"))
+	r.Group(func(r chi.Router) {
+		r.Use(authentication.LoginMiddleware)
+		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+			w.Write([]byte("hello"))
+		})
+		r.Get("/profile", admin.GetProfile)
+		r.Post("/profile", admin.PostProfile)
 	})
-	adminRouter.Get("/profile", admin.GetProfile)
-	adminRouter.Post("/profile", admin.PostProfile)
-	r.Mount("/", adminRouter)
+
 	return r
 }
