@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	radio "github.com/R-a-dio/valkyrie"
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 )
 
 type ctxKey int

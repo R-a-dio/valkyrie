@@ -8,7 +8,7 @@ import (
 	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 )
 
 const theme = "default"

@@ -7,7 +7,7 @@ require (
 	github.com/DATA-DOG/go-sqlmock v1.5.0
 	github.com/alexedwards/scs/v2 v2.7.0
 	github.com/cenkalti/backoff v2.2.1+incompatible
-	github.com/go-chi/chi v4.1.2+incompatible
+	github.com/davecgh/go-spew v1.1.1
 	github.com/go-sql-driver/mysql v1.7.1
 	github.com/golang-migrate/migrate/v4 v4.16.2
 	github.com/golang/protobuf v1.5.3
@@ -21,15 +21,17 @@ require (
 	golang.org/x/crypto v0.16.0
 )
 
+require golang.org/x/net v0.19.0 // indirect
+
 require (
 	github.com/fortytw2/leaktest v1.3.0 // indirect
+	github.com/go-chi/chi/v5 v5.0.11
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
-	golang.org/x/exp v0.0.0-20231206192017-f3f8817b8deb // indirect
 	golang.org/x/tools v0.16.0 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
 )

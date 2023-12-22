@@ -19,8 +19,8 @@ import (
 	"github.com/R-a-dio/valkyrie/search"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 
-	"github.com/go-chi/chi"
-	chiware "github.com/go-chi/chi/middleware"
+	"github.com/go-chi/chi/v5"
+	chiware "github.com/go-chi/chi/v5/middleware"
 )
 
 func NewAPI(ctx context.Context, cfg config.Config, storage radio.StorageService,

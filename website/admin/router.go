@@ -10,7 +10,7 @@ import (
 	"github.com/R-a-dio/valkyrie/templates"
 
 	"github.com/alexedwards/scs/v2"
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 )
 
 type State struct {

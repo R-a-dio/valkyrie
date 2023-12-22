@@ -13,8 +13,8 @@ import (
 	phpapi "github.com/R-a-dio/valkyrie/website/api/php"
 	"github.com/R-a-dio/valkyrie/website/public"
 
-	"github.com/go-chi/chi"
-	"github.com/go-chi/chi/middleware"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 // Execute runs a website instance with the configuration given
