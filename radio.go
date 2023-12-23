@@ -601,6 +601,8 @@ type TrackStorage interface {
 	All() ([]Song, error)
 	// Unusable returns all tracks that are deemed unusable by the streamer
 	Unusable() ([]Song, error)
+	// Insert inserts a new track, errors if ID or TrackID is set
+	Insert(song Song) (TrackID, error)
 	// UpdateUsable sets usable to the state given
 	UpdateUsable(song Song, state TrackState) error
 
@@ -648,6 +650,8 @@ type UserStorageService interface {
 
 // UserStorage stores things related to users with actual accounts on the website
 type UserStorage interface {
+	// All returns all users
+	All() ([]User, error)
 	// Get returns the user matching the name given
 	Get(name string) (*User, error)
 	// GetByDJID returns the user associated with the DJID

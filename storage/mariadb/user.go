@@ -271,6 +271,34 @@ func (us UserStorage) GetByDJID(id radio.DJID) (*radio.User, error) {
 func (us UserStorage) LookupName(name string) (*radio.User, error) {
 	const op errors.Op = "mariadb/UserStorage.LookupName"
 
+	users, err := us.All()
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	for _, user := range users {
+		if user.DJ.Regex == "" {
+			// skip users with no regex
+			continue
+		}
+
+		re, err := regexp.Compile(`(?i)` + user.DJ.Regex)
+		if err != nil {
+			log.Printf("%s: invalid regex field: %v", op, err)
+			continue
+		}
+
+		if re.MatchString(name) {
+			return &user, nil
+		}
+	}
+
+	return nil, errors.E(op, errors.UserUnknown, errors.Info(name))
+}
+
+func (us UserStorage) All() ([]radio.User, error) {
+	const op errors.Op = "mariadb/UserStorage.All"
+
 	var query = `
 	SELECT
 		users.id AS id,
@@ -313,24 +341,7 @@ func (us UserStorage) LookupName(name string) (*radio.User, error) {
 		return nil, errors.E(op, err)
 	}
 
-	for _, user := range users {
-		if user.DJ.Regex == "" {
-			// skip users with no regex
-			continue
-		}
-
-		re, err := regexp.Compile(`(?i)` + user.DJ.Regex)
-		if err != nil {
-			log.Printf("%s: invalid regex field: %v", op, err)
-			continue
-		}
-
-		if re.MatchString(name) {
-			return &user, nil
-		}
-	}
-
-	return nil, errors.E(op, errors.UserUnknown, errors.Info(name))
+	return users, nil
 }
 
 // ByNick implements radio.UserStorage

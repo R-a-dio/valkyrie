@@ -73,6 +73,22 @@ type trackStorage struct {
 	wrapped radio.TrackStorage
 }
 
+func (ts trackStorage) Insert(song radio.Song) (radio.TrackID, error) {
+	const op errors.Op = "search/trackStorage.Insert"
+
+	new, err := ts.wrapped.Insert(song)
+	if err != nil {
+		return new, errors.E(op, err)
+	}
+
+	err = ts.search.Update(ts.ctx, song)
+	if err != nil {
+		return new, errors.E(op, err)
+	}
+
+	return new, nil
+}
+
 func (ts trackStorage) UpdateUsable(song radio.Song, state radio.TrackState) error {
 	const op errors.Op = "search/trackStorage.UpdateUsable"
 

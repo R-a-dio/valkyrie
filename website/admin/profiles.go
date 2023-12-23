@@ -341,7 +341,7 @@ func postProfilePassword(new *radio.User, isAdmin bool, form ProfileFormChange) 
 		}
 	}
 
-	hashed, err := bcrypt.GenerateFromPassword([]byte(form.NewPassword), bcryptCost)
+	hashed, err := GenerateHashFromPassword(form.NewPassword)
 	if err != nil {
 		// error, failed to generate bcrypt from password
 		// no idea what could cause this to error, so we just throw up
@@ -350,6 +350,10 @@ func postProfilePassword(new *radio.User, isAdmin bool, form ProfileFormChange) 
 
 	new.Password = string(hashed)
 	return nil
+}
+
+func GenerateHashFromPassword(passwd string) ([]byte, error) {
+	return bcrypt.GenerateFromPassword([]byte(passwd), bcryptCost)
 }
 
 func postProfileImage(cfg config.Config, new *radio.User, header *multipart.FileHeader) error {

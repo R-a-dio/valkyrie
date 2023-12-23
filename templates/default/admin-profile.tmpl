@@ -115,7 +115,7 @@ input[name="Permissions"]:checked + label {
             </li>
             <li>
                 <label for="ip-address">IP Address:</label>
-                <input type="text" name="IP" value={{.User.IP}}>
+                <input type="text" name="IP" value="{{.User.IP}}">
                 <button type="button" onclick="document.querySelector('input[name=IP]').value = '{{.CurrentIP}}'">(You)</button>
             </li>
             {{if or (ne .DJ.ID 0) (.IsNewProfile)}}
@@ -134,7 +134,7 @@ input[name="Permissions"]:checked + label {
             </li>
             <li>
                 <label for="dj-name">DJ name:</label>
-                <input type="text" name="DJ.Name" value={{.DJ.Name}}>
+                <input type="text" name="DJ.Name" value="{{.DJ.Name}}">
             </li>
             <li>
                 <label for="dj-image">DJ Image:</label>
@@ -146,11 +146,11 @@ input[name="Permissions"]:checked + label {
             </li>
             <li>
                 <label for="regex">Nickname Regex:</label>
-                <input type="text" name="DJ.Regex" value={{.DJ.Regex}}>
+                <input type="text" name="DJ.Regex" value="{{.DJ.Regex}}">
             </li>
             <li>
                 <label for="theme">Theme:</label>
-                <select name="DJ.Theme.Name" value={{.Theme.Name}}>
+                <select name="DJ.Theme.Name" value="{{.Theme.Name}}">
                     <option value="default">Default</option>
                 </select>
             </li>

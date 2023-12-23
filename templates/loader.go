@@ -184,6 +184,8 @@ type Loader struct {
 // TemplateBundle contains all the filenames required to construct a template instance
 // for the page
 type TemplateBundle struct {
+	// loader used to actually load the relative-filenames below
+	loader *Loader
 	// the following fields contain all the filenames of the templates we're parsing
 	// into a html/template.Template. They're listed in load-order, last one wins.
 	base            []string
@@ -214,7 +216,7 @@ func (tb *TemplateBundle) Files() []string {
 func (tb *TemplateBundle) Template() (*template.Template, error) {
 	const op errors.Op = "templates/TemplateBundle.Template"
 
-	tmpl, err := createRoot().ParseFiles(tb.Files()...)
+	tmpl, err := createRoot().ParseFS(tb.loader.fs, tb.Files()...)
 	if err != nil {
 		return nil, errors.E(op, errors.TemplateParseError, err)
 	}
@@ -229,6 +231,20 @@ func createRoot() *template.Template {
 			"printjson": func(v interface{}) (template.HTML, error) {
 				b, err := json.MarshalIndent(v, "", "\t")
 				return template.HTML("<pre>" + string(b) + "</pre>"), err
+			},
+			"safeHTML": func(v any) (template.HTML, error) {
+				s, ok := v.(string)
+				if !ok {
+					return "", errors.E(errors.InvalidArgument)
+				}
+				return template.HTML(s), nil
+			},
+			"safeHTMLAttr": func(v any) (template.HTMLAttr, error) {
+				s, ok := v.(string)
+				if !ok {
+					return "", errors.E(errors.InvalidArgument)
+				}
+				return template.HTMLAttr(s), nil
 			},
 		})
 }
@@ -321,6 +337,7 @@ func (l *Loader) loadSubDir(dir string) (map[string]*TemplateBundle, error) {
 	const op errors.Op = "templates/Loader.loadSubDir"
 
 	var bundle = TemplateBundle{
+		loader:          l,
 		base:            l.baseTemplates,
 		defaultPartials: l.defaultPartials,
 	}

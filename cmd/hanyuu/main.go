@@ -184,6 +184,7 @@ func main() {
 
 	subcommands.Register(listenerLogCmd, "jobs")
 	subcommands.Register(requestCountCmd, "jobs")
+	subcommands.Register(&databaseCmd{}, "jobs")
 	// verifier job is in streamer.go for the above reason
 
 	subcommands.Register(elasticCmd{}, "search")

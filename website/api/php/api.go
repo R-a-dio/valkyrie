@@ -426,7 +426,13 @@ func newV0Status(ctx context.Context, storage radio.SongStorageService,
 	// run a periodic updater
 	go s.runUpdate(ctx)
 	// but also call update to get an initial value before we return
-	return &s, s.updateStatusJSON(ctx)
+	err := s.updateStatusJSON(ctx)
+	if err != nil {
+		// TODO: handle error better; we ignore the error for now since it
+		// 		prevents the server from starting if the streamer RPC is down
+		log.Println(err)
+	}
+	return &s, nil
 }
 
 // v0Status implements the root of the /api endpoint

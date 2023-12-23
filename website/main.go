@@ -2,6 +2,7 @@ package website
 
 import (
 	"context"
+	"log"
 	"net"
 	"net/http"
 
@@ -59,7 +60,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	// leaked out at some point
 	v0, err := phpapi.NewAPI(ctx, cfg, storage, streamer, manager)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 	r.Mount("/api", v0.Router())
 	r.Route(`/request/{TrackID:[0-9]+}`, v0.RequestRoute)
@@ -87,6 +88,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		Handler: r,
 	}
 
+	log.Println("website listening on:", server.Addr)
 	ln, err := net.Listen("tcp", server.Addr)
 	if err != nil {
 		return err

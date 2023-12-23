@@ -503,6 +503,78 @@ func (ts TrackStorage) Unusable() ([]radio.Song, error) {
 	return tracks, nil
 }
 
+func IsDuplicateKeyErr(err error) bool {
+	var mysqlError *mysql.MySQLError
+	if !errors.As(err, &mysqlError) {
+		return false
+	}
+	return mysqlError.Number == 1062
+}
+
+func (ts TrackStorage) Insert(song radio.Song) (radio.TrackID, error) {
+	const op errors.Op = "mariadb/TrackStorage.Insert"
+	// check if we have a database track at all
+	if song.DatabaseTrack == nil {
+		return 0, errors.E(op, errors.InvalidArgument, "no database track")
+	}
+	// check if we haven't been passed an existing track by accident
+	if song.ID != 0 || song.TrackID != 0 {
+		return 0, errors.E(op, errors.InvalidArgument, "song contained an existing identifier")
+	}
+
+	// create song entry first
+	ss := SongStorage{ts.handle}
+	_, err := ss.Create(song.Metadata)
+	if err != nil && !IsDuplicateKeyErr(err) {
+		return 0, errors.E(op, err)
+	}
+
+	var query = `
+	INSERT INTO
+		tracks (
+			id,
+			artist,
+			track,
+			album,
+			path,
+			tags,
+			usable,
+			accepter,
+			lasteditor,
+			hash
+		) VALUES (
+			0,
+			:artist,
+			:title,
+			:album,
+			:filepath,
+			:tags,
+			:usable,
+			:acceptor,
+			:lasteditor,
+			:hash
+		);
+	`
+
+	query, args, err := sqlx.Named(query, song)
+	if err != nil {
+		return 0, errors.E(op, err)
+	}
+
+	res, err := ts.handle.Exec(query, args...)
+	if err != nil {
+		return 0, errors.E(op, err)
+	}
+
+	new, err := res.LastInsertId()
+	if err != nil {
+		return 0, errors.E(op, err)
+	}
+
+	return radio.TrackID(new), nil
+
+}
+
 func (ts TrackStorage) UpdateUsable(song radio.Song, state radio.TrackState) error {
 	const op errors.Op = "mariadb/TrackStorage.UpdateUsable"
 

@@ -46,7 +46,7 @@ func Router(ctx context.Context, s State) chi.Router {
 	sessionManager.Cookie = scs.SessionCookie{
 		Name: "admin",
 		//SameSite: http.SameSiteStrictMode,
-		Secure: true,
+		//Secure: true,
 	}
 
 	executor := s.Templates.Executor()

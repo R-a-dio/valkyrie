@@ -10,7 +10,7 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/search"
 
-	"github.com/olivere/elastic"
+	"github.com/olivere/elastic/v7"
 )
 
 func init() {
@@ -194,7 +194,7 @@ func (ss *SearchService) Search(ctx context.Context, query string,
 
 	songs := make([]radio.Song, len(res.Hits.Hits))
 	for i, hit := range res.Hits.Hits {
-		err := json.Unmarshal(*hit.Source, &songs[i])
+		err := json.Unmarshal(hit.Source, &songs[i])
 		if err != nil {
 			return nil, errors.E(op, err)
 		}
@@ -227,7 +227,6 @@ func (ss *SearchService) Update(ctx context.Context, songs ...radio.Song) error 
 
 		_, err := ss.es.Update().
 			Index(songSearchIndex).
-			Type(songSearchType).
 			Id(song.TrackID.String()).
 			Doc(song).DocAsUpsert(true).
 			Do(ctx)

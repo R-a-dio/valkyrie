@@ -20,6 +20,9 @@ var New = errors.New
 // IsE is equavalent to errors.Is
 var IsE = errors.Is
 
+// As is equavalent to errors.As
+var As = errors.As
+
 // E builds an error value from its arguments.
 // There must be at least one argument or E panics.
 // The type of each argument determines its meaning.
