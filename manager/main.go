@@ -110,6 +110,10 @@ func (m *Manager) updateStreamStatus() {
 		if !status.Song.HasTrack() {
 			status.Song.DatabaseTrack = &radio.DatabaseTrack{}
 		}
+		// streamstatus can be empty and we set a start time of now if it's zero
+		if status.SongInfo.Start.IsZero() {
+			status.SongInfo.Start = time.Now()
+		}
 		// streamstatus expects an end equal to start if it's unknown
 		if status.SongInfo.End.IsZero() {
 			status.SongInfo.End = status.SongInfo.Start

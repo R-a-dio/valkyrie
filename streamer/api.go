@@ -37,6 +37,8 @@ func NewHTTPServer(cfg config.Config, storage radio.StorageService,
 	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
 	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	mux.HandleFunc("/debug/start", func(w http.ResponseWriter, r *http.Request) { s.Start(r.Context()) })
+	mux.HandleFunc("/debug/stop", func(w http.ResponseWriter, r *http.Request) { s.Stop(r.Context(), true) })
 
 	conf := cfg.Conf()
 	server := &http.Server{Addr: conf.Streamer.ListenAddr, Handler: mux}

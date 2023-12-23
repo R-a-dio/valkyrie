@@ -58,6 +58,10 @@ func Probe(ctx context.Context, filename string) (*ProbeInfo, error) {
 		return nil, errors.E(op, err)
 	}
 
+	if info.Format.Tags == nil && len(info.Streams) > 0 {
+		info.Format.Tags = info.Streams[0].Tags
+	}
+
 	return &info, nil
 }
 
@@ -67,15 +71,15 @@ type ProbeInfo struct {
 }
 
 type FormatInfo struct {
-	BitRate        string         `json:"bit_rate"`
-	Duration       string         `json:"duration"`
-	Filename       string         `json:"filename"`
-	FormatLongName string         `json:"format_long_name"`
-	FormatName     string         `json:"format_name"`
-	NbStreams      int            `json:"nb_streams"`
-	Size           string         `json:"size"`
-	StartTime      string         `json:"start_time"`
-	Tags           FormatTagsInfo `json:"tags"`
+	BitRate        string          `json:"bit_rate"`
+	Duration       string          `json:"duration"`
+	Filename       string          `json:"filename"`
+	FormatLongName string          `json:"format_long_name"`
+	FormatName     string          `json:"format_name"`
+	NbStreams      int             `json:"nb_streams"`
+	Size           string          `json:"size"`
+	StartTime      string          `json:"start_time"`
+	Tags           *FormatTagsInfo `json:"tags"`
 }
 
 type FormatTagsInfo struct {
@@ -96,36 +100,31 @@ type FormatTagsInfo struct {
 }
 
 type StreamsInfo struct {
-	AvgFrameRate       string           `json:"avg_frame_rate"`
-	BitRate            string           `json:"bit_rate,omitempty"`
-	BitsPerSample      int              `json:"bits_per_sample,omitempty"`
-	Channels           int              `json:"channels,omitempty"`
-	CodecLongName      string           `json:"codec_long_name"`
-	CodecName          string           `json:"codec_name"`
-	CodecTag           string           `json:"codec_tag"`
-	CodecTagString     string           `json:"codec_tag_string"`
-	CodecTimeBase      string           `json:"codec_time_base"`
-	CodecType          string           `json:"codec_type"`
-	DisplayAspectRatio string           `json:"display_aspect_ratio,omitempty"`
-	Duration           string           `json:"duration"`
-	DurationTs         int              `json:"duration_ts"`
-	HasBFrames         int              `json:"has_b_frames,omitempty"`
-	Height             int              `json:"height,omitempty"`
-	Index              int              `json:"index"`
-	Level              int              `json:"level,omitempty"`
-	PixFmt             string           `json:"pix_fmt,omitempty"`
-	RFrameRate         string           `json:"r_frame_rate"`
-	SampleAspectRatio  string           `json:"sample_aspect_ratio,omitempty"`
-	SampleFmt          string           `json:"sample_fmt,omitempty"`
-	SampleRate         string           `json:"sample_rate,omitempty"`
-	StartPts           int              `json:"start_pts"`
-	StartTime          string           `json:"start_time"`
-	Tags               *StreamsTagsInfo `json:"tags,omitempty"`
-	TimeBase           string           `json:"time_base"`
-	Width              int              `json:"width,omitempty"`
-}
-
-type StreamsTagsInfo struct {
-	Comment string `json:"comment"`
-	Title   string `json:"title"`
+	AvgFrameRate       string          `json:"avg_frame_rate"`
+	BitRate            string          `json:"bit_rate,omitempty"`
+	BitsPerSample      int             `json:"bits_per_sample,omitempty"`
+	Channels           int             `json:"channels,omitempty"`
+	CodecLongName      string          `json:"codec_long_name"`
+	CodecName          string          `json:"codec_name"`
+	CodecTag           string          `json:"codec_tag"`
+	CodecTagString     string          `json:"codec_tag_string"`
+	CodecTimeBase      string          `json:"codec_time_base"`
+	CodecType          string          `json:"codec_type"`
+	DisplayAspectRatio string          `json:"display_aspect_ratio,omitempty"`
+	Duration           string          `json:"duration"`
+	DurationTs         int             `json:"duration_ts"`
+	HasBFrames         int             `json:"has_b_frames,omitempty"`
+	Height             int             `json:"height,omitempty"`
+	Index              int             `json:"index"`
+	Level              int             `json:"level,omitempty"`
+	PixFmt             string          `json:"pix_fmt,omitempty"`
+	RFrameRate         string          `json:"r_frame_rate"`
+	SampleAspectRatio  string          `json:"sample_aspect_ratio,omitempty"`
+	SampleFmt          string          `json:"sample_fmt,omitempty"`
+	SampleRate         string          `json:"sample_rate,omitempty"`
+	StartPts           int             `json:"start_pts"`
+	StartTime          string          `json:"start_time"`
+	Tags               *FormatTagsInfo `json:"tags,omitempty"`
+	TimeBase           string          `json:"time_base"`
+	Width              int             `json:"width,omitempty"`
 }

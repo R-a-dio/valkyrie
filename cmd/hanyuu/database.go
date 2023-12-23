@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -70,43 +72,48 @@ func (d databaseCmd) addTrack(ctx context.Context, cfg config.Config) error {
 	}
 	_ = db
 
-	filename := d.flags.Arg(1)
-	if filename == "" {
+	if len(d.flags.Args()) < 2 {
 		return errors.E(errors.InvalidArgument, "no filename given")
 	}
 
-	info, err := audio.Probe(ctx, filename)
-	if err != nil {
-		return err
-	}
+	for _, filename := range d.flags.Args()[1:] {
+		filename, err = filepath.Abs(filename)
+		if err != nil {
+			return err
+		}
+		info, err := audio.Probe(ctx, filename)
+		if err != nil {
+			return err
+		}
 
-	track := radio.DatabaseTrack{
-		TrackID:    0,
-		Artist:     info.Format.Tags.Artist,
-		Title:      info.Format.Tags.Title,
-		Album:      info.Format.Tags.Album,
-		FilePath:   filename,
-		Tags:       "testfile",
-		Acceptor:   "command-line-interface",
-		LastEditor: "command-line-interface",
-		Usable:     true,
-	}
-	metadata := track.Artist + " - " + track.Title
-	duration, _ := strconv.Atoi(info.Format.Duration)
+		track := radio.DatabaseTrack{
+			TrackID:    0,
+			Artist:     info.Format.Tags.Artist,
+			Title:      info.Format.Tags.Title,
+			Album:      info.Format.Tags.Album,
+			FilePath:   filename,
+			Tags:       "testfile",
+			Acceptor:   "command-line-interface",
+			LastEditor: "command-line-interface",
+			Usable:     true,
+		}
+		metadata := track.Artist + " - " + track.Title
+		duration, _ := strconv.Atoi(info.Format.Duration)
 
-	song := radio.Song{
-		ID:            0,
-		Hash:          radio.NewSongHash(metadata),
-		Metadata:      metadata,
-		Length:        time.Duration(duration) * time.Second,
-		DatabaseTrack: &track,
-	}
+		song := radio.Song{
+			ID:            0,
+			Hash:          radio.NewSongHash(metadata),
+			Metadata:      metadata,
+			Length:        time.Duration(duration) * time.Second,
+			DatabaseTrack: &track,
+		}
 
-	id, err := db.Track(ctx).Insert(song)
-	if err != nil {
-		return err
+		id, err := db.Track(ctx).Insert(song)
+		if err != nil && !strings.Contains(err.Error(), "Duplicate") {
+			return err
+		}
+		fmt.Printf("successfully added %s (ID: %d)\n", metadata, id)
 	}
-	fmt.Println("successfully added track with ID: ", id)
 	return nil
 }
 

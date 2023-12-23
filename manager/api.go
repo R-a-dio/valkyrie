@@ -128,8 +128,13 @@ func (m *Manager) UpdateSong(ctx context.Context, new radio.Song, info radio.Son
 		// we assume the song just started if it wasn't set
 		info.Start = time.Now()
 	}
-	if info.End.IsZero() && song.Length > 0 {
-		info.End = info.Start.Add(song.Length)
+	if info.End.IsZero() {
+		// set end to start if we got passed a zero time
+		info.End = info.Start
+	}
+	if song.Length > 0 {
+		// add the song length if we have one
+		info.End = info.End.Add(song.Length)
 	}
 
 	var prev radio.Song

@@ -87,6 +87,7 @@ func ConnectDB(ctx context.Context, cfg config.Config, multistatement bool) (*sq
 // Connect connects to the database configured in cfg
 func Connect(cfg config.Config) (radio.StorageService, error) {
 	// TODO(wessie): pass a context here somehow?
+	// TODO(wessie): check if we've applied all our SQL migrations before allowing usage
 	db, err := ConnectDB(context.Background(), cfg, false)
 	if err != nil {
 		return nil, err

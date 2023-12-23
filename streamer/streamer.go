@@ -323,7 +323,10 @@ func (s *Streamer) queueFiles(task streamerTask) error {
 		}
 		track.track = *entry
 
-		track.filepath = filepath.Join(s.Conf().MusicPath, track.track.FilePath)
+		track.filepath = track.track.FilePath
+		if !filepath.IsAbs(track.filepath) {
+			track.filepath = filepath.Join(s.Conf().MusicPath, track.filepath)
+		}
 
 		select {
 		case task.out <- track:
@@ -346,6 +349,7 @@ func (s *Streamer) decodeFiles(task streamerTask) error {
 
 		track.pcm, err = audio.DecodeFileGain(track.filepath)
 		if err != nil {
+			log.Println(err)
 			s.errored(task, track)
 			continue
 		}
@@ -708,7 +712,7 @@ func (s *Streamer) metadataToIcecast(task streamerTask) error {
 		resp, err := http.DefaultClient.Do(req)
 		cancel()
 		if err != nil || resp.StatusCode != 200 {
-			log.Printf("streamer.metadata: failed to send: %s", err)
+			log.Printf("streamer.metadata: failed to send (%s): %s", uri, err)
 			// try and retry the operation in a little while
 			retrying = true
 		}
