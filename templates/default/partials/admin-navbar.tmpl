@@ -1,15 +1,24 @@
 {{define "admin-navbar"}}
-<nav id="top-nav">
-    <a href="/">
-        <img src="/assets/images/logotitle_2.png" alt="r/a/dio logo">
-    </a>
-    <ul>
-        <li><a href="/admin">Home</a></li>
-        <li><a href="/admin/news">News</a></li>
-        <li><a href="/admin/pending">Pending</a></li>
-        <li><a href="/admin/database">Song Database</a></li>
-        <li><a href="/admin/users">Users</a></li>
-        <li><a href="/admin/profile">Profile</a></li>
-    </ul>
+<nav class="navbar is-black" role="navigation">
+    <div class="navbar-brand">
+        <a class="navbar-item" href="/">
+            <img src="/assets/images/logotitle_2.png" alt="r/a/dio logo">
+        </a>
+        <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="admin-navbar">
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+        </a>
+    </div>
+    <div id="admin-navbar" class="navbar-menu">
+        <div class="navbar-start">
+            <a class="navbar-item" href="/admin">Home</a>
+            <a class="navbar-item" href="/admin/news">News</a>
+            <a class="navbar-item" href="/admin/pending">Pending</a>
+            <a class="navbar-item" href="/admin/database">Song Database</a>
+            <a class="navbar-item" href="/admin/users">Users</a>
+            <a class="navbar-item" href="/admin/profile">Profile</a>
+        </div>
+    </div>
 </nav>
 {{end}}

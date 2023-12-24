@@ -22,6 +22,10 @@ import (
 func Execute(ctx context.Context, cfg config.Config) error {
 	const op errors.Op = "website/Execute"
 
+	if cfg.Conf().Website.DJImagePath == "" {
+		return errors.E(op, "Website.DJImagePath is not configured")
+	}
+
 	// database access
 	storage, err := storage.Open(cfg)
 	if err != nil {

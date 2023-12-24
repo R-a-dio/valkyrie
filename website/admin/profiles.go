@@ -5,17 +5,18 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"io/ioutil"
 	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/davecgh/go-spew/spew"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/gorilla/schema"
@@ -28,8 +29,28 @@ type ProfileForm struct {
 	radio.User
 	// separate struct for password change handling
 	Change ProfileFormChange
-
+	// permissions are separate too because gorilla does not like maps
 	Permissions []radio.UserPermission
+	// errors that occured while parsing the form
+	Error error
+}
+
+func toUserPermissionSlice(u radio.UserPermissions) []radio.UserPermission {
+	var res []radio.UserPermission
+	for k, v := range u {
+		if v {
+			res = append(res, k)
+		}
+	}
+	return res
+}
+
+func fromUserPermissionSlice(u []radio.UserPermission) radio.UserPermissions {
+	var res = radio.UserPermissions{}
+	for _, v := range u {
+		res[v] = true
+	}
+	return res
 }
 
 type ProfileFormChange struct {
@@ -41,23 +62,32 @@ type ProfileFormChange struct {
 // GetProfile is mounted under /admin/profile and shows the currently logged
 // in users profile
 func (a admin) GetProfile(w http.ResponseWriter, r *http.Request) {
+	err := a.getProfile(w, r, nil)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	return
+}
+
+func (a admin) getProfile(w http.ResponseWriter, r *http.Request, form *ProfileForm) error {
 	ctx := r.Context()
 	// current user of this session
 	user := UserFromContext(ctx)
 
+	fmt.Println(user)
 	isAdmin := user.UserPermissions.Has(radio.PermAdmin)
 	var availablePermissions []radio.UserPermission
 	var err error
 
 	// output is the user we want to show the profile page of, in non-admin
 	// cases this will always be the current user
-	output := user
+	userToEdit := user
 	if isAdmin {
 		// admin can change permissions, so load all available ones
 		availablePermissions, err = a.storage.User(ctx).Permissions()
 		if err != nil {
-			log.Println(err)
-			return
+			return err
 		}
 	}
 
@@ -67,19 +97,36 @@ func (a admin) GetProfile(w http.ResponseWriter, r *http.Request) {
 	if username != "" && isAdmin {
 		other, err := a.storage.User(ctx).Get(username)
 		if err != nil {
-			log.Println(err)
-			return
+			return err
 		}
 
-		output = other
+		userToEdit = other
 	}
 
 	isNew := r.Form["new"] != nil && isAdmin && username == ""
 	if isNew {
-		output = &radio.User{}
+		userToEdit = &radio.User{}
 	}
 
 	isNewProfile := r.Form["newprofile"] != nil && isAdmin && !isNew
+
+	if form == nil {
+		// didn't get passed an existing form, so construct our own
+		form = &ProfileForm{
+			User:        *userToEdit,
+			Permissions: toUserPermissionSlice(userToEdit.UserPermissions),
+		}
+	}
+
+	// fill in all available permissions for the user if an admin is looking at them
+	if isAdmin {
+		if form.UserPermissions == nil {
+			form.UserPermissions = make(radio.UserPermissions)
+		}
+		for _, perm := range availablePermissions {
+			form.UserPermissions[perm] = slices.Contains(form.Permissions, perm)
+		}
+	}
 
 	profileInput := struct {
 		IsAdmin              bool
@@ -88,8 +135,7 @@ func (a admin) GetProfile(w http.ResponseWriter, r *http.Request) {
 		CurrentIP            template.JS
 		AvailablePermissions []radio.UserPermission
 		User                 *radio.User
-		DJ                   radio.DJ
-		Theme                radio.Theme
+		Form                 *ProfileForm
 		AvailableThemes      []string
 	}{
 		IsAdmin:              isAdmin,
@@ -97,43 +143,59 @@ func (a admin) GetProfile(w http.ResponseWriter, r *http.Request) {
 		IsNewProfile:         isNewProfile,
 		CurrentIP:            template.JS(r.RemoteAddr),
 		AvailablePermissions: availablePermissions,
-		User:                 output,
-		DJ:                   output.DJ,
-		Theme:                output.DJ.Theme,
+		User:                 user,
+		Form:                 form,
 		AvailableThemes:      []string{},
 	}
 
+	spew.Dump(profileInput)
+
 	err = a.templates.ExecuteFull("default", "admin-profile", w, profileInput)
 	if err != nil {
-		log.Println(err)
-		return
+		return err
 	}
 
-	return
+	return nil
 }
 
+// PostProfile implements the profile form POST parsing and handling
+//
+// The expected form as input is defined in templates/partials/form_admin_profile
 func (a admin) PostProfile(w http.ResponseWriter, r *http.Request) {
-	err := a.postProfile(w, r)
+	form, err := a.postProfile(w, r)
 	if err != nil {
+		if form != nil {
+			form.Error = err
+		}
+
 		log.Println(err)
 		// we expect 3 types of errors
 		switch {
 		case errors.Is(errors.InvalidForm, err):
 			// form input was invalid, slap them back to rendering the form
 			// with an error to indicate what was wrong
+			fallthrough
 		case errors.Is(errors.InternalServer, err):
 			// something broke internally, we don't know what, just tell them
 			// when we try to recover to a profile page
+			fallthrough
 		case errors.Is(errors.AccessDenied, err):
 			// user wasn't allowed to do the thing they tried to do
+			err := a.getProfile(w, r, form)
+			if err != nil {
+				// nested errors, probably something broken so just return a 501
+				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+				return
+			}
 		default:
 			// unknown error?
 		}
 	}
-	http.Redirect(w, r, r.URL.String(), 303)
+	fmt.Println(r.URL.String())
+	http.Redirect(w, r, r.URL.String(), http.StatusSeeOther)
 }
 
-func (a admin) postProfile(w http.ResponseWriter, r *http.Request) error {
+func (a admin) postProfile(w http.ResponseWriter, r *http.Request) (*ProfileForm, error) {
 	const op errors.Op = "website/admin.postProfile"
 
 	ctx := r.Context()
@@ -145,7 +207,7 @@ func (a admin) postProfile(w http.ResponseWriter, r *http.Request) error {
 
 	err := r.ParseMultipartForm(16 * 1024)
 	if err != nil {
-		return errors.E(op, errors.InternalServer, err)
+		return nil, errors.E(op, errors.InternalServer, err)
 	}
 
 	var form ProfileForm
@@ -153,13 +215,24 @@ func (a admin) postProfile(w http.ResponseWriter, r *http.Request) error {
 	// parse the form, all the data in here is untrusted so we need to check it after
 	err = profileDecoder.Decode(&form, r.MultipartForm.Value)
 	if err != nil {
-		return errors.E(op, errors.InternalServer, err)
+		return nil, errors.E(op, errors.InternalServer, err)
 	}
+
+	fmt.Println("post")
+	spew.Dump(form)
 
 	// first thing to check is to see if we're working with the session user,
 	// if we're not, the session user needs to be admin to touch other users
 	if form.Username != user.Username && !isAdmin {
-		return errors.E(op, errors.AccessDenied)
+		return &form, errors.E(op, errors.AccessDenied)
+	}
+
+	// change the url to point to the username we're editing
+	if form.Username != user.Username {
+		q := r.URL.Query()
+		q.Del("username")
+		q.Add("username", form.Username)
+		r.URL.RawQuery = q.Encode()
 	}
 
 	var isNewAccount = false
@@ -186,7 +259,7 @@ func (a admin) postProfile(w http.ResponseWriter, r *http.Request) error {
 			}
 		} else if err != nil {
 			// some kind of database error
-			return errors.E(op, errors.InternalServer, err)
+			return &form, errors.E(op, errors.InternalServer, err)
 		}
 		new = *fresh
 	}
@@ -197,11 +270,11 @@ func (a admin) postProfile(w http.ResponseWriter, r *http.Request) error {
 		err := postProfilePassword(&new, isAdmin, c)
 		if err != nil {
 			// error, something failed in password change handling
-			return errors.E(op, err)
+			return &form, errors.E(op, err)
 		}
 	} else if isNewAccount {
 		// new account, but no password supplied.
-		return errors.E(op, errors.InvalidForm,
+		return &form, errors.E(op, errors.InvalidForm,
 			errors.Info("Change.Password"),
 			"required field",
 		)
@@ -209,11 +282,7 @@ func (a admin) postProfile(w http.ResponseWriter, r *http.Request) error {
 
 	// and permissions, these should only be editable if we're admin
 	if isAdmin {
-		newPerms := make(radio.UserPermissions)
-		for _, perm := range form.Permissions {
-			newPerms[perm] = true
-		}
-		new.UserPermissions = newPerms
+		new.UserPermissions = fromUserPermissionSlice(form.Permissions)
 	}
 
 	isNewProfile := new.DJ.ID == 0 && r.MultipartForm.Value["DJ.Name"] != nil
@@ -222,7 +291,7 @@ func (a admin) postProfile(w http.ResponseWriter, r *http.Request) error {
 	if isNewAccount || (isNewProfile && !isAdmin) {
 		_, err = userStorage.UpdateUser(new)
 		if err != nil {
-			return errors.E(op, errors.InternalServer, err)
+			return &form, errors.E(op, errors.InternalServer, err)
 		}
 		// we want to go back to where we came from, unless we just made a new
 		// account, in which case we want to redirect to the new account
@@ -232,8 +301,12 @@ func (a admin) postProfile(w http.ResponseWriter, r *http.Request) error {
 			q.Add("username", new.Username)
 			r.URL.RawQuery = q.Encode()
 		}
-		return nil
+		return nil, nil
 	}
+
+	// copy this the other way so that the template rendering knows we have a DJ
+	form.DJ.ID = new.DJ.ID
+	form.DJ.Image = new.DJ.Image
 
 	// copy over fields, and supply defaults if it's a new profile with no input
 	new.IP = form.IP
@@ -242,7 +315,7 @@ func (a admin) postProfile(w http.ResponseWriter, r *http.Request) error {
 	// check if the regex input compiles
 	_, err = regexp.Compile(`(?i)` + form.DJ.Regex)
 	if err != nil {
-		return errors.E(op, errors.InvalidForm,
+		return &form, errors.E(op, errors.InvalidForm,
 			errors.Info("DJ.Regex"),
 			err,
 		)
@@ -257,9 +330,9 @@ func (a admin) postProfile(w http.ResponseWriter, r *http.Request) error {
 		new.DJ.Priority = form.DJ.Priority
 	}
 
-	if isNewProfile && form.DJ.Name == "" {
+	if form.DJ.Name == "" {
 		// required field
-		return errors.E(op, errors.InvalidForm,
+		return &form, errors.E(op, errors.InvalidForm,
 			errors.Info("DJ.Name"),
 			"required field",
 		)
@@ -281,7 +354,7 @@ func (a admin) postProfile(w http.ResponseWriter, r *http.Request) error {
 	if isNewProfile {
 		new, err = userStorage.UpdateUser(new)
 		if err != nil {
-			return errors.E(op, errors.InternalServer, err)
+			return &form, errors.E(op, errors.InternalServer, err)
 		}
 	}
 
@@ -290,13 +363,13 @@ func (a admin) postProfile(w http.ResponseWriter, r *http.Request) error {
 		err := postProfileImage(a.Config, &new, f[0])
 		if err != nil {
 			// error, something failed in image handling
-			return errors.E(op, err)
+			return &form, errors.E(op, err)
 		}
 	}
 
 	new, err = userStorage.UpdateUser(new)
 	if err != nil {
-		return errors.E(op, errors.InternalServer, err)
+		return &form, errors.E(op, errors.InternalServer, err)
 	}
 
 	if isNewProfile {
@@ -305,7 +378,7 @@ func (a admin) postProfile(w http.ResponseWriter, r *http.Request) error {
 		r.URL.RawQuery = q.Encode()
 	}
 	// fmt.Printf("result: %#v\ninput: %#v\nform: %#v\n", new, beforeSave, form)
-	return nil
+	return nil, nil
 }
 
 func postProfilePassword(new *radio.User, isAdmin bool, form ProfileFormChange) error {
@@ -360,9 +433,7 @@ func postProfileImage(cfg config.Config, new *radio.User, header *multipart.File
 	const op errors.Op = "website/admin.postProfileImage"
 
 	imageDir := cfg.Conf().Website.DJImagePath
-	if imageDir == "" { // not configured, we will panic here
-		panic(".Website.DJImagePath not set in configuration file")
-	}
+
 	if header.Size > cfg.Conf().Website.DJImageMaxSize {
 		return errors.E(op, errors.InvalidForm)
 	}
@@ -379,7 +450,7 @@ func postProfileImage(cfg config.Config, new *radio.User, header *multipart.File
 	}
 	defer in.Close()
 
-	out, err := ioutil.TempFile(imageDir, "upload")
+	out, err := os.CreateTemp(imageDir, "upload")
 	if err != nil {
 		return errors.E(op, errors.InternalServer, err)
 	}
