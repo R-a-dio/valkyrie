@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
@@ -240,6 +241,9 @@ func parseMetadata(b []byte) map[string]string {
 		if key == "" {
 			break
 		}
+
+		// replace any broken utf8, since other layers expect valid utf8 we do it at the edge
+		value = strings.ToValidUTF8(value, string(utf8.RuneError))
 
 		meta[key] = value
 	}
