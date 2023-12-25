@@ -80,11 +80,11 @@ func (a *API) Router() chi.Router {
 }
 
 func (a *API) getSong(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, http.StatusText(410), 410)
+	http.Error(w, http.StatusText(http.StatusGone), http.StatusGone)
 }
 
 func (a *API) getMetadata(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, http.StatusText(410), 410)
+	http.Error(w, http.StatusText(http.StatusGone), http.StatusGone)
 }
 
 func (a *API) getUserCooldown(w http.ResponseWriter, r *http.Request) {

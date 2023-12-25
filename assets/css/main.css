@@ -1,29 +1,7 @@
+.is-fullwidth {
+    width: 100%;
+}
 
-/* ===== Navbar ===== */
-
-nav {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: var(--background-alt);
-}
-nav > ul {
-    display: flex;
-    list-style: none;
-}
-nav > ul > li > a {
-    padding: 10px 15px;
-    text-decoration: none;
-    color: #999;
-}
-nav > ul > li > a:hover {
-    background: var(--selection);
-}
-nav > a {
-    display: inline-block;
-    padding-left: 20px;
-}
-nav img {
-    max-width: 100px;
-    height: auto;
+.is-width-90 {
+    width: 90%;
 }

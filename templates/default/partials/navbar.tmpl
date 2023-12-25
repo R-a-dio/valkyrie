@@ -1,18 +1,34 @@
 {{define "navbar"}}
-<nav id="top-nav">
-    <a href="/">
-        <img src="/assets/images/logotitle_2.png" alt="r/a/dio logo">
-    </a>
-    <ul>
-        <li><a href="/news">News</a></li>
-        <li><a href="/chat">Chat</a></li>
-        <li><a href="/search">Search</a></li>
-        <li><a href="/schedule">Schedule</a></li>
-        <li><a href="/last-played">Last Played</a></li>
-        <li><a href="/queue">Queue</a></li>
-        <li><a href="/favorites">Favorites</a></li>
-        <li><a href="/staff">Staff</a></li>
-        <li><a href="/submit">Submit</a></li>
-    </ul>
+<nav class="navbar is-black" role="navigation">
+    <div class="navbar-brand">
+        <a class="navbar-item" href="/">
+            <img src="/assets/images/logotitle_2.png" alt="r/a/dio logo">
+        </a>
+        <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="public-navbar" onclick="this.classList.toggle('is-active'); document.getElementById(this.dataset.target).classList.toggle('is-active')">
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+        </a>
+    </div>
+    <div id="public-navbar" class="navbar-menu">
+        <div class="navbar-start">
+            <a class="navbar-item" href="/news">News</a>
+            <a class="navbar-item" href="/chat">Chat</a>
+            <a class="navbar-item" href="/search">Search</a>
+            <a class="navbar-item" href="/schedule">Schedule</a>
+            <a class="navbar-item" href="/last-played">Play History</a>
+            <a class="navbar-item" href="/queue">Queue</a>
+            <a class="navbar-item" href="/favorites">Favorites</a>
+            <a class="navbar-item" href="/staff">Staff</a>
+            <a class="navbar-item" href="/submit">Submit</a>
+        </div>
+        <div class="navbar-end is-flex-grow-1 mr-3">
+            <form class="is-flex is-width-90 my-auto" method="POST" action="/search" accept-charset="UTF-8">
+                <div class="field is-flex is-fullwidth"><div class="control is-flex is-fullwidth">
+                    <input class="input" type="text" name="q" placeholder="Request Song" role="search">
+                </div></div>
+            </form>
+        </div>
+    </div>
 </nav>
 {{end}}
