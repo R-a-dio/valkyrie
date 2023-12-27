@@ -7,8 +7,10 @@ import (
 
 func (s State) GetQueue(w http.ResponseWriter, r *http.Request) {
 	queueInput := struct {
-		sharedInput
-	}{}
+		shared
+	}{
+		shared: s.shared(r),
+	}
 
 	err := s.TemplateExecutor.ExecuteFull(theme, "queue", w, queueInput)
 	if err != nil {

@@ -4,7 +4,6 @@
 package templates
 
 import (
-	"encoding/json"
 	"fmt"
 	"html/template"
 	"io/fs"
@@ -226,27 +225,7 @@ func (tb *TemplateBundle) Template() (*template.Template, error) {
 // createRoot creates a root template that adds global utility functions to
 // all other template files.
 func createRoot() *template.Template {
-	return template.New("root").
-		Funcs(map[string]interface{}{
-			"printjson": func(v interface{}) (template.HTML, error) {
-				b, err := json.MarshalIndent(v, "", "\t")
-				return template.HTML("<pre>" + string(b) + "</pre>"), err
-			},
-			"safeHTML": func(v any) (template.HTML, error) {
-				s, ok := v.(string)
-				if !ok {
-					return "", errors.E(errors.InvalidArgument)
-				}
-				return template.HTML(s), nil
-			},
-			"safeHTMLAttr": func(v any) (template.HTMLAttr, error) {
-				s, ok := v.(string)
-				if !ok {
-					return "", errors.E(errors.InvalidArgument)
-				}
-				return template.HTMLAttr(s), nil
-			},
-		})
+	return template.New("root").Funcs(fnMap)
 }
 
 type Themes map[string]ThemeBundle

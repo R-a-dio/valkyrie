@@ -2,12 +2,11 @@ package admin
 
 import (
 	"context"
-	"net/http"
-	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/templates"
+	vmiddleware "github.com/R-a-dio/valkyrie/website/middleware"
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
@@ -16,8 +15,11 @@ import (
 type State struct {
 	config.Config
 
-	Storage   radio.StorageService
-	Templates *templates.Site
+	Storage          radio.StorageService
+	Templates        *templates.Site
+	TemplateExecutor *templates.Executor
+	SessionManager   *scs.SessionManager
+	Authentication   vmiddleware.Authentication
 }
 
 type admin struct {
@@ -27,41 +29,14 @@ type admin struct {
 	templates *templates.Executor
 }
 
-func newSessionManager() *scs.SessionManager {
-	s := scs.New()
-	s.Lifetime = 150 * 24 * time.Hour
-	s.Cookie = scs.SessionCookie{
-		Name: "admin",
-		//SameSite: http.SameSiteStrictMode,
-		Secure: true,
-	}
-	return s
-}
-
 func Router(ctx context.Context, s State) chi.Router {
-	sessionManager := scs.New()
-	sessionManager.Store = NewSessionStore(ctx, s.Storage)
-	sessionManager.Codec = JSONCodec{}
-	sessionManager.Lifetime = 150 * 24 * time.Hour
-	sessionManager.Cookie = scs.SessionCookie{
-		Name: "admin",
-		//SameSite: http.SameSiteStrictMode,
-		//Secure: true,
-	}
-
-	executor := s.Templates.Executor()
-	authentication := NewAuthentication(s.Storage, executor, sessionManager)
-	admin := admin{s.Config, s.Storage, executor}
+	admin := admin{s.Config, s.Storage, s.TemplateExecutor}
 
 	r := chi.NewRouter()
-	r.Use(sessionManager.LoadAndSave) // use session manager
-	// logout page has to be accessable without being logged in, so register it outside of the group
-	r.Get("/logout", authentication.LogoutHandler)
+
 	r.Group(func(r chi.Router) {
-		r.Use(authentication.LoginMiddleware)
-		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte("hello"))
-		})
+		r.Use(s.Authentication.LoginMiddleware)
+		r.Get("/", admin.GetHome)
 		r.Get("/profile", admin.GetProfile)
 		r.Post("/profile", admin.PostProfile)
 	})

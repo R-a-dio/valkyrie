@@ -42,13 +42,14 @@ func (s State) getHome(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	homeInput := struct {
-		sharedInput
+		shared
 
 		Status     *radio.Status
 		Queue      []radio.QueueEntry
 		LastPlayed []radio.Song
 		News       []radio.NewsPost
 	}{
+		shared:     s.shared(r),
 		Status:     status,
 		Queue:      queue,
 		LastPlayed: lp,

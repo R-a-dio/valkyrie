@@ -16,11 +16,14 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/davecgh/go-spew/spew"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/gorilla/schema"
 )
+
+const bcryptCost = 14
 
 var profileDecoder = schema.NewDecoder()
 
@@ -70,10 +73,22 @@ func (a admin) GetProfile(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+type profileInput struct {
+	shared
+
+	IsAdmin              bool
+	IsNew                bool
+	IsNewProfile         bool
+	CurrentIP            template.JS
+	AvailablePermissions []radio.UserPermission
+	Form                 *ProfileForm
+	AvailableThemes      []string
+}
+
 func (a admin) getProfile(w http.ResponseWriter, r *http.Request, form *ProfileForm) error {
 	ctx := r.Context()
 	// current user of this session
-	user := UserFromContext(ctx)
+	user := middleware.UserFromContext(ctx)
 
 	fmt.Println(user)
 	isAdmin := user.UserPermissions.Has(radio.PermAdmin)
@@ -128,29 +143,20 @@ func (a admin) getProfile(w http.ResponseWriter, r *http.Request, form *ProfileF
 		}
 	}
 
-	profileInput := struct {
-		IsAdmin              bool
-		IsNew                bool
-		IsNewProfile         bool
-		CurrentIP            template.JS
-		AvailablePermissions []radio.UserPermission
-		User                 *radio.User
-		Form                 *ProfileForm
-		AvailableThemes      []string
-	}{
+	tmplInput := profileInput{
+		shared:               a.shared(r),
 		IsAdmin:              isAdmin,
 		IsNew:                isNew,
 		IsNewProfile:         isNewProfile,
 		CurrentIP:            template.JS(r.RemoteAddr),
 		AvailablePermissions: availablePermissions,
-		User:                 user,
 		Form:                 form,
 		AvailableThemes:      []string{},
 	}
 
-	spew.Dump(profileInput)
+	spew.Dump(tmplInput)
 
-	err = a.templates.ExecuteFull("default", "admin-profile", w, profileInput)
+	err = a.templates.ExecuteFull("default", "admin-profile", w, tmplInput)
 	if err != nil {
 		return err
 	}
@@ -200,7 +206,7 @@ func (a admin) postProfile(w http.ResponseWriter, r *http.Request) (*ProfileForm
 
 	ctx := r.Context()
 	// current user of this session
-	user := UserFromContext(ctx)
+	user := middleware.UserFromContext(ctx)
 	// is the session user an admin, in which case (s)he can edit other users
 	isAdmin := user.UserPermissions.Has(radio.PermAdmin)
 	userStorage := a.storage.User(ctx)

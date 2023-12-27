@@ -2,6 +2,7 @@ package public
 
 import (
 	"context"
+	"net/http"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
@@ -23,8 +24,17 @@ type State struct {
 	Storage          radio.StorageService
 }
 
-type sharedInput struct {
+func (s *State) shared(r *http.Request) shared {
+	user := middleware.UserFromContext(r.Context())
+	return shared{
+		IsUser: user != nil,
+		User:   user,
+	}
+}
+
+type shared struct {
 	IsUser bool
+	User   *radio.User
 }
 
 func Router(ctx context.Context, s State) chi.Router {
@@ -34,6 +44,7 @@ func Router(ctx context.Context, s State) chi.Router {
 	r.Get("/", s.GetHome)
 	r.Get("/news", s.GetNews)
 	r.Post("/news", s.PostNews)
+	r.Get("/schedule", s.GetSchedule)
 	r.Get("/queue", s.GetQueue)
 	r.Get("/last-played", s.GetLastPlayed)
 	r.Get("/search", s.GetSearch)

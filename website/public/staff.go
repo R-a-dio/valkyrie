@@ -7,8 +7,10 @@ import (
 
 func (s State) GetStaff(w http.ResponseWriter, r *http.Request) {
 	staffInput := struct {
-		sharedInput
-	}{}
+		shared
+	}{
+		shared: s.shared(r),
+	}
 
 	err := s.TemplateExecutor.ExecuteFull(theme, "staff", w, staffInput)
 	if err != nil {

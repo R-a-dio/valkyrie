@@ -12,6 +12,7 @@ import (
 	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/R-a-dio/valkyrie/website/admin"
 	phpapi "github.com/R-a-dio/valkyrie/website/api/php"
+	vmiddleware "github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/R-a-dio/valkyrie/website/public"
 
 	"github.com/go-chi/chi/v5"
@@ -39,6 +40,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	if err != nil {
 		return errors.E(op, err)
 	}
+	executor := siteTemplates.Executor()
 
 	r := chi.NewRouter()
 	// TODO(wessie): check if nginx is setup to send the correct headers for real IP
@@ -47,6 +49,12 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	r.Use(removePortFromAddress)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	// session handling
+	sessionManager := vmiddleware.NewSessionManager(ctx, storage)
+	r.Use(sessionManager.LoadAndSave)
+	// user handling
+	authentication := vmiddleware.NewAuthentication(storage, executor, sessionManager)
+	r.Use(authentication.UserMiddleware)
 
 	// legacy urls that once pointed to our stream, redirect them to the new url
 	r.Get("/main.mp3", RedirectLegacyStream)
@@ -70,10 +78,14 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	r.Route(`/request/{TrackID:[0-9]+}`, v0.RequestRoute)
 
 	// admin routes
+	r.Get("/logout", authentication.LogoutHandler) // outside so it isn't login restricted
 	r.Mount("/admin", admin.Router(ctx, admin.State{
-		Config:    cfg,
-		Storage:   storage,
-		Templates: siteTemplates,
+		Config:           cfg,
+		Storage:          storage,
+		Templates:        siteTemplates,
+		TemplateExecutor: executor,
+		SessionManager:   sessionManager,
+		Authentication:   authentication,
 	}))
 
 	// public routes
@@ -86,6 +98,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		Storage:          storage,
 	}))
 
+	// setup the http server
 	conf := cfg.Conf()
 	server := &http.Server{
 		Addr:    conf.Website.WebsiteAddr,

@@ -7,8 +7,10 @@ import (
 
 func (s State) GetLastPlayed(w http.ResponseWriter, r *http.Request) {
 	lpInput := struct {
-		sharedInput
-	}{}
+		shared
+	}{
+		shared: s.shared(r),
+	}
 
 	err := s.TemplateExecutor.ExecuteFull(theme, "lastplayed", w, lpInput)
 	if err != nil {

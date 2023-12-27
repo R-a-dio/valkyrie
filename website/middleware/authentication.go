@@ -1,4 +1,4 @@
-package admin
+package middleware
 
 import (
 	"context"
@@ -14,8 +14,6 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 )
-
-const bcryptCost = 14
 
 // keys used in sessions
 //
@@ -33,18 +31,54 @@ const (
 	userContextKey contextKey = "user-struct"
 )
 
-func NewAuthentication(storage radio.StorageService, tmpl *templates.Executor, sessions *scs.SessionManager) authentication {
-	return authentication{
+func NewAuthentication(storage radio.StorageService, tmpl *templates.Executor, sessions *scs.SessionManager) Authentication {
+	return &authentication{
 		storage:   storage,
 		sessions:  sessions,
 		templates: tmpl,
 	}
 }
 
+type Authentication interface {
+	UserMiddleware(http.Handler) http.Handler
+	LoginMiddleware(http.Handler) http.Handler
+	GetLogin(http.ResponseWriter, *http.Request)
+	PostLogin(http.ResponseWriter, *http.Request) error
+	LogoutHandler(http.ResponseWriter, *http.Request)
+}
+
 type authentication struct {
 	storage   radio.StorageService
 	sessions  *scs.SessionManager
 	templates *templates.Executor
+}
+
+// UserMiddleware adds the currently logged in radio.User to the request if available
+func (a authentication) UserMiddleware(next http.Handler) http.Handler {
+	const op errors.Op = "admin/authentication.UserMiddleware"
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
+		username := a.sessions.GetString(ctx, usernameKey)
+
+		// no known username
+		if username == "" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		user, err := a.storage.User(ctx).Get(username)
+		if err != nil {
+			http.Error(w,
+				http.StatusText(http.StatusInternalServerError),
+				http.StatusInternalServerError)
+			log.Println(errors.E(op, err))
+			return
+		}
+
+		next.ServeHTTP(w, RequestWithUser(r, user))
+	})
 }
 
 // LoginMiddleware makes all routes require requests to be from logged in users
@@ -78,7 +112,7 @@ func (a authentication) LoginMiddleware(next http.Handler) http.Handler {
 				http.Error(w,
 					http.StatusText(http.StatusInternalServerError),
 					http.StatusInternalServerError)
-				log.Println(err)
+				log.Println(errors.E(op, err))
 				return
 			}
 
@@ -203,6 +237,20 @@ func (a *authentication) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 // NewSessionStore returns a new SessionStore that uses the storage provided
 func NewSessionStore(ctx context.Context, storage radio.SessionStorageService) SessionStore {
 	return SessionStore{ctx, storage}
+}
+
+func NewSessionManager(ctx context.Context, storage radio.SessionStorageService) *scs.SessionManager {
+	m := scs.New()
+	m.Store = NewSessionStore(ctx, storage)
+	m.Codec = JSONCodec{}
+	m.Lifetime = 150 * 24 * time.Hour
+	m.Cookie = scs.SessionCookie{
+		Name: "admin",
+		Path: "/",
+		//SameSite: http.SameSiteStrictMode,
+		//Secure: true,
+	}
+	return m
 }
 
 // SessionStore implements scs.Store by using a radio.SessionStorageService as its

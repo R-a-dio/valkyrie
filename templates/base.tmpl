@@ -10,8 +10,10 @@
 </html>
 {{end}}
 {{define "partial-page"}}
+    <div id="content">
     {{ template "navbar" . }}
     {{ template "content" . }}
+    </div>
 {{end}}
 {{ define "navbar" }}{{ end }}
 {{ define "scripts" }}{{ end }}

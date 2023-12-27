@@ -1,5 +1,5 @@
 {{define "admin-navbar"}}
-<nav class="navbar is-black" role="navigation">
+<nav class="navbar is-fixed-bottom is-dark" role="navigation">
     <div class="navbar-brand">
         <a class="navbar-item" href="/">
             <img src="/assets/images/logotitle_2.png" alt="r/a/dio logo">
@@ -13,10 +13,10 @@
     <div id="admin-navbar" class="navbar-menu">
         <div class="navbar-start">
             <a class="navbar-item" href="/admin">Home</a>
-            <a class="navbar-item" href="/admin/news">News</a>
-            <a class="navbar-item" href="/admin/pending">Pending</a>
-            <a class="navbar-item" href="/admin/database">Song Database</a>
-            <a class="navbar-item" href="/admin/users">Users</a>
+            {{if .User.UserPermissions.Has "news"}}<a class="navbar-item" href="/admin/news">News</a>{{end}}
+            {{if .User.UserPermissions.Has "pending_view"}}<a class="navbar-item" href="/admin/pending">Pending</a>{{end}}
+            {{if .User.UserPermissions.Has "database_view"}}<a class="navbar-item" href="/admin/database">Song Database</a>{{end}}
+            {{if .User.UserPermissions.Has "admin"}}<a class="navbar-item" href="/admin/users">Users</a>{{end}}
             <a class="navbar-item" href="/admin/profile">Profile</a>
         </div>
     </div>

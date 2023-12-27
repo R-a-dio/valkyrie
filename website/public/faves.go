@@ -7,8 +7,10 @@ import (
 
 func (s State) GetFaves(w http.ResponseWriter, r *http.Request) {
 	favesInput := struct {
-		sharedInput
-	}{}
+		shared
+	}{
+		shared: s.shared(r),
+	}
 
 	err := s.TemplateExecutor.ExecuteFull(theme, "faves", w, favesInput)
 	if err != nil {

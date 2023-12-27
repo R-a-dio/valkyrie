@@ -7,8 +7,10 @@ import (
 
 func (s State) GetNews(w http.ResponseWriter, r *http.Request) {
 	newsInput := struct {
-		sharedInput
-	}{}
+		shared
+	}{
+		shared: s.shared(r),
+	}
 
 	err := s.TemplateExecutor.ExecuteFull(theme, "news", w, newsInput)
 	if err != nil {
