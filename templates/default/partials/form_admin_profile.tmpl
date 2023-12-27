@@ -51,10 +51,10 @@
             <label class="label">Permissions:</label>
         </div>
         <div class="field-body"><div class="field">
-            <ul class="control" id="permissions">
+            <ul class="control tags" id="permissions">
     {{range $perm, $checked := .Form.UserPermissions}}
-                <li>
-                    <input class="checkbox" id="perm-{{$perm}}"
+                <li class="tag">
+                    <input class="checkbox mr-2" id="perm-{{$perm}}"
                         autocomplete="off"
                         type="checkbox"
                         name="Permissions"
