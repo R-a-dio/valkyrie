@@ -39,6 +39,7 @@ func Router(ctx context.Context, s State) chi.Router {
 		r.Get("/", admin.GetHome)
 		r.Get("/profile", admin.GetProfile)
 		r.Post("/profile", admin.PostProfile)
+		r.Get("/pending", admin.GetPending)
 	})
 
 	return r

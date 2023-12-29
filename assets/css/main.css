@@ -5,3 +5,8 @@
 .is-width-90 {
     width: 90%;
 }
+
+.pending-controls span.tag {
+    height: auto;
+    white-space: normal;
+}
