@@ -22,24 +22,15 @@ type State struct {
 	Authentication   vmiddleware.Authentication
 }
 
-type admin struct {
-	config.Config
-
-	storage   radio.StorageService
-	templates *templates.Executor
-}
-
 func Router(ctx context.Context, s State) chi.Router {
-	admin := admin{s.Config, s.Storage, s.TemplateExecutor}
-
 	r := chi.NewRouter()
 
 	r.Group(func(r chi.Router) {
 		r.Use(s.Authentication.LoginMiddleware)
-		r.Get("/", admin.GetHome)
-		r.Get("/profile", admin.GetProfile)
-		r.Post("/profile", admin.PostProfile)
-		r.Get("/pending", admin.GetPending)
+		r.Get("/", s.GetHome)
+		r.Get("/profile", s.GetProfile)
+		r.Post("/profile", s.PostProfile)
+		r.Get("/pending", s.GetPending)
 	})
 
 	return r

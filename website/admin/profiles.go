@@ -64,8 +64,8 @@ type ProfileFormChange struct {
 
 // GetProfile is mounted under /admin/profile and shows the currently logged
 // in users profile
-func (a admin) GetProfile(w http.ResponseWriter, r *http.Request) {
-	err := a.getProfile(w, r, nil)
+func (s *State) GetProfile(w http.ResponseWriter, r *http.Request) {
+	err := s.getProfile(w, r, nil)
 	if err != nil {
 		log.Println(err)
 		return
@@ -85,7 +85,7 @@ type profileInput struct {
 	AvailableThemes      []string
 }
 
-func (a admin) getProfile(w http.ResponseWriter, r *http.Request, form *ProfileForm) error {
+func (s *State) getProfile(w http.ResponseWriter, r *http.Request, form *ProfileForm) error {
 	ctx := r.Context()
 	// current user of this session
 	user := middleware.UserFromContext(ctx)
@@ -100,7 +100,7 @@ func (a admin) getProfile(w http.ResponseWriter, r *http.Request, form *ProfileF
 	userToEdit := user
 	if isAdmin {
 		// admin can change permissions, so load all available ones
-		availablePermissions, err = a.storage.User(ctx).Permissions()
+		availablePermissions, err = s.Storage.User(ctx).Permissions()
 		if err != nil {
 			return err
 		}
@@ -110,7 +110,7 @@ func (a admin) getProfile(w http.ResponseWriter, r *http.Request, form *ProfileF
 	// take an ?username=<username> query argument
 	username := r.FormValue("username")
 	if username != "" && isAdmin {
-		other, err := a.storage.User(ctx).Get(username)
+		other, err := s.Storage.User(ctx).Get(username)
 		if err != nil {
 			return err
 		}
@@ -144,7 +144,7 @@ func (a admin) getProfile(w http.ResponseWriter, r *http.Request, form *ProfileF
 	}
 
 	tmplInput := profileInput{
-		shared:               a.shared(r),
+		shared:               s.shared(r),
 		IsAdmin:              isAdmin,
 		IsNew:                isNew,
 		IsNewProfile:         isNewProfile,
@@ -156,7 +156,7 @@ func (a admin) getProfile(w http.ResponseWriter, r *http.Request, form *ProfileF
 
 	spew.Dump(tmplInput)
 
-	err = a.templates.ExecuteFull("default", "admin-profile", w, tmplInput)
+	err = s.TemplateExecutor.ExecuteFull("default", "admin-profile", w, tmplInput)
 	if err != nil {
 		return err
 	}
@@ -167,8 +167,8 @@ func (a admin) getProfile(w http.ResponseWriter, r *http.Request, form *ProfileF
 // PostProfile implements the profile form POST parsing and handling
 //
 // The expected form as input is defined in templates/partials/form_admin_profile
-func (a admin) PostProfile(w http.ResponseWriter, r *http.Request) {
-	form, err := a.postProfile(w, r)
+func (s *State) PostProfile(w http.ResponseWriter, r *http.Request) {
+	form, err := s.postProfile(w, r)
 	if err != nil {
 		if form != nil {
 			form.Error = err
@@ -187,7 +187,7 @@ func (a admin) PostProfile(w http.ResponseWriter, r *http.Request) {
 			fallthrough
 		case errors.Is(errors.AccessDenied, err):
 			// user wasn't allowed to do the thing they tried to do
-			err := a.getProfile(w, r, form)
+			err := s.getProfile(w, r, form)
 			if err != nil {
 				// nested errors, probably something broken so just return a 501
 				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -201,7 +201,7 @@ func (a admin) PostProfile(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, r.URL.String(), http.StatusSeeOther)
 }
 
-func (a admin) postProfile(w http.ResponseWriter, r *http.Request) (*ProfileForm, error) {
+func (s *State) postProfile(w http.ResponseWriter, r *http.Request) (*ProfileForm, error) {
 	const op errors.Op = "website/admin.postProfile"
 
 	ctx := r.Context()
@@ -209,7 +209,7 @@ func (a admin) postProfile(w http.ResponseWriter, r *http.Request) (*ProfileForm
 	user := middleware.UserFromContext(ctx)
 	// is the session user an admin, in which case (s)he can edit other users
 	isAdmin := user.UserPermissions.Has(radio.PermAdmin)
-	userStorage := a.storage.User(ctx)
+	userStorage := s.Storage.User(ctx)
 
 	err := r.ParseMultipartForm(16 * 1024)
 	if err != nil {
@@ -366,7 +366,7 @@ func (a admin) postProfile(w http.ResponseWriter, r *http.Request) (*ProfileForm
 
 	// now handle dj image changes, then save again after
 	if f := r.MultipartForm.File["DJ.Image"]; len(f) > 0 {
-		err := postProfileImage(a.Config, &new, f[0])
+		err := postProfileImage(s.Config, &new, f[0])
 		if err != nil {
 			// error, something failed in image handling
 			return &form, errors.E(op, err)

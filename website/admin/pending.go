@@ -8,9 +8,16 @@ type pendingInput struct {
 	shared
 }
 
-func (a admin) GetPending(w http.ResponseWriter, r *http.Request) {
+func (s *State) GetPending(w http.ResponseWriter, r *http.Request) {
 	var tmplInput = pendingInput{
-		shared: a.shared(r),
+		shared: s.shared(r),
 	}
-	a.templates.ExecuteFull("default", "admin-pending", w, tmplInput)
+	s.TemplateExecutor.ExecuteFull("default", "admin-pending", w, tmplInput)
+}
+
+func (s *State) PostPending(w http.ResponseWriter, r *http.Request) {
+	var tmplInput = pendingInput{
+		shared: s.shared(r),
+	}
+	s.TemplateExecutor.ExecuteFull("default", "admin-pending", w, tmplInput)
 }

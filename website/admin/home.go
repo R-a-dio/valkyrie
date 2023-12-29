@@ -12,7 +12,7 @@ type shared struct {
 	User   *radio.User
 }
 
-func (a admin) shared(r *http.Request) shared {
+func (s *State) shared(r *http.Request) shared {
 	user := middleware.UserFromContext(r.Context())
 	return shared{
 		IsUser: user != nil,
@@ -24,9 +24,9 @@ type homeInput struct {
 	shared
 }
 
-func (a admin) GetHome(w http.ResponseWriter, r *http.Request) {
+func (s *State) GetHome(w http.ResponseWriter, r *http.Request) {
 	var tmplInput = homeInput{
-		shared: a.shared(r),
+		shared: s.shared(r),
 	}
-	a.templates.ExecuteFull("default", "admin-home", w, tmplInput)
+	s.TemplateExecutor.ExecuteFull("default", "admin-home", w, tmplInput)
 }
