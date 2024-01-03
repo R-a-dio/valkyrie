@@ -2,7 +2,9 @@ package templates
 
 import (
 	"encoding/json"
+	"fmt"
 	"html/template"
+	"time"
 
 	"github.com/R-a-dio/valkyrie/errors"
 )
@@ -12,9 +14,12 @@ func TemplateFuncs() template.FuncMap {
 }
 
 var fnMap = map[string]any{
-	"printjson":    PrintJSON,
-	"safeHTML":     SafeHTML,
-	"safeHTMLAttr": SafeHTMLAttr,
+	"printjson":      PrintJSON,
+	"safeHTML":       SafeHTML,
+	"safeHTMLAttr":   SafeHTMLAttr,
+	"Until":          time.Until,
+	"Since":          time.Since,
+	"PrettyDuration": PrettyDuration,
 }
 
 func PrintJSON(v any) (template.HTML, error) {
@@ -36,4 +41,25 @@ func SafeHTMLAttr(v any) (template.HTMLAttr, error) {
 		return "", errors.E(errors.InvalidArgument)
 	}
 	return template.HTMLAttr(s), nil
+}
+
+func PrettyDuration(d time.Duration) string {
+	if d > 0 { // future duration
+		if d <= time.Minute {
+			return "in less than a min"
+		}
+		if d < time.Minute*2 {
+			return fmt.Sprintf("in %.0f min", d.Minutes())
+		}
+		return fmt.Sprintf("in %.0f mins", d.Minutes())
+	} else { // past duration
+		d = d.Abs()
+		if d <= time.Minute {
+			return "less than a min ago"
+		}
+		if d < time.Minute*2 {
+			return fmt.Sprintf("%.0f min ago", d.Minutes())
+		}
+		return fmt.Sprintf("%.0f mins ago", d.Minutes())
+	}
 }

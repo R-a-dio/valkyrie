@@ -1,3 +1,102 @@
 {{define "content"}}
+<section class="section">
+    <div class="container">
+        <div class="columns">
+            <div class="column is-3 is-hidden-mobile">
+                <img src="/assets/images/logo_image_small.png" alt="R/a/dio">
+            </div>
+            <div class="column is-6">
+                <div class="columns">
+                    <div class="column is-flex is-align-items-center is-justify-content-center">
+                        <img src="/assets/images/logotitle_2.png" alt="R/a/dio">
+                    </div>
+                    <div class="column">
+                        <div class="field">
+                            <button class="button is-info is-fullwidth">Play Stream</button>
+                        </div>
+                        <div class="field has-addons">
+                                <button class="button is-width-90">Direct Stream Link</button>
+                                <button class="button is-width-10">?</button>
+                        </div>
+                        <button class="button is-fullwidth">More Options<span class="caret"></span></button>
+                    </div>
+                </div>
+                <h2 id="current-song">
+                    <p class="title is-2 has-text-centered" style="cursor: pointer;">{{.Status.Song.Metadata}}</p>
+                    <p class="subtitle is-4 has-text-centered" style="font-size: 14px;">{{if .Status.Song.DatabaseTrack}}{{.Status.Song.Tags}}{{end}}</p>
+                </h2>
+                <progress id="current-song-progress" class="progress is-large" value="0" max="{{.Status.Song.Length.Seconds}}"></progress>
+                <div class="columns">
+                    <div class="column is-6">
+                        <p class="has-text-centered">Listeners: <span id="listener-count">{{.Status.Listeners}}</span></p>
+                    </div>
+                    <div class="column is-6">
+                        <p class="has-text-centered"><span id="progress-current">00:00</span> / <span id="progress-max">00:00<span></p>
+                    </div>
+                </div>
+            </div>
+            <div class="column is-3">
+                <div id="dj-image">
+                    <img src="{{.Status.User.DJ.Image}}" style="max-height: 180px;">
+                    <h4>{{.Status.User.DJ.Name}}</h4>
+                </div>
+            </div>
+        </div>
+        <div class="columns">
+            <div class="column is-6">
+                <p class="title is-4 has-text-centered">Last Played</p>
+                <div class="notification">
+                    <ul>
+                        {{range $song := .LastPlayed}}
+                        <li class="columns is-mobile">
+                            <span class="column is-4 has-text-left">{{Until $song.LastPlayed | PrettyDuration}}</span>
+                            <span class="column is-8 has-text-centered">{{$song.Metadata}}</span>
+                        </li>
+                        {{end}}
+                    </ul>
+                </div>
+            </div>
+            <div class="column is-6">
+                <p class="title is-4 has-text-centered">Queue</p>
+                <div class="notification">
+                    <ul>
+                        {{range $song := .Queue}}
+                        <li class="columns is-mobile">
+                            <span class="column is-8 has-text-centered">{{$song.Metadata}}</span>
+                            <span class="column is-4 has-text-right">{{Until $song.ExpectedStartTime | PrettyDuration}}</span>
+                        </li>
+                        {{end}}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="columns">
+            <article class="column message is-small m-3 p-0">
+                <div class="message-header">
+                    <p>Hello World</p>
+                </div>
+                <div class="message-body">
+                    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque risus mi, tempus quis placerat ut, porta nec nulla. Vestibulum rhoncus ac ex sit amet fringilla. Nullam gravida purus diam, et dictum felis venenatis efficitur. Aenean ac eleifend lacus, in mollis lectus. Donec sodales, arcu et sollicitudin porttitor, tortor urna tempor ligula, id porttitor mi magna a neque. Donec dui urna, vehicula et sem eget, facilisis sodales sem. 
+                </div>
+            </article>
+            <article class="column message is-small m-3 p-0">
+                <div class="message-header">
+                    <p>Hello World</p>
+                </div>
+                <div class="message-body">
+                    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque risus mi, tempus quis placerat ut, porta nec nulla. Vestibulum rhoncus ac ex sit amet fringilla. Nullam gravida purus diam, et dictum felis venenatis efficitur. Aenean ac eleifend lacus, in mollis lectus. Donec sodales, arcu et sollicitudin porttitor, tortor urna tempor ligula, id porttitor mi magna a neque. Donec dui urna, vehicula et sem eget, facilisis sodales sem. 
+                </div>
+            </article>
+            <article class="column message is-small m-3 p-0">
+                <div class="message-header">
+                    <p>Hello World</p>
+                </div>
+                <div class="message-body">
+                    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque risus mi, tempus quis placerat ut, porta nec nulla. Vestibulum rhoncus ac ex sit amet fringilla. Nullam gravida purus diam, et dictum felis venenatis efficitur. Aenean ac eleifend lacus, in mollis lectus. Donec sodales, arcu et sollicitudin porttitor, tortor urna tempor ligula, id porttitor mi magna a neque. Donec dui urna, vehicula et sem eget, facilisis sodales sem. 
+                </div>
+            </article>
+        </div>
+    </div>
+</section>
 Home {{printjson .}}
 {{end}}
