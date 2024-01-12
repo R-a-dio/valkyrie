@@ -34,9 +34,9 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	if err != nil {
 		return err
 	}
-	defer srv.Close()
+	defer srv.Stop()
 
-	ln, err := net.Listen("tcp", srv.Addr)
+	ln, err := net.Listen("tcp", cfg.Conf().Streamer.ListenAddr)
 	if err != nil {
 		return err
 	}

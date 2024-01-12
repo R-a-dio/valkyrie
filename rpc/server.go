@@ -9,7 +9,7 @@ import (
 )
 
 // NewAnnouncer returns a new shim around the service given
-func NewAnnouncer(a radio.AnnounceService) Announcer {
+func NewAnnouncer(a radio.AnnounceService) AnnouncerServer {
 	return AnnouncerShim{
 		announcer: a,
 	}
@@ -17,6 +17,7 @@ func NewAnnouncer(a radio.AnnounceService) Announcer {
 
 // AnnouncerShim implements Announcer
 type AnnouncerShim struct {
+	UnimplementedAnnouncerServer
 	announcer radio.AnnounceService
 }
 
@@ -37,7 +38,7 @@ func (as AnnouncerShim) AnnounceRequest(ctx context.Context, ar *SongRequestAnno
 }
 
 // NewManager returns a new shim around the service given
-func NewManager(m radio.ManagerService) Manager {
+func NewManager(m radio.ManagerService) ManagerServer {
 	return ManagerShim{
 		manager: m,
 	}
@@ -45,6 +46,7 @@ func NewManager(m radio.ManagerService) Manager {
 
 // ManagerShim implements Manager
 type ManagerShim struct {
+	UnimplementedManagerServer
 	manager radio.ManagerService
 }
 
@@ -101,7 +103,7 @@ func (m ManagerShim) SetListenerInfo(ctx context.Context, i *ListenerInfo) (*emp
 }
 
 // NewStreamer returns a new shim around the service given
-func NewStreamer(s radio.StreamerService) Streamer {
+func NewStreamer(s radio.StreamerService) StreamerServer {
 	return StreamerShim{
 		streamer: s,
 	}
@@ -109,6 +111,7 @@ func NewStreamer(s radio.StreamerService) Streamer {
 
 // StreamerShim implements Streamer
 type StreamerShim struct {
+	UnimplementedStreamerServer
 	streamer radio.StreamerService
 }
 
@@ -160,7 +163,7 @@ func (ss StreamerShim) SetConfig(ctx context.Context, c *StreamerConfig) (*empty
 }
 
 // NewQueue returns a new shim around the service given
-func NewQueue(q radio.QueueService) Queue {
+func NewQueue(q radio.QueueService) QueueServer {
 	return QueueShim{
 		queue: q,
 	}
@@ -168,6 +171,7 @@ func NewQueue(q radio.QueueService) Queue {
 
 // QueueShim implements Queue
 type QueueShim struct {
+	UnimplementedQueueServer
 	queue radio.QueueService
 }
 

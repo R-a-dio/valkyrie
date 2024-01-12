@@ -2,8 +2,6 @@ package streamer
 
 import (
 	"context"
-	"net/http"
-	"net/http/pprof"
 	"sync"
 	"time"
 
@@ -11,12 +9,13 @@ import (
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/rpc"
+	"google.golang.org/grpc"
 )
 
 // NewHTTPServer returns a http server with RPC API handler and debug handlers
 func NewHTTPServer(cfg config.Config, storage radio.StorageService,
 	queue radio.QueueService, announce radio.AnnounceService,
-	streamer *Streamer) (*http.Server, error) {
+	streamer *Streamer) (*grpc.Server, error) {
 
 	s := &streamerService{
 		Config:   cfg,
@@ -26,24 +25,10 @@ func NewHTTPServer(cfg config.Config, storage radio.StorageService,
 		streamer: streamer,
 	}
 
-	rpcServer := rpc.NewStreamerServer(rpc.NewStreamer(s), nil)
-	mux := http.NewServeMux()
-	// rpc server path
-	mux.Handle(rpc.StreamerPathPrefix, rpcServer)
+	gs := grpc.NewServer()
+	rpc.RegisterStreamerServer(gs, rpc.NewStreamer(s))
 
-	// debug symbols
-	mux.HandleFunc("/debug/pprof/", pprof.Index)
-	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
-	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
-	mux.HandleFunc("/debug/start", func(w http.ResponseWriter, r *http.Request) { s.Start(r.Context()) })
-	mux.HandleFunc("/debug/stop", func(w http.ResponseWriter, r *http.Request) { s.Stop(r.Context(), true) })
-
-	conf := cfg.Conf()
-	server := &http.Server{Addr: conf.Streamer.ListenAddr, Handler: mux}
-
-	return server, nil
+	return gs, nil
 }
 
 type streamerService struct {

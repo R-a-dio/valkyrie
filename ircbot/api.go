@@ -3,8 +3,6 @@ package ircbot
 import (
 	"context"
 	"log"
-	"net/http"
-	"net/http/pprof"
 	"strconv"
 	"strings"
 	"time"
@@ -14,25 +12,16 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/rpc"
 	"github.com/lrstanley/girc"
+	"google.golang.org/grpc"
 )
 
-func NewHTTPServer(b *Bot) (*http.Server, error) {
+func NewHTTPServer(b *Bot) (*grpc.Server, error) {
 	service := NewAnnounceService(b.Config, b.Storage, b)
-	rpcServer := rpc.NewAnnouncerServer(rpc.NewAnnouncer(service), nil)
-	mux := http.NewServeMux()
-	// rpc server path
-	mux.Handle(rpc.AnnouncerPathPrefix, rpcServer)
 
-	// debug symbols
-	mux.HandleFunc("/debug/pprof/", pprof.Index)
-	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
-	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	gs := grpc.NewServer()
+	rpc.RegisterAnnouncerServer(gs, rpc.NewAnnouncer(service))
 
-	conf := b.Conf()
-	server := &http.Server{Addr: conf.IRC.ListenAddr, Handler: mux}
-	return server, nil
+	return gs, nil
 }
 
 func NewAnnounceService(cfg config.Config, storage radio.StorageService, bot *Bot) radio.AnnounceService {

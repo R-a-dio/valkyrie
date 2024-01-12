@@ -3,32 +3,20 @@ package manager
 import (
 	"context"
 	"log"
-	"net/http"
-	"net/http/pprof"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/rpc"
+	"google.golang.org/grpc"
 )
 
 // NewHTTPServer sets up a net/http server ready to serve RPC requests
-func NewHTTPServer(m *Manager) (*http.Server, error) {
-	rpcServer := rpc.NewManagerServer(rpc.NewManager(m), nil)
-	mux := http.NewServeMux()
-	// rpc server path
-	mux.Handle(rpc.ManagerPathPrefix, rpcServer)
+func NewHTTPServer(m *Manager) (*grpc.Server, error) {
+	gs := grpc.NewServer()
+	rpc.RegisterManagerServer(gs, rpc.NewManager(m))
 
-	// debug symbols
-	mux.HandleFunc("/debug/pprof/", pprof.Index)
-	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
-	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
-
-	conf := m.Conf()
-	server := &http.Server{Addr: conf.Manager.ListenAddr, Handler: mux}
-	return server, nil
+	return gs, nil
 }
 
 // Status returns the current status of the radio

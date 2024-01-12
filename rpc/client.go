@@ -4,27 +4,44 @@ import (
 	"context"
 
 	radio "github.com/R-a-dio/valkyrie"
+	grpc "google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
-// NewAnnouncerClient returns a new AnnouncerClient with the client connecting to the given
-// addr and using the client given.
-func NewAnnouncerClient(addr string, c HTTPClient) radio.AnnounceService {
-	return AnnouncerClient{
-		twirp: NewAnnouncerProtobufClient(addr, c),
+func PrepareConn(addr string) *grpc.ClientConn {
+	if len(addr) == 0 {
+		panic("invalid address passed to PrepareConn: empty string")
+	}
+
+	if addr[0] == ':' {
+		addr = "localhost" + addr
+	}
+
+	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		panic("failed to setup grpc client: " + err.Error())
+	}
+	return conn
+}
+
+// NewAnnouncerService returns a new client implementing radio.AnnounceService
+func NewAnnouncerService(c *grpc.ClientConn) radio.AnnounceService {
+	return AnnouncerClientRPC{
+		rpc: NewAnnouncerClient(c),
 	}
 }
 
-// AnnouncerClient is a twirp client that implements radio.AnnounceService
-type AnnouncerClient struct {
-	twirp Announcer
+// AnnouncerClient is a grpc client that implements radio.AnnounceService
+type AnnouncerClientRPC struct {
+	rpc AnnouncerClient
 }
 
-var _ radio.AnnounceService = AnnouncerClient{}
+var _ radio.AnnounceService = AnnouncerClientRPC{}
 
 // AnnounceSong implements radio.AnnounceService
-func (a AnnouncerClient) AnnounceSong(ctx context.Context, s radio.Status) error {
+func (a AnnouncerClientRPC) AnnounceSong(ctx context.Context, s radio.Status) error {
 	announcement := &SongAnnouncement{
 		Song: toProtoSong(s.Song),
 		Info: toProtoSongInfo(s.SongInfo),
@@ -32,37 +49,37 @@ func (a AnnouncerClient) AnnounceSong(ctx context.Context, s radio.Status) error
 			Listeners: int64(s.Listeners),
 		},
 	}
-	_, err := a.twirp.AnnounceSong(ctx, announcement)
+	_, err := a.rpc.AnnounceSong(ctx, announcement)
 	return err
 }
 
 // AnnounceRequest implements radio.AnnounceService
-func (a AnnouncerClient) AnnounceRequest(ctx context.Context, s radio.Song) error {
+func (a AnnouncerClientRPC) AnnounceRequest(ctx context.Context, s radio.Song) error {
 	announcement := &SongRequestAnnouncement{
 		Song: toProtoSong(s),
 	}
 
-	_, err := a.twirp.AnnounceRequest(ctx, announcement)
+	_, err := a.rpc.AnnounceRequest(ctx, announcement)
 	return err
 }
 
-// NewManagerClient returns a new client implementing radio.ManagerService
-func NewManagerClient(addr string, httpclient HTTPClient) radio.ManagerService {
-	return ManagerClient{
-		twirp: NewManagerProtobufClient(addr, httpclient),
+// NewManagerService returns a new client implementing radio.ManagerService
+func NewManagerService(c *grpc.ClientConn) radio.ManagerService {
+	return ManagerClientRPC{
+		rpc: NewManagerClient(c),
 	}
 }
 
-// ManagerClient is a twirp client that implements radio.ManagerService
-type ManagerClient struct {
-	twirp Manager
+// ManagerClient is a grpc client that implements radio.ManagerService
+type ManagerClientRPC struct {
+	rpc ManagerClient
 }
 
-var _ radio.ManagerService = ManagerClient{}
+var _ radio.ManagerService = ManagerClientRPC{}
 
 // Status implements radio.ManagerService
-func (m ManagerClient) Status(ctx context.Context) (*radio.Status, error) {
-	s, err := m.twirp.Status(ctx, new(emptypb.Empty))
+func (m ManagerClientRPC) Status(ctx context.Context) (*radio.Status, error) {
+	s, err := m.rpc.Status(ctx, new(emptypb.Empty))
 	if err != nil {
 		return nil, err
 	}
@@ -79,8 +96,8 @@ func (m ManagerClient) Status(ctx context.Context) (*radio.Status, error) {
 }
 
 // UpdateUser implements radio.ManagerService
-func (m ManagerClient) UpdateUser(ctx context.Context, n string, u radio.User) error {
-	_, err := m.twirp.SetUser(ctx, &UserUpdate{
+func (m ManagerClientRPC) UpdateUser(ctx context.Context, n string, u radio.User) error {
+	_, err := m.rpc.SetUser(ctx, &UserUpdate{
 		User:         toProtoUser(u),
 		StreamerName: n,
 	})
@@ -88,8 +105,8 @@ func (m ManagerClient) UpdateUser(ctx context.Context, n string, u radio.User) e
 }
 
 // UpdateSong implements radio.ManagerService
-func (m ManagerClient) UpdateSong(ctx context.Context, s radio.Song, i radio.SongInfo) error {
-	_, err := m.twirp.SetSong(ctx, &SongUpdate{
+func (m ManagerClientRPC) UpdateSong(ctx context.Context, s radio.Song, i radio.SongInfo) error {
+	_, err := m.rpc.SetSong(ctx, &SongUpdate{
 		Song: toProtoSong(s),
 		Info: toProtoSongInfo(i),
 	})
@@ -97,36 +114,36 @@ func (m ManagerClient) UpdateSong(ctx context.Context, s radio.Song, i radio.Son
 }
 
 // UpdateThread implements radio.ManagerService
-func (m ManagerClient) UpdateThread(ctx context.Context, thread string) error {
-	_, err := m.twirp.SetThread(ctx, wrapperspb.String(thread))
+func (m ManagerClientRPC) UpdateThread(ctx context.Context, thread string) error {
+	_, err := m.rpc.SetThread(ctx, wrapperspb.String(thread))
 	return err
 }
 
 // UpdateListeners implements radio.ManagerService
-func (m ManagerClient) UpdateListeners(ctx context.Context, count int) error {
-	_, err := m.twirp.SetListenerInfo(ctx, &ListenerInfo{
+func (m ManagerClientRPC) UpdateListeners(ctx context.Context, count int) error {
+	_, err := m.rpc.SetListenerInfo(ctx, &ListenerInfo{
 		Listeners: int64(count),
 	})
 	return err
 }
 
-// NewStreamerClient returns a new client implementing radio.StreamerService
-func NewStreamerClient(addr string, httpclient HTTPClient) radio.StreamerService {
-	return StreamerClient{
-		twirp: NewStreamerProtobufClient(addr, httpclient),
+// NewStreamerService returns a new client implementing radio.StreamerService
+func NewStreamerService(c *grpc.ClientConn) radio.StreamerService {
+	return StreamerClientRPC{
+		rpc: NewStreamerClient(c),
 	}
 }
 
-// StreamerClient is a twirp client that implements radio.StreamerService
-type StreamerClient struct {
-	twirp Streamer
+// StreamerClient is a grpc client that implements radio.StreamerService
+type StreamerClientRPC struct {
+	rpc StreamerClient
 }
 
-var _ radio.StreamerService = StreamerClient{}
+var _ radio.StreamerService = StreamerClientRPC{}
 
 // Start implements radio.StreamerService
-func (s StreamerClient) Start(ctx context.Context) error {
-	resp, err := s.twirp.Start(ctx, new(emptypb.Empty))
+func (s StreamerClientRPC) Start(ctx context.Context) error {
+	resp, err := s.rpc.Start(ctx, new(emptypb.Empty))
 	if err != nil {
 		return err
 	}
@@ -134,8 +151,8 @@ func (s StreamerClient) Start(ctx context.Context) error {
 }
 
 // Stop implements radio.StreamerService
-func (s StreamerClient) Stop(ctx context.Context, force bool) error {
-	resp, err := s.twirp.Stop(ctx, wrapperspb.Bool(force))
+func (s StreamerClientRPC) Stop(ctx context.Context, force bool) error {
+	resp, err := s.rpc.Stop(ctx, wrapperspb.Bool(force))
 	if err != nil {
 		return err
 	}
@@ -143,12 +160,12 @@ func (s StreamerClient) Stop(ctx context.Context, force bool) error {
 }
 
 // RequestSong implements radio.StreamerService
-func (s StreamerClient) RequestSong(ctx context.Context, song radio.Song, identifier string) error {
+func (s StreamerClientRPC) RequestSong(ctx context.Context, song radio.Song, identifier string) error {
 	if !song.HasTrack() {
 		panic("request song called with non-database track")
 	}
 
-	resp, err := s.twirp.RequestSong(ctx, &SongRequest{
+	resp, err := s.rpc.RequestSong(ctx, &SongRequest{
 		UserIdentifier: identifier,
 		Song:           toProtoSong(song),
 	})
@@ -160,8 +177,8 @@ func (s StreamerClient) RequestSong(ctx context.Context, song radio.Song, identi
 }
 
 // Queue implements radio.StreamerService
-func (s StreamerClient) Queue(ctx context.Context) ([]radio.QueueEntry, error) {
-	resp, err := s.twirp.Queue(ctx, new(emptypb.Empty))
+func (s StreamerClientRPC) Queue(ctx context.Context) ([]radio.QueueEntry, error) {
+	resp, err := s.rpc.Queue(ctx, new(emptypb.Empty))
 	if err != nil {
 		return nil, err
 	}
@@ -174,23 +191,23 @@ func (s StreamerClient) Queue(ctx context.Context) ([]radio.QueueEntry, error) {
 	return queue, nil
 }
 
-// NewQueueClient returns a new client implement radio.QueueService
-func NewQueueClient(addr string, c HTTPClient) radio.QueueService {
-	return QueueClient{
-		twirp: NewQueueProtobufClient(addr, c),
+// NewQueueService returns a new client implement radio.QueueService
+func NewQueueService(c *grpc.ClientConn) radio.QueueService {
+	return QueueClientRPC{
+		rpc: NewQueueClient(c),
 	}
 }
 
-// QueueClient is a twirp client that implements radio.QueueService
-type QueueClient struct {
-	twirp Queue
+// QueueClient is a grpc client that implements radio.QueueService
+type QueueClientRPC struct {
+	rpc QueueClient
 }
 
-var _ radio.QueueService = QueueClient{}
+var _ radio.QueueService = QueueClientRPC{}
 
 // AddRequest implements radio.QueueService
-func (q QueueClient) AddRequest(ctx context.Context, s radio.Song, identifier string) error {
-	_, err := q.twirp.AddRequest(ctx, &QueueEntry{
+func (q QueueClientRPC) AddRequest(ctx context.Context, s radio.Song, identifier string) error {
+	_, err := q.rpc.AddRequest(ctx, &QueueEntry{
 		Song:           toProtoSong(s),
 		IsUserRequest:  true,
 		UserIdentifier: identifier,
@@ -199,8 +216,8 @@ func (q QueueClient) AddRequest(ctx context.Context, s radio.Song, identifier st
 }
 
 // ReserveNext implements radio.QueueService
-func (q QueueClient) ReserveNext(ctx context.Context) (*radio.QueueEntry, error) {
-	resp, err := q.twirp.ReserveNext(ctx, new(emptypb.Empty))
+func (q QueueClientRPC) ReserveNext(ctx context.Context) (*radio.QueueEntry, error) {
+	resp, err := q.rpc.ReserveNext(ctx, new(emptypb.Empty))
 	if err != nil {
 		return nil, err
 	}
@@ -208,14 +225,14 @@ func (q QueueClient) ReserveNext(ctx context.Context) (*radio.QueueEntry, error)
 	return fromProtoQueueEntry(resp), nil
 }
 
-func (q QueueClient) ResetReserved(ctx context.Context) error {
+func (q QueueClientRPC) ResetReserved(ctx context.Context) error {
 	// TODO: implement this
 	return nil
 }
 
 // Remove implements radio.QueueService
-func (q QueueClient) Remove(ctx context.Context, entry radio.QueueEntry) (bool, error) {
-	resp, err := q.twirp.Remove(ctx, toProtoQueueEntry(entry))
+func (q QueueClientRPC) Remove(ctx context.Context, entry radio.QueueEntry) (bool, error) {
+	resp, err := q.rpc.Remove(ctx, toProtoQueueEntry(entry))
 	if err != nil {
 		return false, err
 	}
@@ -224,8 +241,8 @@ func (q QueueClient) Remove(ctx context.Context, entry radio.QueueEntry) (bool, 
 }
 
 // Entries implements radio.QueueService
-func (q QueueClient) Entries(ctx context.Context) ([]radio.QueueEntry, error) {
-	resp, err := q.twirp.Entries(ctx, new(emptypb.Empty))
+func (q QueueClientRPC) Entries(ctx context.Context) ([]radio.QueueEntry, error) {
+	resp, err := q.rpc.Entries(ctx, new(emptypb.Empty))
 	if err != nil {
 		return nil, err
 	}

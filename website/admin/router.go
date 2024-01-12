@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"net/http"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
@@ -31,7 +32,17 @@ func Router(ctx context.Context, s State) chi.Router {
 		r.Get("/profile", s.GetProfile)
 		r.Post("/profile", s.PostProfile)
 		r.Get("/pending", s.GetPending)
+		r.Get("/streamer/start", s.StartStreamer)
+		r.Get("/streamer/stop", s.StopStreamer)
 	})
 
 	return r
+}
+
+func (s *State) StartStreamer(w http.ResponseWriter, r *http.Request) {
+	s.Conf().Streamer.Client().Start(r.Context())
+}
+
+func (s *State) StopStreamer(w http.ResponseWriter, r *http.Request) {
+	s.Conf().Streamer.Client().Stop(r.Context(), true)
 }

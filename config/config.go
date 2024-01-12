@@ -7,7 +7,6 @@ import (
 	"math"
 	"math/big"
 	"math/rand"
-	"net/http"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -141,7 +140,7 @@ type streamer struct {
 
 // Client returns an usable client to the streamer
 func (s streamer) Client() radio.StreamerService {
-	return rpc.NewStreamerClient(prepareTwirpClient(s.Addr))
+	return rpc.NewStreamerService(rpc.PrepareConn(s.Addr))
 }
 
 // irc contains all the fields only relevant to the irc bot
@@ -173,7 +172,7 @@ type irc struct {
 
 // Client returns an usable client to the irc (announcer) service
 func (i irc) Client() radio.AnnounceService {
-	return rpc.NewAnnouncerClient(prepareTwirpClient(i.Addr))
+	return rpc.NewAnnouncerService(rpc.PrepareConn(i.Addr))
 }
 
 // manager contains all fields relevant to the manager
@@ -191,7 +190,7 @@ type manager struct {
 
 // Client returns an usable client to the manager service
 func (m manager) Client() radio.ManagerService {
-	return rpc.NewManagerClient(prepareTwirpClient(m.Addr))
+	return rpc.NewManagerService(rpc.PrepareConn(m.Addr))
 }
 
 type elasticsearch struct {
@@ -204,31 +203,6 @@ type balancer struct {
 	Addr string
 	// Fallback is the stream to default to.
 	Fallback string
-}
-
-// prepareTwirpClient prepares a http client and an usable address string for creating
-// a twirp client
-func prepareTwirpClient(addr string) (fullAddr string, client httpClient) {
-	// TODO: check if we want to configure our own http client
-	client = http.DefaultClient
-
-	// our addr can either be 'ip:port' or ':port' but twirp expects http(s)://ip:port
-	if len(addr) == 0 {
-		panic("invalid address passed to prepareTwirpClient: empty string")
-	}
-
-	if addr[0] == ':' {
-		fullAddr = "http://localhost" + addr
-	} else {
-		fullAddr = "http://" + addr
-	}
-
-	return fullAddr, client
-}
-
-// httpClient interface used by twirp to fulfill requests
-type httpClient interface {
-	Do(req *http.Request) (*http.Response, error)
 }
 
 // errors is a slice of multiple config-file errors
@@ -309,7 +283,8 @@ func Load(r io.Reader) (Config, error) {
 // Conf returns the configuration stored inside
 //
 // NOTE: Conf returns a shallow-copy of the config value stored inside; so do not edit
-// 		 any slices or maps that might be inside
+//
+//	any slices or maps that might be inside
 func (c Config) Conf() config {
 	return c.config.Load().(config)
 }

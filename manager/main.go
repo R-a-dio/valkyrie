@@ -28,7 +28,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 
-	ln, err := net.Listen("tcp", srv.Addr)
+	ln, err := net.Listen("tcp", cfg.Conf().Manager.ListenAddr)
 	if err != nil {
 		return err
 	}
@@ -41,7 +41,8 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	// wait for our context to be canceled or Serve to error out
 	select {
 	case <-ctx.Done():
-		return srv.Close()
+		srv.Stop()
+		return nil
 	case err = <-errCh:
 		return err
 	}
