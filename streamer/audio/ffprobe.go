@@ -1,9 +1,14 @@
 package audio
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
+	"log"
 	"os/exec"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -34,6 +39,78 @@ func ProbeDuration(ctx context.Context, filename string) (time.Duration, error) 
 	}
 
 	return dur, nil
+}
+
+var (
+	probeRegex = regexp.MustCompile(`(TAG:)?(?P<key>.+?)=(?P<value>.+)`)
+	probeKey   = probeRegex.SubexpIndex("key")
+	probeValue = probeRegex.SubexpIndex("value")
+)
+
+type Info struct {
+	Duration time.Duration
+	Title    string
+	Artist   string
+	Album    string
+	Bitrate  int
+}
+
+func ProbeText(ctx context.Context, filename string) (*Info, error) {
+	const op errors.Op = "streamer/audio.Probe"
+
+	cmd := exec.CommandContext(ctx, "ffprobe",
+		"-loglevel", "fatal",
+		"-hide_banner",
+		"-show_entries", "format_tags=title,artist,album:stream_tags=title,artist,album:stream=duration,bit_rate:format=bit_rate",
+		"-of", "default=noprint_wrappers=1",
+		"-i", filename)
+
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, errors.E(op, err, errors.Info(cmd.String()))
+	}
+
+	var info Info
+	s := bufio.NewScanner(bytes.NewReader(out))
+	for s.Scan() {
+		m := probeRegex.FindStringSubmatch(s.Text())
+		if m == nil {
+			// invalid output
+			log.Println("invalid line from ffprobe:", s.Text())
+			continue
+		}
+
+		key := strings.ToLower(m[probeKey])
+		value := m[probeValue]
+
+		switch key {
+		case "duration":
+			info.Duration, err = time.ParseDuration(value + "s")
+			if err != nil {
+				log.Println("invalid duration from ffprobe:", value)
+			}
+		case "title":
+			info.Title = value
+		case "artist":
+			info.Artist = value
+		case "album":
+			info.Album = value
+		case "bit_rate":
+			if value != "N/A" { // could not exist
+				info.Bitrate, err = strconv.Atoi(value)
+				if err != nil {
+					log.Println("invalid bit_rate from ffprobe:", value)
+				}
+			}
+		default:
+			panic("unknown key in ffmpeg output: " + key)
+		}
+	}
+	if err := s.Err(); err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	return &info, nil
 }
 
 func Probe(ctx context.Context, filename string) (*ProbeInfo, error) {
