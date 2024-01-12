@@ -16,7 +16,6 @@ require (
 	github.com/lrstanley/girc v0.0.0-20230911164840-f47717952bf9
 	github.com/olivere/elastic/v7 v7.0.32
 	github.com/tcolgate/mp3 v0.0.0-20170426193717-e79c5a46d300
-	github.com/twitchtv/twirp v8.1.3+incompatible
 	golang.org/x/crypto v0.17.0
 	google.golang.org/grpc v1.60.1
 )
