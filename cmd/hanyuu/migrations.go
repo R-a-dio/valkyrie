@@ -11,12 +11,13 @@ import (
 
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
-	migrations "github.com/R-a-dio/valkyrie/migrations/embed"
+	"github.com/R-a-dio/valkyrie/migrations"
 	"github.com/R-a-dio/valkyrie/storage/mariadb"
 
 	"github.com/golang-migrate/migrate/v4"
 	mysqldriver "github.com/golang-migrate/migrate/v4/database/mysql"
 	"github.com/golang-migrate/migrate/v4/source"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/google/subcommands"
 )
 
@@ -88,7 +89,7 @@ func (m *migrateCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...inter
 		usage: `ls:
 		shows a list of all migrations
 		`,
-		execute: m.ls,
+		execute: withConfig(m.ls),
 	}, "")
 
 	return cmder.Execute(ctx, args...)
@@ -103,16 +104,44 @@ func (m migrateCmd) up(ctx context.Context, cfg config.Config) error {
 	return m.migrate.Up()
 }
 
-func (m migrateCmd) ls(context.Context, config.Loader) error {
-	migr, err := migrations.ListMigrations()
+func (m migrateCmd) ls(ctx context.Context, cfg config.Config) error {
+	err := m.setup(ctx, cfg)
 	if err != nil {
 		return err
 	}
 
-	for i := range migr {
-		fmt.Println(migr[i].Pretty())
+	version, err := m.source.First()
+	if err != nil {
+		return err
 	}
-	return nil
+
+	for {
+		_, identifier, err := m.source.ReadUp(version)
+		if err != nil && !errors.IsE(err, os.ErrNotExist) {
+			return err
+		}
+
+		if !errors.IsE(err, os.ErrNotExist) {
+			fmt.Printf("%.4d   UP %s\n", version, identifier)
+		}
+
+		_, identifier, err = m.source.ReadDown(version)
+		if err != nil && !errors.IsE(err, os.ErrNotExist) {
+			return err
+		}
+
+		if !errors.IsE(err, os.ErrNotExist) {
+			fmt.Printf("%.4d DOWN %s\n", version, identifier)
+		}
+
+		version, err = m.source.Next(version)
+		if err != nil {
+			if errors.IsE(err, os.ErrNotExist) {
+				return nil
+			}
+			return err
+		}
+	}
 }
 
 func (m migrateCmd) forceVersion(ctx context.Context, cfg config.Config) error {
@@ -155,7 +184,7 @@ func (m migrateCmd) version(ctx context.Context, cfg config.Config) error {
 }
 
 func (m *migrateCmd) setup(ctx context.Context, cfg config.Config) error {
-	s, err := migrations.Source.Open("")
+	s, err := iofs.New(migrations.FS, ".")
 	if err != nil {
 		return err
 	}
@@ -172,7 +201,7 @@ func (m *migrateCmd) setup(ctx context.Context, cfg config.Config) error {
 	}
 
 	migr, err := migrate.NewWithInstance(
-		"becky", m.source,
+		"embed", m.source,
 		"mysql", d,
 	)
 	if err != nil {
