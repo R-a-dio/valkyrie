@@ -8,6 +8,7 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/rpc"
+	"github.com/R-a-dio/valkyrie/util/eventstream"
 	"google.golang.org/grpc"
 )
 
@@ -19,6 +20,22 @@ func NewHTTPServer(m *Manager) (*grpc.Server, error) {
 	return gs, nil
 }
 
+func (m *Manager) CurrentUser(ctx context.Context) (eventstream.Stream[radio.User], error) {
+	return m.userStream.SubStream(ctx), nil
+}
+
+func (m *Manager) CurrentThread(ctx context.Context) (eventstream.Stream[radio.Thread], error) {
+	return m.threadStream.SubStream(ctx), nil
+}
+
+func (m *Manager) CurrentSong(ctx context.Context) (eventstream.Stream[*radio.SongUpdate], error) {
+	return m.songStream.SubStream(ctx), nil
+}
+
+func (m *Manager) CurrentListeners(ctx context.Context) (eventstream.Stream[radio.Listeners], error) {
+	return m.listenerStream.SubStream(ctx), nil
+}
+
 // Status returns the current status of the radio
 func (m *Manager) Status(ctx context.Context) (*radio.Status, error) {
 	m.mu.Lock()
@@ -28,14 +45,13 @@ func (m *Manager) Status(ctx context.Context) (*radio.Status, error) {
 }
 
 // UpdateUser sets information about the current streamer
-func (m *Manager) UpdateUser(ctx context.Context, displayName string, u radio.User) error {
+func (m *Manager) UpdateUser(ctx context.Context, u radio.User) error {
 	defer m.updateStreamStatus()
+	m.userStream.Send(u)
+
 	m.mu.Lock()
-	if displayName != "" {
-		m.status.StreamerName = displayName
-	} else {
-		m.status.StreamerName = u.DJ.Name
-	}
+
+	m.status.StreamerName = u.DJ.Name
 	m.status.User = u
 
 	isRobot := u.Username == "AFK"
@@ -49,13 +65,16 @@ func (m *Manager) UpdateUser(ctx context.Context, displayName string, u radio.Us
 	}
 
 	m.mu.Unlock()
-	log.Printf("manager: updating user to: %s (%s)", displayName, u.Username)
+	log.Printf("manager: updating user to: %s (%s)", u.DJ.Name, u.Username)
 	return nil
 }
 
 // UpdateSong sets information about the currently playing song
-func (m *Manager) UpdateSong(ctx context.Context, new radio.Song, info radio.SongInfo) error {
+func (m *Manager) UpdateSong(ctx context.Context, update *radio.SongUpdate) error {
 	const op errors.Op = "manager/Manager.UpdateSong"
+
+	new := update
+	info := update.Info
 
 	// first we check if this is the same song as the previous one we received to
 	// avoid double announcement or drifting start/end timings
@@ -141,8 +160,6 @@ func (m *Manager) UpdateSong(ctx context.Context, new radio.Song, info radio.Son
 	var startListenerCount int
 	startListenerCount, m.songStartListenerCount = m.songStartListenerCount, currentListenerCount
 
-	// make a copy of our current status to send to the announcer
-	announceStatus := m.status.Copy()
 	m.mu.Unlock()
 
 	// only calculate a diff if we have more than 10 listeners
@@ -153,12 +170,8 @@ func (m *Manager) UpdateSong(ctx context.Context, new radio.Song, info radio.Son
 
 	log.Printf("manager: set song: \"%s\" (%s)\n", song.Metadata, song.Length)
 
-	// announce the new song over a chat service
-	err = m.client.announce.AnnounceSong(ctx, announceStatus)
-	if err != nil {
-		// this isn't a critical error, so we do not return it if it occurs
-		log.Printf("%s: failed to announce song: %s", op, err)
-	}
+	// send an event out
+	m.songStream.Send(&radio.SongUpdate{Song: *song, Info: info})
 
 	// =============================================
 	// finish up database work for the previous song
@@ -205,8 +218,10 @@ func (m *Manager) UpdateSong(ctx context.Context, new radio.Song, info radio.Son
 }
 
 // UpdateThread sets the current thread information on the front page and chats
-func (m *Manager) UpdateThread(ctx context.Context, thread string) error {
+func (m *Manager) UpdateThread(ctx context.Context, thread radio.Thread) error {
 	defer m.updateStreamStatus()
+	m.threadStream.Send(thread)
+
 	m.mu.Lock()
 	m.status.Thread = thread
 	m.mu.Unlock()
@@ -214,10 +229,12 @@ func (m *Manager) UpdateThread(ctx context.Context, thread string) error {
 }
 
 // UpdateListeners sets the listener count
-func (m *Manager) UpdateListeners(ctx context.Context, listeners int) error {
+func (m *Manager) UpdateListeners(ctx context.Context, listeners radio.Listeners) error {
 	defer m.updateStreamStatus()
+	m.listenerStream.Send(listeners)
+
 	m.mu.Lock()
-	m.status.Listeners = listeners
+	m.status.Listeners = int(listeners)
 	m.mu.Unlock()
 	return nil
 }

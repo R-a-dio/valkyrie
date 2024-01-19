@@ -296,7 +296,7 @@ func (a *API) getCanRequest(w http.ResponseWriter, r *http.Request) {
 		// but not if an error occured
 		if err != nil {
 			// TODO: handle error
-			http.Error(w, http.StatusText(501), 501)
+			http.Error(w, http.StatusText(http.StatusNotImplemented), http.StatusNotImplemented)
 			return
 		}
 		err := json.NewEncoder(w).Encode(response)
@@ -325,7 +325,6 @@ func (a *API) getCanRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.Main.Requests = true
-	return
 }
 
 type canRequestResponse struct {
@@ -343,7 +342,6 @@ func (a *API) getDJImage(w http.ResponseWriter, r *http.Request) {
 	user, ok := middleware.GetUser(ctx)
 	if !ok {
 		panic("missing UserByDJIDCtx middleware")
-		return
 	}
 
 	filename := filepath.Join(a.Conf().Website.DJImagePath, user.DJ.ID.String())
@@ -407,8 +405,6 @@ func (a *API) postRequest(w http.ResponseWriter, r *http.Request) {
 		response["error"] = "something broke, report to IRC."
 	}
 }
-
-type requestResponse map[string]string
 
 func newV0Status(ctx context.Context, storage radio.SongStorageService,
 	streamer radio.StreamerService, manager radio.ManagerService) (*v0Status, error) {

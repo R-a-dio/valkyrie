@@ -4,6 +4,7 @@ import (
 	"context"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/util/eventstream"
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -95,36 +96,56 @@ func (m ManagerClientRPC) Status(ctx context.Context) (*radio.Status, error) {
 	}, nil
 }
 
+func (m ManagerClientRPC) CurrentUser(ctx context.Context) (eventstream.Stream[radio.User], error) {
+	c := func(ctx context.Context, e *emptypb.Empty, opts ...grpc.CallOption) (pbReceiver[*User], error) {
+		return m.rpc.CurrentUser(ctx, e, opts...)
+	}
+	return streamFromProtobuf(ctx, c, fromProtoUser)
+}
+
 // UpdateUser implements radio.ManagerService
-func (m ManagerClientRPC) UpdateUser(ctx context.Context, n string, u radio.User) error {
-	_, err := m.rpc.SetUser(ctx, &UserUpdate{
-		User:         toProtoUser(u),
-		StreamerName: n,
-	})
+func (m ManagerClientRPC) UpdateUser(ctx context.Context, u radio.User) error {
+	_, err := m.rpc.UpdateUser(ctx, toProtoUser(u))
 	return err
 }
 
+func (m ManagerClientRPC) CurrentSong(ctx context.Context) (eventstream.Stream[*radio.SongUpdate], error) {
+	c := func(ctx context.Context, e *emptypb.Empty, opts ...grpc.CallOption) (pbReceiver[*SongUpdate], error) {
+		return m.rpc.CurrentSong(ctx, e, opts...)
+	}
+	return streamFromProtobuf(ctx, c, fromProtoSongUpdate)
+}
+
 // UpdateSong implements radio.ManagerService
-func (m ManagerClientRPC) UpdateSong(ctx context.Context, s radio.Song, i radio.SongInfo) error {
-	_, err := m.rpc.SetSong(ctx, &SongUpdate{
-		Song: toProtoSong(s),
-		Info: toProtoSongInfo(i),
-	})
+func (m ManagerClientRPC) UpdateSong(ctx context.Context, u *radio.SongUpdate) error {
+	_, err := m.rpc.UpdateSong(ctx, toProtoSongUpdate(u))
 	return err
 }
 
 // UpdateThread implements radio.ManagerService
-func (m ManagerClientRPC) UpdateThread(ctx context.Context, thread string) error {
-	_, err := m.rpc.SetThread(ctx, wrapperspb.String(thread))
+func (m ManagerClientRPC) UpdateThread(ctx context.Context, thread radio.Thread) error {
+	_, err := m.rpc.UpdateThread(ctx, wrapperspb.String(thread))
 	return err
 }
 
+func (m ManagerClientRPC) CurrentThread(ctx context.Context) (eventstream.Stream[radio.Thread], error) {
+	c := func(ctx context.Context, e *emptypb.Empty, opts ...grpc.CallOption) (pbReceiver[*wrapperspb.StringValue], error) {
+		return m.rpc.CurrentThread(ctx, e, opts...)
+	}
+	return streamFromProtobuf(ctx, c, func(v *wrapperspb.StringValue) radio.Thread { return v.Value })
+}
+
 // UpdateListeners implements radio.ManagerService
-func (m ManagerClientRPC) UpdateListeners(ctx context.Context, count int) error {
-	_, err := m.rpc.SetListenerInfo(ctx, &ListenerInfo{
-		Listeners: int64(count),
-	})
+func (m ManagerClientRPC) UpdateListeners(ctx context.Context, count radio.Listeners) error {
+	_, err := m.rpc.UpdateListenerCount(ctx, wrapperspb.Int64(count))
 	return err
+}
+
+func (m ManagerClientRPC) CurrentListeners(ctx context.Context) (eventstream.Stream[radio.Listeners], error) {
+	c := func(ctx context.Context, e *emptypb.Empty, opts ...grpc.CallOption) (pbReceiver[*wrapperspb.Int64Value], error) {
+		return m.rpc.CurrentListenerCount(ctx, e, opts...)
+	}
+	return streamFromProtobuf(ctx, c, func(v *wrapperspb.Int64Value) radio.Listeners { return v.Value })
 }
 
 // NewStreamerService returns a new client implementing radio.StreamerService
@@ -252,4 +273,45 @@ func (q QueueClientRPC) Entries(ctx context.Context) ([]radio.QueueEntry, error)
 		queue = append(queue, *fromProtoQueueEntry(entry))
 	}
 	return queue, nil
+}
+
+type pbCreator[P any] func(context.Context, *emptypb.Empty, ...grpc.CallOption) (pbReceiver[P], error)
+
+type pbReceiver[P any] interface {
+	Recv() (P, error)
+	grpc.ClientStream
+}
+
+type grpcStream[P, T any] struct {
+	s      pbReceiver[P]
+	conv   func(P) T
+	cancel context.CancelFunc
+}
+
+func (gs *grpcStream[P, T]) Next() (T, error) {
+	p, err := gs.s.Recv()
+	if err != nil {
+		return *new(T), nil
+	}
+	return gs.conv(p), nil
+}
+
+func (gs *grpcStream[P, T]) Close() error {
+	gs.cancel()
+	return nil
+}
+
+func streamFromProtobuf[P, T any](ctx context.Context, streamFn pbCreator[P], conv func(P) T) (eventstream.Stream[T], error) {
+	var gs grpcStream[P, T]
+	var err error
+
+	ctx, gs.cancel = context.WithCancel(ctx)
+
+	gs.s, err = streamFn(ctx, new(emptypb.Empty))
+	if err != nil {
+		return nil, err
+	}
+
+	gs.conv = conv
+	return &gs, nil
 }

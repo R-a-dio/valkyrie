@@ -10,6 +10,7 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/storage"
+	"github.com/R-a-dio/valkyrie/util/eventstream"
 )
 
 // Execute executes a manager with the context and configuration given; it returns with
@@ -70,7 +71,11 @@ func NewManager(ctx context.Context, cfg config.Config) (*Manager, error) {
 	}
 	m.status = *old
 
-	m.client.announce = cfg.Conf().IRC.Client()
+	m.userStream = eventstream.NewEventStream(old.User)
+	m.threadStream = eventstream.NewEventStream(old.Thread)
+	m.songStream = eventstream.NewEventStream(&radio.SongUpdate{Song: old.Song, Info: old.SongInfo})
+	m.listenerStream = eventstream.NewEventStream(radio.Listeners(old.Listeners))
+
 	m.client.streamer = cfg.Conf().Streamer.Client()
 	return &m, nil
 }
@@ -82,7 +87,6 @@ type Manager struct {
 
 	// Other components
 	client struct {
-		announce radio.AnnounceService
 		streamer radio.StreamerService
 	}
 	// mu protects the fields below and their contents
@@ -91,6 +95,12 @@ type Manager struct {
 	autoStreamerTimer *time.Timer
 	// listener count at the start of a song
 	songStartListenerCount int
+
+	// streaming support
+	userStream     *eventstream.EventStream[radio.User]
+	threadStream   *eventstream.EventStream[radio.Thread]
+	songStream     *eventstream.EventStream[*radio.SongUpdate]
+	listenerStream *eventstream.EventStream[radio.Listeners]
 }
 
 // updateStreamStatus is a legacy layer to keep supporting streamstatus table usage

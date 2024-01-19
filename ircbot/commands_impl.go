@@ -228,7 +228,7 @@ func StreamerUserInfo(e Event) error {
 		user = &radio.User{}
 	}
 
-	err = e.Bot.Manager.UpdateUser(e.Ctx, name, *user)
+	err = e.Bot.Manager.UpdateUser(e.Ctx, *user)
 	if err != nil {
 		return errors.E(op, err)
 	}

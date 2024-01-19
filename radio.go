@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/R-a-dio/valkyrie/util/eventstream"
 )
 
 // CalculateRequestDelay returns the delay between two requests of a song
@@ -218,20 +220,36 @@ type SearchResult struct {
 	TotalHits int
 }
 
-type ManagerService interface {
-	Status(context.Context) (*Status, error)
+type SongUpdate struct {
+	Song
+	Info SongInfo
+}
 
-	// UpdateUser updates the user that is currently streaming, the display name
-	// is shown instead of the users name if given.
-	UpdateUser(ctx context.Context, displayName string, u User) error
-	// UpdateSong updates the currently playing song information, it only
-	// requires the Metadata field to be set but others are allowed.
-	UpdateSong(context.Context, Song, SongInfo) error
-	// UpdateThread updates the current thread shown on the website and in chat,
-	// the string can basically be any content to be shown to the users
-	UpdateThread(ctx context.Context, thread string) error
-	// UpdateListeners updates the current listener count across all streams
-	UpdateListeners(context.Context, int) error
+type Thread = string
+
+type Listeners = int64
+
+type ManagerService interface {
+	CurrentUser(context.Context) (eventstream.Stream[User], error)
+	UpdateUser(context.Context, User) error
+	CurrentSong(context.Context) (eventstream.Stream[*SongUpdate], error)
+	UpdateSong(context.Context, *SongUpdate) error
+	CurrentThread(context.Context) (eventstream.Stream[Thread], error)
+	UpdateThread(context.Context, Thread) error
+	CurrentListeners(context.Context) (eventstream.Stream[Listeners], error)
+	UpdateListeners(context.Context, Listeners) error
+
+	Status(context.Context) (*Status, error)
+}
+
+func OneOff[T any](ctx context.Context, fn func(context.Context) (eventstream.Stream[T], error)) (T, error) {
+	s, err := fn(ctx)
+	if err != nil {
+		return *new(T), err
+	}
+	defer s.Close()
+
+	return s.Next()
 }
 
 type StreamerService interface {
@@ -793,8 +811,8 @@ type SubmissionStatus string
 // Possible status for song submissions
 const (
 	SubmissionAccepted       SubmissionStatus = "accepted"
-	SubmissionDeclined                        = "declined"
-	SubmissionAwaitingReview                  = "awaiting-review"
+	SubmissionDeclined       SubmissionStatus = "declined"
+	SubmissionAwaitingReview SubmissionStatus = "awaiting-review"
 )
 
 // PendingSong is a song currently awaiting approval in the pending queue

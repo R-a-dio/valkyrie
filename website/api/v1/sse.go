@@ -1,10 +1,12 @@
-package api
+package v1
 
 import (
 	"fmt"
+	"log"
 	"maps"
 	"net/http"
 	"sync"
+	"time"
 )
 
 const (
@@ -16,8 +18,7 @@ const (
 )
 
 const (
-	EVENT_COUNT = 4
-
+	EventPing       = "ping"
 	EventMetadata   = "metadata"
 	EventStreamer   = "streamer"
 	EventQueue      = "queue"
@@ -34,28 +35,29 @@ type Stream struct {
 	// mu guards last
 	mu   *sync.RWMutex
 	last map[EventName]message
+	// shutdown indicator
+	shutdownCh chan struct{}
 }
 
 func NewStream() *Stream {
 	s := &Stream{
-		reqs: make(chan request),
-		subs: make([]chan message, 0, 128),
-		mu:   new(sync.RWMutex),
-		last: make(map[EventName]message),
+		reqs:       make(chan request),
+		subs:       make([]chan message, 0, 128),
+		mu:         new(sync.RWMutex),
+		last:       make(map[EventName]message),
+		shutdownCh: make(chan struct{}),
 	}
-	s.run()
+	go s.run()
+	go s.ping()
 	return s
 }
 
 // ServeHTTP implements http.Handler where each client gets send all SSE events that
 // occur after connecting. There is no history.
 func (s *Stream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	flusher, ok := w.(http.Flusher)
-	if !ok {
-		http.Error(w, http.StatusText(http.StatusNotImplemented), http.StatusNotImplemented)
-		return
-	}
+	controller := http.NewResponseController(w)
 
+	log.Println("sse: subscribing")
 	ch := s.sub()
 	defer func() {
 		s.leave(ch)
@@ -65,32 +67,50 @@ func (s *Stream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// send events that have already happened, one for each event so that
 	// we're certain the page is current
+	log.Println("sse: cloning initial")
 	s.mu.RLock()
 	init := maps.Clone(s.last)
 	s.mu.RUnlock()
+
 	for _, m := range init {
+		log.Println("sending initial event:", string(m))
 		if _, err := w.Write(m); err != nil {
 			return
 		}
 	}
-	flusher.Flush()
+	controller.Flush()
 
+	log.Println("sse: starting loop")
 	for m := range ch {
 		if _, err := w.Write(m); err != nil {
 			return
 		}
-		flusher.Flush()
+		controller.Flush()
 	}
 }
 
 // SendEvent sends an SSE event with the data given.
 func (s *Stream) SendEvent(event EventName, data []byte) {
 	m := newMessage(event, data)
-	s.mu.Lock()
-	s.last[event] = m
-	s.mu.Unlock()
 
-	s.reqs <- request{cmd: SEND, m: m}
+	select {
+	case s.reqs <- request{cmd: SEND, m: m, e: event}:
+	case <-s.shutdownCh:
+	}
+}
+
+func (s *Stream) ping() {
+	t := time.NewTicker(time.Second * 30)
+	defer t.Stop()
+
+	for range t.C {
+		s.SendEvent(EventPing, []byte("ping"))
+		select {
+		case <-s.shutdownCh:
+			return
+		default:
+		}
+	}
 }
 
 func (s *Stream) run() {
@@ -109,6 +129,10 @@ func (s *Stream) run() {
 				}
 			}
 		case SEND:
+			s.mu.Lock()
+			s.last[req.e] = req.m
+			s.mu.Unlock()
+
 			for _, ch := range s.subs {
 				select {
 				case ch <- req.m:
@@ -116,36 +140,49 @@ func (s *Stream) run() {
 				}
 			}
 		case SHUTDOWN:
+			close(s.shutdownCh)
 			for _, ch := range s.subs {
 				close(ch)
-				s.subs = s.subs[:0]
 			}
+			return
 		}
 	}
 }
 
 func (s *Stream) sub() chan message {
-	ch := make(chan message)
-	s.reqs <- request{cmd: SUBSCRIBE, ch: ch}
+	ch := make(chan message, 2)
+	select {
+	case s.reqs <- request{cmd: SUBSCRIBE, ch: ch}:
+	case <-s.shutdownCh:
+		close(ch)
+	}
 	return ch
 }
 
 func (s *Stream) leave(ch chan message) {
-	s.reqs <- request{cmd: LEAVE, ch: ch}
+	select {
+	case s.reqs <- request{cmd: LEAVE, ch: ch}:
+	case <-s.shutdownCh:
+	}
 }
 
 // Shutdown disconnects all connected clients
 func (s *Stream) Shutdown() {
-	s.reqs <- request{cmd: SHUTDOWN}
+	select {
+	case s.reqs <- request{cmd: SHUTDOWN}:
+	case <-s.shutdownCh:
+	}
 }
 
 type request struct {
-	cmd string
-	ch  chan message
-	m   message
+	cmd string       // required
+	ch  chan message // SUB/LEAVE only
+	m   message      // SEND only
+	e   EventName    // SEND only
 }
 
 func newMessage(event EventName, data []byte) message {
+	// TODO: handle newlines in data
 	return message(fmt.Sprintf("event: %s\ndata: %s\n\n", event, data))
 }
 

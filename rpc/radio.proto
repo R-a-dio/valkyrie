@@ -40,13 +40,16 @@ message Song {
 }
 
 service Manager {
-    // Status returns the current status
     rpc Status(google.protobuf.Empty) returns (StatusResponse);
-    rpc SetUser(UserUpdate) returns (google.protobuf.Empty);
-    rpc SetSong(SongUpdate) returns (google.protobuf.Empty);
-    rpc SetStreamerConfig(StreamerConfig) returns (google.protobuf.Empty);
-    rpc SetThread(google.protobuf.StringValue) returns (google.protobuf.Empty);
-    rpc SetListenerInfo(ListenerInfo) returns (google.protobuf.Empty);
+
+    rpc CurrentSong(google.protobuf.Empty) returns (stream SongUpdate);
+    rpc UpdateSong(SongUpdate) returns (google.protobuf.Empty);
+    rpc CurrentThread(google.protobuf.Empty) returns (stream google.protobuf.StringValue);
+    rpc UpdateThread(google.protobuf.StringValue) returns (google.protobuf.Empty);
+    rpc CurrentUser(google.protobuf.Empty) returns (stream User);
+    rpc UpdateUser(User) returns (google.protobuf.Empty);
+    rpc CurrentListenerCount(google.protobuf.Empty) returns (stream google.protobuf.Int64Value);
+    rpc UpdateListenerCount(google.protobuf.Int64Value) returns (google.protobuf.Empty);
 }
 
 message StatusResponse {

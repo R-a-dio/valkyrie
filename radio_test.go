@@ -91,7 +91,7 @@ func TestSongRequestable(t *testing.T) {
 	}
 }
 
-func TestCanRequest(t *testing.T) {
+func TestCalculateCooldown(t *testing.T) {
 	tests := []struct {
 		delay time.Duration
 		last  time.Time
@@ -103,7 +103,7 @@ func TestCanRequest(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		d, ok := CanUserRequest(test.delay, test.last)
+		d, ok := CalculateCooldown(test.delay, test.last)
 		if ok != test.ok {
 			t.Errorf("failed %s on %s, returned: %s", test.last, test.delay, d)
 		}

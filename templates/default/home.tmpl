@@ -1,5 +1,5 @@
 {{define "content"}}
-<section class="section">
+<section class="section" hx-ext="sse" sse-connect="/v1/sse">
     <div class="container">
         <div class="columns">
             <div class="column is-3 is-hidden-mobile">
@@ -22,7 +22,7 @@
                     </div>
                 </div>
                 <h2 id="current-song">
-                    <p class="title is-2 has-text-centered" style="cursor: pointer;">{{.Status.Song.Metadata}}</p>
+                    <p sse-swap="metadata" class="title is-2 has-text-centered" style="cursor: pointer;">{{.Status.Song.Metadata}}</p>
                     <p class="subtitle is-4 has-text-centered" style="font-size: 14px;">{{if .Status.Song.DatabaseTrack}}{{.Status.Song.Tags}}{{end}}</p>
                 </h2>
                 <progress id="current-song-progress" class="progress is-large" value="0" max="{{.Status.Song.Length.Seconds}}"></progress>

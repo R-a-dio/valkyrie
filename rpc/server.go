@@ -4,6 +4,8 @@ import (
 	"context"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/util/eventstream"
+	grpc "google.golang.org/grpc"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
@@ -72,33 +74,65 @@ func (m ManagerShim) Status(ctx context.Context, _ *emptypb.Empty) (*StatusRespo
 	}, nil
 }
 
-// SetUser implements Manager
-func (m ManagerShim) SetUser(ctx context.Context, u *UserUpdate) (*emptypb.Empty, error) {
-	err := m.manager.UpdateUser(ctx, u.StreamerName, fromProtoUser(u.User))
+type pbSender[P any] interface {
+	Send(P) error
+	grpc.ServerStream
+}
+
+func streamToProtobuf[T any, P any](s pbSender[P], streamFn func(context.Context) (eventstream.Stream[T], error), conv func(T) P) error {
+	ctx, cancel := context.WithCancel(s.Context())
+	defer cancel()
+
+	stream, err := streamFn(ctx)
+	if err != nil {
+		return err
+	}
+
+	for {
+		recv, err := stream.Next()
+		if err != nil {
+			return err
+		}
+		err = s.Send(conv(recv))
+		if err != nil {
+			return err
+		}
+	}
+}
+
+func (sm ManagerShim) CurrentSong(_ *emptypb.Empty, s Manager_CurrentSongServer) error {
+	return streamToProtobuf(s, sm.manager.CurrentSong, toProtoSongUpdate)
+}
+
+func (m ManagerShim) UpdateSong(ctx context.Context, su *SongUpdate) (*emptypb.Empty, error) {
+	err := m.manager.UpdateSong(ctx, fromProtoSongUpdate(su))
 	return new(emptypb.Empty), err
 }
 
-// SetSong implements Manager
-func (m ManagerShim) SetSong(ctx context.Context, su *SongUpdate) (*emptypb.Empty, error) {
-	err := m.manager.UpdateSong(ctx, fromProtoSong(su.Song), fromProtoSongInfo(su.Info))
-	return new(emptypb.Empty), err
+func (sm ManagerShim) CurrentThread(_ *emptypb.Empty, s Manager_CurrentThreadServer) error {
+	return streamToProtobuf(s, sm.manager.CurrentThread, wrapperspb.String)
 }
 
-// SetStreamerConfig implements Manager
-func (m ManagerShim) SetStreamerConfig(ctx context.Context, c *StreamerConfig) (*emptypb.Empty, error) {
-	// TODO: implement this
-	return new(emptypb.Empty), nil
-}
-
-// SetThread implements Manager
-func (m ManagerShim) SetThread(ctx context.Context, t *wrapperspb.StringValue) (*emptypb.Empty, error) {
+func (m ManagerShim) UpdateThread(ctx context.Context, t *wrapperspb.StringValue) (*emptypb.Empty, error) {
 	err := m.manager.UpdateThread(ctx, t.Value)
 	return new(emptypb.Empty), err
 }
 
-// SetListenerInfo implements Manager
-func (m ManagerShim) SetListenerInfo(ctx context.Context, i *ListenerInfo) (*emptypb.Empty, error) {
-	err := m.manager.UpdateListeners(ctx, int(i.Listeners))
+func (sm ManagerShim) CurrentUser(_ *emptypb.Empty, s Manager_CurrentUserServer) error {
+	return streamToProtobuf(s, sm.manager.CurrentUser, toProtoUser)
+}
+
+func (m ManagerShim) UpdateUser(ctx context.Context, u *User) (*emptypb.Empty, error) {
+	err := m.manager.UpdateUser(ctx, fromProtoUser(u))
+	return new(emptypb.Empty), err
+}
+
+func (sm ManagerShim) CurrentListenerCount(_ *emptypb.Empty, s Manager_CurrentListenerCountServer) error {
+	return streamToProtobuf(s, sm.manager.CurrentListeners, wrapperspb.Int64)
+}
+
+func (m ManagerShim) UpdateListenerCount(ctx context.Context, i *wrapperspb.Int64Value) (*emptypb.Empty, error) {
+	err := m.manager.UpdateListeners(ctx, i.Value)
 	return new(emptypb.Empty), err
 }
 

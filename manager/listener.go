@@ -192,7 +192,7 @@ func (ln *Listener) parseResponse(ctx context.Context, metasize int, src io.Read
 		go func() {
 			ctx, cancel := context.WithTimeout(ctx, time.Second*5)
 			defer cancel()
-			err := ln.manager.UpdateSong(ctx, s, info)
+			err := ln.manager.UpdateSong(ctx, &radio.SongUpdate{Song: s, Info: info})
 			if err != nil {
 				log.Printf("manager-listener: error setting song: %s\n", err)
 			}

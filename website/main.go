@@ -12,6 +12,7 @@ import (
 	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/R-a-dio/valkyrie/website/admin"
 	phpapi "github.com/R-a-dio/valkyrie/website/api/php"
+	v1 "github.com/R-a-dio/valkyrie/website/api/v1"
 	vmiddleware "github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/R-a-dio/valkyrie/website/public"
 
@@ -70,12 +71,20 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	// version 0 of the api (the legacy PHP version)
 	// it's mostly self-contained to the /api/* route, except for /request that
 	// leaked out at some point
+	log.Println("starting v0 api")
 	v0, err := phpapi.NewAPI(ctx, cfg, storage, streamer, manager)
 	if err != nil {
 		return errors.E(op, err)
 	}
 	r.Mount("/api", v0.Router())
 	r.Route(`/request/{TrackID:[0-9]+}`, v0.RequestRoute)
+
+	log.Println("starting v1 api")
+	v1, err := v1.NewAPI(ctx, cfg)
+	if err != nil {
+		return errors.E(op, err)
+	}
+	r.Mount("/v1", v1.Router())
 
 	// admin routes
 	r.Get("/logout", authentication.LogoutHandler) // outside so it isn't login restricted

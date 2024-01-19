@@ -126,6 +126,20 @@ func fromProtoSongInfo(i *SongInfo) radio.SongInfo {
 	}
 }
 
+func toProtoSongUpdate(s *radio.SongUpdate) *SongUpdate {
+	return &SongUpdate{
+		Song: toProtoSong(s.Song),
+		Info: toProtoSongInfo(s.Info),
+	}
+}
+
+func fromProtoSongUpdate(s *SongUpdate) *radio.SongUpdate {
+	return &radio.SongUpdate{
+		Song: fromProtoSong(s.Song),
+		Info: fromProtoSongInfo(s.Info),
+	}
+}
+
 func toProtoQueueEntry(entry radio.QueueEntry) *QueueEntry {
 	return &QueueEntry{
 		Song:              toProtoSong(entry.Song),

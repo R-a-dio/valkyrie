@@ -21,25 +21,30 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Manager_Status_FullMethodName            = "/radio.Manager/Status"
-	Manager_SetUser_FullMethodName           = "/radio.Manager/SetUser"
-	Manager_SetSong_FullMethodName           = "/radio.Manager/SetSong"
-	Manager_SetStreamerConfig_FullMethodName = "/radio.Manager/SetStreamerConfig"
-	Manager_SetThread_FullMethodName         = "/radio.Manager/SetThread"
-	Manager_SetListenerInfo_FullMethodName   = "/radio.Manager/SetListenerInfo"
+	Manager_Status_FullMethodName               = "/radio.Manager/Status"
+	Manager_CurrentSong_FullMethodName          = "/radio.Manager/CurrentSong"
+	Manager_UpdateSong_FullMethodName           = "/radio.Manager/UpdateSong"
+	Manager_CurrentThread_FullMethodName        = "/radio.Manager/CurrentThread"
+	Manager_UpdateThread_FullMethodName         = "/radio.Manager/UpdateThread"
+	Manager_CurrentUser_FullMethodName          = "/radio.Manager/CurrentUser"
+	Manager_UpdateUser_FullMethodName           = "/radio.Manager/UpdateUser"
+	Manager_CurrentListenerCount_FullMethodName = "/radio.Manager/CurrentListenerCount"
+	Manager_UpdateListenerCount_FullMethodName  = "/radio.Manager/UpdateListenerCount"
 )
 
 // ManagerClient is the client API for Manager service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ManagerClient interface {
-	// Status returns the current status
 	Status(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*StatusResponse, error)
-	SetUser(ctx context.Context, in *UserUpdate, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	SetSong(ctx context.Context, in *SongUpdate, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	SetStreamerConfig(ctx context.Context, in *StreamerConfig, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	SetThread(ctx context.Context, in *wrapperspb.StringValue, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	SetListenerInfo(ctx context.Context, in *ListenerInfo, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	CurrentSong(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (Manager_CurrentSongClient, error)
+	UpdateSong(ctx context.Context, in *SongUpdate, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	CurrentThread(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (Manager_CurrentThreadClient, error)
+	UpdateThread(ctx context.Context, in *wrapperspb.StringValue, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	CurrentUser(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (Manager_CurrentUserClient, error)
+	UpdateUser(ctx context.Context, in *User, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	CurrentListenerCount(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (Manager_CurrentListenerCountClient, error)
+	UpdateListenerCount(ctx context.Context, in *wrapperspb.Int64Value, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type managerClient struct {
@@ -59,45 +64,164 @@ func (c *managerClient) Status(ctx context.Context, in *emptypb.Empty, opts ...g
 	return out, nil
 }
 
-func (c *managerClient) SetUser(ctx context.Context, in *UserUpdate, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *managerClient) CurrentSong(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (Manager_CurrentSongClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Manager_ServiceDesc.Streams[0], Manager_CurrentSong_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &managerCurrentSongClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Manager_CurrentSongClient interface {
+	Recv() (*SongUpdate, error)
+	grpc.ClientStream
+}
+
+type managerCurrentSongClient struct {
+	grpc.ClientStream
+}
+
+func (x *managerCurrentSongClient) Recv() (*SongUpdate, error) {
+	m := new(SongUpdate)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *managerClient) UpdateSong(ctx context.Context, in *SongUpdate, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, Manager_SetUser_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, Manager_UpdateSong_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *managerClient) SetSong(ctx context.Context, in *SongUpdate, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *managerClient) CurrentThread(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (Manager_CurrentThreadClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Manager_ServiceDesc.Streams[1], Manager_CurrentThread_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &managerCurrentThreadClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Manager_CurrentThreadClient interface {
+	Recv() (*wrapperspb.StringValue, error)
+	grpc.ClientStream
+}
+
+type managerCurrentThreadClient struct {
+	grpc.ClientStream
+}
+
+func (x *managerCurrentThreadClient) Recv() (*wrapperspb.StringValue, error) {
+	m := new(wrapperspb.StringValue)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *managerClient) UpdateThread(ctx context.Context, in *wrapperspb.StringValue, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, Manager_SetSong_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, Manager_UpdateThread_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *managerClient) SetStreamerConfig(ctx context.Context, in *StreamerConfig, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *managerClient) CurrentUser(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (Manager_CurrentUserClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Manager_ServiceDesc.Streams[2], Manager_CurrentUser_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &managerCurrentUserClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Manager_CurrentUserClient interface {
+	Recv() (*User, error)
+	grpc.ClientStream
+}
+
+type managerCurrentUserClient struct {
+	grpc.ClientStream
+}
+
+func (x *managerCurrentUserClient) Recv() (*User, error) {
+	m := new(User)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *managerClient) UpdateUser(ctx context.Context, in *User, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, Manager_SetStreamerConfig_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, Manager_UpdateUser_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *managerClient) SetThread(ctx context.Context, in *wrapperspb.StringValue, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, Manager_SetThread_FullMethodName, in, out, opts...)
+func (c *managerClient) CurrentListenerCount(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (Manager_CurrentListenerCountClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Manager_ServiceDesc.Streams[3], Manager_CurrentListenerCount_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &managerCurrentListenerCountClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
 }
 
-func (c *managerClient) SetListenerInfo(ctx context.Context, in *ListenerInfo, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+type Manager_CurrentListenerCountClient interface {
+	Recv() (*wrapperspb.Int64Value, error)
+	grpc.ClientStream
+}
+
+type managerCurrentListenerCountClient struct {
+	grpc.ClientStream
+}
+
+func (x *managerCurrentListenerCountClient) Recv() (*wrapperspb.Int64Value, error) {
+	m := new(wrapperspb.Int64Value)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *managerClient) UpdateListenerCount(ctx context.Context, in *wrapperspb.Int64Value, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, Manager_SetListenerInfo_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, Manager_UpdateListenerCount_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -108,13 +232,15 @@ func (c *managerClient) SetListenerInfo(ctx context.Context, in *ListenerInfo, o
 // All implementations must embed UnimplementedManagerServer
 // for forward compatibility
 type ManagerServer interface {
-	// Status returns the current status
 	Status(context.Context, *emptypb.Empty) (*StatusResponse, error)
-	SetUser(context.Context, *UserUpdate) (*emptypb.Empty, error)
-	SetSong(context.Context, *SongUpdate) (*emptypb.Empty, error)
-	SetStreamerConfig(context.Context, *StreamerConfig) (*emptypb.Empty, error)
-	SetThread(context.Context, *wrapperspb.StringValue) (*emptypb.Empty, error)
-	SetListenerInfo(context.Context, *ListenerInfo) (*emptypb.Empty, error)
+	CurrentSong(*emptypb.Empty, Manager_CurrentSongServer) error
+	UpdateSong(context.Context, *SongUpdate) (*emptypb.Empty, error)
+	CurrentThread(*emptypb.Empty, Manager_CurrentThreadServer) error
+	UpdateThread(context.Context, *wrapperspb.StringValue) (*emptypb.Empty, error)
+	CurrentUser(*emptypb.Empty, Manager_CurrentUserServer) error
+	UpdateUser(context.Context, *User) (*emptypb.Empty, error)
+	CurrentListenerCount(*emptypb.Empty, Manager_CurrentListenerCountServer) error
+	UpdateListenerCount(context.Context, *wrapperspb.Int64Value) (*emptypb.Empty, error)
 	mustEmbedUnimplementedManagerServer()
 }
 
@@ -125,20 +251,29 @@ type UnimplementedManagerServer struct {
 func (UnimplementedManagerServer) Status(context.Context, *emptypb.Empty) (*StatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Status not implemented")
 }
-func (UnimplementedManagerServer) SetUser(context.Context, *UserUpdate) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SetUser not implemented")
+func (UnimplementedManagerServer) CurrentSong(*emptypb.Empty, Manager_CurrentSongServer) error {
+	return status.Errorf(codes.Unimplemented, "method CurrentSong not implemented")
 }
-func (UnimplementedManagerServer) SetSong(context.Context, *SongUpdate) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SetSong not implemented")
+func (UnimplementedManagerServer) UpdateSong(context.Context, *SongUpdate) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateSong not implemented")
 }
-func (UnimplementedManagerServer) SetStreamerConfig(context.Context, *StreamerConfig) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SetStreamerConfig not implemented")
+func (UnimplementedManagerServer) CurrentThread(*emptypb.Empty, Manager_CurrentThreadServer) error {
+	return status.Errorf(codes.Unimplemented, "method CurrentThread not implemented")
 }
-func (UnimplementedManagerServer) SetThread(context.Context, *wrapperspb.StringValue) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SetThread not implemented")
+func (UnimplementedManagerServer) UpdateThread(context.Context, *wrapperspb.StringValue) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateThread not implemented")
 }
-func (UnimplementedManagerServer) SetListenerInfo(context.Context, *ListenerInfo) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SetListenerInfo not implemented")
+func (UnimplementedManagerServer) CurrentUser(*emptypb.Empty, Manager_CurrentUserServer) error {
+	return status.Errorf(codes.Unimplemented, "method CurrentUser not implemented")
+}
+func (UnimplementedManagerServer) UpdateUser(context.Context, *User) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateUser not implemented")
+}
+func (UnimplementedManagerServer) CurrentListenerCount(*emptypb.Empty, Manager_CurrentListenerCountServer) error {
+	return status.Errorf(codes.Unimplemented, "method CurrentListenerCount not implemented")
+}
+func (UnimplementedManagerServer) UpdateListenerCount(context.Context, *wrapperspb.Int64Value) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateListenerCount not implemented")
 }
 func (UnimplementedManagerServer) mustEmbedUnimplementedManagerServer() {}
 
@@ -171,92 +306,158 @@ func _Manager_Status_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Manager_SetUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UserUpdate)
-	if err := dec(in); err != nil {
-		return nil, err
+func _Manager_CurrentSong_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(emptypb.Empty)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
 	}
-	if interceptor == nil {
-		return srv.(ManagerServer).SetUser(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Manager_SetUser_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ManagerServer).SetUser(ctx, req.(*UserUpdate))
-	}
-	return interceptor(ctx, in, info, handler)
+	return srv.(ManagerServer).CurrentSong(m, &managerCurrentSongServer{stream})
 }
 
-func _Manager_SetSong_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+type Manager_CurrentSongServer interface {
+	Send(*SongUpdate) error
+	grpc.ServerStream
+}
+
+type managerCurrentSongServer struct {
+	grpc.ServerStream
+}
+
+func (x *managerCurrentSongServer) Send(m *SongUpdate) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _Manager_UpdateSong_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SongUpdate)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ManagerServer).SetSong(ctx, in)
+		return srv.(ManagerServer).UpdateSong(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Manager_SetSong_FullMethodName,
+		FullMethod: Manager_UpdateSong_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ManagerServer).SetSong(ctx, req.(*SongUpdate))
+		return srv.(ManagerServer).UpdateSong(ctx, req.(*SongUpdate))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Manager_SetStreamerConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(StreamerConfig)
-	if err := dec(in); err != nil {
-		return nil, err
+func _Manager_CurrentThread_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(emptypb.Empty)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
 	}
-	if interceptor == nil {
-		return srv.(ManagerServer).SetStreamerConfig(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Manager_SetStreamerConfig_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ManagerServer).SetStreamerConfig(ctx, req.(*StreamerConfig))
-	}
-	return interceptor(ctx, in, info, handler)
+	return srv.(ManagerServer).CurrentThread(m, &managerCurrentThreadServer{stream})
 }
 
-func _Manager_SetThread_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+type Manager_CurrentThreadServer interface {
+	Send(*wrapperspb.StringValue) error
+	grpc.ServerStream
+}
+
+type managerCurrentThreadServer struct {
+	grpc.ServerStream
+}
+
+func (x *managerCurrentThreadServer) Send(m *wrapperspb.StringValue) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _Manager_UpdateThread_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(wrapperspb.StringValue)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ManagerServer).SetThread(ctx, in)
+		return srv.(ManagerServer).UpdateThread(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Manager_SetThread_FullMethodName,
+		FullMethod: Manager_UpdateThread_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ManagerServer).SetThread(ctx, req.(*wrapperspb.StringValue))
+		return srv.(ManagerServer).UpdateThread(ctx, req.(*wrapperspb.StringValue))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Manager_SetListenerInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ListenerInfo)
+func _Manager_CurrentUser_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(emptypb.Empty)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ManagerServer).CurrentUser(m, &managerCurrentUserServer{stream})
+}
+
+type Manager_CurrentUserServer interface {
+	Send(*User) error
+	grpc.ServerStream
+}
+
+type managerCurrentUserServer struct {
+	grpc.ServerStream
+}
+
+func (x *managerCurrentUserServer) Send(m *User) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _Manager_UpdateUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(User)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ManagerServer).SetListenerInfo(ctx, in)
+		return srv.(ManagerServer).UpdateUser(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Manager_SetListenerInfo_FullMethodName,
+		FullMethod: Manager_UpdateUser_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ManagerServer).SetListenerInfo(ctx, req.(*ListenerInfo))
+		return srv.(ManagerServer).UpdateUser(ctx, req.(*User))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Manager_CurrentListenerCount_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(emptypb.Empty)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ManagerServer).CurrentListenerCount(m, &managerCurrentListenerCountServer{stream})
+}
+
+type Manager_CurrentListenerCountServer interface {
+	Send(*wrapperspb.Int64Value) error
+	grpc.ServerStream
+}
+
+type managerCurrentListenerCountServer struct {
+	grpc.ServerStream
+}
+
+func (x *managerCurrentListenerCountServer) Send(m *wrapperspb.Int64Value) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _Manager_UpdateListenerCount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(wrapperspb.Int64Value)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagerServer).UpdateListenerCount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Manager_UpdateListenerCount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagerServer).UpdateListenerCount(ctx, req.(*wrapperspb.Int64Value))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -273,27 +474,44 @@ var Manager_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Manager_Status_Handler,
 		},
 		{
-			MethodName: "SetUser",
-			Handler:    _Manager_SetUser_Handler,
+			MethodName: "UpdateSong",
+			Handler:    _Manager_UpdateSong_Handler,
 		},
 		{
-			MethodName: "SetSong",
-			Handler:    _Manager_SetSong_Handler,
+			MethodName: "UpdateThread",
+			Handler:    _Manager_UpdateThread_Handler,
 		},
 		{
-			MethodName: "SetStreamerConfig",
-			Handler:    _Manager_SetStreamerConfig_Handler,
+			MethodName: "UpdateUser",
+			Handler:    _Manager_UpdateUser_Handler,
 		},
 		{
-			MethodName: "SetThread",
-			Handler:    _Manager_SetThread_Handler,
-		},
-		{
-			MethodName: "SetListenerInfo",
-			Handler:    _Manager_SetListenerInfo_Handler,
+			MethodName: "UpdateListenerCount",
+			Handler:    _Manager_UpdateListenerCount_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "CurrentSong",
+			Handler:       _Manager_CurrentSong_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "CurrentThread",
+			Handler:       _Manager_CurrentThread_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "CurrentUser",
+			Handler:       _Manager_CurrentUser_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "CurrentListenerCount",
+			Handler:       _Manager_CurrentListenerCount_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "radio.proto",
 }
 
