@@ -158,7 +158,7 @@ func (br *Balancer) start(ctx context.Context) error {
 				ctxx, cancel := context.WithTimeout(ctx, 5*time.Second)
 				br.update(ctxx)
 				cancel()
-				err := br.manager.UpdateListeners(ctx, br.listeners)
+				err := br.manager.UpdateListeners(ctx, int64(br.listeners))
 				if err != nil {
 					log.Printf("balancer: error updating listeners: %s", err)
 				}
