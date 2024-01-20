@@ -26,12 +26,12 @@ var defaultConfig = config{
 	MusicPath:        "",
 	AssetsPath:       "./assets/",
 	Providers: providers{
-		Storage: "index-mariadb",
-		Search:  "elastic",
+		Storage: "mariadb",
+		Search:  "storage",
 	},
 	Database: database{
 		DriverName: "mysql",
-		DSN:        "",
+		DSN:        "radio@unix(/run/mysqld/mysqld.sock)/radio?parseTime=true",
 	},
 	Website: website{
 		WebsiteAddr:    "localhost:3241",

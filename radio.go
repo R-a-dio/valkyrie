@@ -426,9 +426,9 @@ type DatabaseTrack struct {
 	Acceptor   string
 	LastEditor string
 
-	Priority     int
-	Usable       bool
-	NeedReupload bool
+	Priority        int
+	Usable          bool
+	NeedReplacement bool
 
 	LastRequested time.Time
 

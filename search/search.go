@@ -12,19 +12,24 @@ import (
 // OpenFn is a function that returns a SearchService configured with the config given
 type OpenFn func(config.Config) (radio.SearchService, error)
 
-var providers = map[string]OpenFn{}
+var providers = map[string]provider{}
 var instancesMu sync.Mutex
 var instances = map[string]radio.SearchService{}
+
+type provider struct {
+	fn        OpenFn
+	needsWrap bool
+}
 
 // Register registers an OpenFn under the name given, it is not safe to
 // call Register from multiple goroutines
 //
 // Register will panic if the name already exists
-func Register(name string, fn OpenFn) {
+func Register(name string, needsWrap bool, fn OpenFn) {
 	if _, ok := providers[name]; ok {
 		panic("search provider already exists with name: " + name)
 	}
-	providers[name] = fn
+	providers[name] = provider{fn, needsWrap}
 }
 
 // Open returns a radio.SearchService as configured by the config given
@@ -43,17 +48,25 @@ func Open(cfg config.Config) (radio.SearchService, error) {
 	}
 
 	// otherwise create a new one
-	fn, ok := providers[name]
+	p, ok := providers[name]
 	if !ok {
 		return nil, errors.E(op, errors.ProviderUnknown, errors.Info(name))
 	}
 
 	log.Printf("search: creating new SearchService instance for %s", name)
-	ss, err := fn(cfg)
+	ss, err := p.fn(cfg)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
 
 	instances[name] = ss
 	return ss, nil
+}
+
+func NeedsWrap(cfg config.Config) bool {
+	p, ok := providers[cfg.Conf().Providers.Search]
+	if !ok {
+		return false
+	}
+	return p.needsWrap
 }

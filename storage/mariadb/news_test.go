@@ -75,7 +75,7 @@ func TestNewsStorageGet(t *testing.T) {
 	}
 
 	rows := sqlmock.NewRows(newsColumnNames).AddRow(newsPostToRow(expected)...)
-	mock.ExpectQuery("^SELECT (.+) FROM radio_news").WillReturnRows(rows)
+	mock.ExpectQuery("^SELECT (.+) FROM radio_news").WithArgs(1).WillReturnRows(rows)
 
 	// first with all fields filled
 	post, err := ns.Get(1)
@@ -89,7 +89,7 @@ func TestNewsStorageGet(t *testing.T) {
 	expected.DeletedAt = nil
 	expected.UpdatedAt = nil
 	rows = sqlmock.NewRows(newsColumnNames).AddRow(newsPostToRow(expected)...)
-	mock.ExpectQuery("^SELECT (.+) FROM radio_news").WillReturnRows(rows)
+	mock.ExpectQuery("^SELECT (.+) FROM radio_news").WithArgs(1).WillReturnRows(rows)
 
 	post, err = ns.Get(1)
 	if err != nil {

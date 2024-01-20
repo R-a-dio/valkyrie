@@ -299,6 +299,12 @@ func (s *StorageService) RelayTx(ctx context.Context, tx radio.StorageTx) (radio
 	return storage, tx, nil
 }
 
+func (s *StorageService) Search() radio.SearchService {
+	return SearchService{
+		db: s.db,
+	}
+}
+
 type extContext interface {
 	sqlx.ExecerContext
 	sqlx.QueryerContext

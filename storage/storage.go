@@ -2,7 +2,6 @@ package storage
 
 import (
 	"log"
-	"strings"
 	"sync"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -29,23 +28,11 @@ func Register(name string, fn OpenFn) {
 	providers[name] = fn
 }
 
-const configPrefix = "index-"
-
 // Open returns a radio.StorageService as configured by the config given
 func Open(cfg config.Config) (radio.StorageService, error) {
 	const op errors.Op = "storage/Open"
 
-	// we optionally wrap the storage service into a special implementation of the
-	// search package that updates the configured search engine whenever a document
-	// that is in an index is updated, this is done by prepending the storage provider
-	// name with `search-`
-	var searchWrapped bool
-
 	name := cfg.Conf().Providers.Storage
-	if strings.HasPrefix(name, configPrefix) {
-		searchWrapped = true
-		name = name[len(configPrefix):]
-	}
 
 	instancesMu.Lock()
 	defer instancesMu.Unlock()
@@ -67,8 +54,10 @@ func Open(cfg config.Config) (radio.StorageService, error) {
 		return nil, errors.E(op, err)
 	}
 
-	// no search wrapping
-	if !searchWrapped {
+	// we optionally wrap the storage service into a special implementation of the
+	// search package that updates the configured search engine whenever a document
+	// that is in an index is updated
+	if !search.NeedsWrap(cfg) {
 		instances[name] = store
 		return store, nil
 	}

@@ -108,7 +108,7 @@ func (qs QueueStorage) Load(name string) ([]radio.QueueEntry, error) {
 		tracks.album,
 		tracks.path,
 		tracks.tags,
-		tracks.accepter AS acceptor,
+		tracks.accepter,
 		tracks.lasteditor,
 		tracks.priority,
 		tracks.usable,

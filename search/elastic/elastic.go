@@ -14,7 +14,7 @@ import (
 )
 
 func init() {
-	search.Register("elastic", NewSearchService)
+	search.Register("elastic", true, NewSearchService)
 }
 
 const (

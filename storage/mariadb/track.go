@@ -36,11 +36,11 @@ type databaseTrack struct {
 	Priority      sql.NullInt64
 	LastRequested mysql.NullTime
 	Usable        sql.NullInt64
-	Acceptor      sql.NullString
+	Acceptor      sql.NullString `db:"accepter"`
 	LastEditor    sql.NullString
 
 	RequestCount    sql.NullInt64
-	NeedReplacement sql.NullInt64
+	NeedReplacement sql.NullInt64 `db:"need_reupload"`
 }
 
 func (dt databaseTrack) ToSong() radio.Song {
@@ -60,9 +60,10 @@ func (dt databaseTrack) ToSong() radio.Song {
 			Priority: int(dt.Priority.Int64),
 			Usable:   dt.Usable.Int64 == 1,
 
-			LastRequested: dt.LastRequested.Time,
-			RequestCount:  int(dt.RequestCount.Int64),
-			RequestDelay:  radio.CalculateRequestDelay(int(dt.RequestCount.Int64)),
+			LastRequested:   dt.LastRequested.Time,
+			RequestCount:    int(dt.RequestCount.Int64),
+			RequestDelay:    radio.CalculateRequestDelay(int(dt.RequestCount.Int64)),
+			NeedReplacement: dt.NeedReplacement.Int64 == 1,
 		}
 	}
 
@@ -128,7 +129,7 @@ func (ss SongStorage) FromHash(hash radio.SongHash) (*radio.Song, error) {
 	var query = `
 	SELECT tracks.id AS trackid, esong.id AS id, esong.hash AS hash, esong.meta AS metadata,
 	len AS length, eplay.dt AS lastplayed, artist, track, album, path,
-	tags, accepter AS acceptor, lasteditor, priority, usable, lastrequested,
+	tags, accepter, lasteditor, priority, usable, lastrequested,
 	requestcount FROM tracks RIGHT JOIN esong ON tracks.hash = esong.hash LEFT JOIN eplay ON
 	esong.id = eplay.isong WHERE esong.hash=? ORDER BY eplay.dt DESC LIMIT 1;`
 
@@ -161,7 +162,7 @@ func (ss SongStorage) LastPlayed(offset, amount int) ([]radio.Song, error) {
 		tracks.album,
 		tracks.path,
 		tracks.tags,
-		tracks.accepter AS acceptor,
+		tracks.accepter,
 		tracks.lasteditor,
 		tracks.priority,
 		tracks.usable,
@@ -267,7 +268,7 @@ func (ss SongStorage) FavoritesOf(nick string) ([]radio.Song, error) {
 		tracks.album,
 		tracks.path,
 		tracks.tags,
-		tracks.accepter AS acceptor,
+		tracks.accepter,
 		tracks.lasteditor,
 		tracks.priority,
 		tracks.usable,
@@ -415,7 +416,7 @@ func (ts TrackStorage) Get(id radio.TrackID) (*radio.Song, error) {
 	var query = `
 	SELECT tracks.id AS trackid, esong.id AS id, tracks.hash AS hash,
 	len AS length, lastplayed, artist, track, album, path,
-	tags, accepter AS acceptor, lasteditor, priority, usable, lastrequested,
+	tags, accepter, lasteditor, priority, usable, lastrequested,
 	requestcount FROM tracks LEFT JOIN esong ON tracks.hash = esong.hash WHERE 
 	tracks.id=?;`
 
@@ -439,7 +440,7 @@ func (ts TrackStorage) All() ([]radio.Song, error) {
 	var query = `
 	SELECT tracks.id AS trackid, esong.id AS id, tracks.hash AS hash,
 	len AS length, lastplayed, artist, track, album, path,
-	tags, accepter AS acceptor, lasteditor, priority, usable, lastrequested,
+	tags, accepter, lasteditor, priority, usable, lastrequested,
 	requestcount FROM tracks LEFT JOIN esong ON tracks.hash = esong.hash;`
 
 	err := sqlx.Select(ts.handle, &tmps, query)
@@ -474,7 +475,7 @@ func (ts TrackStorage) Unusable() ([]radio.Song, error) {
 		tracks.album,
 		tracks.path,
 		tracks.tags,
-		tracks.accepter AS acceptor,
+		tracks.accepter,
 		tracks.lasteditor,
 		tracks.priority,
 		tracks.usable,
@@ -523,7 +524,7 @@ func (ts TrackStorage) Insert(song radio.Song) (radio.TrackID, error) {
 	}
 
 	// create song entry first
-	ss := SongStorage{ts.handle}
+	ss := SongStorage(ts)
 	_, err := ss.Create(song.Metadata)
 	if err != nil && !IsDuplicateKeyErr(err) {
 		return 0, errors.E(op, err)
@@ -662,7 +663,7 @@ func (ts TrackStorage) BeforeLastRequested(before time.Time) ([]radio.Song, erro
 			tracks.album,
 			tracks.path,
 			tracks.tags,
-			tracks.accepter AS acceptor,
+			tracks.accepter,
 			tracks.lasteditor,
 			tracks.priority,
 			tracks.usable,
