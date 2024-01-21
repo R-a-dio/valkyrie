@@ -1,12 +1,10 @@
 package v1
 
 import (
-	"fmt"
 	"log"
 	"maps"
 	"net/http"
 	"sync"
-	"time"
 )
 
 const (
@@ -48,7 +46,6 @@ func NewStream() *Stream {
 		shutdownCh: make(chan struct{}),
 	}
 	go s.run()
-	go s.ping()
 	return s
 }
 
@@ -96,20 +93,6 @@ func (s *Stream) SendEvent(event EventName, data []byte) {
 	select {
 	case s.reqs <- request{cmd: SEND, m: m, e: event}:
 	case <-s.shutdownCh:
-	}
-}
-
-func (s *Stream) ping() {
-	t := time.NewTicker(time.Second * 30)
-	defer t.Stop()
-
-	for range t.C {
-		s.SendEvent(EventPing, []byte("ping"))
-		select {
-		case <-s.shutdownCh:
-			return
-		default:
-		}
 	}
 }
 
@@ -182,8 +165,7 @@ type request struct {
 }
 
 func newMessage(event EventName, data []byte) message {
-	// TODO: handle newlines in data
-	return message(fmt.Sprintf("event: %s\ndata: %s\n\n", event, data))
+	return message(sse.Event{Name: event, Data: data}.Encode())
 }
 
 type message []byte
