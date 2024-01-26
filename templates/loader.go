@@ -12,9 +12,11 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"text/tabwriter"
 
 	"github.com/R-a-dio/valkyrie/errors"
+	"golang.org/x/exp/maps"
 )
 
 const (
@@ -28,8 +30,9 @@ const (
 
 // Site is an overarching struct containing all the themes of the website.
 type Site struct {
-	loader Loader
+	fs fs.FS
 
+	mu     sync.RWMutex
 	themes Themes
 	cache  map[string]*template.Template
 }
@@ -37,7 +40,10 @@ type Site struct {
 func (s *Site) Reload() error {
 	const op errors.Op = "templates/Reload"
 
-	themes, err := s.loader.Load()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	themes, err := LoadThemes(s.fs)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -51,6 +57,12 @@ type TemplateSelector interface {
 
 func (s *Site) Executor() *Executor {
 	return NewExecutor(s)
+}
+
+func (s *Site) ThemeNames() []string {
+	keys := maps.Keys(s.themes)
+	slices.Sort(keys)
+	return keys
 }
 
 // Template returns a Template associated with the theme and page name given.
@@ -148,12 +160,12 @@ func FromFS(fsys fs.FS) (*Site, error) {
 
 	var err error
 	tmpl := Site{
-		loader: NewLoader(fsys),
+		fs: fsys,
 		//bufferPool: NewPool(func() *bytes.Buffer { return new(bytes.Buffer) }),
 		cache: make(map[string]*template.Template),
 	}
 
-	tmpl.themes, err = tmpl.loader.Load()
+	tmpl.themes, err = LoadThemes(fsys)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
@@ -161,30 +173,11 @@ func FromFS(fsys fs.FS) (*Site, error) {
 	return &tmpl, nil
 }
 
-func NewLoader(fsys fs.FS) Loader {
-	return Loader{fs: fsys}
-}
-
-type Loader struct {
-	// fs is the filesystem we're loading files from
-	fs fs.FS
-
-	// baseTemplates contain the files at the base of the directory hierarchy and are included
-	// in all bundles
-	baseTemplates []string
-	// defaultTheme is a mapping of page-name to default-template-bundle for easy backfilling of
-	// undefined pages in themes
-	defaultTheme map[string]*TemplateBundle
-	// defaultPartials contain the files in the DEFAULT_DIR/partials directory and are included
-	// in all themes as partials
-	defaultPartials []string
-}
-
 // TemplateBundle contains all the filenames required to construct a template instance
 // for the page
 type TemplateBundle struct {
-	// loader used to actually load the relative-filenames below
-	loader *Loader
+	// fs to load the relative-filenames below
+	fs fs.FS
 	// the following fields contain all the filenames of the templates we're parsing
 	// into a html/template.Template. They're listed in load-order, last one wins.
 	base            []string
@@ -192,8 +185,6 @@ type TemplateBundle struct {
 	partials        []string
 	defaultPage     string
 	page            string
-
-	cache *template.Template
 }
 
 // Files returns all the files in this bundle sorted in load-order
@@ -215,7 +206,7 @@ func (tb *TemplateBundle) Files() []string {
 func (tb *TemplateBundle) Template() (*template.Template, error) {
 	const op errors.Op = "templates/TemplateBundle.Template"
 
-	tmpl, err := createRoot().ParseFS(tb.loader.fs, tb.Files()...)
+	tmpl, err := createRoot().ParseFS(tb.fs, tb.Files()...)
 	if err != nil {
 		return nil, errors.E(op, errors.TemplateParseError, err)
 	}
@@ -247,48 +238,55 @@ func (tb ThemeBundle) Page(name string) (*TemplateBundle, error) {
 	return tlb, nil
 }
 
-func (l *Loader) Load() (Themes, error) {
-	const op errors.Op = "templates/Loader.Load"
+type loadState struct {
+	fs fs.FS
 
-	bt, err := readDirFilterString(l.fs, ".", isTemplate)
+	baseTemplates   []string
+	defaultPartials []string
+	defaultBundle   map[string]*TemplateBundle
+}
+
+func LoadThemes(fsys fs.FS) (Themes, error) {
+	const op errors.Op = "templates/LoadThemes"
+
+	var state loadState
+	var err error
+
+	state.baseTemplates, err = readDirFilterString(fsys, ".", isTemplate)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
-	l.baseTemplates = bt
 
 	// find our default directory
-	defaultBundle, err := l.loadSubDir(DEFAULT_DIR)
+	state.defaultBundle, err = state.loadSubDir(DEFAULT_DIR)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
 	// sanity check that we have atleast 1 bundle
-	if len(defaultBundle) == 0 {
+	if len(state.defaultBundle) == 0 {
 		return nil, errors.E(op, "default bundle empty")
 	}
 
-	// grab the partials from the first bundle
-	for _, v := range defaultBundle {
-		l.defaultPartials = v.partials
+	// grab the partials from any template bundle
+	for _, v := range state.defaultBundle {
+		state.defaultPartials = v.partials
 		break
 	}
 
-	// plant the defaults in the loader so the other themes can use them
-	l.defaultTheme = defaultBundle
-
 	// read the rest of the directories
-	subdirs, err := readDirFilterString(l.fs, ".", func(e fs.DirEntry) bool { return e.IsDir() })
+	subdirs, err := readDirFilterString(fsys, ".", func(e fs.DirEntry) bool { return e.IsDir() })
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
 
 	themes := Themes{
-		DEFAULT_DIR: ThemeBundle{DEFAULT_DIR, defaultBundle},
+		DEFAULT_DIR: ThemeBundle{DEFAULT_DIR, state.defaultBundle},
 	}
 	for _, subdir := range subdirs {
 		if subdir == DEFAULT_DIR { // skip the default dir since we already loaded it earlier
 			continue
 		}
-		bundles, err := l.loadSubDir(subdir)
+		bundles, err := state.loadSubDir(subdir)
 		if err != nil {
 			return nil, errors.E(op, err)
 		}
@@ -312,19 +310,19 @@ func noExt(s string) string {
 // it looks for `*.tmpl` files in this subdirectory and in a `partials/` subdirectory
 // if one exists. Returns a map of `filename:bundle` where the bundle is a TemplateBundle
 // that contains all the filenames required to construct the page named after the filename.
-func (l *Loader) loadSubDir(dir string) (map[string]*TemplateBundle, error) {
-	const op errors.Op = "templates/Loader.loadSubDir"
+func (ls loadState) loadSubDir(dir string) (map[string]*TemplateBundle, error) {
+	const op errors.Op = "templates/loadState.loadSubDir"
 
 	var bundle = TemplateBundle{
-		loader:          l,
-		base:            l.baseTemplates,
-		defaultPartials: l.defaultPartials,
+		fs:              ls.fs,
+		base:            ls.baseTemplates,
+		defaultPartials: ls.defaultPartials,
 	}
 
 	// read the partials subdirectory
 	partialDir := path.Join(dir, PARTIAL_DIR)
 
-	entries, err := readDirFilter(l.fs, partialDir, isTemplate)
+	entries, err := readDirFilter(ls.fs, partialDir, isTemplate)
 	if err != nil && !errors.IsE(err, fs.ErrNotExist) {
 		return nil, errors.E(op, err)
 	}
@@ -337,7 +335,7 @@ func (l *Loader) loadSubDir(dir string) (map[string]*TemplateBundle, error) {
 	bundle.partials = partials
 
 	// read the actual directory
-	entries, err = readDirFilter(l.fs, dir, isTemplate)
+	entries, err = readDirFilter(ls.fs, dir, isTemplate)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
@@ -347,7 +345,7 @@ func (l *Loader) loadSubDir(dir string) (map[string]*TemplateBundle, error) {
 		name := entry.Name()
 		// create a bundle for each page in this directory
 		bundle := bundle
-		defaultPage := l.defaultTheme[noExt(name)]
+		defaultPage := ls.defaultBundle[noExt(name)]
 		if defaultPage != nil {
 			bundle.defaultPage = defaultPage.page
 		}
@@ -357,16 +355,15 @@ func (l *Loader) loadSubDir(dir string) (map[string]*TemplateBundle, error) {
 	}
 
 	// if there are no defaults to handle, we're done
-	if l.defaultTheme == nil {
+	if ls.defaultBundle == nil {
 		return bundles, nil
 	}
 
 	// otherwise check for missing pages, these are pages defined
 	// in the default theme but not in this current theme. Copy over
 	// the default pages if they're missing.
-	for name, page := range l.defaultTheme {
-		_, ok := bundles[name]
-		if ok {
+	for name, page := range ls.defaultBundle {
+		if _, ok := bundles[name]; ok {
 			continue
 		}
 		bundles[name] = page

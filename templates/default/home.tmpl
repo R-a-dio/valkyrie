@@ -21,19 +21,7 @@
                         <button class="button is-fullwidth">More Options<span class="caret"></span></button>
                     </div>
                 </div>
-                <h2 id="current-song">
-                    <p sse-swap="metadata" class="title is-2 has-text-centered" style="cursor: pointer;">{{.Status.Song.Metadata}}</p>
-                    <p class="subtitle is-4 has-text-centered" style="font-size: 14px;">{{if .Status.Song.DatabaseTrack}}{{.Status.Song.Tags}}{{end}}</p>
-                </h2>
-                <progress id="current-song-progress" class="progress is-large" value="0" max="{{.Status.Song.Length.Seconds}}"></progress>
-                <div class="columns">
-                    <div class="column is-6">
-                        <p class="has-text-centered">Listeners: <span id="listener-count">{{.Status.Listeners}}</span></p>
-                    </div>
-                    <div class="column is-6">
-                        <p class="has-text-centered"><span id="progress-current">00:00</span> / <span id="progress-max">00:00<span></p>
-                    </div>
-                </div>
+                {{template "nowplaying" .Status}}
             </div>
             <div class="column is-3">
                 <div id="dj-image">
@@ -43,32 +31,8 @@
             </div>
         </div>
         <div class="columns">
-            <div class="column is-6">
-                <p class="title is-4 has-text-centered">Last Played</p>
-                <div class="notification">
-                    <ul>
-                        {{range $song := .LastPlayed}}
-                        <li class="columns is-mobile">
-                            <span class="column is-4 has-text-left">{{Until $song.LastPlayed | PrettyDuration}}</span>
-                            <span class="column is-8 has-text-centered">{{$song.Metadata}}</span>
-                        </li>
-                        {{end}}
-                    </ul>
-                </div>
-            </div>
-            <div class="column is-6">
-                <p class="title is-4 has-text-centered">Queue</p>
-                <div class="notification">
-                    <ul>
-                        {{range $song := .Queue}}
-                        <li class="columns is-mobile">
-                            <span class="column is-8 has-text-centered">{{$song.Metadata}}</span>
-                            <span class="column is-4 has-text-right">{{Until $song.ExpectedStartTime | PrettyDuration}}</span>
-                        </li>
-                        {{end}}
-                    </ul>
-                </div>
-            </div>
+            {{template "lastplayed" .LastPlayed}}
+            {{template "queue" .Queue}}   
         </div>
         <div class="columns">
             <article class="column message is-small m-3 p-0">
@@ -99,4 +63,49 @@
     </div>
 </section>
 Home {{printjson .}}
+{{end}}
+{{define "nowplaying"}}
+<h2 id="current-song">
+    <p sse-swap="metadata" class="title is-2 has-text-centered" style="cursor: pointer;">{{.Song.Metadata}}</p>
+    <p class="subtitle is-4 has-text-centered" style="font-size: 14px;">{{if .Song.DatabaseTrack}}{{.Song.Tags}}{{end}}</p>
+</h2>
+<progress id="current-song-progress" class="progress is-large" value="0" max="{{.Song.Length.Seconds}}"></progress>
+<div class="columns">
+    <div class="column is-6">
+        <p class="has-text-centered">Listeners: <span id="listener-count">{{.Listeners}}</span></p>
+    </div>
+    <div class="column is-6">
+        <p class="has-text-centered"><span id="progress-current">00:00</span> / <span id="progress-max">00:00<span></p>
+    </div>
+</div>
+{{end}}
+{{define "lastplayed"}}
+    <div class="column is-6">
+        <p class="title is-4 has-text-centered">Last Played</p>
+        <div class="notification">
+            <ul id="lastplayed">
+                {{range $song := .}}
+                <li class="lp-item columns is-mobile">
+                    <time datetime="{{$song.LastPlayed.Unix}}" class="lp-time column is-4 has-text-left">{{Until $song.LastPlayed | PrettyDuration}}</time>
+                    <span class="lp-meta column is-8 has-text-centered">{{$song.Metadata}}</span>
+                </li>
+                {{end}}
+            </ul>
+        </div>
+    </div>
+{{end}}
+{{define "queue"}}
+    <div class="column is-6">
+        <p class="title is-4 has-text-centered">Queue</p>
+        <div class="notification">
+            <ul>
+                {{range $song := .}}
+                <li class="columns is-mobile">
+                    <span class="column is-8 has-text-centered">{{$song.Metadata}}</span>
+                    <time datetime="{{$song.ExpectedStartTime.Unix}}" class="column is-4 has-text-right">{{Until $song.ExpectedStartTime | PrettyDuration}}</time>
+                </li>
+                {{end}}
+            </ul>
+        </div>
+    </div>
 {{end}}

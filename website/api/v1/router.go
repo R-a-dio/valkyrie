@@ -16,6 +16,7 @@ func NewAPI(ctx context.Context, cfg config.Config) (*API, error) {
 		Context: ctx,
 		Config:  cfg,
 		sse:     NewStream(),
+		manager: cfg.Conf().Manager.Client(),
 	}
 
 	go func() {
@@ -58,6 +59,7 @@ type API struct {
 	Context context.Context
 	Config  config.Config
 	sse     *Stream
+	manager radio.ManagerService
 }
 
 func (a *API) Router() chi.Router {
