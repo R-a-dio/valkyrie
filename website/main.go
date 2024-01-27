@@ -56,6 +56,8 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	// user handling
 	authentication := vmiddleware.NewAuthentication(storage, executor, sessionManager)
 	r.Use(authentication.UserMiddleware)
+	// theme state management
+	r.Use(vmiddleware.ThemeCtx(storage))
 
 	// legacy urls that once pointed to our stream, redirect them to the new url
 	r.Get("/main.mp3", RedirectLegacyStream)
@@ -80,7 +82,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	r.Route(`/request/{TrackID:[0-9]+}`, v0.RequestRoute)
 
 	log.Println("starting v1 api")
-	v1, err := v1.NewAPI(ctx, cfg)
+	v1, err := v1.NewAPI(ctx, cfg, executor)
 	if err != nil {
 		return errors.E(op, err)
 	}

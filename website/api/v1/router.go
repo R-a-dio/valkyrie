@@ -2,64 +2,41 @@ package v1
 
 import (
 	"context"
-	"log"
-	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
-	"github.com/R-a-dio/valkyrie/util/eventstream"
+	"github.com/R-a-dio/valkyrie/storage"
+	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/go-chi/chi/v5"
 )
 
-func NewAPI(ctx context.Context, cfg config.Config) (*API, error) {
-	api := &API{
-		Context: ctx,
-		Config:  cfg,
-		sse:     NewStream(),
-		manager: cfg.Conf().Manager.Client(),
+func NewAPI(ctx context.Context, cfg config.Config, templates *templates.Executor) (*API, error) {
+	song, err := storage.Open(cfg)
+	if err != nil {
+		return nil, err
 	}
 
-	go func() {
-		defer api.sse.Shutdown()
+	api := &API{
+		Context:  ctx,
+		Config:   cfg,
+		sse:      NewStream(templates),
+		manager:  cfg.Conf().Manager.Client(),
+		streamer: cfg.Conf().Streamer.Client(),
+		song:     song,
+	}
 
-		m := cfg.Conf().Manager.Client()
-
-		var s eventstream.Stream[*radio.SongUpdate]
-		var err error
-		for {
-			s, err = m.CurrentSong(ctx)
-			if err == nil {
-				break
-			}
-
-			log.Println("v1/api:setup:", err)
-			time.Sleep(time.Second * 3)
-		}
-
-		for {
-			us, err := s.Next()
-			if err != nil {
-				log.Println("v1/api:loop:", err)
-				break
-			}
-			if us == nil {
-				log.Println("v1/api:loop: nil value")
-				continue
-			}
-
-			log.Println("v1/api:sending:", us.Metadata)
-			api.sse.SendEvent(EventMetadata, []byte(us.Metadata))
-		}
-	}()
+	go api.runSSE(ctx)
 
 	return api, nil
 }
 
 type API struct {
-	Context context.Context
-	Config  config.Config
-	sse     *Stream
-	manager radio.ManagerService
+	Context  context.Context
+	Config   config.Config
+	sse      *Stream
+	manager  radio.ManagerService
+	streamer radio.StreamerService
+	song     radio.SongStorageService
 }
 
 func (a *API) Router() chi.Router {

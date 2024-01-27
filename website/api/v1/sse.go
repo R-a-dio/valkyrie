@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"bytes"
 	"context"
 	"log"
 	"maps"
@@ -26,9 +27,16 @@ func prepareStream[T any](ctx context.Context, fn func(context.Context) (T, erro
 }
 
 func (a *API) runSSE(ctx context.Context) error {
-	// prepare our eventstreams from the manager
-	go a.runSongUpdates(ctx)
+	var wg sync.WaitGroup
 
+	wg.Add(1)
+	// prepare our eventstreams from the manager
+	go func() {
+		defer wg.Done()
+		a.runSongUpdates(ctx)
+	}()
+
+	wg.Wait()
 	return nil
 }
 
@@ -38,17 +46,43 @@ func (a *API) runSongUpdates(ctx context.Context) error {
 	for {
 		us, err := song_stream.Next()
 		if err != nil {
+			log.Println("v1/api:song:", err)
 			break
 		}
 
 		if us == nil {
+			log.Println("v1/api:song: nil value")
 			continue
 		}
 
-		a.sse.SendEvent(EventMetadata, []byte(us.Metadata))
+		log.Println("v1/api:song:sending:", us)
+		a.sse.SendNowPlaying(us)
+		// TODO: add a timeout scenario
+		go a.sendQueue(ctx)
+		go a.sendLastPlayed(ctx)
 	}
 
 	return nil
+}
+
+func (a *API) sendQueue(ctx context.Context) {
+	q, err := a.streamer.Queue(ctx)
+	if err != nil {
+		log.Println("v1/api:queue:", err)
+		return
+	}
+
+	a.sse.SendQueue(q)
+}
+
+func (a *API) sendLastPlayed(ctx context.Context) {
+	lp, err := a.song.Song(ctx).LastPlayed(0, 5)
+	if err != nil {
+		log.Println("v1/api:lastplayed:", err)
+		return
+	}
+
+	a.sse.SendLastPlayed(lp)
 }
 
 const (
@@ -82,15 +116,16 @@ type Stream struct {
 	shutdownCh chan struct{}
 
 	// templates for the site, used in theme support
-	site *templates.Site
+	templates *templates.Executor
 }
 
-func NewStream() *Stream {
+func NewStream(exec *templates.Executor) *Stream {
 	s := &Stream{
 		reqs:       make(chan request),
 		mu:         new(sync.RWMutex),
 		last:       make(map[EventName]message),
 		shutdownCh: make(chan struct{}),
+		templates:  exec,
 	}
 	go s.run()
 	return s
@@ -101,7 +136,7 @@ func NewStream() *Stream {
 func (s *Stream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	controller := http.NewResponseController(w)
 
-	themeIdx := s.themeIndex(middleware.GetTheme(r.Context()))
+	theme := middleware.GetTheme(r.Context())
 
 	log.Println("sse: subscribing")
 	ch := s.sub()
@@ -123,8 +158,8 @@ func (s *Stream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mu.RUnlock()
 
 	for _, m := range init {
-		log.Println("sending initial event:", string(m.data[themeIdx]))
-		if _, err := w.Write(m.data[themeIdx]); err != nil {
+		log.Println("sending initial event:", string(m[theme]))
+		if _, err := w.Write(m[theme]); err != nil {
 			return
 		}
 	}
@@ -133,7 +168,7 @@ func (s *Stream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// start the actual new-event loop
 	log.Println("sse: starting loop")
 	for m := range ch {
-		if _, err := w.Write(m.data[themeIdx]); err != nil {
+		if _, err := w.Write(m[theme]); err != nil {
 			return
 		}
 		controller.Flush()
@@ -141,9 +176,7 @@ func (s *Stream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // SendEvent sends an SSE event with the data given.
-func (s *Stream) SendEvent(event EventName, data []byte) {
-	m := s.NewMessage(event, data)
-
+func (s *Stream) SendEvent(event EventName, m message) {
 	select {
 	case s.reqs <- request{cmd: SEND, m: m, e: event}:
 	case <-s.shutdownCh:
@@ -213,17 +246,31 @@ func (s *Stream) Shutdown() {
 	}
 }
 
-func (s *Stream) themeIndex(theme string) int {
-	return 0
-}
-
-func (s *Stream) NewMessage(event EventName, data any) message {
-	switch data.(type) {
-	case radio.SongUpdate:
-		return message{}
+func (s *Stream) NewMessage(event EventName, template string, data any) message {
+	m, err := s.templates.ExecuteTemplateAll(template, data)
+	if err != nil {
+		log.Println("failed creating message", err)
+		return nil
 	}
 
-	return message{}
+	// encode template results to server-side-event format
+	for k, v := range m {
+		v = bytes.TrimSpace(v)
+		m[k] = sse.Event{Name: event, Data: v}.Encode()
+	}
+	return m
+}
+
+func (s *Stream) SendNowPlaying(data *radio.SongUpdate) {
+	s.SendEvent(EventMetadata, s.NewMessage(EventMetadata, "nowplaying", data))
+}
+
+func (s *Stream) SendLastPlayed(data []radio.Song) {
+	s.SendEvent(EventLastPlayed, s.NewMessage(EventLastPlayed, "lastplayed", data))
+}
+
+func (s *Stream) SendQueue(data []radio.QueueEntry) {
+	s.SendEvent(EventQueue, s.NewMessage(EventQueue, "queue", data))
 }
 
 // request send over the management channel
@@ -234,10 +281,4 @@ type request struct {
 	e   EventName    // SEND only
 }
 
-// message encapsulates an SSE event
-type message struct {
-	// event name used in Stream.last
-	event EventName
-	// data is a slice of sse-encoded-event; one for each theme
-	data [][]byte
-}
+type message map[string][]byte

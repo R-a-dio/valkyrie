@@ -2,6 +2,7 @@ package sse
 
 import (
 	"bytes"
+	"slices"
 	"strconv"
 	"time"
 
@@ -49,5 +50,5 @@ func (e Event) Encode() []byte {
 	}
 	b.WriteString("\n")
 
-	return b.Bytes()
+	return slices.Clone(b.Bytes())
 }

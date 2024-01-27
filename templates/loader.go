@@ -252,6 +252,7 @@ func LoadThemes(fsys fs.FS) (Themes, error) {
 	var state loadState
 	var err error
 
+	state.fs = fsys
 	state.baseTemplates, err = readDirFilterString(fsys, ".", isTemplate)
 	if err != nil {
 		return nil, errors.E(op, err)
