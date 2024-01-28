@@ -2,7 +2,6 @@ package public
 
 import (
 	"context"
-	"encoding"
 	"io"
 	"log"
 	"mime/multipart"
@@ -234,47 +233,6 @@ func (sf *SubmissionForm) ParseForm(mr *multipart.Reader) error {
 	return nil
 }
 
-func readString(r io.Reader, maxSize int64) (string, error) {
-	r = io.LimitReader(r, maxSize)
-	if b, err := io.ReadAll(r); err != nil {
-		return "", err
-	} else {
-		return string(b), nil
-	}
-}
-
-func PendingFromProbe(filename string) (*radio.PendingSong, error) {
-	const op errors.Op = "website/api.PendingFromProbe"
-
-	info, err := audio.Probe(context.Background(), filename)
-	if err != nil {
-		return nil, errors.E(op, err)
-	}
-
-	s := radio.PendingSong{
-		Status:      radio.SubmissionAwaitingReview,
-		FilePath:    filename,
-		SubmittedAt: time.Now(),
-		Format:      info.Format.FormatName,
-	}
-
-	if info.Format != nil {
-		s.Artist = info.Format.Tags.Artist
-		s.Title = info.Format.Tags.Track
-		s.Album = info.Format.Tags.Album
-	}
-
-	return &s, nil
-}
-
-type SubmissionForm struct {
-	Token string // csrf token?
-
-	File    string
-	Comment string
-
-	Replacement *radio.TrackID
-	IsDaypass   bool
-
-	Track *radio.PendingSong
+func (sf *SubmissionForm) Validate() bool {
+	return true
 }
