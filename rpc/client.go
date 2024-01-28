@@ -291,7 +291,7 @@ type grpcStream[P, T any] struct {
 func (gs *grpcStream[P, T]) Next() (T, error) {
 	p, err := gs.s.Recv()
 	if err != nil {
-		return *new(T), nil
+		return *new(T), err
 	}
 	return gs.conv(p), nil
 }
