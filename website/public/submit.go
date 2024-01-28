@@ -2,8 +2,10 @@ package public
 
 import (
 	"context"
+	"encoding"
 	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"strconv"
@@ -23,94 +25,206 @@ const (
 )
 
 func (s State) GetSubmit(w http.ResponseWriter, r *http.Request) {
-	submitInput := struct {
-		shared
-	}{
-		shared: s.shared(r),
-	}
-
-	err := s.TemplateExecutor.ExecuteFull(theme, "submit", w, submitInput)
+	err := s.getSubmit(w, r, nil)
 	if err != nil {
 		log.Println(err)
 		return
 	}
 }
 
+func (s State) getSubmit(w http.ResponseWriter, r *http.Request, form *SubmissionForm) error {
+	const op errors.Op = "website.getSubmit"
+	ctx := r.Context()
+
+	submitInput := struct {
+		shared
+		Form  *SubmissionForm
+		Stats radio.SubmissionStats
+	}{
+		shared: s.shared(r),
+		Form:   form,
+	}
+
+	stats, err := s.Storage.Submissions(ctx).SubmissionStats(r.RemoteAddr)
+	if err != nil {
+		return errors.E(op, err)
+	}
+	stats.LastSubmissionTime = time.Now()
+	submitInput.Stats = stats
+
+	return s.TemplateExecutor.ExecuteFull(theme, "submit", w, submitInput)
+}
+
 func (s State) PostSubmit(w http.ResponseWriter, r *http.Request) {
-	err := s.postSubmit(w, r)
+	form, err := s.postSubmit(w, r)
+
+	if IsHTMX(r) {
+		if err == nil {
+			form = nil
+		}
+		if err != nil {
+			log.Println(err)
+		}
+
+		err = s.TemplateExecutor.ExecuteTemplate(theme, "submit", "form_submit", w, form)
+		if err != nil {
+			log.Println(err)
+		}
+		return
+	}
+
 	if err != nil {
 		log.Println(err)
+		err = s.getSubmit(w, r, form)
+		if err != nil {
+			log.Println(err)
+		}
 		return
+	}
+
+	err = s.getSubmit(w, r, nil)
+	if err != nil {
+		log.Println(err)
 	}
 	return
 }
 
-func (s State) postSubmit(w http.ResponseWriter, r *http.Request) error {
+func (s State) postSubmit(w http.ResponseWriter, r *http.Request) (*SubmissionForm, error) {
 	const op errors.Op = "website.PostSubmit"
 
 	mr, err := r.MultipartReader()
 	if err != nil {
-		return errors.E(op, err, errors.InternalServer)
+		return nil, errors.E(op, err, errors.InternalServer)
 	}
 
 	var form SubmissionForm
+	err = form.ParseForm(mr)
+	if err != nil {
+		return nil, errors.E(op, err, errors.InternalServer)
+	}
+
+	song, err := PendingFromProbe(form.File)
+	if err != nil {
+		return &form, errors.E(op, err, errors.InternalServer)
+	}
+	form.Song = song
+
+	if form.Validate() {
+		return &form, nil
+	}
+	return &form, errors.E(op, errors.InvalidForm)
+}
+
+func readString(r io.Reader, maxSize int64) (string, error) {
+	r = io.LimitReader(r, maxSize)
+	if b, err := io.ReadAll(r); err != nil {
+		return "", err
+	} else {
+		return string(b), nil
+	}
+}
+
+func PendingFromProbe(filename string) (*radio.PendingSong, error) {
+	const op errors.Op = "website/api.PendingFromProbe"
+
+	info, err := audio.ProbeText(context.Background(), filename)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	s := radio.PendingSong{
+		Status:      radio.SubmissionAwaitingReview,
+		FilePath:    filename,
+		Artist:      info.Artist,
+		Title:       info.Title,
+		Album:       info.Album,
+		SubmittedAt: time.Now(),
+		Format:      info.FormatName,
+		Bitrate:     info.Bitrate,
+		Length:      info.Duration,
+	}
+
+	return &s, nil
+}
+
+type SubmissionForm struct {
+	Token string // csrf token?
+
+	File             string
+	OriginalFilename string
+
+	Comment string
+	Daypass string
+
+	Replacement *radio.TrackID
+	IsDaypass   bool
+
+	Song *radio.PendingSong
+
+	Errors map[string]string
+}
+
+func (sf *SubmissionForm) ParseForm(mr *multipart.Reader) error {
+	const op errors.Op = "SubmissionForm.ParseForm"
 
 	for i := 0; i < formMaxMIMEParts; i++ {
 		part, err := mr.NextPart()
+		if errors.IsE(err, io.EOF) {
+			// finished reading parts
+			return nil
+		}
 		if err != nil {
-			if errors.IsE(err, io.EOF) { // done parsing our form
-				break
-			}
 			return errors.E(op, err, errors.InternalServer)
 		}
 
 		switch part.FormName() {
-		case "track":
+		case "track": // audio file that is being submitted
 			err = func() error {
 				f, err := os.CreateTemp("", "pending")
-				defer f.Close()
 				if err != nil {
-					return errors.E(op, err, errors.InternalServer)
+					return err
 				}
+				defer f.Close()
 
 				n, err := io.CopyN(f, part, formMaxFileLength)
 				if err != nil && !errors.IsE(err, io.EOF) {
-					return errors.E(op, err, errors.InternalServer)
+					return err
 				}
-				if n >= formMaxCommentLength {
-					// file too large
-					return errors.E(op, err, errors.InternalServer)
+				if n >= formMaxFileLength {
+					return err
 				}
-				form.File = f.Name()
+				sf.OriginalFilename = part.FileName()
+				sf.File = f.Name()
 				return nil
 			}()
 			if err != nil {
-				return err
+				return errors.E(op, err)
 			}
 		case "comment":
 			s, err := readString(part, formMaxCommentLength)
 			if err != nil {
-				return errors.E(op, err, errors.InternalServer)
+				return errors.E(op, err)
 			}
-			form.Comment = s
+			sf.Comment = s
 		case "daypass":
 			s, err := readString(part, formMaxDaypassLength)
 			if err != nil {
-				return errors.E(op, err, errors.InternalServer)
+				return errors.E(op, err)
 			}
+			sf.Daypass = s
 			// TODO: implement daypass
-			form.IsDaypass = s != s
+			sf.IsDaypass = s != s
 		case "replacement":
 			s, err := readString(part, formMaxReplacementLength)
 			if err != nil {
-				return errors.E(op, err, errors.InternalServer)
+				return errors.E(op, err)
 			}
 			id, err := strconv.Atoi(s)
 			if err != nil {
-				return errors.E(op, err, errors.InternalServer)
+				return errors.E(op, err)
 			}
 			tid := radio.TrackID(id)
-			form.Replacement = &tid
+			sf.Replacement = &tid
 		default:
 			// unknown form field, bail early and tell the client it's bad
 			return errors.E(op, errors.InvalidForm)

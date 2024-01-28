@@ -15,12 +15,14 @@ func TemplateFuncs() template.FuncMap {
 }
 
 var fnMap = map[string]any{
-	"printjson":      PrintJSON,
-	"safeHTML":       SafeHTML,
-	"safeHTMLAttr":   SafeHTMLAttr,
-	"Until":          time.Until,
-	"Since":          time.Since,
-	"PrettyDuration": PrettyDuration,
+	"printjson":                   PrintJSON,
+	"safeHTML":                    SafeHTML,
+	"safeHTMLAttr":                SafeHTMLAttr,
+	"Until":                       time.Until,
+	"Since":                       time.Since,
+	"Now":                         time.Now,
+	"PrettyDuration":              PrettyDuration,
+	"CalculateSubmissionCooldown": radio.CalculateSubmissionCooldown,
 }
 
 func PrintJSON(v any) (template.HTML, error) {

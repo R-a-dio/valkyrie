@@ -791,6 +791,13 @@ type SubmissionStorageService interface {
 	SubmissionsTx(context.Context, StorageTx) (SubmissionStorage, StorageTx, error)
 }
 
+func CalculateSubmissionCooldown(t time.Time) time.Duration {
+	if time.Since(t) > time.Hour {
+		return 0
+	}
+	return (time.Hour) - time.Since(t)
+}
+
 // SubmissionStorage stores stuff related to the reviewing of submissions
 // and associated information
 type SubmissionStorage interface {
@@ -800,6 +807,27 @@ type SubmissionStorage interface {
 	// UpdateSubmissionTime updates the last submission time to the current time
 	// for the identifier given
 	UpdateSubmissionTime(identifier string) error
+	// SubmissionStats returns the submission stats for the identifier given.
+	SubmissionStats(identifier string) (SubmissionStats, error)
+}
+
+type SubmissionStats struct {
+	// Amount of submissions in the pending queue
+	CurrentPending int `db:"current_pending"`
+	// Information about accepted songs
+	AcceptedTotal        int `db:"accepted_total"`
+	AcceptedLastTwoWeeks int `db:"accepted_last_two_weeks"`
+	AcceptedYou          int `db:"accepted_you"`
+	RecentAccepts        []Song
+
+	// Information about declined songs
+	DeclinedTotal        int `db:"declined_total"`
+	DeclinedLastTwoWeeks int `db:"declined_last_two_weeks"`
+	DeclinedYou          int `db:"declined_you"`
+	RecentDeclines       []PendingSong
+
+	// Information about (You)
+	LastSubmissionTime time.Time `db:"last_submission_time"`
 }
 
 // SubmissionID is the ID of a pending song
