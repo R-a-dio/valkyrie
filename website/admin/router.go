@@ -28,12 +28,12 @@ func Router(ctx context.Context, s State) chi.Router {
 
 	r.Group(func(r chi.Router) {
 		r.Use(s.Authentication.LoginMiddleware)
-		r.Get("/", s.GetHome)
+		r.HandleFunc("/", s.GetHome)
 		r.Get("/profile", s.GetProfile)
 		r.Post("/profile", s.PostProfile)
-		r.Get("/pending", s.GetPending)
-		r.Get("/streamer/start", s.StartStreamer)
-		r.Get("/streamer/stop", s.StopStreamer)
+		r.HandleFunc("/pending", s.GetPending)
+		r.HandleFunc("/streamer/start", s.StartStreamer)
+		r.HandleFunc("/streamer/stop", s.StopStreamer)
 	})
 
 	return r

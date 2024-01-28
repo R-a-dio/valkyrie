@@ -39,7 +39,6 @@ type shared struct {
 
 func Router(ctx context.Context, s State) chi.Router {
 	r := chi.NewRouter()
-	r.Use(middleware.ThemeCtx(s.Storage))
 
 	r.Get("/", s.GetHome)
 	r.Get("/news", s.GetNews)

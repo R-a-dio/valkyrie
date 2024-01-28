@@ -64,7 +64,7 @@ func (a authentication) UserMiddleware(next http.Handler) http.Handler {
 
 		// no known username
 		if username == "" {
-			next.ServeHTTP(w, r)
+			next.ServeHTTP(w, RequestWithUser(r, nil))
 			return
 		}
 
@@ -331,8 +331,6 @@ func UserFromContext(ctx context.Context) *radio.User {
 	u, ok := ctx.Value(userContextKey).(*radio.User)
 	if !ok {
 		panic("UserFromContext: called from handler not behind LoginMiddleware")
-	} else if u == nil {
-		panic("UserFromContext: someone stored a nil user")
 	}
 	return u
 }
