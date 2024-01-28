@@ -48,11 +48,12 @@ var (
 )
 
 type Info struct {
-	Duration time.Duration
-	Title    string
-	Artist   string
-	Album    string
-	Bitrate  int
+	Duration   time.Duration
+	FormatName string
+	Title      string
+	Artist     string
+	Album      string
+	Bitrate    int
 }
 
 func ProbeText(ctx context.Context, filename string) (*Info, error) {

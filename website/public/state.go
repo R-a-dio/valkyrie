@@ -56,3 +56,7 @@ func Router(ctx context.Context, s State) chi.Router {
 	r.Get("/irc", s.GetChat)
 	return r
 }
+
+func IsHTMX(r *http.Request) bool {
+	return r.Header.Get("Hx-Request") == "true"
+}

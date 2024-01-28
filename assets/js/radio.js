@@ -25,6 +25,10 @@ htmx.createEventSource = function (url) {
     return es;
 }
 //htmx.logAll();
+// submission page progress bar
+htmx.on("#submit", 'htmx:xhr:progress', (event) => {
+    htmx.find('#submit-progress').setAttribute('value', event.detail.loaded / event.detail.total * 100);
+});
 
 function prettyDuration(d) {
     if (d > 0) {
@@ -73,10 +77,12 @@ function updateTimes() {
 function updateProgress(interval) {
     // update the text underneath the progress bar
     var current = document.getElementById("progress-current");
-    currentProgress = now() - current.dataset.start;
-    current.textContent = prettyProgress(currentProgress);
-    // update the progress bar
-    document.getElementById("current-song-progress").value = Math.floor(currentProgress / 1000);
+    if (current != null) {
+        currentProgress = now() - current.dataset.start;
+        current.textContent = prettyProgress(currentProgress);
+        // update the progress bar
+        document.getElementById("current-song-progress").value = Math.floor(currentProgress / 1000);
+    }
     setTimeout(updateProgress, minUpdate, minUpdate);
 }
 

@@ -124,12 +124,18 @@ func (d databaseCmd) addUser(ctx context.Context, cfg config.Config) error {
 	}
 
 	name := d.flags.Arg(1)
+	if name == "" {
+		return errors.E("username can't be empty")
+	}
 	passwd := d.flags.Arg(2)
+	if passwd == "" {
+		return errors.E("password can't be empty")
+	}
 
 	u := db.User(ctx)
 
 	// only allow adding a user this way if it doesn't exist yet
-	user, err := u.Get(name)
+	_, err = u.Get(name)
 	if err != nil && !errors.Is(errors.UserUnknown, err) {
 		fmt.Println("user already exists")
 		return err
@@ -139,7 +145,7 @@ func (d databaseCmd) addUser(ctx context.Context, cfg config.Config) error {
 	if err != nil {
 		return err
 	}
-	user = &radio.User{
+	user := radio.User{
 		Username: name,
 		Password: string(hash),
 		UserPermissions: radio.UserPermissions{
@@ -148,7 +154,7 @@ func (d databaseCmd) addUser(ctx context.Context, cfg config.Config) error {
 		},
 	}
 
-	_, err = u.UpdateUser(*user)
+	_, err = u.UpdateUser(user)
 	if err != nil {
 		return err
 	}

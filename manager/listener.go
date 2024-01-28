@@ -104,6 +104,25 @@ func (ln *Listener) newConn(ctx context.Context) (io.ReadCloser, int, error) {
 		return nil, 0, err
 	}
 
+	// special case for when a fallback isn't setup in icecast; this gives us a 404 status
+	// code on the mountpoint configured so try and see if we can wake up the streamer by
+	// sending a fake fallback to the manager
+	if resp.StatusCode == http.StatusNotFound {
+		fallbacks := ln.Conf().Manager.FallbackNames
+		var fallback = "fallback"
+		if len(fallbacks) > 0 {
+			fallback = fallbacks[0]
+		}
+
+		ln.manager.UpdateSong(ctx, &radio.SongUpdate{
+			Song: radio.Song{Metadata: fallback},
+			Info: radio.SongInfo{
+				Start:      time.Now(),
+				IsFallback: true,
+			},
+		})
+	}
+
 	if resp.StatusCode != 200 {
 		resp.Body.Close()
 		return nil, 0, errors.New("listener: request error: " + resp.Status)

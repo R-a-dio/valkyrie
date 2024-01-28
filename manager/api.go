@@ -79,14 +79,15 @@ func (m *Manager) UpdateSong(ctx context.Context, update *radio.SongUpdate) erro
 	// first we check if this is the same song as the previous one we received to
 	// avoid double announcement or drifting start/end timings
 	m.mu.Lock()
-	if m.status.Song.Metadata == new.Metadata {
+	if m.status.Song.Metadata == new.Metadata && !info.IsFallback {
 		m.mu.Unlock()
 		return nil
 	}
 
 	// check if a robot is streaming
 	// TODO: don't hardcode this
-	isRobot := m.status.User.Username == "AFK"
+	//isRobot := m.status.User.Username == "AFK"
+	isRobot := true
 
 	// check if we're on a fallback stream
 	if info.IsFallback {

@@ -1,0 +1,35 @@
+{{define "form_submit"}}
+    <div class="field">
+        <div class="control">
+            <input class="input" type="file" name="track">
+            <p>Upload a song to the R/a/dio database. We accept both MP3 (30MB max) and FLAC (90MB max).</p>
+        </div>
+    </div>
+    <div class="field">
+        <div class="control">
+            <input class="input" type="text" name="comment" placeholder="Comment">
+            <p>Add the source, artist and title if tags are missing, etc. </p>
+        </div>
+    </div>
+    <div class="field">
+        <div class="select">
+            <select>
+                <option value="0">No replacement</option>
+                <option value="100">Test File</option>
+            </select>
+        </div>
+        <p>Sometimes, songs in the database aren't up to snuff. If you have a good copy of a track listed here, select the track in the list and upload it! </p>
+    </div>
+    <div class="field">
+        <div class="control">
+            <input class="input" type="text" name="daypass" placeholder="Daypass">
+        </div>
+        <p>Enter the daypass and you can have unlimited uploads until midnight, UTC. <a href="https://static.r-a-d.io/exci/daypass-guide.webm">Ask exci in IRC for it</a>. USE WITH DISCRETION.
+Uploading full soundtracks or albums without asking for a daypass will probably end in everything being declined.</p>
+    </div>
+    <div class="field">
+        <div class="control">
+            <button class="button">Upload Song</button>
+        </div>
+    </div>
+{{end}}

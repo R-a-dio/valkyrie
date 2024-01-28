@@ -11,16 +11,16 @@
         </a>
     </div>
     <div id="public-navbar" class="navbar-menu">
-        <div class="navbar-start">
-            <a class="navbar-item" hx-get="/news" hx-target="#content" href="/news">News</a>
-            <a class="navbar-item" hx-get="/irc" hx-target="#content" href="/irc">Chat</a>
-            <a class="navbar-item" hx-get="/search" hx-target="#content" href="/search">Search</a>
-            <a class="navbar-item" hx-get="/schedule" hx-target="#content" href="/schedule">Schedule</a>
-            <a class="navbar-item" hx-get="/last-played" hx-target="#content" href="/last-played">Play History</a>
-            <a class="navbar-item" hx-get="/queue" hx-target="#content" href="/queue">Queue</a>
-            <a class="navbar-item" hx-get="/favorites" hx-target="#content" href="/favorites">Favorites</a>
-            <a class="navbar-item" hx-get="/staff" hx-target="#content" href="/staff">Staff</a>
-            <a class="navbar-item" hx-get="/submit" hx-target="#content" href="/submit">Submit</a>
+        <div class="navbar-start" hx-boost="true" hx-push-url="true">
+            <a class="navbar-item" hx-target="#content" href="/news">News</a>
+            <a class="navbar-item" hx-target="#content" href="/irc">Chat</a>
+            <a class="navbar-item" hx-target="#content" href="/search">Search</a>
+            <a class="navbar-item" hx-target="#content" href="/schedule">Schedule</a>
+            <a class="navbar-item" hx-target="#content" href="/last-played">Play History</a>
+            <a class="navbar-item" hx-target="#content" href="/queue">Queue</a>
+            <a class="navbar-item" hx-target="#content" href="/favorites">Favorites</a>
+            <a class="navbar-item" hx-target="#content" href="/staff">Staff</a>
+            <a class="navbar-item" hx-target="#content" href="/submit">Submit</a>
         </div>
         <div class="navbar-end is-flex-grow-1 mr-3">
             <form class="is-flex is-width-90 my-auto" method="POST" action="/search" accept-charset="UTF-8">
