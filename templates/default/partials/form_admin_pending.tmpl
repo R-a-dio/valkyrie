@@ -1,5 +1,5 @@
 {{define "form_admin_pending"}}
-<form class="notification box" method="post" hx-post="/admin/pending" hx-swap="outerHTML">
+<form class="{{if len .Errors}}is-warning {{end}}pending-entry notification box" method="post" hx-post="/admin/pending" hx-swap="outerHTML swap:1s">
     <input class="is-hidden" type="number" name="id" value="{{.ID}}">
     <div class="columns">
         <div class="column">
@@ -55,7 +55,7 @@
                     <button class="button is-success" type="submit" name="action" value="accept">Accept</button>
                 </div>
                 <div class="column">
-                    <input class="checkbox" type="checkbox">Good?</input>
+                    <input class="checkbox" type="checkbox" name="good">Good?</input>
                 </div>
             </div>
             <div class="columns">

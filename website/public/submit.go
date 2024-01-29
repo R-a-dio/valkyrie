@@ -150,7 +150,6 @@ func (s State) getSubmit(w http.ResponseWriter, r *http.Request, form Submission
 	if err != nil {
 		return errors.E(op, err)
 	}
-	stats.LastSubmissionTime = time.Now()
 	submitInput.Stats = stats
 
 	return s.TemplateExecutor.ExecuteFull(theme, "submit", w, submitInput)
@@ -175,7 +174,17 @@ func (s State) PostSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// success, send a new empty form back to the user
+	// success, update the submission time for the identifier
+	identifier, _ := s.getIdentifier(r)
+	if err = s.Storage.Submissions(r.Context()).UpdateSubmissionTime(identifier); err != nil {
+		log.Println(err)
+		if err = responseFn(form); err != nil {
+			log.Println(err)
+		}
+		return
+	}
+
+	// send a new empty form back to the user
 	back := SubmissionForm{Success: true}
 	if form.IsDaypass {
 		// if the submission was with a daypass, prefill the daypass for them again
@@ -349,8 +358,7 @@ func (sf *SubmissionForm) ParseForm(tempdir string, mr *multipart.Reader) error 
 				return errors.E(op, err)
 			}
 			sf.Daypass = s
-			// TODO: implement daypass
-			sf.IsDaypass = s != s
+			sf.IsDaypass = Daypass.Is(s)
 		case "replacement":
 			s, err := readString(part, formMaxReplacementLength)
 			if err != nil {
@@ -382,8 +390,7 @@ func (sf *SubmissionForm) Validate() bool {
 	if sf.Comment == "" {
 		sf.Errors["comment"] = "no comment supplied"
 	}
-	if sf.Daypass != sf.Daypass {
-		// TODO: implement daypass logic
+	if !Daypass.Is(sf.Daypass) {
 		sf.Errors["daypass"] = "daypass invalid"
 	}
 
