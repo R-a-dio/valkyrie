@@ -49,4 +49,5 @@
 .pending-controls span.tag {
     height: auto;
     white-space: normal;
+    overflow-wrap: anywhere;
 }

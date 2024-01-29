@@ -1,7 +1,10 @@
 {{define "content"}}
 <section class="section">
     <div class="container is-fluid">
-        {{template "form_admin_pending" .}}
+        {{range $song := .Submissions}}
+            {{template "form_admin_pending" $song}}
+        {{end}}
     </div>
 </section>
+{{printjson .}}
 {{end}}

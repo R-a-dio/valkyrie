@@ -442,7 +442,7 @@ func (s *Song) Requestable() bool {
 		panic("Requestable called with nil database track")
 	}
 	if s.RequestDelay == 0 {
-		// no delay set, so we can't really do a proper comparison below
+		// unknown song delay
 		return false
 	}
 	if time.Since(s.LastPlayed) < s.RequestDelay {
@@ -809,6 +809,13 @@ type SubmissionStorage interface {
 	UpdateSubmissionTime(identifier string) error
 	// SubmissionStats returns the submission stats for the identifier given.
 	SubmissionStats(identifier string) (SubmissionStats, error)
+
+	// All returns all submissions
+	All() ([]PendingSong, error)
+	// InsertSubmission inserts a new pending song into the database
+	InsertSubmission(PendingSong) error
+	// GetSubmission returns a pending song by ID
+	GetSubmission(SubmissionID) (*PendingSong, error)
 }
 
 type SubmissionStats struct {
@@ -854,6 +861,8 @@ type PendingSong struct {
 	Title string
 	// Album of the song
 	Album string
+	// Tags of the song
+	Tags string
 	// FilePath on disk
 	FilePath string
 	// Comment given by the uploader

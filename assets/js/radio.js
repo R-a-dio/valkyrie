@@ -25,9 +25,24 @@ htmx.createEventSource = function (url) {
     return es;
 }
 //htmx.logAll();
-// submission page progress bar
-htmx.on("#submit", 'htmx:xhr:progress', (event) => {
-    htmx.find('#submit-progress').setAttribute('value', event.detail.loaded / event.detail.total * 100);
+htmx.on('htmx:load', (event) => {
+    // register page-specific events in here
+    let submit = document.getElementById('submit')
+    if (submit) {
+        // submission page progress bar
+        console.log("registering submission progress handler")
+        submit.addEventListener('htmx:xhr:progress', (event) => {
+            htmx.find('#submit-progress').setAttribute('value', event.detail.loaded / event.detail.total * 100);
+        });
+        // submission page daypass handling, move it into the header instead of the form
+        console.log("registering submission daypass-header handler")
+        submit.addEventListener('htmx:beforeRequest', (event) => {
+            let daypass = document.querySelector("input[name='daypass']").value
+            if (daypass != "") {
+                event.detail.xhr.setRequestHeader("X-Daypass", daypass);
+            }
+        });
+    }
 });
 
 function prettyDuration(d) {

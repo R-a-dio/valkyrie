@@ -94,3 +94,85 @@ func (ss SubmissionStorage) SubmissionStats(identifier string) (radio.Submission
 
 	return stats, nil
 }
+
+func (ss SubmissionStorage) InsertSubmission(song radio.PendingSong) error {
+	const op errors.Op = "mariadb/SubmissionStorage.InsertSubmission"
+
+	query := `
+	INSERT INTO
+		pending (artist, track, album, path, comment, origname, submitter, submitted, replacement, bitrate, length, format, mode)
+	VALUES
+		(:artist, :title, :album, :filepath, :comment, :filename, :useridentifier, :submittedat, :replacementid, :bitrate, :length, :format, :encodingmode);
+	`
+
+	_, err := sqlx.NamedExec(ss.handle, query, song)
+	if err != nil {
+		return errors.E(op, err)
+	}
+
+	return nil
+}
+
+func (ss SubmissionStorage) All() ([]radio.PendingSong, error) {
+	const op errors.Op = "mariadb/SubmissionStorage.All"
+
+	query := `
+	SELECT
+		id,
+		artist,
+		track AS title,
+		album,
+		path AS filepath,
+		comment,
+		origname AS filename,
+		submitter AS useridentifier,
+		submitted AS submittedat,
+		replacement AS replacementid,
+		bitrate,
+		length,
+		format,
+		mode AS encodingmode
+	 FROM pending;`
+
+	var res []radio.PendingSong
+
+	err := sqlx.Select(ss.handle, &res, query)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	for i := 0; i < len(res); i++ {
+		res[i].Status = radio.SubmissionAwaitingReview
+	}
+
+	return res, nil
+}
+
+func (ss SubmissionStorage) GetSubmission(id radio.SubmissionID) (*radio.PendingSong, error) {
+	const op errors.Op = "mariadb/SubmissionStorage.GetSubmission"
+
+	query := `
+	SELECT
+		id,
+		artist,
+		track AS title,
+		album,
+		path AS filepath,
+		comment,
+		origname AS filename,
+		submitter AS useridentifier,
+		submitted AS submittedat,
+		replacement AS replacementid,
+		bitrate,
+		length,
+		format,
+		mode AS encodingmode
+	FROM pending WHERE id=?;`
+
+	var song radio.PendingSong
+	err := sqlx.Get(ss.handle, &song, query, id)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+	return &song, nil
+}

@@ -1,7 +1,7 @@
 {{define "public-navbar"}}
 <nav class="navbar is-dark" role="navigation">
     <div class="navbar-brand">
-        <a class="navbar-item" href="/">
+        <a class="navbar-item" href="/" hx-boost="true" hx-push-url="true">
             <img src="/assets/images/logotitle_2.png" alt="r/a/dio logo">
         </a>
         <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="public-navbar" onclick="this.classList.toggle('is-active'); document.getElementById(this.dataset.target).classList.toggle('is-active')">
