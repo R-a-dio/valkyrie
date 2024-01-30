@@ -1,6 +1,17 @@
 {{define "form_admin_pending"}}
-<form class="{{if len .Errors}}is-warning {{end}}pending-entry notification box" method="post" hx-post="/admin/pending" hx-swap="outerHTML swap:1s">
+<form class="{{if len .Errors}}is-warning {{end}}pending-entry notification" method="post" hx-post="/admin/pending" hx-swap="outerHTML swap:1s">
     <input class="is-hidden" type="number" name="id" value="{{.ID}}">
+    <div class="columns is-desktop pending-controls">
+        <div class="column py-1">
+            <span class="tag is-dark is-fullwidth py-1">{{.UserIdentifier}}</span>
+        </div>
+        <div class="column py-1">
+            <span class="tag is-info is-fullwidth py-1">{{HumanDuration .Length}}, 31.83MB, {{Div .Bitrate 1000}}kbps vbr</span>
+        </div>
+        <div class="column py-1">
+            <span class="tag is-warning is-fullwidth py-1">{{.Filename}}</span>
+        </div>
+    </div>
     <div class="columns is-gapless">
         <div class="column is-6">
             <div class="column field is-horizontal">
@@ -39,21 +50,17 @@
             </div>
         </div>
     </div>
-    <div class="columns is-desktop pending-controls">
-        <div class="column is-narrow">
-            <div class="tags">
-                <span class="tag is-dark">{{.UserIdentifier}}</span>
-                <span class="tag is-info">{{HumanDuration .Length}}, 31.83MB, {{Div .Bitrate 1000}}kbps vbr</span>
-                <span class="tag is-warning">{{.Filename}}</span>
-            </div>
-        </div>
-        <div class="is-hidden column">
-            <input class="checkbox" type="checkbox" name="good">Good?</input>
-        </div>
+    <div class="columns">
+        <div class="label column is-narrow">Comment:</div>
+        <div class="column">{{.Comment}}</div>
+    </div>
+    <div class="columns is-desktop">
         <div class="column">
             <div class="field is-grouped is-grouped-multiline is-grouped-right">
                 <div class="control">
-                    <button class="button is-success" type="submit" name="action" value="accept">Accept</button>
+                    <div class="field">
+                        <button class="button is-success" type="submit" name="action" value="accept">Accept</button>
+                    </div>
                 </div>
                 <div class="control is-expanded">
                     <div class="field has-addons is-justify-content-end">
@@ -77,10 +84,6 @@
                 </div>
             </div>
         </div>
-    </div>
-    <div class="columns">
-        <div class="label column is-narrow">Comment:</div>
-        <div class="column">{{.Comment}}</div>
     </div>
 </form>
 {{end}}

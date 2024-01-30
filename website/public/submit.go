@@ -26,7 +26,8 @@ const (
 	formMaxCommentLength     = 512
 	formMaxDaypassLength     = 64
 	formMaxReplacementLength = 16
-	formMaxFileLength        = (1 << 20) * 100 // 100MiB
+	formMaxFileLength        = (1 << 20) * 100               // 100MiB
+	formMaxSize              = formMaxFileLength + (1<<20)*3 // 3MiB on-top of file limit
 	formMaxMIMEParts         = 6
 
 	daypassHeader = "X-Daypass"
@@ -146,7 +147,8 @@ func (s State) getSubmit(w http.ResponseWriter, r *http.Request, form Submission
 		Form:   form,
 	}
 
-	stats, err := s.Storage.Submissions(ctx).SubmissionStats(r.RemoteAddr)
+	identifier, _ := s.getIdentifier(r)
+	stats, err := s.Storage.Submissions(ctx).SubmissionStats(identifier)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -156,6 +158,7 @@ func (s State) getSubmit(w http.ResponseWriter, r *http.Request, form Submission
 }
 
 func (s State) PostSubmit(w http.ResponseWriter, r *http.Request) {
+	// setup response function that differs between htmx/non-htmx request
 	responseFn := func(form SubmissionForm) error {
 		return s.getSubmit(w, r, form)
 	}
@@ -164,9 +167,17 @@ func (s State) PostSubmit(w http.ResponseWriter, r *http.Request) {
 			return s.TemplateExecutor.ExecuteTemplate(theme, "submit", "form_submit", w, form)
 		}
 	}
+	defer http.NewResponseController(w).Flush()
 
+	// parse and validate the form
 	form, err := s.postSubmit(w, r)
 	if err != nil {
+		// TODO: debug this
+		// for unknown reason if we send a response without reading the body the connection is
+		// hard-reset instead and our response goes missing, so discard the body up to our
+		// allowed max size and then cut off if required
+		io.CopyN(io.Discard, r.Body, formMaxSize)
+
 		log.Println(err)
 		if err := responseFn(form); err != nil {
 			log.Println(err)
@@ -189,6 +200,7 @@ func (s State) PostSubmit(w http.ResponseWriter, r *http.Request) {
 	if form.IsDaypass {
 		// if the submission was with a daypass, prefill the daypass for them again
 		back.Daypass = form.Daypass
+		back.IsDaypass = true
 	}
 	if err := responseFn(back); err != nil {
 		log.Println(err)
@@ -199,9 +211,11 @@ func (s State) postSubmit(w http.ResponseWriter, r *http.Request) (SubmissionFor
 	const op errors.Op = "website.PostSubmit"
 
 	// find out if the client is allowed to upload
-	_, err := s.canSubmitSong(r)
+	cooldown, err := s.canSubmitSong(r)
 	if err != nil {
-		return SubmissionForm{}, errors.E(op, err)
+		return SubmissionForm{
+			Errors: map[string]string{"cooldown": strconv.FormatInt(int64(cooldown/time.Second), 10)},
+		}, errors.E(op, err)
 	}
 
 	mr, err := r.MultipartReader()
@@ -230,7 +244,7 @@ func (s State) postSubmit(w http.ResponseWriter, r *http.Request) (SubmissionFor
 
 	song, err := PendingFromProbe(form.File)
 	if err != nil {
-		form.Errors["probe"] = "File invalid; probably not an audio file."
+		form.Errors["track"] = "File invalid; probably not an audio file."
 		return form, errors.E(op, err, errors.InternalServer)
 	}
 	// fill in extra info we don't get from the probe
@@ -390,7 +404,7 @@ func (sf *SubmissionForm) Validate() bool {
 	if sf.Comment == "" {
 		sf.Errors["comment"] = "no comment supplied"
 	}
-	if !Daypass.Is(sf.Daypass) {
+	if sf.Daypass != "" && !Daypass.Is(sf.Daypass) {
 		sf.Errors["daypass"] = "daypass invalid"
 	}
 

@@ -60,3 +60,7 @@
 .pending-entry .field {
     padding: 0.25rem;
 }
+
+.pending-entry:nth-of-type(even) {
+    background-color: hsl(0, 0%, 90%);
+}

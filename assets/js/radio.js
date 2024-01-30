@@ -1,6 +1,10 @@
 var timeOffset = 0;
 // the minimal time between update functions in ms
 var minUpdate = 1000;
+// timer for the <time> updater
+var timeUpdateTimer = 0;
+// timer for the <progress> updater
+var progressUpdateTimer = 0;
 
 function now() {
     return Date.now() - timeOffset
@@ -26,6 +30,9 @@ htmx.createEventSource = function (url) {
 }
 //htmx.logAll();
 htmx.on('htmx:load', (event) => {
+    // update any progress or times
+    updateTimes();
+    updateProgress();
     // register page-specific events in here
     let submit = document.getElementById('submit')
     if (submit) {
@@ -73,6 +80,11 @@ function prettyProgress(d) {
 }
 
 function updateTimes() {
+    if (timeUpdateTimer) {
+        clearTimeout(timeUpdateTimer);
+        timeUpdateTimer = 0;
+    }
+
     var n = now() / 1000;
     var nextUpdate = 60;
 
@@ -86,10 +98,15 @@ function updateTimes() {
     nextUpdate *= 1000
     // don't go below minUpdate
     nextUpdate = Math.max(nextUpdate, minUpdate);
-    setTimeout(updateTimes, nextUpdate);
+    timeUpdateTimer = setTimeout(updateTimes, nextUpdate);
 }
 
-function updateProgress(interval) {
+function updateProgress() {
+    if (progressUpdateTimer) {
+        clearTimeout(progressUpdateTimer);
+        progressUpdateTimer = 0;
+    }
+
     // update the text underneath the progress bar
     var current = document.getElementById("progress-current");
     if (current != null) {
@@ -98,8 +115,8 @@ function updateProgress(interval) {
         // update the progress bar
         document.getElementById("current-song-progress").value = Math.floor(currentProgress / 1000);
     }
-    setTimeout(updateProgress, minUpdate, minUpdate);
+    progressUpdateTimer = setTimeout(updateProgress, minUpdate);
 }
 
 setTimeout(updateTimes, 1000);
-setTimeout(updateProgress, 1000, 1000);
+setTimeout(updateProgress, 1000);

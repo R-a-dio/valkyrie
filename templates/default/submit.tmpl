@@ -2,12 +2,12 @@
 <section class="section">
     <div class="content">
         {{$cooldown := CalculateSubmissionCooldown .Stats.LastSubmissionTime}}
-        {{if eq $cooldown 0}}
-        <div class="notification is-primary has-text-centered">
+        {{if or (or (eq $cooldown 0) (.IsUser)) (.Form.IsDaypass)}}
+        <div id="submit-cooldown" class="notification is-primary has-text-centered">
             You can upload a song
         </div>
         {{else}}
-        <div class="notification is-danger has-text-centered">
+        <div id="submit-cooldown" class="notification is-danger has-text-centered">
             You cannot upload another song just yet. You can upload <time datetime="{{(Now.Add $cooldown).Unix}}">{{PrettyDuration $cooldown}}</time>.
         </div>
         {{end}}

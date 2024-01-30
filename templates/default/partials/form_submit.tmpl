@@ -3,12 +3,12 @@
     {{if .Success}}
     <div class="notification is-success">Thank you for your upload</div>
     {{end}}
+    {{with .Errors.cooldown}}
+    <div id="submit-cooldown" class="notification is-danger has-text-centered" hx-swap-oob="true">Your cooldown has not expired.</div>
+    {{end}}
     <div class="field">
         <div class="control">
             {{with .Errors.track}}
-            <div class="notification is-warning">{{.}}</div>
-            {{end}}
-            {{with .Errors.probe}}
             <div class="notification is-danger">{{.}}</div>
             {{end}}
             <input class="input" type="file" name="track">
