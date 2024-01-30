@@ -1,78 +1,79 @@
 {{define "form_admin_pending"}}
 <form class="{{if len .Errors}}is-warning {{end}}pending-entry notification box" method="post" hx-post="/admin/pending" hx-swap="outerHTML swap:1s">
     <input class="is-hidden" type="number" name="id" value="{{.ID}}">
-    <div class="columns">
+    <div class="columns is-gapless">
+        <div class="column is-6">
+            <div class="column field is-horizontal">
+                <div class="field-label is-flex-grow-0">
+                    <label class="label">Artist</label>
+                </div>
+                <div class="field-body">
+                    <input class="input" name="artist" type="text" value="{{.Artist}}">
+                </div>
+            </div>
+            <div class="column field is-horizontal">
+                <div class="field-label is-flex-grow-0">
+                    <label class="label">Title</label>
+                </div>
+                <div class="field-body">
+                    <input class="input" name="title" type="text" value="{{.Title}}">
+                </div>
+            </div>
+        </div>
+        <div class="column is-6">
+            <div class="column field is-horizontal">
+                <div class="field-label is-flex-grow-0">
+                    <label class="label">Album</label>
+                </div>
+                <div class="field-body">
+                    <input class="input" name="album" type="text" value="{{.Album}}">
+                </div>
+            </div>
+            <div class="column field is-horizontal">
+                <div class="field-label is-flex-grow-0">
+                    <label class="label">Tags</label>
+                </div>
+                <div class="field-body">
+                    <input class="input" name="tags" type="text">
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="columns is-desktop pending-controls">
+        <div class="column is-narrow">
+            <div class="tags">
+                <span class="tag is-dark">{{.UserIdentifier}}</span>
+                <span class="tag is-info">{{HumanDuration .Length}}, 31.83MB, {{Div .Bitrate 1000}}kbps vbr</span>
+                <span class="tag is-warning">{{.Filename}}</span>
+            </div>
+        </div>
+        <div class="is-hidden column">
+            <input class="checkbox" type="checkbox" name="good">Good?</input>
+        </div>
         <div class="column">
-            <div class="columns">
-                <div class="column field is-horizontal">
-                    <div class="field-label">
-                        <label class="label">Artist</label>
-                    </div>
-                    <div class="field-body">
-                        <input class="input" name="artist" type="text" value="{{.Artist}}">
-                    </div>
-                </div>
-                <div class="column field is-horizontal">
-                    <div class="field-label">
-                        <label class="label">Title</label>
-                    </div>
-                    <div class="field-body">
-                        <input class="input" name="title" type="text" value="{{.Title}}">
-                    </div>
-                </div>
-            </div>
-            <div class="columns">
-                <div class="column field is-horizontal">
-                    <div class="field-label">
-                        <label class="label">Album</label>
-                    </div>
-                    <div class="field-body">
-                        <input class="input" name="album" type="text" value="{{.Album}}">
-                    </div>
-                </div>
-                <div class="column field is-horizontal">
-                    <div class="field-label">
-                        <label class="label">Tags</label>
-                    </div>
-                    <div class="field-body">
-                        <input class="input" name="tags" type="text">
-                    </div>
-                </div>
-            </div>
-        </div>     
-        <div class="column pending-controls">
-            <div class="columns">
-                <div class="column">
-                    <span class="tag">{{.UserIdentifier}}</span>
-                </div>
-                <div class="column">
-                    <span class="tag is-info">{{.Length}}, 31.83MB</span>
-                </div>
-                <div class="column">
-                    <button class="button is-warning" type="submit" name="action" value="replace">Replace</button>
-                </div>
-                <div class="column">
+            <div class="field is-grouped is-grouped-multiline is-grouped-right">
+                <div class="control">
                     <button class="button is-success" type="submit" name="action" value="accept">Accept</button>
                 </div>
-                <div class="column">
-                    <input class="checkbox" type="checkbox" name="good">Good?</input>
+                <div class="control is-expanded">
+                    <div class="field has-addons is-justify-content-end">
+                        <div class="control is-flex is-flex-grow-1">
+                            <input class="input" name="reason" type="text" placeholder="Reason"></textarea>
+                        </div>
+                        <div class="control">
+                            <button class="button is-danger" type="submit" name="action" value="decline">Decline</button>
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <div class="columns">
-                <div class="column">
-                    <span class="tag">{{.Bitrate}}kbps vbr</span>
-                </div>
-                <div class="column">
-                    <span class="tag is-warning">{{.Filename}}</span>
-                </div>
-                <div class="column">
-                    <input class="input" type="text" name="replacement" {{with .ReplacementID}}value="{{.}}"{{end}} placeholder="Rep. ID">
-                </div>
-                <div class="column">
-                    <button class="button is-danger" type="submit" name="action" value="decline">Decline</button>
-                </div>
-                <div class="column">
-                    <input class="input" name="reason" type="text">Reason</input>
+                <div class="control mr-3" style="max-width: 160px;">
+                    <div class="field has-addons">
+                        <div class="control">
+                            <input class="input" type="text" name="replacement" {{with .ReplacementID}}value="{{.}}"{{end}} placeholder="Rep. ID">
+                        </div>
+                        <div class="control">
+                            <button class="button is-warning" type="submit" name="action" value="replace">Replace</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

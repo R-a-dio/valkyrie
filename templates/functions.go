@@ -8,7 +8,12 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
+	"golang.org/x/exp/constraints"
 )
+
+type divisible interface {
+	constraints.Integer | constraints.Float
+}
 
 func TemplateFuncs() template.FuncMap {
 	return fnMap
@@ -21,7 +26,10 @@ var fnMap = map[string]any{
 	"Until":                       time.Until,
 	"Since":                       time.Since,
 	"Now":                         time.Now,
-	"PrettyDuration":              PrettyDuration,
+	"TimeagoDuration":             TimeagoDuration,
+	"PrettyDuration":              TimeagoDuration,
+	"HumanDuration":               HumanDuration,
+	"Div":                         func(a, b int) int { return a / b },
 	"CalculateSubmissionCooldown": radio.CalculateSubmissionCooldown,
 }
 
@@ -46,7 +54,7 @@ func SafeHTMLAttr(v any) (template.HTMLAttr, error) {
 	return template.HTMLAttr(s), nil
 }
 
-func PrettyDuration(d time.Duration) string {
+func TimeagoDuration(d time.Duration) string {
 	if d > 0 { // future duration
 		if d <= time.Minute {
 			return "in less than a min"
@@ -65,4 +73,8 @@ func PrettyDuration(d time.Duration) string {
 		}
 		return fmt.Sprintf("%.0f mins ago", d.Minutes())
 	}
+}
+
+func HumanDuration(d time.Duration) string {
+	return d.Truncate(time.Second).String()
 }
