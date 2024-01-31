@@ -167,12 +167,10 @@ func (s State) PostSubmit(w http.ResponseWriter, r *http.Request) {
 			return s.TemplateExecutor.ExecuteTemplate(theme, "submit", "form_submit", w, form)
 		}
 	}
-	defer http.NewResponseController(w).Flush()
 
 	// parse and validate the form
 	form, err := s.postSubmit(w, r)
 	if err != nil {
-		// TODO: debug this
 		// for unknown reason if we send a response without reading the body the connection is
 		// hard-reset instead and our response goes missing, so discard the body up to our
 		// allowed max size and then cut off if required
@@ -250,7 +248,7 @@ func (s State) postSubmit(w http.ResponseWriter, r *http.Request) (SubmissionFor
 	// fill in extra info we don't get from the probe
 	song.Comment = form.Comment
 	song.Filename = form.OriginalFilename
-	song.UserIdentifier = r.RemoteAddr
+	song.UserIdentifier, _ = s.getIdentifier(r)
 	if form.Replacement != nil {
 		song.ReplacementID = *form.Replacement
 	}

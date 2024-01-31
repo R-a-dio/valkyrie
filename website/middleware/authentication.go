@@ -53,6 +53,24 @@ type authentication struct {
 	templates *templates.Executor
 }
 
+func RequirePermission(perm radio.UserPermission, handler http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user := UserFromContext(r.Context())
+		if user == nil {
+			// no user, clearly doesn't have permission
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		if !user.UserPermissions.Has(perm) {
+			// user doesn't have required perm
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+
+		handler(w, r)
+	}
+}
+
 // UserMiddleware adds the currently logged in radio.User to the request if available
 func (a authentication) UserMiddleware(next http.Handler) http.Handler {
 	const op errors.Op = "admin/authentication.UserMiddleware"

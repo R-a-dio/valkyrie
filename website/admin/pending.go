@@ -58,6 +58,10 @@ func (s *State) PostPending(w http.ResponseWriter, r *http.Request) {
 	var input = pendingInput{
 		shared: s.shared(r),
 	}
+	if input.User == nil || !input.User.UserPermissions.Has(radio.PermPendingEdit) {
+		s.GetPending(w, r)
+		return
+	}
 
 	form, err := s.postPending(w, r)
 	if err == nil {

@@ -44,6 +44,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	executor := siteTemplates.Executor()
 
 	r := chi.NewRouter()
+	r.Use(middleware.RequestID)
 	// TODO(wessie): check if nginx is setup to send the correct headers for real IP
 	// passthrough, as it's required for request handling
 	r.Use(middleware.RealIP)

@@ -31,10 +31,11 @@ func Router(ctx context.Context, s State) chi.Router {
 		r.HandleFunc("/", s.GetHome)
 		r.Get("/profile", s.GetProfile)
 		r.Post("/profile", s.PostProfile)
-		r.Get("/pending", s.GetPending)
-		r.Post("/pending", s.PostPending)
-		r.HandleFunc("/streamer/start", s.StartStreamer)
-		r.HandleFunc("/streamer/stop", s.StopStreamer)
+		r.Get("/pending", vmiddleware.RequirePermission(radio.PermPendingView, s.GetPending))
+		r.Post("/pending", vmiddleware.RequirePermission(radio.PermPendingEdit, s.PostPending))
+		// debug handlers, might not be needed later
+		r.HandleFunc("/streamer/start", vmiddleware.RequirePermission(radio.PermAdmin, s.StartStreamer))
+		r.HandleFunc("/streamer/stop", vmiddleware.RequirePermission(radio.PermAdmin, s.StopStreamer))
 	})
 
 	return r

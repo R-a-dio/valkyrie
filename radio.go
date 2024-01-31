@@ -91,8 +91,12 @@ type UserPermissions map[UserPermission]bool
 
 // Has returns true if the permission given is in the UserPermissions
 func (up UserPermissions) Has(perm UserPermission) bool {
+	if up == nil {
+		return false
+	}
 	_, ok := up[perm]
 	if !ok {
+		// devs have access to everything
 		_, ok = up[PermDev]
 		return ok
 	}
