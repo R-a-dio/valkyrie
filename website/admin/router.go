@@ -7,6 +7,7 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/templates"
+	"github.com/R-a-dio/valkyrie/util/daypass"
 	vmiddleware "github.com/R-a-dio/valkyrie/website/middleware"
 
 	"github.com/alexedwards/scs/v2"
@@ -16,6 +17,7 @@ import (
 type State struct {
 	config.Config
 
+	Daypass          *daypass.Daypass
 	Storage          radio.StorageService
 	Templates        *templates.Site
 	TemplateExecutor *templates.Executor

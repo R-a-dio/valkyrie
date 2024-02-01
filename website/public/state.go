@@ -7,6 +7,7 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/templates"
+	"github.com/R-a-dio/valkyrie/util/daypass"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 
 	"github.com/go-chi/chi/v5"
@@ -17,6 +18,7 @@ const theme = "default"
 type State struct {
 	config.Config
 
+	Daypass          *daypass.Daypass
 	Templates        *templates.Site
 	TemplateExecutor *templates.Executor
 	Manager          radio.ManagerService

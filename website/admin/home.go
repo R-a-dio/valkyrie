@@ -4,8 +4,8 @@ import (
 	"net/http"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/util/daypass"
 	"github.com/R-a-dio/valkyrie/website/middleware"
-	"github.com/R-a-dio/valkyrie/website/public"
 )
 
 type shared struct {
@@ -23,13 +23,13 @@ func (s *State) shared(r *http.Request) shared {
 
 type homeInput struct {
 	shared
-	Daypass public.DaypassInfo
+	Daypass daypass.DaypassInfo
 }
 
 func (s *State) GetHome(w http.ResponseWriter, r *http.Request) {
 	var tmplInput = homeInput{
 		shared:  s.shared(r),
-		Daypass: public.Daypass.Info(),
+		Daypass: s.Daypass.Info(),
 	}
 	s.TemplateExecutor.ExecuteFull("default", "admin-home", w, tmplInput)
 }

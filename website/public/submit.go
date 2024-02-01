@@ -2,23 +2,19 @@ package public
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/base64"
 	"io"
-	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/streamer/audio"
+	"github.com/R-a-dio/valkyrie/util/daypass"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/rs/zerolog/hlog"
 )
@@ -33,64 +29,6 @@ const (
 
 	daypassHeader = "X-Daypass"
 )
-
-var Daypass = DaypassImpl{}
-
-type DaypassImpl struct {
-	mu      sync.Mutex
-	update  time.Time
-	daypass string
-}
-
-type DaypassInfo struct {
-	// ValidUntil is the time this daypass will expire
-	ValidUntil time.Time
-	// Value is the current daypass
-	Value string
-}
-
-// Info returns info about the daypass
-func (di *DaypassImpl) Info() DaypassInfo {
-	var info DaypassInfo
-	info.Value = di.get()
-	di.mu.Lock()
-	info.ValidUntil = di.update.Add(time.Hour * 24)
-	di.mu.Unlock()
-	return info
-}
-
-// Is checks if the daypass given is equal to the current daypass
-func (di *DaypassImpl) Is(daypass string) bool {
-	return di.get() == daypass
-}
-
-// get returns the current daypass and optionally generates a new one
-// if it has expired
-func (di *DaypassImpl) get() string {
-	di.mu.Lock()
-	defer di.mu.Unlock()
-
-	if time.Since(di.update) >= time.Hour*24 {
-		di.update = time.Now()
-		di.daypass = di.generate()
-	}
-
-	return di.daypass
-}
-
-// generate a new random daypass, this is a random sequence of
-// bytes, sha256'd and base64 encoded before trimming it down to 16 characters
-func (di *DaypassImpl) generate() string {
-	var b [32]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		log.Println("failed to update daypass:", err)
-		// keep using the old daypass if we error
-		return di.daypass
-	}
-
-	b = sha256.Sum256(b[:])
-	return base64.RawURLEncoding.EncodeToString(b[:])[:16]
-}
 
 // getIdentifier either returns the username of a logged in user, or the RemoteAddr of
 // the request
@@ -120,7 +58,7 @@ func (s State) canSubmitSong(r *http.Request) (time.Duration, error) {
 	}
 
 	daypass := r.Header.Get(daypassHeader)
-	if Daypass.Is(daypass) { // daypass was used so can submit song
+	if s.Daypass.Is(daypass) { // daypass was used so can submit song
 		return 0, nil
 	}
 
@@ -238,7 +176,7 @@ func (s State) postSubmit(w http.ResponseWriter, r *http.Request) (SubmissionFor
 		}
 	}()
 
-	if !form.Validate() {
+	if !form.Validate(s.Daypass) {
 		return form, errors.E(op, errors.InvalidForm)
 	}
 
@@ -372,7 +310,6 @@ func (sf *SubmissionForm) ParseForm(tempdir string, mr *multipart.Reader) error 
 				return errors.E(op, err)
 			}
 			sf.Daypass = s
-			sf.IsDaypass = Daypass.Is(s)
 		case "replacement":
 			s, err := readString(part, formMaxReplacementLength)
 			if err != nil {
@@ -393,7 +330,7 @@ func (sf *SubmissionForm) ParseForm(tempdir string, mr *multipart.Reader) error 
 	return nil
 }
 
-func (sf *SubmissionForm) Validate() bool {
+func (sf *SubmissionForm) Validate(dp *daypass.Daypass) bool {
 	sf.Errors = make(map[string]string)
 	if sf.File == "" {
 		sf.Errors["track"] = "no temporary file"
@@ -404,8 +341,11 @@ func (sf *SubmissionForm) Validate() bool {
 	if sf.Comment == "" {
 		sf.Errors["comment"] = "no comment supplied"
 	}
-	if sf.Daypass != "" && !Daypass.Is(sf.Daypass) {
-		sf.Errors["daypass"] = "daypass invalid"
+	if sf.Daypass != "" {
+		sf.IsDaypass = dp.Is(sf.Daypass)
+		if !sf.IsDaypass {
+			sf.Errors["daypass"] = "daypass invalid"
+		}
 	}
 
 	return len(sf.Errors) == 0

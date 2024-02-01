@@ -10,6 +10,7 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/storage"
 	"github.com/R-a-dio/valkyrie/templates"
+	"github.com/R-a-dio/valkyrie/util/daypass"
 	"github.com/R-a-dio/valkyrie/website/admin"
 	phpapi "github.com/R-a-dio/valkyrie/website/api/php"
 	v1 "github.com/R-a-dio/valkyrie/website/api/v1"
@@ -53,6 +54,8 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		return errors.E(op, err)
 	}
 	executor := siteTemplates.Executor()
+	// daypass generation
+	dpass := daypass.New(ctx)
 
 	r := chi.NewRouter()
 	// TODO(wessie): check if nginx is setup to send the correct headers for real IP
@@ -113,6 +116,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	r.Get("/logout", authentication.LogoutHandler) // outside so it isn't login restricted
 	r.Mount("/admin", admin.Router(ctx, admin.State{
 		Config:           cfg,
+		Daypass:          dpass,
 		Storage:          storage,
 		Templates:        siteTemplates,
 		TemplateExecutor: executor,
@@ -123,6 +127,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	// public routes
 	r.Mount("/", public.Router(ctx, public.State{
 		Config:           cfg,
+		Daypass:          dpass,
 		Templates:        siteTemplates,
 		TemplateExecutor: siteTemplates.Executor(),
 		Manager:          manager,
