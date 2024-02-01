@@ -16,7 +16,6 @@ import (
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/website/middleware"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/rs/zerolog/hlog"
 	"golang.org/x/crypto/bcrypt"
 
@@ -89,7 +88,6 @@ func (s *State) getProfile(w http.ResponseWriter, r *http.Request, form *Profile
 	// current user of this session
 	user := middleware.UserFromContext(ctx)
 
-	fmt.Println(user)
 	isAdmin := user.UserPermissions.Has(radio.PermAdmin)
 	var availablePermissions []radio.UserPermission
 	var err error
@@ -153,8 +151,6 @@ func (s *State) getProfile(w http.ResponseWriter, r *http.Request, form *Profile
 		AvailableThemes:      []string{},
 	}
 
-	spew.Dump(tmplInput)
-
 	err = s.TemplateExecutor.ExecuteFull("default", "admin-profile", w, tmplInput)
 	if err != nil {
 		return err
@@ -196,7 +192,7 @@ func (s *State) PostProfile(w http.ResponseWriter, r *http.Request) {
 			// unknown error?
 		}
 	}
-	fmt.Println(r.URL.String())
+
 	http.Redirect(w, r, r.URL.String(), http.StatusSeeOther)
 }
 
@@ -222,9 +218,6 @@ func (s *State) postProfile(w http.ResponseWriter, r *http.Request) (*ProfileFor
 	if err != nil {
 		return nil, errors.E(op, errors.InternalServer, err)
 	}
-
-	fmt.Println("post")
-	spew.Dump(form)
 
 	// first thing to check is to see if we're working with the session user,
 	// if we're not, the session user needs to be admin to touch other users
@@ -382,7 +375,7 @@ func (s *State) postProfile(w http.ResponseWriter, r *http.Request) (*ProfileFor
 		q.Del("newprofile")
 		r.URL.RawQuery = q.Encode()
 	}
-	// fmt.Printf("result: %#v\ninput: %#v\nform: %#v\n", new, beforeSave, form)
+
 	return nil, nil
 }
 

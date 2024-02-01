@@ -64,7 +64,7 @@ func ProbeText(ctx context.Context, filename string) (*Info, error) {
 	cmd := exec.CommandContext(ctx, "ffprobe",
 		"-loglevel", "fatal",
 		"-hide_banner",
-		"-show_entries", "format_tags=title,artist,album:stream_tags=title,artist,album:stream=duration,bit_rate:format=bit_rate",
+		"-show_entries", "format_tags=title,artist,album:stream_tags=title,artist,album:stream=duration,bit_rate:format=format_name,bit_rate",
 		"-of", "default=noprint_wrappers=1",
 		"-i", filename)
 
@@ -105,6 +105,8 @@ func ProbeText(ctx context.Context, filename string) (*Info, error) {
 					log.Error().Err(err).Str("line", s.Text()).Str("value", value).Msg("invalid bit_rate")
 				}
 			}
+		case "format_name":
+			info.FormatName = value
 		default:
 			log.Panic().Str("key", key).Msg("unknown key")
 		}

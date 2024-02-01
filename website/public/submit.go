@@ -273,7 +273,12 @@ func (sf *SubmissionForm) ParseForm(tempdir string, mr *multipart.Reader) error 
 		case "track": // audio file that is being submitted
 			err = func() error {
 				// clean the extension from the user
-				ext := filepath.Ext(part.FileName())
+				path := filepath.Clean("/" + part.FileName())
+				ext := filepath.Ext(path)
+				if !AllowedExtension(ext) {
+					return errors.E(op, errors.InvalidForm)
+				}
+				// remove any * because CreateTemp uses them for the random replacement
 				ext = strings.ReplaceAll(ext, "*", "")
 
 				f, err := os.CreateTemp(tempdir, "pending-*"+ext)
@@ -349,4 +354,17 @@ func (sf *SubmissionForm) Validate(dp *daypass.Daypass) bool {
 	}
 
 	return len(sf.Errors) == 0
+}
+
+func AllowedExtension(ext string) bool {
+	ext = strings.ToLower(ext)
+	switch ext {
+	case "mp3":
+		return true
+	case "flac":
+		return true
+	case "ogg":
+		return true
+	}
+	return true
 }
