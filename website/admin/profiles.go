@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -18,6 +17,7 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/davecgh/go-spew/spew"
+	"github.com/rs/zerolog/hlog"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/gorilla/schema"
@@ -67,10 +67,9 @@ type ProfileFormChange struct {
 func (s *State) GetProfile(w http.ResponseWriter, r *http.Request) {
 	err := s.getProfile(w, r, nil)
 	if err != nil {
-		log.Println(err)
+		hlog.FromRequest(r).Error().Err(err).Msg("")
 		return
 	}
-	return
 }
 
 type profileInput struct {
@@ -174,7 +173,7 @@ func (s *State) PostProfile(w http.ResponseWriter, r *http.Request) {
 			form.Error = err
 		}
 
-		log.Println(err)
+		hlog.FromRequest(r).Error().Err(err).Msg("")
 		// we expect 3 types of errors
 		switch {
 		case errors.Is(errors.InvalidForm, err):

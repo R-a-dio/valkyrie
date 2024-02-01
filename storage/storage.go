@@ -1,17 +1,18 @@
 package storage
 
 import (
-	"log"
+	"context"
 	"sync"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/search"
+	"github.com/rs/zerolog"
 )
 
 // OpenFn is a function that returns a StorageService configured with the config given
-type OpenFn func(config.Config) (radio.StorageService, error)
+type OpenFn func(context.Context, config.Config) (radio.StorageService, error)
 
 var providers = map[string]OpenFn{}
 var instancesMu sync.Mutex
@@ -29,7 +30,7 @@ func Register(name string, fn OpenFn) {
 }
 
 // Open returns a radio.StorageService as configured by the config given
-func Open(cfg config.Config) (radio.StorageService, error) {
+func Open(ctx context.Context, cfg config.Config) (radio.StorageService, error) {
 	const op errors.Op = "storage/Open"
 
 	name := cfg.Conf().Providers.Storage
@@ -39,7 +40,7 @@ func Open(cfg config.Config) (radio.StorageService, error) {
 	// see if there is already an instance available
 	store, ok := instances[name]
 	if ok {
-		log.Printf("storage: re-using existing StorageService instance for %s", name)
+		zerolog.Ctx(ctx).Info().Str("provider", name).Msg("re-using existing StorageService")
 		return store, nil
 	}
 
@@ -48,8 +49,8 @@ func Open(cfg config.Config) (radio.StorageService, error) {
 		return nil, errors.E(op, errors.ProviderUnknown, errors.Info(name))
 	}
 
-	log.Printf("storage: creating new StorageService instance for %s", name)
-	store, err := fn(cfg)
+	zerolog.Ctx(ctx).Info().Str("provider", name).Msg("creating new StorageService")
+	store, err := fn(ctx, cfg)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
@@ -62,7 +63,7 @@ func Open(cfg config.Config) (radio.StorageService, error) {
 		return store, nil
 	}
 
-	ss, err := search.Open(cfg)
+	ss, err := search.Open(ctx, cfg)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}

@@ -10,7 +10,7 @@ import (
 // ExecuteListenerLog fetches the listener count from the manager and inserts a line into
 // the listenlog table.
 func ExecuteListenerLog(ctx context.Context, cfg config.Config) error {
-	store, err := storage.Open(cfg)
+	store, err := storage.Open(ctx, cfg)
 	if err != nil {
 		return err
 	}

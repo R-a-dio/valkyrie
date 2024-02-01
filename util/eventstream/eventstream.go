@@ -3,7 +3,6 @@ package eventstream
 import (
 	"context"
 	"io"
-	"log"
 	"sync/atomic"
 	"time"
 )
@@ -50,6 +49,9 @@ type EventStream[M any] struct {
 	subs []chan M
 	// last stores the last value send to subscribers
 	last atomic.Pointer[M]
+	// fallbehindFn holds a function that is called when a subscriber falls behind
+	// and isn't keeping up with SENDs
+	fallbehindFn func(chan M, M)
 }
 
 func (es *EventStream[M]) run() {
@@ -92,7 +94,9 @@ func (es *EventStream[M]) run() {
 				select {
 				case ch <- req.m:
 				case <-ticker.C: // sub didn't receive fast enough
-					log.Println("event stream sub falling behind", req.m)
+					if es.fallbehindFn != nil {
+						es.fallbehindFn(ch, req.m)
+					}
 					// TODO: see if we want to do book keeping and kicking of bad subs
 				}
 			}

@@ -14,6 +14,8 @@ import (
 	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/R-a-dio/valkyrie/util/sse"
 	"github.com/R-a-dio/valkyrie/website/middleware"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/hlog"
 )
 
 func prepareStream[T any](ctx context.Context, fn func(context.Context) (T, error)) T {
@@ -41,21 +43,23 @@ func (a *API) runSSE(ctx context.Context) error {
 }
 
 func (a *API) runSongUpdates(ctx context.Context) error {
+	log := zerolog.Ctx(ctx).With().Str("stream", "song").Logger()
+
 	song_stream := prepareStream(ctx, a.manager.CurrentSong)
 
 	for {
 		us, err := song_stream.Next()
 		if err != nil {
-			log.Println("v1/api:song:", err)
+			log.Error().Err(err).Msg("source failure")
 			break
 		}
 
 		if us == nil {
-			log.Println("v1/api:song: nil value")
+			log.Debug().Msg("nil value")
 			continue
 		}
 
-		log.Println("v1/api:song:sending:", us)
+		log.Debug().Any("value", us).Msg("sending")
 		a.sse.SendNowPlaying(us)
 		// TODO: add a timeout scenario
 		go a.sendQueue(ctx)
@@ -68,7 +72,7 @@ func (a *API) runSongUpdates(ctx context.Context) error {
 func (a *API) sendQueue(ctx context.Context) {
 	q, err := a.streamer.Queue(ctx)
 	if err != nil {
-		log.Println("v1/api:queue:", err)
+		zerolog.Ctx(ctx).Error().Err(err).Str("stream", "queue").Msg("")
 		return
 	}
 
@@ -78,7 +82,7 @@ func (a *API) sendQueue(ctx context.Context) {
 func (a *API) sendLastPlayed(ctx context.Context) {
 	lp, err := a.song.Song(ctx).LastPlayed(0, 5)
 	if err != nil {
-		log.Println("v1/api:lastplayed:", err)
+		zerolog.Ctx(ctx).Error().Err(err).Str("stream", "lastplayed").Msg("")
 		return
 	}
 
@@ -134,13 +138,14 @@ func NewStream(exec *templates.Executor) *Stream {
 // ServeHTTP implements http.Handler where each client gets send all SSE events that
 // occur after connecting. There is no history.
 func (s *Stream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	log := hlog.FromRequest(r)
 	controller := http.NewResponseController(w)
-
 	theme := middleware.GetTheme(r.Context())
 
-	log.Println("sse: subscribing")
+	log.Debug().Msg("subscribing")
 	ch := s.sub()
 	defer func() {
+		log.Debug().Msg("leave")
 		s.leave(ch)
 	}()
 
@@ -152,13 +157,13 @@ func (s *Stream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// send events that have already happened, one for each event so that
 	// we're certain the page is current
-	log.Println("sse: cloning initial")
+	log.Debug().Msg("init")
 	s.mu.RLock()
 	init := maps.Clone(s.last)
 	s.mu.RUnlock()
 
 	for _, m := range init {
-		log.Println("sending initial event:", string(m[theme]))
+		log.Debug().Bytes("value", m[theme]).Msg("send")
 		if _, err := w.Write(m[theme]); err != nil {
 			return
 		}
@@ -166,8 +171,9 @@ func (s *Stream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	controller.Flush()
 
 	// start the actual new-event loop
-	log.Println("sse: starting loop")
+	log.Debug().Msg("start")
 	for m := range ch {
+		log.Debug().Bytes("value", m[theme]).Msg("send")
 		if _, err := w.Write(m[theme]); err != nil {
 			return
 		}
@@ -249,6 +255,7 @@ func (s *Stream) Shutdown() {
 func (s *Stream) NewMessage(event EventName, template string, data any) message {
 	m, err := s.templates.ExecuteTemplateAll(template, data)
 	if err != nil {
+		// TODO: handle error cases better
 		log.Println("failed creating message", err)
 		return nil
 	}

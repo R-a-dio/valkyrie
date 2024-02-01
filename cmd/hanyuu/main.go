@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"runtime/debug"
@@ -20,6 +19,7 @@ import (
 	_ "github.com/R-a-dio/valkyrie/storage/mariadb" // mariadb storage interface
 	"github.com/R-a-dio/valkyrie/website"
 	"github.com/google/subcommands"
+	"github.com/rs/zerolog"
 )
 
 type executeFn func(context.Context, config.Loader) error
@@ -46,6 +46,10 @@ func (c cmd) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{}) 
 	// extract extra arguments from the interface slice; it's fine if we panic here
 	// because that is an unrecoverable programmer error
 	errCh := args[0].(chan error)
+
+	zerolog.Ctx(ctx).UpdateContext(func(zc zerolog.Context) zerolog.Context {
+		return zc.Str("service", c.name)
+	})
 
 	loader := func() (config.Config, error) {
 		return config.LoadFile(configFile, configEnvFile)
@@ -196,8 +200,12 @@ func main() {
 
 	// exit code passed to os.Exit
 	var code int
+	// setup logger
+	logger := zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout}).With().Timestamp().Logger()
 	// setup root context
 	ctx := context.Background()
+	ctx = logger.WithContext(ctx)
+
 	// setup our error channel, we only use this channel if a nil error is returned by
 	// executeCommand; because if it is a non-nil error we know our cmd.Execute finished
 	// running; otherwise we have to wait for it to finish so we know it had the chance
@@ -219,7 +227,7 @@ func main() {
 		// normal non-nil error, we exit with the default failure exit code
 		code = 1
 		// print the error if it's a non-ExitError since it's probably important
-		fmt.Println(err)
+		logger.Fatal().Err(err).Msg("")
 	}
 
 	os.Exit(code)
@@ -260,10 +268,10 @@ func executeCommand(ctx context.Context, errCh chan error) error {
 
 		switch sig {
 		case os.Interrupt:
-			log.Printf("SIGINT received")
+			zerolog.Ctx(ctx).Info().Msg("SIGINT received")
 			return nil
 		case syscall.SIGHUP:
-			log.Printf("SIGHUP received: not implemented")
+			zerolog.Ctx(ctx).Info().Msg("SIGHUP received: not implemented")
 			// TODO: implement this
 		}
 	}

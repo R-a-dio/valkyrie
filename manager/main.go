@@ -2,7 +2,6 @@ package manager
 
 import (
 	"context"
-	"log"
 	"net"
 	"sync"
 	"time"
@@ -11,6 +10,7 @@ import (
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/storage"
 	"github.com/R-a-dio/valkyrie/util/eventstream"
+	"github.com/rs/zerolog"
 )
 
 // Execute executes a manager with the context and configuration given; it returns with
@@ -54,13 +54,14 @@ var ExecuteListener = NewListener
 
 // NewManager returns a manager ready for use
 func NewManager(ctx context.Context, cfg config.Config) (*Manager, error) {
-	store, err := storage.Open(cfg)
+	store, err := storage.Open(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
 
 	m := Manager{
 		Config:  cfg,
+		logger:  zerolog.Ctx(ctx),
 		Storage: store,
 		status:  radio.Status{},
 	}
@@ -83,6 +84,8 @@ func NewManager(ctx context.Context, cfg config.Config) (*Manager, error) {
 // Manager manages shared state between different processes
 type Manager struct {
 	config.Config
+	logger *zerolog.Logger
+
 	Storage radio.StorageService
 
 	// Other components
@@ -132,7 +135,7 @@ func (m *Manager) updateStreamStatus() {
 
 		err := ss.Store(status)
 		if err != nil {
-			log.Printf("manager: error: %v", err)
+			m.logger.Error().Err(err).Msg("update stream status")
 			return
 		}
 	}()
@@ -150,7 +153,7 @@ func (m *Manager) loadStreamStatus(ctx context.Context) (*radio.Status, error) {
 	if status.Song.Metadata != "" {
 		song, err := m.Storage.Song(ctx).FromMetadata(status.Song.Metadata)
 		if err != nil {
-			log.Printf("manager: warning: %v", err)
+			m.logger.Warn().Err(err).Msg("retrieving database metadata")
 		} else {
 			status.Song = *song
 		}
@@ -158,7 +161,7 @@ func (m *Manager) loadStreamStatus(ctx context.Context) (*radio.Status, error) {
 	if status.StreamerName != "" {
 		user, err := m.Storage.User(ctx).LookupName(status.StreamerName)
 		if err != nil {
-			log.Printf("manager: warning: %v", err)
+			m.logger.Warn().Err(err).Msg("retrieving database user")
 		} else {
 			status.User = *user
 		}
@@ -175,7 +178,7 @@ func (m *Manager) tryStartStreamer(timeout time.Duration) {
 		return
 	}
 
-	log.Printf("manager: trying to start streamer in: %s", timeout)
+	m.logger.Info().Dur("timeout", timeout).Msg("trying to start streamer")
 	m.autoStreamerTimer = time.AfterFunc(timeout, func() {
 		// we lock here to lower the chance of a race between UpdateUser and this
 		// timer firing
@@ -192,7 +195,7 @@ func (m *Manager) tryStartStreamer(timeout time.Duration) {
 
 		err := m.client.streamer.Start(context.Background())
 		if err != nil {
-			log.Printf("manager: failed to start streamer: %s", err)
+			m.logger.Error().Err(err).Msg("failed to start streamer")
 			// if we failed to start, try again with atleast 10 seconds timeout
 			if timeout < time.Second*10 {
 				timeout = time.Second * 10

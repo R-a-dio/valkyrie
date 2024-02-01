@@ -3,7 +3,6 @@ package mariadb
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"regexp"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -284,7 +283,7 @@ func (us UserStorage) LookupName(name string) (*radio.User, error) {
 
 		re, err := regexp.Compile(`(?i)` + user.DJ.Regex)
 		if err != nil {
-			log.Printf("%s: invalid regex field: %v", op, err)
+			us.handle.logger.Error().Err(err).Str("regular_expression", user.DJ.Regex).Msg("invalid regex")
 			continue
 		}
 

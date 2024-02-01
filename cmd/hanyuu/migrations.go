@@ -13,6 +13,7 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/migrations"
 	"github.com/R-a-dio/valkyrie/storage/mariadb"
+	"github.com/rs/zerolog"
 
 	"github.com/golang-migrate/migrate/v4"
 	mysqldriver "github.com/golang-migrate/migrate/v4/database/mysql"
@@ -91,6 +92,10 @@ func (m *migrateCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...inter
 		`,
 		execute: withConfig(m.ls),
 	}, "")
+
+	zerolog.Ctx(ctx).UpdateContext(func(zc zerolog.Context) zerolog.Context {
+		return zc.Str("service", "migrate")
+	})
 
 	return cmder.Execute(ctx, args...)
 }

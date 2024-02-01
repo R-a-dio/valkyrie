@@ -3,7 +3,6 @@ package mariadb
 import (
 	"context"
 	"database/sql"
-	"log"
 	"strings"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/R-a-dio/valkyrie/storage"
 	"github.com/go-sql-driver/mysql" // mariadb
 	"github.com/jmoiron/sqlx"
+	"github.com/rs/zerolog"
 )
 
 func init() {
@@ -72,7 +72,8 @@ func ConnectDB(ctx context.Context, cfg config.Config, multistatement bool) (*sq
 	if dsn.Passwd != "" {
 		dsn.Passwd = "<redacted>"
 	}
-	log.Printf("storage: mariadb: trying to connect to %s", dsn.FormatDSN())
+
+	zerolog.Ctx(ctx).Info().Str("address", dsn.FormatDSN()).Msg("trying to connect")
 
 	db, err := sqlx.ConnectContext(ctx, "mysql", conndsn)
 	if err != nil {
@@ -85,10 +86,10 @@ func ConnectDB(ctx context.Context, cfg config.Config, multistatement bool) (*sq
 }
 
 // Connect connects to the database configured in cfg
-func Connect(cfg config.Config) (radio.StorageService, error) {
+func Connect(ctx context.Context, cfg config.Config) (radio.StorageService, error) {
 	// TODO(wessie): pass a context here somehow?
 	// TODO(wessie): check if we've applied all our SQL migrations before allowing usage
-	db, err := ConnectDB(context.Background(), cfg, false)
+	db, err := ConnectDB(ctx, cfg, false)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +135,7 @@ func (s *StorageService) tx(ctx context.Context, tx radio.StorageTx) (*sqlx.Tx, 
 
 func (s *StorageService) Sessions(ctx context.Context) radio.SessionStorage {
 	return SessionStorage{
-		handle: handle{s.db, ctx},
+		handle: handle{s.db, ctx, loggerWithAttr(ctx, "sessions")},
 	}
 }
 
@@ -145,14 +146,14 @@ func (s *StorageService) SessionsTx(ctx context.Context, tx radio.StorageTx) (ra
 	}
 
 	storage := SessionStorage{
-		handle: handle{db, ctx},
+		handle: handle{db, ctx, loggerWithAttr(ctx, "sessions")},
 	}
 	return storage, tx, nil
 }
 
 func (s *StorageService) Queue(ctx context.Context) radio.QueueStorage {
 	return QueueStorage{
-		handle: handle{s.db, ctx},
+		handle: handle{s.db, ctx, loggerWithAttr(ctx, "queue")},
 	}
 }
 
@@ -163,14 +164,14 @@ func (s *StorageService) QueueTx(ctx context.Context, tx radio.StorageTx) (radio
 	}
 
 	storage := QueueStorage{
-		handle: handle{db, ctx},
+		handle: handle{db, ctx, loggerWithAttr(ctx, "queue")},
 	}
 	return storage, tx, nil
 }
 
 func (s *StorageService) Song(ctx context.Context) radio.SongStorage {
 	return SongStorage{
-		handle: handle{s.db, ctx},
+		handle: handle{s.db, ctx, loggerWithAttr(ctx, "song")},
 	}
 }
 
@@ -181,14 +182,14 @@ func (s *StorageService) SongTx(ctx context.Context, tx radio.StorageTx) (radio.
 	}
 
 	storage := SongStorage{
-		handle: handle{db, ctx},
+		handle: handle{db, ctx, loggerWithAttr(ctx, "song")},
 	}
 	return storage, tx, nil
 }
 
 func (s *StorageService) Track(ctx context.Context) radio.TrackStorage {
 	return TrackStorage{
-		handle: handle{s.db, ctx},
+		handle: handle{s.db, ctx, loggerWithAttr(ctx, "track")},
 	}
 }
 
@@ -199,14 +200,14 @@ func (s *StorageService) TrackTx(ctx context.Context, tx radio.StorageTx) (radio
 	}
 
 	storage := TrackStorage{
-		handle: handle{db, ctx},
+		handle: handle{db, ctx, loggerWithAttr(ctx, "track")},
 	}
 	return storage, tx, nil
 }
 
 func (s *StorageService) Request(ctx context.Context) radio.RequestStorage {
 	return RequestStorage{
-		handle: handle{s.db, ctx},
+		handle: handle{s.db, ctx, loggerWithAttr(ctx, "request")},
 	}
 }
 func (s *StorageService) RequestTx(ctx context.Context, tx radio.StorageTx) (radio.RequestStorage, radio.StorageTx, error) {
@@ -216,14 +217,14 @@ func (s *StorageService) RequestTx(ctx context.Context, tx radio.StorageTx) (rad
 	}
 
 	storage := RequestStorage{
-		handle: handle{db, ctx},
+		handle: handle{db, ctx, loggerWithAttr(ctx, "request")},
 	}
 	return storage, tx, nil
 }
 
 func (s *StorageService) User(ctx context.Context) radio.UserStorage {
 	return UserStorage{
-		handle: handle{s.db, ctx},
+		handle: handle{s.db, ctx, loggerWithAttr(ctx, "user")},
 	}
 }
 
@@ -234,14 +235,14 @@ func (s *StorageService) UserTx(ctx context.Context, tx radio.StorageTx) (radio.
 	}
 
 	storage := UserStorage{
-		handle: handle{db, ctx},
+		handle: handle{db, ctx, loggerWithAttr(ctx, "user")},
 	}
 	return storage, tx, nil
 }
 
 func (s *StorageService) Submissions(ctx context.Context) radio.SubmissionStorage {
 	return SubmissionStorage{
-		handle: handle{s.db, ctx},
+		handle: handle{s.db, ctx, loggerWithAttr(ctx, "submissions")},
 	}
 }
 
@@ -252,14 +253,14 @@ func (s *StorageService) SubmissionsTx(ctx context.Context, tx radio.StorageTx) 
 	}
 
 	storage := SubmissionStorage{
-		handle: handle{db, ctx},
+		handle: handle{db, ctx, loggerWithAttr(ctx, "submissions")},
 	}
 	return storage, tx, nil
 }
 
 func (s *StorageService) News(ctx context.Context) radio.NewsStorage {
 	return NewsStorage{
-		handle: handle{s.db, ctx},
+		handle: handle{s.db, ctx, loggerWithAttr(ctx, "news")},
 	}
 }
 
@@ -270,20 +271,20 @@ func (s *StorageService) NewsTx(ctx context.Context, tx radio.StorageTx) (radio.
 	}
 
 	storage := NewsStorage{
-		handle: handle{db, ctx},
+		handle: handle{db, ctx, loggerWithAttr(ctx, "news")},
 	}
 	return storage, tx, nil
 }
 
 func (s *StorageService) Status(ctx context.Context) radio.StatusStorage {
 	return StatusStorage{
-		handle: handle{s.db, ctx},
+		handle: handle{s.db, ctx, loggerWithAttr(ctx, "status")},
 	}
 }
 
 func (s *StorageService) Relay(ctx context.Context) radio.RelayStorage {
 	return RelayStorage{
-		handle: handle{s.db, ctx},
+		handle: handle{s.db, ctx, loggerWithAttr(ctx, "relay")},
 	}
 }
 
@@ -294,7 +295,7 @@ func (s *StorageService) RelayTx(ctx context.Context, tx radio.StorageTx) (radio
 	}
 
 	storage := RelayStorage{
-		handle: handle{db, ctx},
+		handle: handle{db, ctx, loggerWithAttr(ctx, "relay")},
 	}
 	return storage, tx, nil
 }
@@ -303,6 +304,14 @@ func (s *StorageService) Search() radio.SearchService {
 	return SearchService{
 		db: s.db,
 	}
+}
+
+func loggerWithAttr(ctx context.Context, value string) *zerolog.Logger {
+	logger := zerolog.Ctx(ctx).With().Logger()
+	logger.UpdateContext(func(c zerolog.Context) zerolog.Context {
+		return c.Str("storage_service", value)
+	})
+	return &logger
 }
 
 type extContext interface {
@@ -324,8 +333,7 @@ func requireTx(h handle) (handle, radio.StorageTx, error) {
 
 	db, ok := h.ext.(*sqlx.DB)
 	if !ok {
-		// TODO: add type
-		panic("mariadb: unknown type in ext field")
+		zerolog.Ctx(h.ctx).Panic().Any("ext", h.ext).Msg("unknown type")
 	}
 
 	tx, err := db.BeginTxx(h.ctx, nil)
@@ -339,31 +347,79 @@ func requireTx(h handle) (handle, radio.StorageTx, error) {
 // handle is an implementation of sqlx.Execer and sqlx.Queryer that can either use
 // a *sqlx.DB directly, or a *sqlx.Tx. It implements these with the *Context equivalents
 type handle struct {
-	ext extContext
-	ctx context.Context
+	ext    extContext
+	ctx    context.Context
+	logger *zerolog.Logger
 }
 
 func (h handle) Exec(query string, args ...interface{}) (sql.Result, error) {
+	defer func(start time.Time) {
+		h.logger.Debug().
+			Str("query", query).
+			Any("arguments", args).
+			TimeDiff("execution_time", time.Now(), start).
+			Msg("exec")
+	}(time.Now())
+
 	return h.ext.ExecContext(h.ctx, query, args...)
 }
 
 func (h handle) Query(query string, args ...interface{}) (*sql.Rows, error) {
+	defer func(start time.Time) {
+		h.logger.Debug().
+			Str("query", query).
+			Any("arguments", args).
+			TimeDiff("execution_time", time.Now(), start).
+			Msg("query")
+	}(time.Now())
+
 	return h.ext.QueryContext(h.ctx, query, args...)
 }
 
 func (h handle) Queryx(query string, args ...interface{}) (*sqlx.Rows, error) {
+	defer func(start time.Time) {
+		h.logger.Debug().
+			Str("query", query).
+			Any("arguments", args).
+			TimeDiff("execution_time", time.Now(), start).
+			Msg("queryx")
+	}(time.Now())
+
 	return h.ext.QueryxContext(h.ctx, query, args...)
 }
 
 func (h handle) QueryRowx(query string, args ...interface{}) *sqlx.Row {
+	defer func(start time.Time) {
+		h.logger.Debug().
+			Str("query", query).
+			Any("arguments", args).
+			TimeDiff("execution_time", time.Now(), start).
+			Msg("query_rowx")
+	}(time.Now())
+
 	return h.ext.QueryRowxContext(h.ctx, query, args...)
 }
 
 func (h handle) BindNamed(query string, arg interface{}) (string, []interface{}, error) {
+	defer func(start time.Time) {
+		h.logger.Debug().
+			Str("query", query).
+			Any("arguments", arg).
+			TimeDiff("execution_time", time.Now(), start).
+			Msg("bind_named")
+	}(time.Now())
+
 	return h.ext.BindNamed(query, arg)
 }
 
 func (h handle) Rebind(query string) string {
+	defer func(start time.Time) {
+		h.logger.Debug().
+			Str("query", query).
+			TimeDiff("execution_time", time.Now(), start).
+			Msg("rebind")
+	}(time.Now())
+
 	return h.ext.Rebind(query)
 }
 

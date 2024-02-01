@@ -2,7 +2,6 @@ package ircbot
 
 import (
 	"context"
-	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -12,6 +11,7 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/rpc"
 	"github.com/lrstanley/girc"
+	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
 )
 
@@ -45,7 +45,7 @@ func (ann *announceService) AnnounceSong(ctx context.Context, status radio.Statu
 
 	// don't do the announcement if the last one was recent enough
 	if time.Since(ann.lastAnnounceSong) < time.Duration(ann.Conf().IRC.AnnouncePeriod) {
-		log.Printf("skipping announce because of AnnouncePeriod")
+		zerolog.Ctx(ctx).Info().Str("metadata", status.Song.Metadata).Msg("skipping announce")
 		return nil
 	}
 	message := "Now starting:{red} '%s' {clear}[%s](%s), %s, %s, {green}LP:{clear} %s"

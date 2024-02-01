@@ -1,18 +1,18 @@
 package public
 
 import (
-	"log"
 	"net/http"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/website/middleware"
+	"github.com/rs/zerolog/hlog"
 )
 
 func (s State) GetHome(w http.ResponseWriter, r *http.Request) {
 	err := s.getHome(w, r)
 	if err != nil {
-		log.Println(err)
+		hlog.FromRequest(r).Error().Err(err).Msg("")
 	}
 }
 
@@ -59,7 +59,6 @@ func (s State) getHome(w http.ResponseWriter, r *http.Request) error {
 	theme := middleware.GetTheme(ctx)
 	err = s.TemplateExecutor.ExecuteFull(theme, "home", w, homeInput)
 	if err != nil {
-		log.Println(err)
 		return err
 	}
 

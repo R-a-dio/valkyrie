@@ -49,7 +49,7 @@ func TestProcessQuery(t *testing.T) {
 func TestSearch(t *testing.T) {
 	cfg, _ := config.LoadFile()
 
-	ss, err := search.Open(cfg)
+	ss, err := search.Open(context.Background(), cfg)
 	if err != nil {
 		t.Error(err)
 		return

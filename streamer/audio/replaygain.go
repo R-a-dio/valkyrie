@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os/exec"
 )
 
@@ -70,13 +69,14 @@ func newFFmpegWithReplaygain(filename string) (*exec.Cmd, *PCMBuffer, error) {
 	b := output.Bytes()
 	last := bytes.LastIndex(b, []byte("{"))
 	b = b[last-1:]
-	fmt.Println(string(b))
+
+	// TODO: log results of the replaygain calculation maybe
+
 	// do things with output
 	var info = new(replaygainInfo)
 
 	err = json.Unmarshal(b, info)
 	if err != nil {
-		log.Println("failed to decode json")
 		return nil, nil, err
 	}
 

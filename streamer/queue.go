@@ -3,7 +3,6 @@ package streamer
 import (
 	"context"
 	"fmt"
-	"log"
 	"math/rand"
 	"path/filepath"
 	"sync"
@@ -13,6 +12,7 @@ import (
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/streamer/audio"
+	"github.com/rs/zerolog"
 )
 
 // queueMinimumLength is the minimum amount of songs required to be
@@ -40,6 +40,7 @@ func NewQueueService(ctx context.Context, cfg config.Config, storage radio.Stora
 
 	qs := &QueueService{
 		Config:  cfg,
+		logger:  zerolog.Ctx(ctx),
 		Storage: storage,
 		queue:   queue,
 		rand:    config.NewRand(true),
@@ -59,6 +60,8 @@ func NewQueueService(ctx context.Context, cfg config.Config, storage radio.Stora
 // QueueService implements radio.QueueService that uses a random population algorithm
 type QueueService struct {
 	config.Config
+	logger *zerolog.Logger
+
 	Storage radio.StorageService
 	rand    *rand.Rand
 
@@ -91,7 +94,7 @@ func (qs *QueueService) append(ctx context.Context, entry radio.QueueEntry) {
 		entry.ExpectedStartTime = last.ExpectedStartTime.Add(last.Length)
 	}
 
-	log.Printf("queue:   adding entry: %s", entry)
+	qs.logger.Info().Str("entry", entry.String()).Msg("appending to queue")
 	qs.queue = append(qs.queue, entry)
 }
 
@@ -142,7 +145,7 @@ func (qs *QueueService) ReserveNext(ctx context.Context) (*radio.QueueEntry, err
 
 	entry := qs.queue[qs.reservedIndex]
 	qs.reservedIndex++
-	log.Printf("queue: reserved entry: %s", entry)
+	qs.logger.Info().Str("entry", entry.String()).Msg("reserve in queue")
 
 	return &entry, nil
 }
@@ -152,7 +155,7 @@ func (qs *QueueService) ResetReserved(ctx context.Context) error {
 	qs.mu.Lock()
 	defer qs.mu.Unlock()
 
-	log.Printf("queue: resetting reserved index from %d", qs.reservedIndex)
+	qs.logger.Info().Int("index", qs.reservedIndex).Msg("reset reserve in queue")
 	qs.reservedIndex = 0
 	return nil
 }
@@ -170,7 +173,7 @@ func (qs *QueueService) Remove(ctx context.Context, entry radio.QueueEntry) (boo
 			continue
 		}
 
-		log.Printf("queue: removing entry: %s", e)
+		qs.logger.Info().Str("entry", e.String()).Msg("removing from queue")
 
 		qs.queue = append(qs.queue[:i], qs.queue[i+1:]...)
 		if i < qs.reservedIndex {
@@ -196,12 +199,12 @@ func (qs *QueueService) Remove(ctx context.Context, entry radio.QueueEntry) (boo
 
 		err := qs.populate(ctx)
 		if err != nil {
-			log.Println(errors.E(op, err))
+			qs.logger.Error().Err(err).Msg("failed to populate queue")
 		}
 
 		err = qs.Storage.Queue(ctx).Store(queueName, qs.queue)
 		if err != nil {
-			log.Println(errors.E(op, err))
+			qs.logger.Error().Err(err).Msg("failed to store queue")
 		}
 	}()
 
@@ -287,8 +290,8 @@ outer:
 			// and skip it if it is already there
 			if qs.queue[i].TrackID == id {
 				skipReasons = append(skipReasons, skipped{
-					trackID: id,
-					reason:  "duplicate entry",
+					TrackID: id,
+					Reason:  "duplicate entry",
 				})
 				continue outer
 			}
@@ -297,16 +300,16 @@ outer:
 		song, err := ts.Get(id)
 		if err != nil {
 			skipReasons = append(skipReasons, skipped{
-				trackID: id,
-				err:     err,
+				TrackID: id,
+				Err:     err,
 			})
 			continue
 		}
 
 		if err = ts.UpdateLastRequested(id); err != nil {
 			skipReasons = append(skipReasons, skipped{
-				trackID: id,
-				err:     err,
+				TrackID: id,
+				Err:     err,
 			})
 			continue
 		}
@@ -328,29 +331,28 @@ outer:
 		return nil
 	}
 
-	log.Printf("queue: failed to populate above minimum")
 	if candidateCount == 0 {
-		log.Printf("queue: empty candidate list")
+		qs.logger.Info().Str("reason", "empty candidate list").Msg("failed to populate queue above minimum")
 	}
 	if len(skipReasons) > 0 {
-		log.Printf("queue: skipped song reasons:")
-	}
-	for i, err := range skipReasons {
-		log.Printf("queue: %6d %s", i, err)
+		qs.logger.Info().
+			Str("reason", "skipped all candidates").
+			Errs("candidates", skipReasons).
+			Msg("failed to populate queue above minimum")
 	}
 
 	return errors.E(op, errors.QueueShort)
 }
 
 type skipped struct {
-	trackID radio.TrackID
-	reason  string
-	err     error
+	TrackID radio.TrackID
+	Reason  string
+	Err     error
 }
 
 func (s skipped) Error() string {
-	if s.err == nil {
-		return fmt.Sprintf("<%d> %s", s.trackID, s.reason)
+	if s.Err == nil {
+		return fmt.Sprintf("<%d> %s", s.TrackID, s.Reason)
 	}
-	return fmt.Sprintf("<%d> %s", s.trackID, s.err)
+	return fmt.Sprintf("<%d> %s", s.TrackID, s.Err)
 }

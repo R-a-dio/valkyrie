@@ -15,7 +15,7 @@ const duration = time.Hour * 24 * 11
 // ExecuteRequestCount drops the requestcount of all tracks by 1 if they have not been
 // requested within the specified duration.
 func ExecuteRequestCount(ctx context.Context, cfg config.Config) error {
-	store, err := storage.Open(cfg)
+	store, err := storage.Open(ctx, cfg)
 	if err != nil {
 		return err
 	}
@@ -43,7 +43,7 @@ func ExecuteRequestCount(ctx context.Context, cfg config.Config) error {
 	}
 
 	// update search index
-	search, err := search.Open(cfg)
+	search, err := search.Open(ctx, cfg)
 	if err != nil {
 		return err
 	}

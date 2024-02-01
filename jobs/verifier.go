@@ -1,19 +1,22 @@
+//go:build !nostreamer
 // +build !nostreamer
 
 package jobs
 
 import (
 	"context"
-	"log"
 	"path/filepath"
 
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/storage"
 	"github.com/R-a-dio/valkyrie/streamer/audio"
+	"github.com/rs/zerolog"
 )
 
 func ExecuteVerifier(ctx context.Context, cfg config.Config) error {
-	store, err := storage.Open(cfg)
+	logger := zerolog.Ctx(ctx)
+
+	store, err := storage.Open(ctx, cfg)
 	if err != nil {
 		return err
 	}
@@ -30,23 +33,24 @@ func ExecuteVerifier(ctx context.Context, cfg config.Config) error {
 		filename := filepath.Join(root, song.FilePath)
 		err := decodeFile(filename)
 		if err != nil {
+			l := logger.Error().
+				Err(err).
+				Uint64("track_id", uint64(song.TrackID)).
+				Str("filename", filename)
 			if err, ok := err.(*audio.DecodeError); ok {
-				log.Printf("verify: failed to decode file: (%d) %s: %s\n %s",
-					song.TrackID, filename, err.Err, err.ExtraInfo)
-			} else {
-				log.Printf("verify: failed to decode file: (%d) %s: %s",
-					song.TrackID, filename, err)
+				l = l.Str("info", err.ExtraInfo)
 			}
+			l.Msg("failed to decode file")
 			continue
 		}
 
 		err = ts.UpdateUsable(song, 1)
 		if err != nil {
-			log.Printf("verify: failed to mark as usable: (%d): %s", song.TrackID, err)
+			logger.Error().Err(err).Uint64("track_id", uint64(song.TrackID)).Msg("failed to verify")
 			continue
 		}
 
-		log.Printf("verify: success: (%d) %s", song.TrackID, song.Metadata)
+		logger.Info().Uint64("track_id", uint64(song.TrackID)).Msg("success")
 	}
 
 	return nil

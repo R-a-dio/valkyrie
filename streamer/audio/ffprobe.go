@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"log"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -13,6 +12,7 @@ import (
 	"time"
 
 	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/rs/zerolog"
 )
 
 // ProbeDuration attempts to call ffprobe on the file given and returns
@@ -59,6 +59,8 @@ type Info struct {
 func ProbeText(ctx context.Context, filename string) (*Info, error) {
 	const op errors.Op = "streamer/audio.Probe"
 
+	log := zerolog.Ctx(ctx)
+
 	cmd := exec.CommandContext(ctx, "ffprobe",
 		"-loglevel", "fatal",
 		"-hide_banner",
@@ -77,7 +79,7 @@ func ProbeText(ctx context.Context, filename string) (*Info, error) {
 		m := probeRegex.FindStringSubmatch(s.Text())
 		if m == nil {
 			// invalid output
-			log.Println("invalid line from ffprobe:", s.Text())
+			log.Error().Str("line", s.Text()).Msg("invalid line")
 			continue
 		}
 
@@ -88,7 +90,7 @@ func ProbeText(ctx context.Context, filename string) (*Info, error) {
 		case "duration":
 			info.Duration, err = time.ParseDuration(value + "s")
 			if err != nil {
-				log.Println("invalid duration from ffprobe:", value)
+				log.Error().Err(err).Str("line", s.Text()).Str("value", value).Msg("invalid duration")
 			}
 		case "title":
 			info.Title = value
@@ -100,11 +102,11 @@ func ProbeText(ctx context.Context, filename string) (*Info, error) {
 			if value != "N/A" { // could not exist
 				info.Bitrate, err = strconv.Atoi(value)
 				if err != nil {
-					log.Println("invalid bit_rate from ffprobe:", value)
+					log.Error().Err(err).Str("line", s.Text()).Str("value", value).Msg("invalid bit_rate")
 				}
 			}
 		default:
-			panic("unknown key in ffmpeg output: " + key)
+			log.Panic().Str("key", key).Msg("unknown key")
 		}
 	}
 	if err := s.Err(); err != nil {

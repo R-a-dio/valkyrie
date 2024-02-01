@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -21,6 +20,7 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/streamer/audio"
 	"github.com/cenkalti/backoff"
+	"github.com/rs/zerolog"
 )
 
 var (
@@ -44,6 +44,8 @@ type Streamer struct {
 	forceDone int32
 
 	config.Config
+	logger *zerolog.Logger
+
 	// queue used by the streamer
 	queue radio.QueueService
 	// Format of the PCM audio data
@@ -59,9 +61,10 @@ type Streamer struct {
 }
 
 // NewStreamer returns a new streamer using the state given
-func NewStreamer(cfg config.Config, queue radio.QueueService) (*Streamer, error) {
+func NewStreamer(ctx context.Context, cfg config.Config, queue radio.QueueService) (*Streamer, error) {
 	var s = &Streamer{
 		Config: cfg,
+		logger: zerolog.Ctx(ctx),
 		queue:  queue,
 	}
 
@@ -79,7 +82,7 @@ func NewStreamer(cfg config.Config, queue radio.QueueService) (*Streamer, error)
 func (s *Streamer) Start(ctx context.Context) {
 	if !atomic.CompareAndSwapInt32(&s.started, 0, 1) {
 		// we're already running
-		log.Println("streamer.start: already running")
+		s.logger.Info().Msg("already running")
 		return
 	}
 
@@ -109,7 +112,7 @@ func (s *Streamer) Start(ctx context.Context) {
 		defer s.wg.Done()
 		err := fn(task)
 		if err != nil {
-			log.Printf("streamer: pipeline error: %s\n", err)
+			s.logger.Error().Err(err).Msg("pipeline error")
 			once.Do(func() {
 				s.err = err
 				s.cancel()
@@ -117,7 +120,7 @@ func (s *Streamer) Start(ctx context.Context) {
 		}
 	}
 
-	log.Println("streamer.start: setting up pipeline")
+	s.logger.Info().Msg("setting up pipeline")
 	var task = streamerTask{Context: ctx}
 	var ch chan streamerTrack
 	var start = make(chan streamerTrack)
@@ -138,7 +141,7 @@ func (s *Streamer) Start(ctx context.Context) {
 		task.in = ch
 	}
 
-	log.Println("streamer.start: starting pipeline")
+	s.logger.Info().Msg("starting pipeline")
 	go func() { // exit on wg done
 		defer s.cancel()
 		defer close(s.wgDone)
@@ -155,27 +158,29 @@ func (s *Streamer) Start(ctx context.Context) {
 func (s *Streamer) Stop(ctx context.Context) error {
 	const op errors.Op = "streamer/Streamer.Stop"
 
+	log := s.logger.Info().Str("event", "stop").Bool("force", false)
 	if atomic.LoadInt32(&s.started) == 0 {
 		// we're not running
-		log.Println("streamer.stop: not running")
+		log.Msg("not running")
 		return errors.E(op, errors.StreamerNotRunning)
 	}
 	if !atomic.CompareAndSwapInt32(&s.stopping, 0, 1) {
 		// we're already trying to stop or have already stopped
-		log.Println("streamer.stop: already stopping")
+		log.Msg("already stopping")
 		return errors.E(op, errors.StreamerAlreadyStopped)
 	}
 
 	if s.cancel != nil {
 		s.cancel()
 	}
-	log.Println("streamer.stop: waiting on completion")
+
+	log.Msg("waiting")
 	select {
 	case <-ctx.Done():
 	case <-s.wgDone:
 	}
 
-	log.Println("streamer.stop: finished")
+	log.Msg("finished")
 	if s.err != nil {
 		return errors.E(op, s.err)
 	}
@@ -188,7 +193,7 @@ func (s *Streamer) ForceStop(ctx context.Context) error {
 
 	// set force unconditionally, since arguments might change between two
 	// stop calls (first stop with force=false, second with force=true)
-	log.Println("streamer.stop: stopping with force=true")
+	s.logger.Info().Str("event", "stop").Bool("force", true).Msg("")
 	atomic.StoreInt32(&s.forceDone, 1)
 
 	err := s.Stop(ctx)
@@ -243,10 +248,10 @@ func (s *Streamer) errored(task streamerTask, track streamerTrack) {
 	}
 
 	track.once.Do(func() {
-		log.Printf("streamer.errored: on track %s\n", track)
+		s.logger.Error().Str("metadata", track.track.Metadata).Msg("error in pipeline")
 		_, err := s.queue.Remove(task.Context, track.track)
 		if err != nil {
-			log.Printf("streamer.errored: error: %s\n", err)
+			s.logger.Error().Err(err).Msg("queue removal")
 		}
 
 		select {
@@ -289,10 +294,10 @@ func (s *Streamer) tailTask(task streamerTask) error {
 		}
 
 		track.once.Do(func() {
-			log.Printf("streamer.tail: on track %s\n", track)
+			s.logger.Info().Str("metadata", track.track.Metadata).Msg("working")
 			_, err := s.queue.Remove(task.Context, track.track)
 			if err != nil {
-				log.Printf("streamer.tail: error: %s\n", err)
+				s.logger.Error().Err(err).Msg("queue removal")
 			}
 
 			select {
@@ -349,7 +354,7 @@ func (s *Streamer) decodeFiles(task streamerTask) error {
 
 		track.pcm, err = audio.DecodeFileGain(track.filepath)
 		if err != nil {
-			log.Println(err)
+			s.logger.Error().Err(err).Str("metadata", track.track.Metadata).Msg("")
 			s.errored(task, track)
 			continue
 		}
@@ -711,8 +716,12 @@ func (s *Streamer) metadataToIcecast(task streamerTask) error {
 
 		resp, err := http.DefaultClient.Do(req)
 		cancel()
-		if err != nil || resp.StatusCode != 200 {
-			log.Printf("streamer.metadata: failed to send (%s): %s", uri, err)
+		if err != nil {
+			s.logger.Error().Err(err).Str("url", uri).Msg("failed to send metadata")
+			// try and retry the operation in a little while
+			retrying = true
+		} else if resp.StatusCode != 200 {
+			s.logger.Error().Str("url", uri).Int("status_code", resp.StatusCode).Msg("failed to send metadata")
 			// try and retry the operation in a little while
 			retrying = true
 		}

@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -14,6 +13,7 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
+	"github.com/rs/zerolog"
 )
 
 const maxMetadataLength = 255 * 16
@@ -59,6 +59,7 @@ func (ln *Listener) Shutdown() error {
 }
 
 func (ln *Listener) run(ctx context.Context) {
+	logger := zerolog.Ctx(ctx)
 	for {
 		select {
 		case <-ctx.Done():
@@ -68,7 +69,7 @@ func (ln *Listener) run(ctx context.Context) {
 
 		conn, metasize, err := ln.newConn(ctx)
 		if err != nil {
-			log.Printf("manager-listener: connecting error: %s\n", err)
+			logger.Error().Err(err).Msg("connecting")
 			// wait a bit before retrying the connection
 			select {
 			case <-ctx.Done():
@@ -81,7 +82,7 @@ func (ln *Listener) run(ctx context.Context) {
 		err = ln.parseResponse(ctx, metasize, conn)
 		if err != nil {
 			// log the error, and try reconnecting
-			log.Printf("manager-listener: connection error: %s\n", err)
+			logger.Error().Err(err).Msg("connection")
 		}
 	}
 }
@@ -139,6 +140,7 @@ func (ln *Listener) newConn(ctx context.Context) (io.ReadCloser, int, error) {
 
 func (ln *Listener) parseResponse(ctx context.Context, metasize int, src io.Reader) error {
 	r := bufio.NewReader(src)
+	logger := zerolog.Ctx(ctx)
 
 	var meta map[string]string
 	var buf = make([]byte, metasize)
@@ -185,12 +187,12 @@ func (ln *Listener) parseResponse(ctx context.Context, metasize int, src io.Read
 
 		song := meta["StreamTitle"]
 		if song == "" {
-			log.Printf("listener: empty song")
+			logger.Info().Msg("empty metadata")
 			continue
 		}
 
 		if song == ln.prevSong {
-			log.Printf("listener: same song as before: %s", song)
+			logger.Info().Str("metadata", song).Msg("same metadata")
 			continue
 		}
 
@@ -213,7 +215,7 @@ func (ln *Listener) parseResponse(ctx context.Context, metasize int, src io.Read
 			defer cancel()
 			err := ln.manager.UpdateSong(ctx, &radio.SongUpdate{Song: s, Info: info})
 			if err != nil {
-				log.Printf("manager-listener: error setting song: %s\n", err)
+				logger.Error().Err(err).Msg("updating stream song")
 			}
 		}()
 	}

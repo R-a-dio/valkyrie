@@ -10,7 +10,7 @@ import (
 
 // Execute starts a streamer instance and its RPC API server
 func Execute(ctx context.Context, cfg config.Config) error {
-	store, err := storage.Open(cfg)
+	store, err := storage.Open(ctx, cfg)
 	if err != nil {
 		return err
 	}
@@ -20,7 +20,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 
-	streamer, err := NewStreamer(cfg, queue)
+	streamer, err := NewStreamer(ctx, cfg, queue)
 	if err != nil {
 		return err
 	}

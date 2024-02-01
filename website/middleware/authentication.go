@@ -3,7 +3,6 @@ package middleware
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"net/http"
 	"time"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/alexedwards/scs/v2"
+	"github.com/rs/zerolog/hlog"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -91,7 +91,7 @@ func (a authentication) UserMiddleware(next http.Handler) http.Handler {
 			http.Error(w,
 				http.StatusText(http.StatusInternalServerError),
 				http.StatusInternalServerError)
-			log.Println(errors.E(op, err))
+			hlog.FromRequest(r).Error().Err(err).Msg("")
 			return
 		}
 
@@ -130,7 +130,7 @@ func (a authentication) LoginMiddleware(next http.Handler) http.Handler {
 				http.Error(w,
 					http.StatusText(http.StatusInternalServerError),
 					http.StatusInternalServerError)
-				log.Println(errors.E(op, err))
+				hlog.FromRequest(r).Error().Err(err).Msg("")
 				return
 			}
 
@@ -163,7 +163,7 @@ func (a authentication) LoginMiddleware(next http.Handler) http.Handler {
 			message = "internal server error"
 		}
 		a.sessions.Put(ctx, failedLoginMessageKey, message)
-		log.Println(err)
+		hlog.FromRequest(r).Error().Err(err).Msg("")
 		// either way we're going to send them back to the login page again
 		http.Redirect(w, r, r.URL.String(), 302)
 	})
@@ -181,7 +181,7 @@ func (a *authentication) GetLogin(w http.ResponseWriter, r *http.Request) {
 
 	err := a.templates.ExecuteFull("default", "admin-login", w, loginInfo{failed, failedMessage})
 	if err != nil {
-		log.Println(err)
+		hlog.FromRequest(r).Error().Err(err).Msg("")
 		return
 	}
 }
@@ -239,8 +239,7 @@ func (a *authentication) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 
 	err := a.sessions.Destroy(r.Context())
 	if err != nil {
-		// TODO: log error in a clean way
-		log.Println(err)
+		hlog.FromRequest(r).Error().Err(err).Msg("")
 		http.Error(w,
 			http.StatusText(http.StatusInternalServerError),
 			http.StatusInternalServerError)

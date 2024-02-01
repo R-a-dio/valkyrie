@@ -1,6 +1,8 @@
 package mariadb
 
 import (
+	"context"
+
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
@@ -16,10 +18,10 @@ type StorageSearchService interface {
 	Search() radio.SearchService
 }
 
-func NewStorageSearchService(cfg config.Config) (radio.SearchService, error) {
+func NewStorageSearchService(ctx context.Context, cfg config.Config) (radio.SearchService, error) {
 	const op errors.Op = "search/storage.NewStorageSearchService"
 
-	s, err := storage.Open(cfg)
+	s, err := storage.Open(ctx, cfg)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}

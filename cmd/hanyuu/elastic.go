@@ -84,7 +84,7 @@ func (e elasticCmd) indexSongs(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 
-	store, err := storage.Open(cfg)
+	store, err := storage.Open(ctx, cfg)
 	if err != nil {
 		return err
 	}

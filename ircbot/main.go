@@ -2,12 +2,12 @@ package ircbot
 
 import (
 	"context"
-	"log"
 	"net"
 	"os"
 	"time"
 
 	"github.com/cenkalti/backoff"
+	"github.com/rs/zerolog"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
@@ -62,12 +62,12 @@ func Execute(ctx context.Context, cfg config.Config) error {
 func NewBot(ctx context.Context, cfg config.Config) (*Bot, error) {
 	const op errors.Op = "irc/NewBot"
 
-	store, err := storage.Open(cfg)
+	store, err := storage.Open(ctx, cfg)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
 
-	ss, err := search.Open(cfg)
+	ss, err := search.Open(ctx, cfg)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
@@ -132,10 +132,10 @@ func (b *Bot) runClient(ctx context.Context) error {
 	doConnect := func() error {
 		const op errors.Op = "irc/Bot.runClient.doConnect"
 
-		log.Println("client: connecting to:", b.c.Config.Server)
+		zerolog.Ctx(ctx).Info().Str("address", b.c.Config.Server).Msg("connecting")
 		err := b.c.Connect()
 		if err != nil {
-			log.Println("irc: connect error:", err)
+			zerolog.Ctx(ctx).Error().Str("address", b.c.Config.Server).Err(err).Msg("connecting")
 			// reset the backoff if we managed to stay connected for a decent period of
 			// time so we will retry fast again
 			if cb.GetElapsedTime() > time.Minute*10 {

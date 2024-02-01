@@ -18,6 +18,7 @@ import (
 	"github.com/R-a-dio/valkyrie/streamer/audio"
 	"github.com/R-a-dio/valkyrie/website/admin"
 	"github.com/google/subcommands"
+	"github.com/rs/zerolog"
 )
 
 type databaseCmd struct {
@@ -62,11 +63,15 @@ func (d *databaseCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any)
 		execute: withConfig(d.addUser),
 	}, "")
 
+	zerolog.Ctx(ctx).UpdateContext(func(zc zerolog.Context) zerolog.Context {
+		return zc.Str("service", d.Name())
+	})
+
 	return cmder.Execute(ctx, args...)
 }
 
 func (d databaseCmd) addTrack(ctx context.Context, cfg config.Config) error {
-	db, err := storage.Open(cfg)
+	db, err := storage.Open(ctx, cfg)
 	if err != nil {
 		return err
 	}
@@ -118,7 +123,7 @@ func (d databaseCmd) addTrack(ctx context.Context, cfg config.Config) error {
 }
 
 func (d databaseCmd) addUser(ctx context.Context, cfg config.Config) error {
-	db, err := storage.Open(cfg)
+	db, err := storage.Open(ctx, cfg)
 	if err != nil {
 		return err
 	}

@@ -86,7 +86,7 @@ const (
 
 // NewSearchService is a wrapper around NewElasticSearchService to return a
 // radio.SearchService type instead
-func NewSearchService(cfg config.Config) (radio.SearchService, error) {
+func NewSearchService(ctx context.Context, cfg config.Config) (radio.SearchService, error) {
 	return NewElasticSearchService(cfg)
 }
 

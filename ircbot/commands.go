@@ -2,7 +2,6 @@ package ircbot
 
 import (
 	"context"
-	"log"
 	"regexp"
 	"strconv"
 	"time"
@@ -10,6 +9,7 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/lrstanley/girc"
+	"github.com/rs/zerolog"
 )
 
 var (
@@ -101,7 +101,7 @@ func (rh RegexHandlers) Execute(c *girc.Client, e girc.Event) {
 			case errors.Is(errors.SongCooldown, err):
 				event.Echo(CooldownMessageFromError(err))
 			default:
-				log.Println("handler error:", err)
+				zerolog.Ctx(ctx).Error().Err(err).Msg("handler error")
 			}
 			return
 		}

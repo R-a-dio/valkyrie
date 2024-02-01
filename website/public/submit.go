@@ -20,6 +20,7 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/streamer/audio"
 	"github.com/R-a-dio/valkyrie/website/middleware"
+	"github.com/rs/zerolog/hlog"
 )
 
 const (
@@ -129,7 +130,7 @@ func (s State) canSubmitSong(r *http.Request) (time.Duration, error) {
 func (s State) GetSubmit(w http.ResponseWriter, r *http.Request) {
 	err := s.getSubmit(w, r, SubmissionForm{})
 	if err != nil {
-		log.Println(err)
+		hlog.FromRequest(r).Error().Err(err).Msg("")
 		return
 	}
 }
@@ -176,9 +177,10 @@ func (s State) PostSubmit(w http.ResponseWriter, r *http.Request) {
 		// allowed max size and then cut off if required
 		io.CopyN(io.Discard, r.Body, formMaxSize)
 
-		log.Println(err)
+		hlog.FromRequest(r).Error().Err(err).Msg("")
 		if err := responseFn(form); err != nil {
-			log.Println(err)
+			hlog.FromRequest(r).Error().Err(err).Msg("")
+			return
 		}
 		return
 	}
@@ -186,9 +188,9 @@ func (s State) PostSubmit(w http.ResponseWriter, r *http.Request) {
 	// success, update the submission time for the identifier
 	identifier, _ := s.getIdentifier(r)
 	if err = s.Storage.Submissions(r.Context()).UpdateSubmissionTime(identifier); err != nil {
-		log.Println(err)
+		hlog.FromRequest(r).Error().Err(err).Msg("")
 		if err = responseFn(form); err != nil {
-			log.Println(err)
+			hlog.FromRequest(r).Error().Err(err).Msg("")
 		}
 		return
 	}
@@ -201,7 +203,7 @@ func (s State) PostSubmit(w http.ResponseWriter, r *http.Request) {
 		back.IsDaypass = true
 	}
 	if err := responseFn(back); err != nil {
-		log.Println(err)
+		hlog.FromRequest(r).Error().Err(err).Msg("")
 	}
 }
 

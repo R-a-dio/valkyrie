@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -18,6 +17,8 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/search"
 	"github.com/R-a-dio/valkyrie/website/middleware"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/hlog"
 
 	"github.com/go-chi/chi/v5"
 	chiware "github.com/go-chi/chi/v5/middleware"
@@ -30,7 +31,7 @@ func NewAPI(ctx context.Context, cfg config.Config, storage radio.StorageService
 	if err != nil {
 		return nil, err
 	}
-	searcher, err := search.Open(cfg)
+	searcher, err := search.Open(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -92,8 +93,7 @@ func (a *API) getUserCooldown(w http.ResponseWriter, r *http.Request) {
 
 	submissionTime, err := a.storage.Submissions(r.Context()).LastSubmissionTime(identifier)
 	if err != nil {
-		// TODO: look at error handling
-		log.Println(err)
+		hlog.FromRequest(r).Error().Err(err).Msg("")
 		return
 	}
 
@@ -121,8 +121,7 @@ func (a *API) getUserCooldown(w http.ResponseWriter, r *http.Request) {
 
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
-		// TODO: look at error handling
-		log.Println(err)
+		hlog.FromRequest(r).Error().Err(err).Any("value", response).Msg("")
 		return
 	}
 }
@@ -141,8 +140,7 @@ type userCooldownResponse struct {
 func (a *API) getNews(w http.ResponseWriter, r *http.Request) {
 	result, err := a.storage.News(r.Context()).ListPublic(3, 0)
 	if err != nil {
-		// TODO: look at error handling
-		log.Println(err)
+		hlog.FromRequest(r).Error().Err(err).Msg("")
 		return
 	}
 
@@ -158,8 +156,7 @@ func (a *API) getNews(w http.ResponseWriter, r *http.Request) {
 
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
-		// TODO: look at error handling
-		log.Println(err)
+		hlog.FromRequest(r).Error().Err(err).Any("value", response).Msg("")
 		return
 	}
 }
@@ -174,8 +171,7 @@ func (a *API) getSearch(w http.ResponseWriter, r *http.Request) {
 	// parse the query string for page and limit settings
 	values, err := url.ParseQuery(r.URL.RawQuery)
 	if err != nil {
-		// TODO: look at error handling
-		log.Println(err)
+		hlog.FromRequest(r).Error().Err(err).Msg("")
 		return
 	}
 
@@ -210,8 +206,7 @@ func (a *API) getSearch(w http.ResponseWriter, r *http.Request) {
 	query := chi.URLParamFromCtx(ctx, "query")
 	result, err := a.search.Search(ctx, query, limit, offset)
 	if err != nil {
-		// TODO: look at error handling
-		log.Println(err)
+		hlog.FromRequest(r).Error().Err(err).Msg("")
 		return
 	}
 
@@ -234,8 +229,7 @@ func (a *API) getSearch(w http.ResponseWriter, r *http.Request) {
 
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
-		// TODO: look at error handling
-		log.Println(err)
+		hlog.FromRequest(r).Error().Err(err).Any("value", response).Msg("")
 		return
 	}
 }
@@ -295,13 +289,14 @@ func (a *API) getCanRequest(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		// but not if an error occured
 		if err != nil {
-			// TODO: handle error
+			hlog.FromRequest(r).Error().Err(err).Msg("")
 			http.Error(w, http.StatusText(http.StatusNotImplemented), http.StatusNotImplemented)
 			return
 		}
 		err := json.NewEncoder(w).Encode(response)
 		if err != nil {
-			log.Println(err)
+			hlog.FromRequest(r).Error().Err(err).Any("value", response).Msg("")
+			return
 		}
 	}()
 
@@ -348,14 +343,14 @@ func (a *API) getDJImage(w http.ResponseWriter, r *http.Request) {
 
 	f, err := os.Open(filename)
 	if err != nil {
-		log.Println(err)
+		hlog.FromRequest(r).Error().Err(err).Msg("")
 		return
 	}
 	defer f.Close()
 
 	fi, err := f.Stat()
 	if err != nil {
-		log.Println(err)
+		hlog.FromRequest(r).Error().Err(err).Msg("")
 		return
 	}
 
@@ -377,7 +372,8 @@ func (a *API) postRequest(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		err := json.NewEncoder(w).Encode(response)
 		if err != nil {
-			log.Println(err)
+			hlog.FromRequest(r).Error().Err(err).Any("value", response).Msg("")
+			return
 		}
 	}()
 
@@ -401,7 +397,7 @@ func (a *API) postRequest(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(errors.StreamerNoRequests, err):
 		response["error"] = "Requests are disabled currently."
 	default:
-		log.Println(err)
+		hlog.FromRequest(r).Error().Err(err).Msg("")
 		response["error"] = "something broke, report to IRC."
 	}
 }
@@ -426,7 +422,7 @@ func newV0Status(ctx context.Context, storage radio.SongStorageService,
 	if err != nil {
 		// TODO: handle error better; we ignore the error for now since it
 		// 		prevents the server from starting if the streamer RPC is down
-		log.Println(err)
+		zerolog.Ctx(ctx).Error().Err(err).Msg("")
 	}
 	return &s, nil
 }
@@ -507,7 +503,8 @@ func (s *v0Status) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	e.SetEscapeHTML(false)
 	err := e.Encode(status)
 	if err != nil {
-		log.Printf("json encoding error: %s", err)
+		hlog.FromRequest(r).Error().Err(err).Any("value", status).Msg("")
+		return
 	}
 }
 
@@ -656,7 +653,7 @@ func (s *v0Status) runUpdate(ctx context.Context) {
 
 		err := s.updateStatusJSON(ctx)
 		if err != nil {
-			log.Printf("status: update error: %s", err)
+			zerolog.Ctx(ctx).Error().Err(err).Msg("update")
 		}
 	}
 }

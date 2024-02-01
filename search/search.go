@@ -1,16 +1,17 @@
 package search
 
 import (
-	"log"
+	"context"
 	"sync"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/rs/zerolog"
 )
 
 // OpenFn is a function that returns a SearchService configured with the config given
-type OpenFn func(config.Config) (radio.SearchService, error)
+type OpenFn func(context.Context, config.Config) (radio.SearchService, error)
 
 var providers = map[string]provider{}
 var instancesMu sync.Mutex
@@ -33,7 +34,7 @@ func Register(name string, needsWrap bool, fn OpenFn) {
 }
 
 // Open returns a radio.SearchService as configured by the config given
-func Open(cfg config.Config) (radio.SearchService, error) {
+func Open(ctx context.Context, cfg config.Config) (radio.SearchService, error) {
 	const op errors.Op = "search/Open"
 
 	name := cfg.Conf().Providers.Search
@@ -43,7 +44,7 @@ func Open(cfg config.Config) (radio.SearchService, error) {
 	// see if there is already an instance available
 	ss, ok := instances[name]
 	if ok {
-		log.Printf("search: re-using existing SearchService instance for %s", name)
+		zerolog.Ctx(ctx).Info().Str("provider", name).Msg("re-using existing SearchService")
 		return ss, nil
 	}
 
@@ -53,8 +54,8 @@ func Open(cfg config.Config) (radio.SearchService, error) {
 		return nil, errors.E(op, errors.ProviderUnknown, errors.Info(name))
 	}
 
-	log.Printf("search: creating new SearchService instance for %s", name)
-	ss, err := p.fn(cfg)
+	zerolog.Ctx(ctx).Info().Str("provider", name).Msg("creating new SearchService")
+	ss, err := p.fn(ctx, cfg)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}

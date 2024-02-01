@@ -11,6 +11,7 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/website/public"
+	"github.com/rs/zerolog/hlog"
 )
 
 type pendingInput struct {
@@ -44,12 +45,12 @@ func (s *State) GetPending(w http.ResponseWriter, r *http.Request) {
 		shared: s.shared(r),
 	}
 	if err := input.Prepare(s.Storage.Submissions(r.Context())); err != nil {
-		log.Println(err)
+		hlog.FromRequest(r).Error().Err(err).Msg("database failure")
 		return
 	}
 
 	if err := s.TemplateExecutor.ExecuteFull("default", "admin-pending", w, input); err != nil {
-		log.Println(err)
+		hlog.FromRequest(r).Error().Err(err).Msg("template failure")
 		return
 	}
 }
@@ -79,7 +80,7 @@ func (s *State) PostPending(w http.ResponseWriter, r *http.Request) {
 	if public.IsHTMX(r) {
 		// htmx, send just the form back
 		if err := s.TemplateExecutor.ExecuteTemplate("default", "admin-pending", "form_admin_pending", w, form); err != nil {
-			log.Println(err)
+			hlog.FromRequest(r).Error().Err(err).Msg("template failure")
 		}
 		return
 	}
@@ -87,7 +88,7 @@ func (s *State) PostPending(w http.ResponseWriter, r *http.Request) {
 	// no htmx, send a full page back, but we have to hydrate the full list and swap out
 	// the element that was posted with the posted values
 	if err := input.Prepare(s.Storage.Submissions(r.Context())); err != nil {
-		log.Println(err)
+		hlog.FromRequest(r).Error().Err(err).Msg("database failure")
 		return
 	}
 
@@ -100,7 +101,7 @@ func (s *State) PostPending(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.TemplateExecutor.ExecuteFull("default", "admin-pending", w, input); err != nil {
-		log.Println(err)
+		hlog.FromRequest(r).Error().Err(err).Msg("template failure")
 		return
 	}
 }
@@ -116,7 +117,6 @@ func (s *State) postPending(w http.ResponseWriter, r *http.Request) (PendingForm
 	case "accept":
 		return s.postPendingDoAccept(w, r)
 	default:
-		log.Println("someone submit a form without action")
 		return PendingForm{}, errors.E(op, errors.InternalServer)
 	}
 }

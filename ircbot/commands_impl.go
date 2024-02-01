@@ -2,7 +2,6 @@ package ircbot
 
 import (
 	"context"
-	"log"
 	"regexp"
 	"strings"
 	"time"
@@ -10,6 +9,7 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/rs/zerolog"
 )
 
 func NowPlaying(e Event) error {
@@ -356,8 +356,7 @@ func ChannelTopic(e Event) error {
 
 	channel := e.Client.LookupChannel(e.Params[0])
 	if channel == nil {
-		log.Println("unknown channel in .topic")
-		// unknown channel?
+		zerolog.Ctx(e.Ctx).Warn().Str("command", "topic").Msg("nil channel")
 		return nil
 	}
 
