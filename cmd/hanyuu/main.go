@@ -96,6 +96,9 @@ var configEnvFile = "HANYUU_CONFIG"
 // configFile will be filled with the -config flag value
 var configFile string
 
+// logLevel will be filled with the -loglevel flag value
+var logLevel string
+
 var configCmd = cmd{
 	name:     "config",
 	synopsis: "display current configuration",
@@ -170,6 +173,7 @@ var balancerCmd = cmd{
 func main() {
 	// setup configuration file as top-level flag
 	flag.StringVar(&configFile, "config", "hanyuu.toml", "filepath to configuration file")
+	flag.StringVar(&logLevel, "loglevel", "info", "loglevel to use")
 	// add all our top-level flags as important flags to subcommands
 	flag.VisitAll(func(f *flag.Flag) {
 		subcommands.ImportantFlag(f.Name)
@@ -202,6 +206,14 @@ func main() {
 	var code int
 	// setup logger
 	logger := zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout}).With().Timestamp().Logger()
+	// change the level to what the flag told us
+	level, err := zerolog.ParseLevel(logLevel)
+	if err != nil {
+		logger.Error().Err(err).Msg("failed to parse loglevel flag")
+		os.Exit(1)
+	}
+	logger = logger.Level(level)
+
 	// setup root context
 	ctx := context.Background()
 	ctx = logger.WithContext(ctx)
@@ -213,7 +225,7 @@ func main() {
 	errCh := make(chan error, 1)
 
 	// call into another function so that we can use defers
-	err := executeCommand(ctx, errCh)
+	err = executeCommand(ctx, errCh)
 	if err == nil {
 		// executeCommand only returns nil when a signal asked us to stop running, this
 		// means the command running has already been notified to shutdown and we will
