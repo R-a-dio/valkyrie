@@ -1,3 +1,50 @@
 {{define "content"}}
-Staff Page {{.}}
+<section class="section">
+    <div class="container">
+        <div class="content">
+            {{template "staff-rows" .}}
+        </div>
+    </div>
+</section>
+{{end}}
+
+{{define "staff-rows"}}
+{{$ctx := .}}
+    {{range $role := $ctx.Roles}}
+        <div class="column block">
+            {{template "staff-row-title" $role}}
+            <div class="columns is-multiline has-background-white-ter px-4 py-3 content-border-top">
+                {{range $user := $ctx.Users}}
+                    {{if and (eq $user.Visible 1) (eq $user.Role $role)}}
+                        {{template "djcard" $user}}
+                    {{end}}
+                {{end}}
+             </div>
+        </div>
+    {{end}}
+{{end}}
+
+{{define "staff-row-title"}}
+	{{if eq . "staff"}}
+    	<div class="title">Staff</div>
+	{{else if eq . "dev"}}
+    	<div class="title">Developers</div>
+	{{else}}
+    	<div class="title">DJs</div>
+	{{end}}
+{{end}}
+
+{{define "djcard"}}
+<div class="column is-one-quarter">
+    <div class="card has-background-white-bis p-4 m-2">
+    	<div class="card-image">
+	<figure class="image is-square ml-0 mr-0">
+		<img src="/api/dj-image/{{.DjImage}}"/>
+	</figure>
+	</div>
+        <div class="card-content has-text-centered pt-4 pb-0">
+            <div class="title is-4 word-break-ellipsis">{{.DjName}}</div>
+        </div>
+    </div>
+</div>
 {{end}}

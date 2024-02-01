@@ -64,3 +64,13 @@
 .pending-entry:nth-of-type(even) {
     background-color: hsl(0, 0%, 90%);
 }
+
+.content-border-top {
+	border-top: 2px rgba(0, 0, 0, .1) solid;
+}
+
+.word-break-ellipsis {
+	word-break: unset;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
