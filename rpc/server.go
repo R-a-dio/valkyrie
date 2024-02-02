@@ -10,6 +10,8 @@ import (
 	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
+var NewGrpcServer = grpc.NewServer
+
 // NewAnnouncer returns a new shim around the service given
 func NewAnnouncer(a radio.AnnounceService) AnnouncerServer {
 	return AnnouncerShim{

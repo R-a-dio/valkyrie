@@ -108,7 +108,8 @@ func ProbeText(ctx context.Context, filename string) (*Info, error) {
 		case "format_name":
 			info.FormatName = value
 		default:
-			log.Panic().Str("key", key).Msg("unknown key")
+			log.WithLevel(zerolog.PanicLevel).Str("key", key).Msg("unknown key")
+			panic("unknown key")
 		}
 	}
 	if err := s.Err(); err != nil {

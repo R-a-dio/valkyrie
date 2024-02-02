@@ -14,9 +14,9 @@ import (
 	"github.com/R-a-dio/valkyrie/ircbot"
 	"github.com/R-a-dio/valkyrie/jobs"
 	"github.com/R-a-dio/valkyrie/manager"
-	_ "github.com/R-a-dio/valkyrie/search/elastic"  // elastic search interface
 	_ "github.com/R-a-dio/valkyrie/search/storage"  // storage search interface
 	_ "github.com/R-a-dio/valkyrie/storage/mariadb" // mariadb storage interface
+	"github.com/R-a-dio/valkyrie/telemetry"
 	"github.com/R-a-dio/valkyrie/website"
 	"github.com/google/subcommands"
 	"github.com/rs/zerolog"
@@ -47,9 +47,19 @@ func (c cmd) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{}) 
 	// because that is an unrecoverable programmer error
 	errCh := args[0].(chan error)
 
+	// add the subcommand name to the logging and telemetry
 	zerolog.Ctx(ctx).UpdateContext(func(zc zerolog.Context) zerolog.Context {
 		return zc.Str("service", c.name)
 	})
+	// setup telemetry if wanted
+	if useTelemetry {
+		tp, err := telemetry.Init(ctx, os.Args[1])
+		if err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to initialize telemetry")
+		} else {
+			defer tp.Shutdown(ctx)
+		}
+	}
 
 	loader := func() (config.Config, error) {
 		return config.LoadFile(configFile, configEnvFile)
@@ -98,6 +108,9 @@ var configFile string
 
 // logLevel will be filled with the -loglevel flag value
 var logLevel string
+
+// useTelemetry will be filled with the -telemetry flag value
+var useTelemetry bool
 
 var configCmd = cmd{
 	name:     "config",
@@ -174,6 +187,8 @@ func main() {
 	// setup configuration file as top-level flag
 	flag.StringVar(&configFile, "config", "hanyuu.toml", "filepath to configuration file")
 	flag.StringVar(&logLevel, "loglevel", "info", "loglevel to use")
+	flag.BoolVar(&useTelemetry, "telemetry", true, "to enable telemetry")
+
 	// add all our top-level flags as important flags to subcommands
 	flag.VisitAll(func(f *flag.Flag) {
 		subcommands.ImportantFlag(f.Name)
@@ -196,7 +211,7 @@ func main() {
 	subcommands.Register(&databaseCmd{}, "jobs")
 	// verifier job is in streamer.go for the above reason
 
-	subcommands.Register(elasticCmd{}, "search")
+	// subcommands.Register(elasticCmd{}, "search")
 	subcommands.Register(&migrateCmd{}, "migrate")
 
 	flag.Parse()

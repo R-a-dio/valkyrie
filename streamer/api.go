@@ -25,7 +25,7 @@ func NewHTTPServer(cfg config.Config, storage radio.StorageService,
 		streamer: streamer,
 	}
 
-	gs := grpc.NewServer()
+	gs := rpc.NewGrpcServer()
 	rpc.RegisterStreamerServer(gs, rpc.NewStreamer(s))
 
 	return gs, nil

@@ -57,9 +57,7 @@ type API struct {
 	status   *v0Status
 }
 
-func (a *API) Router() chi.Router {
-	r := chi.NewRouter()
-
+func (a *API) Route(r chi.Router) {
 	r.Use(chiware.SetHeader("Content-Type", "application/json"))
 	r.Method("GET", "/", a.status)
 	r.Get("/ping", func(w http.ResponseWriter, _ *http.Request) {
@@ -77,7 +75,6 @@ func (a *API) Router() chi.Router {
 	// these are deprecated
 	r.Get("/song", a.getSong)
 	r.Get("/metadata", a.getMetadata)
-	return r
 }
 
 func (a *API) getSong(w http.ResponseWriter, r *http.Request) {

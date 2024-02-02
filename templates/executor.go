@@ -2,23 +2,32 @@ package templates
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"slices"
 
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/util/pool"
+	"go.opentelemetry.io/otel"
 )
 
 var bufferPool = pool.NewResetPool(func() *bytes.Buffer { return new(bytes.Buffer) })
 
 type Executor struct {
 	site *Site
+	ctx  context.Context
 }
 
 func NewExecutor(site *Site) *Executor {
 	return &Executor{
 		site: site,
+		ctx:  context.Background(),
 	}
+}
+
+func (e Executor) With(ctx context.Context) *Executor {
+	e.ctx = ctx
+	return &e
 }
 
 func (e *Executor) ExecuteFull(theme, page string, output io.Writer, input any) error {
@@ -46,7 +55,13 @@ func (e *Executor) ExecutePartial(theme, page string, output io.Writer, input an
 func (e *Executor) ExecuteTemplate(theme, page string, template string, output io.Writer, input any) error {
 	const op errors.Op = "templates/Executor.ExecuteTemplate"
 
+	// tracing support
+	ctx, span := otel.Tracer("templates").Start(e.ctx, "template")
+	defer span.End()
+
+	_, span = otel.Tracer("templates").Start(ctx, "template_load")
 	tmpl, err := e.site.Template(theme, page)
+	span.End()
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -54,7 +69,9 @@ func (e *Executor) ExecuteTemplate(theme, page string, template string, output i
 	b := bufferPool.Get()
 	defer bufferPool.Put(b)
 
+	_, span = otel.Tracer("templates").Start(ctx, "template_execute")
 	err = tmpl.ExecuteTemplate(b, template, input)
+	span.End()
 	if err != nil {
 		return errors.E(op, err)
 	}

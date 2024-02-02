@@ -57,7 +57,7 @@ func (s State) getHome(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	theme := middleware.GetTheme(ctx)
-	err = s.TemplateExecutor.ExecuteFull(theme, "home", w, homeInput)
+	err = s.TemplateExecutor.With(ctx).ExecuteFull(theme, "home", w, homeInput)
 	if err != nil {
 		return err
 	}

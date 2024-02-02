@@ -39,23 +39,22 @@ type shared struct {
 	User   *radio.User
 }
 
-func Router(ctx context.Context, s State) chi.Router {
-	r := chi.NewRouter()
-
-	r.Get("/", s.GetHome)
-	r.Get("/news", s.GetNews)
-	r.Post("/news", s.PostNews)
-	r.Get("/schedule", s.GetSchedule)
-	r.Get("/queue", s.GetQueue)
-	r.Get("/last-played", s.GetLastPlayed)
-	r.Get("/search", s.GetSearch)
-	r.Get("/submit", s.GetSubmit)
-	r.Post("/submit", s.PostSubmit)
-	r.Get("/staff", s.GetStaff)
-	r.Get("/favorites", s.GetFaves)
-	r.Post("/favorites", s.PostFaves)
-	r.Get("/irc", s.GetChat)
-	return r
+func Route(ctx context.Context, s State) func(chi.Router) {
+	return func(r chi.Router) {
+		r.Get("/", s.GetHome)
+		r.Get("/news", s.GetNews)
+		r.Post("/news", s.PostNews)
+		r.Get("/schedule", s.GetSchedule)
+		r.Get("/queue", s.GetQueue)
+		r.Get("/last-played", s.GetLastPlayed)
+		r.Get("/search", s.GetSearch)
+		r.Get("/submit", s.GetSubmit)
+		r.Post("/submit", s.PostSubmit)
+		r.Get("/staff", s.GetStaff)
+		r.Get("/favorites", s.GetFaves)
+		r.Post("/favorites", s.PostFaves)
+		r.Get("/irc", s.GetChat)
+	}
 }
 
 func IsHTMX(r *http.Request) bool {

@@ -8,6 +8,7 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/jmoiron/sqlx"
+	"github.com/rs/zerolog"
 )
 
 // UserStorage implements radio.UserStorage
@@ -283,7 +284,7 @@ func (us UserStorage) LookupName(name string) (*radio.User, error) {
 
 		re, err := regexp.Compile(`(?i)` + user.DJ.Regex)
 		if err != nil {
-			us.handle.logger.Error().Err(err).Str("regular_expression", user.DJ.Regex).Msg("invalid regex")
+			zerolog.Ctx(us.handle.ctx).Error().Err(err).Str("regular_expression", user.DJ.Regex).Msg("invalid regex")
 			continue
 		}
 

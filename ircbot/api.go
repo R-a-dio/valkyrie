@@ -18,7 +18,7 @@ import (
 func NewHTTPServer(b *Bot) (*grpc.Server, error) {
 	service := NewAnnounceService(b.Config, b.Storage, b)
 
-	gs := grpc.NewServer()
+	gs := rpc.NewGrpcServer()
 	rpc.RegisterAnnouncerServer(gs, rpc.NewAnnouncer(service))
 
 	return gs, nil

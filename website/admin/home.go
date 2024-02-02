@@ -31,5 +31,5 @@ func (s *State) GetHome(w http.ResponseWriter, r *http.Request) {
 		shared:  s.shared(r),
 		Daypass: s.Daypass.Info(),
 	}
-	s.TemplateExecutor.ExecuteFull("default", "admin-home", w, tmplInput)
+	s.TemplateExecutor.With(r.Context()).ExecuteFull("default", "admin-home", w, tmplInput)
 }

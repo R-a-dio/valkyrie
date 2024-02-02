@@ -39,9 +39,6 @@ type API struct {
 	song     radio.SongStorageService
 }
 
-func (a *API) Router() chi.Router {
-	r := chi.NewRouter()
-
+func (a *API) Route(r chi.Router) {
 	r.Get("/sse", a.sse.ServeHTTP)
-	return r
 }

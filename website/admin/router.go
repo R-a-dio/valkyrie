@@ -25,11 +25,9 @@ type State struct {
 	Authentication   vmiddleware.Authentication
 }
 
-func Router(ctx context.Context, s State) chi.Router {
-	r := chi.NewRouter()
-
-	r.Group(func(r chi.Router) {
-		r.Use(s.Authentication.LoginMiddleware)
+func Route(ctx context.Context, s State) func(chi.Router) {
+	return func(r chi.Router) {
+		r = r.With(s.Authentication.LoginMiddleware)
 		r.HandleFunc("/", s.GetHome)
 		r.Get("/profile", s.GetProfile)
 		r.Post("/profile", s.PostProfile)
@@ -38,9 +36,7 @@ func Router(ctx context.Context, s State) chi.Router {
 		// debug handlers, might not be needed later
 		r.HandleFunc("/streamer/start", vmiddleware.RequirePermission(radio.PermAdmin, s.StartStreamer))
 		r.HandleFunc("/streamer/stop", vmiddleware.RequirePermission(radio.PermAdmin, s.StopStreamer))
-	})
-
-	return r
+	}
 }
 
 func (s *State) StartStreamer(w http.ResponseWriter, r *http.Request) {

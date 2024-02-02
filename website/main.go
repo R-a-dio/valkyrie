@@ -23,6 +23,12 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
+var NewRouter = func() chi.Router { return chi.NewRouter() }
+
+func chiFunc(router chi.Router, middlewares ...func(http.Handler) http.Handler) {
+	router.Use(middlewares...)
+}
+
 func zerologLoggerFunc(r *http.Request, status, size int, duration time.Duration) {
 	hlog.FromRequest(r).Info().
 		Int("status_code", status).
@@ -57,20 +63,23 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	// daypass generation
 	dpass := daypass.New(ctx)
 
-	r := chi.NewRouter()
+	r := NewRouter()
+
 	// TODO(wessie): check if nginx is setup to send the correct headers for real IP
 	// passthrough, as it's required for request handling
 	r.Use(middleware.RealIP)
 	// setup zerolog details
-	r.Use(hlog.NewHandler(*logger))
-	r.Use(hlog.RemoteAddrHandler("ip"))
-	r.Use(hlog.UserAgentHandler("user_agent"))
-	r.Use(hlog.RequestIDHandler("req_id", "Request-Id")) // TODO: check if we want to return the header
-	r.Use(hlog.URLHandler("url"))
-	r.Use(hlog.MethodHandler("method"))
-	r.Use(hlog.ProtoHandler("protocol"))
-	r.Use(hlog.CustomHeaderHandler("is_htmx", "Hx-Request"))
-	r.Use(hlog.AccessHandler(zerologLoggerFunc))
+	r.Use(
+		hlog.NewHandler(*logger),
+		hlog.RemoteAddrHandler("ip"),
+		hlog.UserAgentHandler("user_agent"),
+		hlog.RequestIDHandler("req_id", "Request-Id"), // TODO: check if we want to return the header
+		hlog.URLHandler("url"),
+		hlog.MethodHandler("method"),
+		hlog.ProtoHandler("protocol"),
+		hlog.CustomHeaderHandler("is_htmx", "Hx-Request"),
+		hlog.AccessHandler(zerologLoggerFunc),
+	)
 	// recover from panics and clean our IP of a port number
 	r.Use(removePortFromAddress)
 	r.Use(middleware.Recoverer)
@@ -102,7 +111,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	if err != nil {
 		return errors.E(op, err)
 	}
-	r.Mount("/api", v0.Router())
+	r.Route("/api", v0.Route)
 	r.Route(`/request/{TrackID:[0-9]+}`, v0.RequestRoute)
 
 	logger.Info().Str("event", "init").Str("part", "api_v1").Msg("")
@@ -110,11 +119,11 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	if err != nil {
 		return errors.E(op, err)
 	}
-	r.Mount("/v1", v1.Router())
+	r.Route("/v1", v1.Route)
 
 	// admin routes
 	r.Get("/logout", authentication.LogoutHandler) // outside so it isn't login restricted
-	r.Mount("/admin", admin.Router(ctx, admin.State{
+	r.Route("/admin", admin.Route(ctx, admin.State{
 		Config:           cfg,
 		Daypass:          dpass,
 		Storage:          storage,
@@ -125,7 +134,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	}))
 
 	// public routes
-	r.Mount("/", public.Router(ctx, public.State{
+	r.Route("/", public.Route(ctx, public.State{
 		Config:           cfg,
 		Daypass:          dpass,
 		Templates:        siteTemplates,

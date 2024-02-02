@@ -108,7 +108,18 @@ func (s *Site) prodTemplate(theme, page string) (*template.Template, error) {
 		return tmpl, nil
 	}
 
-	return nil, errors.E(op, errors.TemplateUnknown)
+	pb, err := s.Theme(theme).Page(page)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	tmpl, err := pb.Template()
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	s.cache[key] = tmpl
+	return tmpl, nil
 }
 
 func (s *Site) Theme(name string) ThemeBundle {
