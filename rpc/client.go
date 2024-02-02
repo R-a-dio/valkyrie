@@ -5,12 +5,13 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/util/eventstream"
-	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
+
+var GrpcDial = grpc.Dial
 
 func PrepareConn(addr string) *grpc.ClientConn {
 	if len(addr) == 0 {
@@ -21,10 +22,7 @@ func PrepareConn(addr string) *grpc.ClientConn {
 		addr = "localhost" + addr
 	}
 
-	conn, err := grpc.Dial(addr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
-	)
+	conn, err := GrpcDial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		panic("failed to setup grpc client: " + err.Error())
 	}

@@ -53,6 +53,7 @@ func Init(ctx context.Context, service string) (*trace.TracerProvider, error) {
 	mariadb.DatabaseConnectFunc = DatabaseConnect
 	website.NewRouter = NewRouter
 	rpc.NewGrpcServer = NewGrpcServer
+	rpc.GrpcDial = GrpcDial
 
 	return tp, err
 }
@@ -76,4 +77,11 @@ func DatabaseConnect(ctx context.Context, driverName string, dataSourceName stri
 func NewGrpcServer(opts ...grpc.ServerOption) *grpc.Server {
 	opts = append(opts, grpc.StatsHandler(otelgrpc.NewServerHandler()))
 	return grpc.NewServer(opts...)
+}
+
+func GrpcDial(addr string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+	opts = append(opts,
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+	)
+	return grpc.Dial(addr, opts...)
 }

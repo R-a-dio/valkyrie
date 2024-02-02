@@ -187,7 +187,7 @@ func main() {
 	// setup configuration file as top-level flag
 	flag.StringVar(&configFile, "config", "hanyuu.toml", "filepath to configuration file")
 	flag.StringVar(&logLevel, "loglevel", "info", "loglevel to use")
-	flag.BoolVar(&useTelemetry, "telemetry", true, "to enable telemetry")
+	flag.BoolVar(&useTelemetry, "telemetry", false, "to enable telemetry")
 
 	// add all our top-level flags as important flags to subcommands
 	flag.VisitAll(func(f *flag.Flag) {
