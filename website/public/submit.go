@@ -156,6 +156,8 @@ func (s State) postSubmit(w http.ResponseWriter, r *http.Request) (SubmissionFor
 		}, errors.E(op, err)
 	}
 
+	// start parsing the form, it's multipart encoded due to file upload and we manually
+	// handle some details due to reasons described in ParseForm
 	mr, err := r.MultipartReader()
 	if err != nil {
 		return SubmissionForm{}, errors.E(op, err, errors.InternalServer)
@@ -176,16 +178,19 @@ func (s State) postSubmit(w http.ResponseWriter, r *http.Request) (SubmissionFor
 		}
 	}()
 
+	// Run a sanity check on the form input
 	if !form.Validate(s.Daypass) {
 		return form, errors.E(op, errors.InvalidForm)
 	}
 
+	// Probe the uploaded file for more information
 	song, err := PendingFromProbe(form.File)
 	if err != nil {
 		form.Errors["track"] = "File invalid; probably not an audio file."
 		return form, errors.E(op, err, errors.InternalServer)
 	}
-	// fill in extra info we don't get from the probe
+
+	// Copy information over from the form and request to the PendingSong
 	song.Comment = form.Comment
 	song.Filename = form.OriginalFilename
 	song.UserIdentifier, _ = s.getIdentifier(r)
@@ -195,6 +200,7 @@ func (s State) postSubmit(w http.ResponseWriter, r *http.Request) (SubmissionFor
 	song.SubmittedAt = time.Now()
 	form.Song = song
 
+	// Add the pending entry to the database
 	err = s.Storage.Submissions(r.Context()).InsertSubmission(*song)
 	if err != nil {
 		form.Errors["postprocessing"] = "Internal error, yell at someone in IRC"
@@ -206,6 +212,7 @@ func (s State) postSubmit(w http.ResponseWriter, r *http.Request) (SubmissionFor
 	return form, nil
 }
 
+// readString reads a string from r no longer than maxSize
 func readString(r io.Reader, maxSize int64) (string, error) {
 	r = io.LimitReader(r, maxSize)
 	if b, err := io.ReadAll(r); err != nil {
@@ -215,6 +222,8 @@ func readString(r io.Reader, maxSize int64) (string, error) {
 	}
 }
 
+// PendingFromProbe runs ffprobe on the given filename and constructs
+// a PendingSong with the information found
 func PendingFromProbe(filename string) (*radio.PendingSong, error) {
 	const op errors.Op = "website/api.PendingFromProbe"
 
@@ -238,24 +247,46 @@ func PendingFromProbe(filename string) (*radio.PendingSong, error) {
 	return &s, nil
 }
 
+// SubmissionForm is the form struct passed to the submit page templates as .Form
 type SubmissionForm struct {
+	Token string // csrf token?
+	// Success indicates if the upload was a success
 	Success bool
-	Token   string // csrf token?
-
-	File             string
-	OriginalFilename string
-
-	Comment string
-	Daypass string
-
-	Replacement *radio.TrackID
-	IsDaypass   bool
-
-	Song *radio.PendingSong
-
+	// IsDaypass is true if Daypass was valid
+	IsDaypass bool
+	// Errors is populated when any errors were found with the uploaded form
+	// this is populated with their form field names as indicated below in addition to
+	// the following possible keys:
+	//		"postprocessing": something failed after successful form parsing but before we saved all the data
+	//		"cooldown": indicates the user was not permitted to upload yet, they need to wait longer
 	Errors map[string]string
+	// form fields
+	OriginalFilename string         // name="track" The filename of the uploaded file
+	Daypass          string         // name="daypass"
+	Comment          string         // name="comment"
+	Replacement      *radio.TrackID // name="replacement"
+
+	// after processing fields
+
+	// File is the on-disk filename for the uploaded file
+	File string
+	// Song we managed to populate by analyzing the uploaded file
+	Song *radio.PendingSong
 }
 
+// ParseForm parses a multipart form into the SubmissionForm
+//
+// Go has standard library support to do this simpler, but it doesn't let you set limits on individual fields,
+// so we're parsing each field ourselves so we can limit their length.
+//
+// Fields supported:
+//
+//	"track":		audio file being submitted
+//	"comment":		comment to be shown on the pending admin panel
+//	"daypass":		daypass to bypass upload limits
+//	"replacement":	an ID (number) indicating what song to replace in the database with this
+//
+// Any other fields cause an error to be returned and all form parsing to stop.
 func (sf *SubmissionForm) ParseForm(tempdir string, mr *multipart.Reader) error {
 	const op errors.Op = "SubmissionForm.ParseForm"
 
@@ -303,19 +334,19 @@ func (sf *SubmissionForm) ParseForm(tempdir string, mr *multipart.Reader) error 
 			if err != nil {
 				return errors.E(op, err)
 			}
-		case "comment":
+		case "comment": // comment to be shown on the pending admin panel
 			s, err := readString(part, formMaxCommentLength)
 			if err != nil {
 				return errors.E(op, err)
 			}
 			sf.Comment = s
-		case "daypass":
+		case "daypass": // a daypass
 			s, err := readString(part, formMaxDaypassLength)
 			if err != nil {
 				return errors.E(op, err)
 			}
 			sf.Daypass = s
-		case "replacement":
+		case "replacement": // replacement track identifier
 			s, err := readString(part, formMaxReplacementLength)
 			if err != nil {
 				return errors.E(op, err)
@@ -327,7 +358,7 @@ func (sf *SubmissionForm) ParseForm(tempdir string, mr *multipart.Reader) error 
 			tid := radio.TrackID(id)
 			sf.Replacement = &tid
 		default:
-			// unknown form field, bail early and tell the client it's bad
+			// unknown form field, we just cancel everything and return
 			return errors.E(op, errors.InvalidForm)
 		}
 	}
@@ -335,6 +366,9 @@ func (sf *SubmissionForm) ParseForm(tempdir string, mr *multipart.Reader) error 
 	return nil
 }
 
+// Validate checks if required fields are filled in the SubmissionForm and
+// if a daypass was supplied if it was a valid one. Populates sf.Errors with
+// any errors that occur and what input field caused it.
 func (sf *SubmissionForm) Validate(dp *daypass.Daypass) bool {
 	sf.Errors = make(map[string]string)
 	if sf.File == "" {
@@ -356,6 +390,7 @@ func (sf *SubmissionForm) Validate(dp *daypass.Daypass) bool {
 	return len(sf.Errors) == 0
 }
 
+// AllowedExtension returns if ext is an allowed extension for the uploaded audio files
 func AllowedExtension(ext string) bool {
 	ext = strings.ToLower(ext)
 	switch ext {
@@ -366,5 +401,5 @@ func AllowedExtension(ext string) bool {
 	case "ogg":
 		return true
 	}
-	return true
+	return false
 }
