@@ -9,6 +9,7 @@ import (
 	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/R-a-dio/valkyrie/util/daypass"
 	"github.com/R-a-dio/valkyrie/website/middleware"
+	"github.com/rs/zerolog/hlog"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -32,6 +33,12 @@ func (s *State) shared(r *http.Request) shared {
 		IsUser: user != nil,
 		User:   user,
 	}
+}
+
+func (s *State) errorHandler(w http.ResponseWriter, r *http.Request, err error) {
+	hlog.FromRequest(r).Error().Err(err).Msg("")
+	// TODO: handle errors more gracefully
+	http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 }
 
 type shared struct {
