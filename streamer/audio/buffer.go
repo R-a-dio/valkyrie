@@ -3,7 +3,6 @@ package audio
 import (
 	"io"
 	"sync"
-	"sync/atomic"
 )
 
 type AudioFormat struct {
@@ -93,44 +92,43 @@ func (b *Buffer) Error() (err error) {
 // Reader returns a reader over the data contained in the buffer
 func (b *Buffer) Reader() *BufferReader {
 	return &BufferReader{
-		mu:     b.mu.RLocker(),
-		parent: b,
+		parentMu: b.mu.RLocker(),
+		parent:   b,
 	}
 }
 
 // BufferReader is an io.Reader on top of a Buffer, multiple readers per
 // Buffer can be created
 type BufferReader struct {
+	mu sync.Mutex
 	// pos is the position of this reader in parent.buf
 	pos uint64
 
 	// mu is an inherited lock from the parent and should be locked when
 	// accessing the protected parent fields
-	mu sync.Locker
+	parentMu sync.Locker
 	// parent is the Buffer of this reader
 	parent *Buffer
 }
 
 func (br *BufferReader) Read(p []byte) (n int, err error) {
-	br.mu.Lock()
+	br.mu.Lock() // write lock for ourselves
+	defer br.mu.Unlock()
+	br.parentMu.Lock() // read lock for parent
+	defer br.parentMu.Unlock()
 
-	if br.pos == uint64(len(br.parent.buf)) {
-		if !br.parent.isClosed {
-			br.parent.cond.Wait()
-		} else if br.parent.err != nil {
-			err = br.parent.err
-			br.mu.Unlock()
-			return 0, err
+	for br.pos == uint64(len(br.parent.buf)) {
+		if br.parent.err != nil {
+			return 0, br.parent.err
 		}
+		if br.parent.isClosed {
+			return 0, io.EOF
+		}
+
+		br.parent.cond.Wait()
 	}
 
 	n = copy(p, br.parent.buf[br.pos:])
-	if br.parent.isClosed && n == 0 {
-		br.mu.Unlock()
-		return 0, io.EOF
-	}
-
-	atomic.AddUint64(&br.pos, uint64(n))
-	br.mu.Unlock()
+	br.pos += uint64(n)
 	return n, nil
 }

@@ -60,6 +60,9 @@ func (s *Site) Executor() *Executor {
 }
 
 func (s *Site) ThemeNames() []string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	keys := maps.Keys(s.themes)
 	slices.Sort(keys)
 	return keys
@@ -123,6 +126,9 @@ func (s *Site) prodTemplate(theme, page string) (*template.Template, error) {
 }
 
 func (s *Site) Theme(name string) ThemeBundle {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	if ps, ok := s.themes[name]; ok {
 		return ps
 	}
@@ -130,6 +136,9 @@ func (s *Site) Theme(name string) ThemeBundle {
 }
 
 func (s *Site) ResolveThemeName(name string) string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	if _, ok := s.themes[name]; ok {
 		return name
 	}

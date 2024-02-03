@@ -1,3 +1,4 @@
+//go:build !nolame
 // +build !nolame
 
 package audio
