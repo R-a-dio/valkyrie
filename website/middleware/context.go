@@ -9,13 +9,9 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-type ctxKey int
+type trackKey struct{}
 
-const (
-	trackKey ctxKey = iota
-	userKey
-	themeKey
-)
+type userKey struct{}
 
 // TrackCtx reads an URL parameter named TrackID and tries to find the track associated
 // with it.
@@ -42,7 +38,7 @@ func TrackCtx(storage radio.TrackStorageService) func(http.Handler) http.Handler
 				return
 			}
 
-			ctx = context.WithValue(ctx, trackKey, *song)
+			ctx = context.WithValue(ctx, trackKey{}, *song)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -51,7 +47,7 @@ func TrackCtx(storage radio.TrackStorageService) func(http.Handler) http.Handler
 // GetTrack returns the track from the given context if one exists.
 // See TrackCtx for supplier of this
 func GetTrack(ctx context.Context) (radio.Song, bool) {
-	song, ok := ctx.Value(trackKey).(radio.Song)
+	song, ok := ctx.Value(trackKey{}).(radio.Song)
 	return song, ok
 }
 
@@ -72,11 +68,11 @@ func UserByDJIDCtx(storage radio.UserStorageService) func(http.Handler) http.Han
 
 			user, err := storage.User(ctx).GetByDJID(id)
 			if err != nil {
-				// nothing really
-				panic("UserBYDJIDCtx: fuck do I know")
+				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+				return
 			}
 
-			ctx = context.WithValue(ctx, userKey, *user)
+			ctx = context.WithValue(ctx, userKey{}, *user)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -84,6 +80,6 @@ func UserByDJIDCtx(storage radio.UserStorageService) func(http.Handler) http.Han
 
 // GetUser returns the user from the given context if one exists.
 func GetUser(ctx context.Context) (radio.User, bool) {
-	user, ok := ctx.Value(userKey).(radio.User)
+	user, ok := ctx.Value(userKey{}).(radio.User)
 	return user, ok
 }

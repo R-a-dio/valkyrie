@@ -2,30 +2,48 @@ package public
 
 import (
 	"net/http"
+
+	radio "github.com/R-a-dio/valkyrie"
 )
 
 type NewsInput struct {
 	SharedInput
+
+	News radio.NewsList
 }
 
 func (NewsInput) TemplateBundle() string {
 	return "news"
 }
 
-func NewNewsInput(r *http.Request) NewsInput {
-	return NewsInput{
-		SharedInput: NewSharedInput(r),
+func NewNewsInput(s radio.NewsStorageService, r *http.Request) (*NewsInput, error) {
+	entries, err := s.News(r.Context()).ListPublic(20, 0)
+	if err != nil {
+		return nil, err
 	}
+
+	return &NewsInput{
+		SharedInput: NewSharedInput(r),
+		News:        entries,
+	}, nil
 }
 
 func (s State) GetNews(w http.ResponseWriter, r *http.Request) {
-	input := NewNewsInput(r)
-
-	err := s.TemplateExecutor.Execute(w, r, input)
+	input, err := NewNewsInput(s.Storage, r)
 	if err != nil {
 		s.errorHandler(w, r, err)
 		return
 	}
+
+	err = s.TemplateExecutor.Execute(w, r, input)
+	if err != nil {
+		s.errorHandler(w, r, err)
+		return
+	}
+}
+
+func (s State) GetNewsEntry(w http.ResponseWriter, r *http.Request) {
+	return
 }
 
 func (s State) PostNews(w http.ResponseWriter, r *http.Request) {

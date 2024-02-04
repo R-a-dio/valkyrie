@@ -54,6 +54,7 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 	return func(r chi.Router) {
 		r.Get("/", s.GetHome)
 		r.Get("/news", s.GetNews)
+		r.Get("/news/{NewsID:[0-9]+}`", s.GetNewsEntry)
 		r.Post("/news", s.PostNews)
 		r.Get("/schedule", s.GetSchedule)
 		r.Get("/queue", s.GetQueue)

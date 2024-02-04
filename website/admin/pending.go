@@ -35,6 +35,14 @@ type PendingForm struct {
 	Errors map[string]string
 }
 
+func (PendingForm) TemplateBundle() string {
+	return "admin-pending"
+}
+
+func (PendingForm) TemplateName() string {
+	return "form_admin_pending"
+}
+
 func (pi *PendingInput) Prepare(s radio.SubmissionStorage) error {
 	const op errors.Op = "website/admin.pendingInput.Prepare"
 
@@ -87,7 +95,7 @@ func (s *State) PostPending(w http.ResponseWriter, r *http.Request) {
 	// failed, handle the input and see if we can get info back to the user
 	if public.IsHTMX(r) {
 		// htmx, send just the form back
-		if err := s.TemplateExecutor.ExecuteTemplate("default", "admin-pending", "form_admin_pending", w, form); err != nil {
+		if err := s.TemplateExecutor.Execute(w, r, form); err != nil {
 			hlog.FromRequest(r).Error().Err(err).Msg("template failure")
 		}
 		return
