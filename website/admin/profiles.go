@@ -72,7 +72,7 @@ func (s *State) GetProfile(w http.ResponseWriter, r *http.Request) {
 }
 
 type profileInput struct {
-	shared
+	SharedInput
 
 	IsAdmin              bool
 	IsNew                bool
@@ -81,6 +81,10 @@ type profileInput struct {
 	AvailablePermissions []radio.UserPermission
 	Form                 *ProfileForm
 	AvailableThemes      []string
+}
+
+func (profileInput) TemplateBundle() string {
+	return "admin-profile"
 }
 
 func (s *State) getProfile(w http.ResponseWriter, r *http.Request, form *ProfileForm) error {
@@ -141,7 +145,7 @@ func (s *State) getProfile(w http.ResponseWriter, r *http.Request, form *Profile
 	}
 
 	tmplInput := profileInput{
-		shared:               s.shared(r),
+		SharedInput:          NewSharedInput(r),
 		IsAdmin:              isAdmin,
 		IsNew:                isNew,
 		IsNewProfile:         isNewProfile,
@@ -151,7 +155,7 @@ func (s *State) getProfile(w http.ResponseWriter, r *http.Request, form *Profile
 		AvailableThemes:      []string{},
 	}
 
-	err = s.TemplateExecutor.ExecuteFull("default", "admin-profile", w, tmplInput)
+	err = s.TemplateExecutor.Execute(w, r, tmplInput)
 	if err != nil {
 		return err
 	}

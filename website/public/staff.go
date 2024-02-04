@@ -1,20 +1,29 @@
 package public
 
 import (
-	"log"
 	"net/http"
 )
 
-func (s State) GetStaff(w http.ResponseWriter, r *http.Request) {
-	staffInput := struct {
-		shared
-	}{
-		shared: s.shared(r),
-	}
+type StaffInput struct {
+	SharedInput
+}
 
-	err := s.TemplateExecutor.ExecuteFull(theme, "staff", w, staffInput)
+func NewStaffInput(r *http.Request) StaffInput {
+	return StaffInput{
+		SharedInput: NewSharedInput(r),
+	}
+}
+
+func (StaffInput) TemplateBundle() string {
+	return "staff"
+}
+
+func (s State) GetStaff(w http.ResponseWriter, r *http.Request) {
+	input := NewStaffInput(r)
+
+	err := s.TemplateExecutor.Execute(w, r, input)
 	if err != nil {
-		log.Println(err)
+		s.errorHandler(w, r, err)
 		return
 	}
 }

@@ -1,20 +1,29 @@
 package public
 
 import (
-	"log"
 	"net/http"
 )
 
-func (s State) GetSearch(w http.ResponseWriter, r *http.Request) {
-	searchInput := struct {
-		shared
-	}{
-		shared: s.shared(r),
-	}
+type SearchInput struct {
+	SharedInput
+}
 
-	err := s.TemplateExecutor.ExecuteFull(theme, "search", w, searchInput)
+func NewSearchInput(r *http.Request) SearchInput {
+	return SearchInput{
+		SharedInput: NewSharedInput(r),
+	}
+}
+
+func (SearchInput) TemplateBundle() string {
+	return "search"
+}
+
+func (s State) GetSearch(w http.ResponseWriter, r *http.Request) {
+	input := NewSearchInput(r)
+
+	err := s.TemplateExecutor.Execute(w, r, input)
 	if err != nil {
-		log.Println(err)
+		s.errorHandler(w, r, err)
 		return
 	}
 }

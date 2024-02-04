@@ -12,32 +12,42 @@ const (
 	lastplayedSize = 20
 )
 
-func (s State) getLastPlayed(w http.ResponseWriter, r *http.Request) error {
-	input := struct {
-		shared
-		Songs []radio.Song
-		Page  int
-	}{
-		shared: s.shared(r),
-	}
+type LastPlayedInput struct {
+	SharedInput
 
+	Songs []radio.Song
+	Page  int
+}
+
+func (LastPlayedInput) TemplateBundle() string {
+	return "lastplayed"
+}
+
+func NewLastPlayedInput(s radio.SongStorageService, r *http.Request) (*LastPlayedInput, error) {
 	page, offset, err := getPageOffset(r, lastplayedSize)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	songs, err := s.Storage.Song(r.Context()).LastPlayed(offset, lastplayedSize)
+	songs, err := s.Song(r.Context()).LastPlayed(offset, lastplayedSize)
+	if err != nil {
+		return nil, err
+	}
+
+	return &LastPlayedInput{
+		SharedInput: NewSharedInput(r),
+		Songs:       songs,
+		Page:        page,
+	}, nil
+}
+
+func (s State) getLastPlayed(w http.ResponseWriter, r *http.Request) error {
+	input, err := NewLastPlayedInput(s.Storage, r)
 	if err != nil {
 		return err
 	}
-	input.Songs = songs
-	input.Page = page
 
-	err = s.TemplateExecutor.ExecuteFull(theme, "lastplayed", w, input)
-	if err != nil {
-		return err
-	}
-	return nil
+	return s.TemplateExecutor.Execute(w, r, input)
 }
 
 func (s State) GetLastPlayed(w http.ResponseWriter, r *http.Request) {

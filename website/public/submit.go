@@ -30,9 +30,39 @@ const (
 	daypassHeader = "X-Daypass"
 )
 
+type SubmitInput struct {
+	SharedInput
+	Form  SubmissionForm
+	Stats radio.SubmissionStats
+}
+
+func NewSubmitInput(storage radio.SubmissionStorageService, r *http.Request, form *SubmissionForm) (*SubmitInput, error) {
+	const op errors.Op = "website.NewSubmitInput"
+
+	if form == nil {
+		form = new(SubmissionForm)
+	}
+
+	identifier, _ := getIdentifier(r)
+	stats, err := storage.Submissions(r.Context()).SubmissionStats(identifier)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	return &SubmitInput{
+		SharedInput: NewSharedInput(r),
+		Form:        *form,
+		Stats:       stats,
+	}, nil
+}
+
+func (SubmitInput) TemplateBundle() string {
+	return "submit"
+}
+
 // getIdentifier either returns the username of a logged in user, or the RemoteAddr of
 // the request
-func (s State) getIdentifier(r *http.Request) (string, bool) {
+func getIdentifier(r *http.Request) (string, bool) {
 	if user := middleware.UserFromContext(r.Context()); user != nil {
 		return user.Username, true
 	}
@@ -42,7 +72,7 @@ func (s State) getIdentifier(r *http.Request) (string, bool) {
 func (s State) canSubmitSong(r *http.Request) (time.Duration, error) {
 	const op errors.Op = "website.canSubmitSong"
 
-	identifier, isUser := s.getIdentifier(r)
+	identifier, isUser := getIdentifier(r)
 	if isUser { // logged in users can always submit songs
 		return 0, nil
 	}
@@ -66,44 +96,36 @@ func (s State) canSubmitSong(r *http.Request) (time.Duration, error) {
 }
 
 func (s State) GetSubmit(w http.ResponseWriter, r *http.Request) {
-	err := s.getSubmit(w, r, SubmissionForm{})
+	err := s.getSubmit(w, r, nil)
 	if err != nil {
 		hlog.FromRequest(r).Error().Err(err).Msg("")
 		return
 	}
 }
 
-func (s State) getSubmit(w http.ResponseWriter, r *http.Request, form SubmissionForm) error {
+func (s State) getSubmit(w http.ResponseWriter, r *http.Request, form *SubmissionForm) error {
 	const op errors.Op = "website.getSubmit"
-	ctx := r.Context()
 
-	submitInput := struct {
-		shared
-		Form  SubmissionForm
-		Stats radio.SubmissionStats
-	}{
-		shared: s.shared(r),
-		Form:   form,
-	}
-
-	identifier, _ := s.getIdentifier(r)
-	stats, err := s.Storage.Submissions(ctx).SubmissionStats(identifier)
+	input, err := NewSubmitInput(s.Storage, r, form)
 	if err != nil {
 		return errors.E(op, err)
 	}
-	submitInput.Stats = stats
 
-	return s.TemplateExecutor.ExecuteFull(theme, "submit", w, submitInput)
+	return s.TemplateExecutor.Execute(w, r, input)
 }
 
 func (s State) PostSubmit(w http.ResponseWriter, r *http.Request) {
 	// setup response function that differs between htmx/non-htmx request
-	responseFn := func(form SubmissionForm) error {
-		return s.getSubmit(w, r, form)
-	}
-	if IsHTMX(r) {
-		responseFn = func(form SubmissionForm) error {
-			return s.TemplateExecutor.ExecuteTemplate(theme, "submit", "form_submit", w, form)
+	responseFn := func(form SubmissionForm) {
+		var err error
+		if IsHTMX(r) {
+			err = s.TemplateExecutor.Execute(w, r, form)
+		} else {
+			err = s.getSubmit(w, r, &form)
+		}
+
+		if err != nil {
+			s.errorHandler(w, r, err)
 		}
 	}
 
@@ -113,23 +135,18 @@ func (s State) PostSubmit(w http.ResponseWriter, r *http.Request) {
 		// for unknown reason if we send a response without reading the body the connection is
 		// hard-reset instead and our response goes missing, so discard the body up to our
 		// allowed max size and then cut off if required
-		io.CopyN(io.Discard, r.Body, formMaxSize)
+		io.CopyN(io.Discard, r.Body, formMaxSize) // TODO: add a possible timeout
 
 		hlog.FromRequest(r).Error().Err(err).Msg("")
-		if err := responseFn(form); err != nil {
-			hlog.FromRequest(r).Error().Err(err).Msg("")
-			return
-		}
+		responseFn(form)
 		return
 	}
 
 	// success, update the submission time for the identifier
-	identifier, _ := s.getIdentifier(r)
+	identifier, _ := getIdentifier(r)
 	if err = s.Storage.Submissions(r.Context()).UpdateSubmissionTime(identifier); err != nil {
 		hlog.FromRequest(r).Error().Err(err).Msg("")
-		if err = responseFn(form); err != nil {
-			hlog.FromRequest(r).Error().Err(err).Msg("")
-		}
+		responseFn(form)
 		return
 	}
 
@@ -140,9 +157,9 @@ func (s State) PostSubmit(w http.ResponseWriter, r *http.Request) {
 		back.Daypass = form.Daypass
 		back.IsDaypass = true
 	}
-	if err := responseFn(back); err != nil {
-		hlog.FromRequest(r).Error().Err(err).Msg("")
-	}
+
+	responseFn(back)
+	return
 }
 
 func (s State) postSubmit(w http.ResponseWriter, r *http.Request) (SubmissionForm, error) {
@@ -193,7 +210,7 @@ func (s State) postSubmit(w http.ResponseWriter, r *http.Request) (SubmissionFor
 	// Copy information over from the form and request to the PendingSong
 	song.Comment = form.Comment
 	song.Filename = form.OriginalFilename
-	song.UserIdentifier, _ = s.getIdentifier(r)
+	song.UserIdentifier, _ = getIdentifier(r)
 	if form.Replacement != nil {
 		song.ReplacementID = *form.Replacement
 	}
@@ -272,6 +289,14 @@ type SubmissionForm struct {
 	File string
 	// Song we managed to populate by analyzing the uploaded file
 	Song *radio.PendingSong
+}
+
+func (SubmissionForm) TemplateBundle() string {
+	return "submit"
+}
+
+func (SubmissionForm) TemplateName() string {
+	return "form_submit"
 }
 
 // ParseForm parses a multipart form into the SubmissionForm

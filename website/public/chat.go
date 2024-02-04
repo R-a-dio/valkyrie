@@ -1,20 +1,29 @@
 package public
 
 import (
-	"log"
 	"net/http"
 )
 
-func (s State) GetChat(w http.ResponseWriter, r *http.Request) {
-	chatInput := struct {
-		shared
-	}{
-		shared: s.shared(r),
-	}
+type ChatInput struct {
+	SharedInput
+}
 
-	err := s.TemplateExecutor.ExecuteFull(theme, "chat", w, chatInput)
+func (ChatInput) TemplateBundle() string {
+	return "chat"
+}
+
+func NewChatInput(r *http.Request) ChatInput {
+	return ChatInput{
+		SharedInput: NewSharedInput(r),
+	}
+}
+
+func (s State) GetChat(w http.ResponseWriter, r *http.Request) {
+	input := NewChatInput(r)
+
+	err := s.TemplateExecutor.Execute(w, r, input)
 	if err != nil {
-		log.Println(err)
+		s.errorHandler(w, r, err)
 		return
 	}
 }

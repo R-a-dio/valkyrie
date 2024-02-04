@@ -10,7 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func NewAPI(ctx context.Context, cfg config.Config, templates *templates.Executor) (*API, error) {
+func NewAPI(ctx context.Context, cfg config.Config, templates templates.Executor) (*API, error) {
 	song, err := storage.Open(ctx, cfg)
 	if err != nil {
 		return nil, err

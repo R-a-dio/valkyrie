@@ -21,18 +21,10 @@ type State struct {
 
 	Daypass          *daypass.Daypass
 	Templates        *templates.Site
-	TemplateExecutor *templates.Executor
+	TemplateExecutor templates.Executor
 	Manager          radio.ManagerService
 	Streamer         radio.StreamerService
 	Storage          radio.StorageService
-}
-
-func (s *State) shared(r *http.Request) shared {
-	user := middleware.UserFromContext(r.Context())
-	return shared{
-		IsUser: user != nil,
-		User:   user,
-	}
 }
 
 func (s *State) errorHandler(w http.ResponseWriter, r *http.Request, err error) {
@@ -41,9 +33,21 @@ func (s *State) errorHandler(w http.ResponseWriter, r *http.Request, err error) 
 	http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 }
 
-type shared struct {
+type SharedInput struct {
 	IsUser bool
 	User   *radio.User
+}
+
+func (SharedInput) TemplateName() string {
+	return "full-page"
+}
+
+func NewSharedInput(r *http.Request) SharedInput {
+	user := middleware.UserFromContext(r.Context())
+	return SharedInput{
+		IsUser: user != nil,
+		User:   user,
+	}
 }
 
 func Route(ctx context.Context, s State) func(chi.Router) {

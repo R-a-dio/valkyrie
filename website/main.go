@@ -90,7 +90,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	authentication := vmiddleware.NewAuthentication(storage, executor, sessionManager)
 	r.Use(authentication.UserMiddleware)
 	// theme state management
-	r.Use(vmiddleware.ThemeCtx(storage))
+	r.Use(templates.ThemeCtx(storage))
 
 	// legacy urls that once pointed to our stream, redirect them to the new url
 	r.Get("/main.mp3", RedirectLegacyStream)

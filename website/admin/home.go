@@ -8,28 +8,41 @@ import (
 	"github.com/R-a-dio/valkyrie/website/middleware"
 )
 
-type shared struct {
-	IsUser bool
-	User   *radio.User
-}
-
-func (s *State) shared(r *http.Request) shared {
+func NewSharedInput(r *http.Request) SharedInput {
 	user := middleware.UserFromContext(r.Context())
-	return shared{
+	return SharedInput{
 		IsUser: user != nil,
 		User:   user,
 	}
 }
 
-type homeInput struct {
-	shared
+type SharedInput struct {
+	IsUser bool
+	User   *radio.User
+}
+
+func (SharedInput) TemplateName() string {
+	return "full-page"
+}
+
+type HomeInput struct {
+	SharedInput
 	Daypass daypass.DaypassInfo
 }
 
-func (s *State) GetHome(w http.ResponseWriter, r *http.Request) {
-	var tmplInput = homeInput{
-		shared:  s.shared(r),
-		Daypass: s.Daypass.Info(),
+func NewHomeInput(r *http.Request, dp *daypass.Daypass) HomeInput {
+	return HomeInput{
+		SharedInput: NewSharedInput(r),
+		Daypass:     dp.Info(),
 	}
-	s.TemplateExecutor.With(r.Context()).ExecuteFull("default", "admin-home", w, tmplInput)
+}
+
+func (HomeInput) TemplateBundle() string {
+	return "admin-home"
+}
+
+func (s *State) GetHome(w http.ResponseWriter, r *http.Request) {
+	input := NewHomeInput(r, s.Daypass)
+
+	s.TemplateExecutor.Execute(w, r, input)
 }

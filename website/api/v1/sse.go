@@ -13,7 +13,6 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/R-a-dio/valkyrie/util/sse"
-	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
 )
@@ -120,10 +119,10 @@ type Stream struct {
 	shutdownCh chan struct{}
 
 	// templates for the site, used in theme support
-	templates *templates.Executor
+	templates templates.Executor
 }
 
-func NewStream(exec *templates.Executor) *Stream {
+func NewStream(exec templates.Executor) *Stream {
 	s := &Stream{
 		reqs:       make(chan request),
 		mu:         new(sync.RWMutex),
@@ -140,7 +139,7 @@ func NewStream(exec *templates.Executor) *Stream {
 func (s *Stream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log := hlog.FromRequest(r)
 	controller := http.NewResponseController(w)
-	theme := middleware.GetTheme(r.Context())
+	theme := templates.GetTheme(r.Context())
 
 	log.Debug().Msg("subscribing")
 	ch := s.sub()

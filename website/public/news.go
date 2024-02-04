@@ -1,20 +1,29 @@
 package public
 
 import (
-	"log"
 	"net/http"
 )
 
-func (s State) GetNews(w http.ResponseWriter, r *http.Request) {
-	newsInput := struct {
-		shared
-	}{
-		shared: s.shared(r),
-	}
+type NewsInput struct {
+	SharedInput
+}
 
-	err := s.TemplateExecutor.ExecuteFull(theme, "news", w, newsInput)
+func (NewsInput) TemplateBundle() string {
+	return "news"
+}
+
+func NewNewsInput(r *http.Request) NewsInput {
+	return NewsInput{
+		SharedInput: NewSharedInput(r),
+	}
+}
+
+func (s State) GetNews(w http.ResponseWriter, r *http.Request) {
+	input := NewNewsInput(r)
+
+	err := s.TemplateExecutor.Execute(w, r, input)
 	if err != nil {
-		log.Println(err)
+		s.errorHandler(w, r, err)
 		return
 	}
 }

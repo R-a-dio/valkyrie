@@ -55,7 +55,7 @@ type TemplateSelector interface {
 	Template(theme, page string) (*template.Template, error)
 }
 
-func (s *Site) Executor() *Executor {
+func (s *Site) Executor() Executor {
 	return NewExecutor(s)
 }
 

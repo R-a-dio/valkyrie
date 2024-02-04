@@ -1,20 +1,29 @@
 package public
 
 import (
-	"log"
 	"net/http"
 )
 
-func (s State) GetFaves(w http.ResponseWriter, r *http.Request) {
-	favesInput := struct {
-		shared
-	}{
-		shared: s.shared(r),
-	}
+type FavesInput struct {
+	SharedInput
+}
 
-	err := s.TemplateExecutor.ExecuteFull(theme, "faves", w, favesInput)
+func (FavesInput) TemplateBundle() string {
+	return "faves"
+}
+
+func NewFavesInput(r *http.Request) FavesInput {
+	return FavesInput{
+		SharedInput: NewSharedInput(r),
+	}
+}
+
+func (s State) GetFaves(w http.ResponseWriter, r *http.Request) {
+	input := NewFavesInput(r)
+
+	err := s.TemplateExecutor.Execute(w, r, input)
 	if err != nil {
-		log.Println(err)
+		s.errorHandler(w, r, err)
 		return
 	}
 }

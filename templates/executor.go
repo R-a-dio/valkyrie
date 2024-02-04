@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"net/http"
 	"slices"
 
 	"github.com/R-a-dio/valkyrie/errors"
@@ -13,24 +14,42 @@ import (
 
 var bufferPool = pool.NewResetPool(func() *bytes.Buffer { return new(bytes.Buffer) })
 
-type Executor struct {
+type TemplateSelectable interface {
+	TemplateBundle() string
+	TemplateName() string
+}
+
+type Executor interface {
+	With(context.Context) Executor
+	Execute(w io.Writer, r *http.Request, input TemplateSelectable) error
+	ExecuteTemplate(theme, page, template string, output io.Writer, input any) error
+	ExecuteTemplateAll(template string, input any) (map[string][]byte, error)
+}
+
+type executor struct {
 	site *Site
 	ctx  context.Context
 }
 
-func NewExecutor(site *Site) *Executor {
-	return &Executor{
+func NewExecutor(site *Site) Executor {
+	return &executor{
 		site: site,
 		ctx:  context.Background(),
 	}
 }
 
-func (e Executor) With(ctx context.Context) *Executor {
+func (e executor) With(ctx context.Context) Executor {
 	e.ctx = ctx
 	return &e
 }
 
-func (e *Executor) ExecuteFull(theme, page string, output io.Writer, input any) error {
+func (e *executor) Execute(w io.Writer, r *http.Request, input TemplateSelectable) error {
+	theme := GetTheme(r.Context())
+
+	return e.ExecuteTemplate(theme, input.TemplateBundle(), input.TemplateName(), w, input)
+}
+
+func (e *executor) ExecuteFull(theme, page string, output io.Writer, input any) error {
 	const op errors.Op = "templates/Executor.ExecuteFull"
 
 	err := e.ExecuteTemplate(theme, page, "full-page", output, input)
@@ -40,7 +59,7 @@ func (e *Executor) ExecuteFull(theme, page string, output io.Writer, input any) 
 	return nil
 }
 
-func (e *Executor) ExecutePartial(theme, page string, output io.Writer, input any) error {
+func (e *executor) ExecutePartial(theme, page string, output io.Writer, input any) error {
 	const op errors.Op = "templates/Executor.ExecutePartial"
 
 	err := e.ExecuteTemplate(theme, page, "partial-page", output, input)
@@ -52,7 +71,7 @@ func (e *Executor) ExecutePartial(theme, page string, output io.Writer, input an
 
 // ExecuteTemplate selects a theme, page and template and feeds it the input given and writing the template output
 // to the output writer. Output is buffered until template execution is done before writing to output.
-func (e *Executor) ExecuteTemplate(theme, page string, template string, output io.Writer, input any) error {
+func (e *executor) ExecuteTemplate(theme, page string, template string, output io.Writer, input any) error {
 	const op errors.Op = "templates/Executor.ExecuteTemplate"
 
 	// tracing support
@@ -84,7 +103,7 @@ func (e *Executor) ExecuteTemplate(theme, page string, template string, output i
 }
 
 // ExecuteTemplateAll executes the template given feeding the input given for all known themes
-func (e *Executor) ExecuteTemplateAll(template string, input any) (map[string][]byte, error) {
+func (e *executor) ExecuteTemplateAll(template string, input any) (map[string][]byte, error) {
 	const op errors.Op = "templates/Executor.ExecuteTemplateAll"
 
 	var out = make(map[string][]byte)

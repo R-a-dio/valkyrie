@@ -14,9 +14,19 @@ import (
 	"github.com/rs/zerolog/hlog"
 )
 
-type pendingInput struct {
-	shared
+type PendingInput struct {
+	SharedInput
 	Submissions []PendingForm
+}
+
+func NewPendingInput(r *http.Request) PendingInput {
+	return PendingInput{
+		SharedInput: NewSharedInput(r),
+	}
+}
+
+func (PendingInput) TemplateBundle() string {
+	return "admin-pending"
 }
 
 type PendingForm struct {
@@ -25,7 +35,7 @@ type PendingForm struct {
 	Errors map[string]string
 }
 
-func (pi *pendingInput) Prepare(s radio.SubmissionStorage) error {
+func (pi *PendingInput) Prepare(s radio.SubmissionStorage) error {
 	const op errors.Op = "website/admin.pendingInput.Prepare"
 
 	subms, err := s.All()
@@ -41,24 +51,22 @@ func (pi *pendingInput) Prepare(s radio.SubmissionStorage) error {
 }
 
 func (s *State) GetPending(w http.ResponseWriter, r *http.Request) {
-	var input = pendingInput{
-		shared: s.shared(r),
-	}
+	var input = NewPendingInput(r)
+
 	if err := input.Prepare(s.Storage.Submissions(r.Context())); err != nil {
 		hlog.FromRequest(r).Error().Err(err).Msg("database failure")
 		return
 	}
 
-	if err := s.TemplateExecutor.ExecuteFull("default", "admin-pending", w, input); err != nil {
+	if err := s.TemplateExecutor.Execute(w, r, input); err != nil {
 		hlog.FromRequest(r).Error().Err(err).Msg("template failure")
 		return
 	}
 }
 
 func (s *State) PostPending(w http.ResponseWriter, r *http.Request) {
-	var input = pendingInput{
-		shared: s.shared(r),
-	}
+	var input = NewPendingInput(r)
+
 	if input.User == nil || !input.User.UserPermissions.Has(radio.PermPendingEdit) {
 		s.GetPending(w, r)
 		return
@@ -100,7 +108,7 @@ func (s *State) PostPending(w http.ResponseWriter, r *http.Request) {
 		input.Submissions[i] = form
 	}
 
-	if err := s.TemplateExecutor.ExecuteFull("default", "admin-pending", w, input); err != nil {
+	if err := s.TemplateExecutor.Execute(w, r, input); err != nil {
 		hlog.FromRequest(r).Error().Err(err).Msg("template failure")
 		return
 	}

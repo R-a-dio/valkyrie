@@ -20,7 +20,7 @@ type State struct {
 	Daypass          *daypass.Daypass
 	Storage          radio.StorageService
 	Templates        *templates.Site
-	TemplateExecutor *templates.Executor
+	TemplateExecutor templates.Executor
 	SessionManager   *scs.SessionManager
 	Authentication   vmiddleware.Authentication
 }

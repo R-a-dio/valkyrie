@@ -30,10 +30,10 @@ func getFunctionName(temp interface{}) string {
 	return cleanFunctionName(name)
 }
 
-var spanKey = struct{}{}
+type spanKey struct{}
 
 func getSpan(ctx context.Context) *trace.Span {
-	if v := ctx.Value(spanKey); v != nil {
+	if v := ctx.Value(spanKey{}); v != nil {
 		return v.(*trace.Span)
 	}
 
@@ -71,7 +71,7 @@ func middlewareRecordInit(nextMiddleware func(http.Handler) http.Handler) func(h
 
 			ctx, span = span.TracerProvider().Tracer(name).Start(ctx, name)
 
-			ctx = context.WithValue(ctx, spanKey, &span)
+			ctx = context.WithValue(ctx, spanKey{}, &span)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

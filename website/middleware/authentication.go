@@ -10,6 +10,7 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/alexedwards/scs/v2"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
 
 	"golang.org/x/crypto/bcrypt"
@@ -24,14 +25,9 @@ const (
 	failedLoginMessageKey = "admin-failed-login-message"
 )
 
-// contextKey is used for values stored in a context
-type contextKey string
+type userContextKey struct{}
 
-const (
-	userContextKey contextKey = "user-struct"
-)
-
-func NewAuthentication(storage radio.StorageService, tmpl *templates.Executor, sessions *scs.SessionManager) Authentication {
+func NewAuthentication(storage radio.StorageService, tmpl templates.Executor, sessions *scs.SessionManager) Authentication {
 	return &authentication{
 		storage:   storage,
 		sessions:  sessions,
@@ -50,7 +46,7 @@ type Authentication interface {
 type authentication struct {
 	storage   radio.StorageService
 	sessions  *scs.SessionManager
-	templates *templates.Executor
+	templates templates.Executor
 }
 
 func RequirePermission(perm radio.UserPermission, handler http.HandlerFunc) http.HandlerFunc {
@@ -179,7 +175,7 @@ func (a *authentication) GetLogin(w http.ResponseWriter, r *http.Request) {
 		failedMessage = a.sessions.PopString(r.Context(), failedLoginMessageKey)
 	}
 
-	err := a.templates.ExecuteFull("default", "admin-login", w, loginInfo{failed, failedMessage})
+	err := a.templates.Execute(w, r, loginInfo{failed, failedMessage})
 	if err != nil {
 		hlog.FromRequest(r).Error().Err(err).Msg("")
 		return
@@ -189,6 +185,14 @@ func (a *authentication) GetLogin(w http.ResponseWriter, r *http.Request) {
 type loginInfo struct {
 	Failed  bool
 	Message string
+}
+
+func (loginInfo) TemplateBundle() string {
+	return "admin-login"
+}
+
+func (loginInfo) TemplateName() string {
+	return "full-page"
 }
 
 func (a *authentication) PostLogin(w http.ResponseWriter, r *http.Request) error {
@@ -345,9 +349,10 @@ func (JSONCodec) Decode(b []byte) (time.Time, map[string]interface{}, error) {
 // UserFromContext returns the user stored in the context, a user is available after
 // the LoginMiddleware
 func UserFromContext(ctx context.Context) *radio.User {
-	u, ok := ctx.Value(userContextKey).(*radio.User)
+	u, ok := ctx.Value(userContextKey{}).(*radio.User)
 	if !ok {
-		panic("UserFromContext: called from handler not behind LoginMiddleware")
+		zerolog.Ctx(ctx).Error().Msg("UserFromContext: called from handler not behind LoginMiddleware")
+		return nil
 	}
 	return u
 }
@@ -355,6 +360,6 @@ func UserFromContext(ctx context.Context) *radio.User {
 // RequestWithUser adds a user to a requests context and returns the new updated
 // request after, user can be retrieved by UserFromContext
 func RequestWithUser(r *http.Request, u *radio.User) *http.Request {
-	ctx := context.WithValue(r.Context(), userContextKey, u)
+	ctx := context.WithValue(r.Context(), userContextKey{}, u)
 	return r.WithContext(ctx)
 }

@@ -6,25 +6,35 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 )
 
+type QueueInput struct {
+	SharedInput
+
+	Queue []radio.QueueEntry
+}
+
+func (QueueInput) TemplateBundle() string {
+	return "queue"
+}
+
+func NewQueueInput(s radio.StreamerService, r *http.Request) (*QueueInput, error) {
+	queue, err := s.Queue(r.Context())
+	if err != nil {
+		return nil, err
+	}
+
+	return &QueueInput{
+		SharedInput: NewSharedInput(r),
+		Queue:       queue,
+	}, nil
+}
+
 func (s State) getQueue(w http.ResponseWriter, r *http.Request) error {
-	input := struct {
-		shared
-		Queue []radio.QueueEntry
-	}{
-		shared: s.shared(r),
-	}
-
-	queue, err := s.Streamer.Queue(r.Context())
+	input, err := NewQueueInput(s.Streamer, r)
 	if err != nil {
 		return err
 	}
-	input.Queue = queue
 
-	err = s.TemplateExecutor.ExecuteFull(theme, "queue", w, input)
-	if err != nil {
-		return err
-	}
-	return nil
+	return s.TemplateExecutor.Execute(w, r, input)
 }
 
 func (s State) GetQueue(w http.ResponseWriter, r *http.Request) {
