@@ -34,9 +34,11 @@
                 </div>
             </div>
             <div class="column is-3">
-                <div id="dj-image">
-                    <img src="{{.Status.User.DJ.Image}}" style="max-height: 180px;">
-                    <h4>{{.Status.User.DJ.Name}}</h4>
+                <div id="dj-image" class="md-5">
+                    <figure class="image is-square">
+                        <img src="/api/dj-image/{{.Status.User.DJ.Image}}">
+                    </figure>
+                    <h4 class="title has-text-centered">{{.Status.User.DJ.Name}}</h4>
                 </div>
             </div>
         </div>

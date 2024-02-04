@@ -8,7 +8,6 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/jmoiron/sqlx"
-	"github.com/rs/zerolog"
 )
 
 // UserStorage implements radio.UserStorage
@@ -282,18 +281,21 @@ func (us UserStorage) LookupName(name string) (*radio.User, error) {
 			continue
 		}
 
-		re, err := regexp.Compile(`(?i)` + user.DJ.Regex)
-		if err != nil {
-			zerolog.Ctx(us.handle.ctx).Error().Err(err).Str("regular_expression", user.DJ.Regex).Msg("invalid regex")
-			continue
-		}
-
-		if re.MatchString(name) {
+		if MatchName(user.DJ.Regex, name) {
 			return &user, nil
 		}
 	}
 
 	return nil, errors.E(op, errors.UserUnknown, errors.Info(name))
+}
+
+func MatchName(regex, name string) bool {
+	re, err := regexp.Compile(`(?i)` + regex)
+	if err != nil {
+		return false
+	}
+
+	return re.MatchString(name)
 }
 
 func (us UserStorage) All() ([]radio.User, error) {
@@ -323,15 +325,15 @@ func (us UserStorage) All() ([]radio.User, error) {
 
 		djs.css AS 'dj.css',
 		djs.djcolor AS 'dj.color',
-		themes.id AS 'dj.theme.id',
-		themes.name AS 'dj.theme.name',
-		themes.display_name AS 'dj.theme.displayname',
-		themes.author AS 'dj.theme.author'
+		IFNULL(themes.id, 0) AS 'dj.theme.id',
+		IFNULL(themes.name, 'default') AS 'dj.theme.name',
+		IFNULL(themes.display_name, 'default') AS 'dj.theme.displayname',
+		IFNULL(themes.author, 'unknown') AS 'dj.theme.author'
 	FROM
 		djs
 	JOIN
 		users ON djs.id = users.djid
-	JOIN
+	LEFT JOIN
 		themes ON djs.theme_id = themes.id;
 	`
 	var users []radio.User
