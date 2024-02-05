@@ -498,6 +498,7 @@ func (s *Song) FillMetadata() {
 	} else if s.Title != "" && s.Metadata == "" {
 		s.Metadata = s.Title
 	}
+	s.Hash = NewSongHash(s.Metadata)
 }
 
 // HasTrack returns true if t != nil, can be used as Song.HasTrack to check if a track
@@ -820,6 +821,11 @@ type SubmissionStorage interface {
 	InsertSubmission(PendingSong) error
 	// GetSubmission returns a pending song by ID
 	GetSubmission(SubmissionID) (*PendingSong, error)
+	// RemoveSubmission removes a pending song by ID
+	RemoveSubmission(SubmissionID) error
+
+	// InsertSubmissionStatus updates post-pending data
+	InsertSubmissionStatus(PendingSong) error
 }
 
 type SubmissionStats struct {

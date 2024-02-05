@@ -225,3 +225,27 @@ func (pf *PendingForm) Validate() bool {
 
 	return len(pf.Errors) == 0
 }
+
+func (pf *PendingForm) ToSong(user radio.User) radio.Song {
+	var song radio.Song
+
+	if pf.Status == radio.SubmissionAccepted {
+		song.DatabaseTrack = new(radio.DatabaseTrack)
+		song.Artist = pf.Artist
+		song.Title = pf.Title
+		song.Album = pf.Album
+		song.FillMetadata()
+		song.Tags = pf.Tags
+		song.FilePath = pf.FilePath
+		if pf.ReplacementID != 0 {
+			song.TrackID = pf.ReplacementID
+			song.NeedReplacement = false
+		}
+		song.Length = pf.Length
+		song.Usable = true
+		song.Acceptor = user.Username
+		song.LastEditor = user.Username
+	}
+
+	return song
+}

@@ -14,6 +14,16 @@ type SubmissionStorage struct {
 	handle handle
 }
 
+func (ss SubmissionStorage) InsertSubmissionStatus(pend radio.PendingSong) error {
+	panic("not implemented")
+	return nil
+}
+
+func (ss SubmissionStorage) RemoveSubmission(id radio.SubmissionID) error {
+	panic("not implemented")
+	return nil
+}
+
 // LastSubmissionTime implements radio.SubmissionStorage
 func (ss SubmissionStorage) LastSubmissionTime(identifier string) (time.Time, error) {
 	const op errors.Op = "mariadb/SubmissionStorage.LastSubmissionTime"
@@ -100,9 +110,35 @@ func (ss SubmissionStorage) InsertSubmission(song radio.PendingSong) error {
 
 	query := `
 	INSERT INTO
-		pending (artist, track, album, path, comment, origname, submitter, submitted, replacement, bitrate, length, format, mode)
-	VALUES
-		(:artist, :title, :album, :filepath, :comment, :filename, :useridentifier, :submittedat, :replacementid, :bitrate, :length, :format, :encodingmode);
+		pending (
+			artist,
+			track, 
+			album,
+			path,
+			comment,
+			origname,
+			submitter,
+			submitted,
+			replacement,
+			bitrate,
+			length,
+			format,
+			mode
+		) VALUES (
+			:artist,
+			:title,
+			:album,
+			:filepath,
+			:comment,
+			:filename,
+			:useridentifier,
+			:submittedat,
+			:replacementid,
+			:bitrate,
+			from_go_duration(:length),
+			:format,
+			:encodingmode
+		);
 	`
 
 	_, err := sqlx.NamedExec(ss.handle, query, song)
@@ -129,7 +165,7 @@ func (ss SubmissionStorage) All() ([]radio.PendingSong, error) {
 		submitted AS submittedat,
 		replacement AS replacementid,
 		bitrate,
-		length,
+		to_go_duration(length) AS length,
 		format,
 		mode AS encodingmode
 	 FROM pending;`
@@ -164,7 +200,7 @@ func (ss SubmissionStorage) GetSubmission(id radio.SubmissionID) (*radio.Pending
 		submitted AS submittedat,
 		replacement AS replacementid,
 		bitrate,
-		length,
+		to_go_duration(length) AS length,
 		format,
 		mode AS encodingmode
 	FROM pending WHERE id=?;`

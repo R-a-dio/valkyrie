@@ -19,7 +19,7 @@ type databaseTrack struct {
 	// Hash is shared between tracks and esong
 	Hash radio.SongHash
 	// LastPlayed is shared between tracks and eplay
-	LastPlayed mysql.NullTime
+	LastPlayed sql.NullTime
 
 	// esong fields
 	ID       sql.NullInt64
@@ -34,7 +34,7 @@ type databaseTrack struct {
 	Path          sql.NullString
 	Tags          sql.NullString
 	Priority      sql.NullInt64
-	LastRequested mysql.NullTime
+	LastRequested sql.NullTime
 	Usable        sql.NullInt64
 	Acceptor      sql.NullString `db:"accepter"`
 	LastEditor    sql.NullString
@@ -107,6 +107,31 @@ func (ss SongStorage) Create(metadata string) (*radio.Song, error) {
 		return nil, errors.E(op, err)
 	}
 	return song, nil
+}
+
+func (ss SongStorage) Update(song radio.Song) error {
+	const op errors.Op = "mariadb/SongStorage.Update"
+
+	if song.ID == 0 {
+		return errors.E(op, errors.InvalidArgument, "ID was zero", song)
+	}
+
+	var query = `
+		UPDATE tracks SET
+			hash=:hash,
+			len=from_go_duration(:length),
+			meta=:metadata,
+			hash_link=:hash
+		WHERE
+			id=:id;
+	`
+
+	_, err := sqlx.NamedExec(ss.handle, query, song)
+	if err != nil {
+		return errors.E(op, err)
+	}
+
+	return nil
 }
 
 // FromMetadata implements radio.SongStorage
@@ -512,6 +537,56 @@ func IsDuplicateKeyErr(err error) bool {
 	return mysqlError.Number == 1062
 }
 
+func (ts TrackStorage) Update(song radio.Song) error {
+	const op errors.Op = "mariadb/TrackStorage.Update"
+
+	if !song.HasTrack() {
+		return errors.E(op, errors.InvalidArgument, "nil DatabaseTrack", song)
+	}
+
+	if song.TrackID == 0 {
+		return errors.E(op, errors.InvalidArgument, "TrackID was zero", song)
+	}
+
+	handle, tx, err := requireTx(ts.handle)
+	if err != nil {
+		return errors.E(op, errors.TransactionBegin)
+	}
+	defer tx.Rollback()
+
+	ss := SongStorage{handle}
+	if err = ss.Update(song); err != nil {
+		return errors.E(op, err)
+	}
+
+	var query = `
+		UPDATE tracks SET
+			artist=:artist,
+			track=:title,
+			album=:album,
+			path=:filepath,
+			tags=:tags,
+			priority=:priority,
+			lastplayed=:lastplayed,
+			lastrequested=:lastrequested,
+			usable=:usable,
+			accepter=:acceptor,
+			lasteditor=:lasteditor,
+			hash=:hash,
+			requestcount=:requestcount,
+			need_reupload=:needreupload
+		WHERE
+			id=:trackid;
+	`
+
+	_, err = sqlx.NamedExec(handle, query, song)
+	if err != nil {
+		return errors.E(op, err)
+	}
+
+	return tx.Commit()
+}
+
 func (ts TrackStorage) Insert(song radio.Song) (radio.TrackID, error) {
 	const op errors.Op = "mariadb/TrackStorage.Insert"
 	// check if we have a database track at all
@@ -539,10 +614,15 @@ func (ts TrackStorage) Insert(song radio.Song) (radio.TrackID, error) {
 			album,
 			path,
 			tags,
+			priority,
+			lastplayed,
+			lastrequested,
 			usable,
 			accepter,
 			lasteditor,
-			hash
+			hash,
+			requestcount,
+			need_reupload
 		) VALUES (
 			0,
 			:artist,
@@ -550,10 +630,15 @@ func (ts TrackStorage) Insert(song radio.Song) (radio.TrackID, error) {
 			:album,
 			:filepath,
 			:tags,
+			:priority,
+			:lastplayed,
+			:lastrequested,
 			:usable,
 			:acceptor,
 			:lasteditor,
-			:hash
+			:hash,
+			:requestcount,
+			:needreupload
 		);
 	`
 
