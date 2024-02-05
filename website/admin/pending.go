@@ -234,7 +234,7 @@ func (pf *PendingForm) ToSong(user radio.User) radio.Song {
 		song.Artist = pf.Artist
 		song.Title = pf.Title
 		song.Album = pf.Album
-		song.FillMetadata()
+		song.Hydrate()
 		song.Tags = pf.Tags
 		song.FilePath = pf.FilePath
 		if pf.ReplacementID != 0 {

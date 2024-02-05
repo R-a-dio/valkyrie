@@ -125,7 +125,7 @@ func (m *Manager) UpdateSong(ctx context.Context, update *radio.SongUpdate) erro
 
 	// if we don't have this song in the database create a new entry for it
 	if song == nil {
-		song, err = ss.Create(new.Metadata)
+		song, err = ss.Create(radio.NewSong(new.Metadata))
 		if err != nil {
 			return errors.E(op, err)
 		}

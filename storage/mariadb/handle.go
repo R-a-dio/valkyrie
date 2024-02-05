@@ -338,6 +338,19 @@ func requireTx(h handle) (handle, radio.StorageTx, error) {
 	return h, tx, nil
 }
 
+func namedExecLastInsertId(e sqlx.Ext, query string, arg any) (int64, error) {
+	res, err := sqlx.NamedExec(e, query, arg)
+	if err != nil {
+		return 0, err
+	}
+
+	new, err := res.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+	return new, nil
+}
+
 // handle is an implementation of sqlx.Execer and sqlx.Queryer that can either use
 // a *sqlx.DB directly, or a *sqlx.Tx. It implements these with the *Context equivalents
 type handle struct {

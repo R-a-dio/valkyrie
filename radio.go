@@ -370,6 +370,12 @@ func (s *SongHash) UnmarshalJSON(b []byte) error {
 	return err
 }
 
+var zeroSongHash SongHash
+
+func (s *SongHash) IsZero() bool {
+	return *s == zeroSongHash
+}
+
 // Song is a song we've seen played on the stream
 type Song struct {
 	ID SongID
@@ -486,10 +492,12 @@ func (s *Song) UntilRequestable() time.Duration {
 	return time.Until(furthest)
 }
 
-// FillMetadata fills in the Metadata field from other fields if available
-func (s *Song) FillMetadata() {
+// Hydrate tries to fill Song with data from other fields, mostly useful
+// for if we have a DatabaseTrack but want to create the Song fields
+func (s *Song) Hydrate() {
 	s.Metadata = strings.TrimSpace(s.Metadata)
 	if !s.HasTrack() {
+		s.Hash = NewSongHash(s.Metadata)
 		return
 	}
 
@@ -499,6 +507,17 @@ func (s *Song) FillMetadata() {
 		s.Metadata = s.Title
 	}
 	s.Hash = NewSongHash(s.Metadata)
+}
+
+func NewSong(metadata string, length ...time.Duration) Song {
+	song := Song{
+		Metadata: metadata,
+	}
+	if len(length) > 0 {
+		song.Length = length[0]
+	}
+	song.Hydrate()
+	return song
 }
 
 // HasTrack returns true if t != nil, can be used as Song.HasTrack to check if a track
@@ -576,7 +595,7 @@ type SongStorageService interface {
 // kind of song that we have an audio file for and can be played by the automated streamer
 type SongStorage interface {
 	// Create creates a new song with the metadata given
-	Create(metadata string) (*Song, error)
+	Create(Song) (*Song, error)
 	// FromMetadata returns the song associated with the metadata given
 	FromMetadata(metadata string) (*Song, error)
 	// FromHash returns the song associated with the SongHash given

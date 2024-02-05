@@ -50,32 +50,32 @@ func (ns NewsStorage) Get(id radio.NewsPostID) (*radio.NewsPost, error) {
 	return &post, nil
 }
 
+const newsCreateQuery = `
+INSERT INTO
+	radio_news (
+		id,
+		title,
+		header,
+		text,
+		created_at,
+		updated_at,
+		private,
+		user_id
+	) VALUES (
+		0,
+		:title,
+		:header,
+		:body,
+		NOW(),
+		NOW(),
+		:private,
+		:user.id
+	);
+`
+
 // Create implements radio.NewsStorage
 func (ns NewsStorage) Create(post radio.NewsPost) (radio.NewsPostID, error) {
 	const op errors.Op = "mariadb/NewsStorage.Create"
-
-	var query = `
-	INSERT INTO
-		radio_news (
-			id,
-			title,
-			header,
-			text,
-			created_at,
-			updated_at,
-			private,
-			user_id
-		) VALUES (
-			0,
-			:title,
-			:header,
-			:body,
-			NOW(),
-			NOW(),
-			:private,
-			:user.id
-		);
-	`
 
 	// check for required fields
 	field, ok := post.HasRequired()
@@ -83,17 +83,7 @@ func (ns NewsStorage) Create(post radio.NewsPost) (radio.NewsPostID, error) {
 		return 0, errors.E(op, errors.InvalidArgument, errors.Info(field))
 	}
 
-	query, args, err := sqlx.Named(query, post)
-	if err != nil {
-		return 0, errors.E(op, err)
-	}
-
-	res, err := ns.handle.Exec(query, args...)
-	if err != nil {
-		return 0, errors.E(op, err)
-	}
-
-	new, err := res.LastInsertId()
+	new, err := namedExecLastInsertId(ns.handle, newsCreateQuery, post)
 	if err != nil {
 		return 0, errors.E(op, err)
 	}
@@ -101,25 +91,25 @@ func (ns NewsStorage) Create(post radio.NewsPost) (radio.NewsPostID, error) {
 	return radio.NewsPostID(new), nil
 }
 
+const newsUpdateQuery = `
+UPDATE
+	radio_news
+SET
+	title=:title,
+	header=:header,
+	text=:body,
+	user_id=:user.id,
+	deleted_at=:deletedat,
+	created_at=:createdat,
+	updated_at=NOW(),
+	private=:private
+WHERE
+	id=:id;
+`
+
 // Update implements radio.NewsStorage
 func (ns NewsStorage) Update(post radio.NewsPost) error {
 	const op errors.Op = "mariadb/NewsStorage.Update"
-
-	var query = `
-	UPDATE
-		radio_news
-	SET
-		title=:title,
-		header=:header,
-		text=:body,
-		user_id=:user.id,
-		deleted_at=:deletedAt,
-		created_at=:createdAt,
-		updated_at=NOW(),
-		private=:private
-	WHERE
-		id=:id;
-	`
 
 	// check for required fields
 	field, ok := post.HasRequired()
@@ -127,12 +117,8 @@ func (ns NewsStorage) Update(post radio.NewsPost) error {
 		return errors.E(op, errors.InvalidArgument, errors.Info(field))
 	}
 
-	query, args, err := sqlx.Named(query, post)
-	if err != nil {
-		return errors.E(op, err)
-	}
-
-	_, err = ns.handle.Exec(query, args...)
+	// execute
+	_, err := sqlx.NamedExec(ns.handle, newsUpdateQuery, post)
 	if err != nil {
 		return errors.E(op, err)
 	}
