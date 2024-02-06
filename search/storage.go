@@ -89,6 +89,21 @@ func (ts trackStorage) Insert(song radio.Song) (radio.TrackID, error) {
 	return new, nil
 }
 
+func (ts trackStorage) UpdateMetadata(song radio.Song) error {
+	const op errors.Op = "search/trackStorage.UpdateMetadata"
+
+	err := ts.wrapped.UpdateMetadata(song)
+	if err != nil {
+		return errors.E(op, err)
+	}
+
+	err = ts.search.Update(ts.ctx, song)
+	if err != nil {
+		return errors.E(op, err)
+	}
+	return nil
+}
+
 func (ts trackStorage) UpdateUsable(song radio.Song, state radio.TrackState) error {
 	const op errors.Op = "search/trackStorage.UpdateUsable"
 

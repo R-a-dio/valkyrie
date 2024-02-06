@@ -501,12 +501,18 @@ func (s *Song) Hydrate() {
 		return
 	}
 
-	if s.Title != "" && s.Artist != "" {
-		s.Metadata = fmt.Sprintf("%s - %s", s.Artist, s.Title)
-	} else if s.Title != "" && s.Metadata == "" {
-		s.Metadata = s.Title
+	if s.Metadata == "" {
+		s.Metadata = Metadata(s.Artist, s.Title)
 	}
+
 	s.Hash = NewSongHash(s.Metadata)
+}
+
+func Metadata(artist, title string) string {
+	if artist != "" {
+		return fmt.Sprintf("%s - %s", artist, title)
+	}
+	return title
 }
 
 func NewSong(metadata string, length ...time.Duration) Song {
@@ -645,6 +651,8 @@ type TrackStorage interface {
 	Unusable() ([]Song, error)
 	// Insert inserts a new track, errors if ID or TrackID is set
 	Insert(song Song) (TrackID, error)
+	// UpdateMetadata updates track metadata only (artist/title/album/tags/filepath/needreplacement)
+	UpdateMetadata(song Song) error
 	// UpdateUsable sets usable to the state given
 	UpdateUsable(song Song, state TrackState) error
 
@@ -843,8 +851,8 @@ type SubmissionStorage interface {
 	// RemoveSubmission removes a pending song by ID
 	RemoveSubmission(SubmissionID) error
 
-	// InsertSubmissionStatus updates post-pending data
-	InsertSubmissionStatus(PendingSong) error
+	// InsertPostPending inserts post-pending data
+	InsertPostPending(PendingSong) error
 }
 
 type SubmissionStats struct {
@@ -870,13 +878,15 @@ type SubmissionStats struct {
 type SubmissionID int
 
 // SubmissionStatus is the status of a submitted song
-type SubmissionStatus string
+type SubmissionStatus int
 
 // Possible status for song submissions
 const (
-	SubmissionAccepted       SubmissionStatus = "accepted"
-	SubmissionDeclined       SubmissionStatus = "declined"
-	SubmissionAwaitingReview SubmissionStatus = "awaiting-review"
+	SubmissionInvalid  SubmissionStatus = -1
+	SubmissionDeclined SubmissionStatus = iota
+	SubmissionAccepted
+	SubmissionReplacement
+	SubmissionAwaitingReview
 )
 
 // PendingSong is a song currently awaiting approval in the pending queue

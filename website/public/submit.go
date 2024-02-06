@@ -180,8 +180,7 @@ func (s State) postSubmit(w http.ResponseWriter, r *http.Request) (SubmissionFor
 		return SubmissionForm{}, errors.E(op, err, errors.InternalServer)
 	}
 
-	var form SubmissionForm
-	err = form.ParseForm(filepath.Join(s.Conf().MusicPath, "pending"), mr)
+	form, err := NewSubmissionForm(filepath.Join(s.Conf().MusicPath, "pending"), mr)
 	if err != nil {
 		return SubmissionForm{}, errors.E(op, err, errors.InternalServer)
 	}
@@ -197,14 +196,14 @@ func (s State) postSubmit(w http.ResponseWriter, r *http.Request) (SubmissionFor
 
 	// Run a sanity check on the form input
 	if !form.Validate(s.Daypass) {
-		return form, errors.E(op, errors.InvalidForm)
+		return *form, errors.E(op, errors.InvalidForm)
 	}
 
 	// Probe the uploaded file for more information
 	song, err := PendingFromProbe(form.File)
 	if err != nil {
 		form.Errors["track"] = "File invalid; probably not an audio file."
-		return form, errors.E(op, err, errors.InternalServer)
+		return *form, errors.E(op, err, errors.InternalServer)
 	}
 
 	// Copy information over from the form and request to the PendingSong
@@ -221,12 +220,12 @@ func (s State) postSubmit(w http.ResponseWriter, r *http.Request) (SubmissionFor
 	err = s.Storage.Submissions(r.Context()).InsertSubmission(*song)
 	if err != nil {
 		form.Errors["postprocessing"] = "Internal error, yell at someone in IRC"
-		return form, errors.E(op, err, errors.InternalServer)
+		return *form, errors.E(op, err, errors.InternalServer)
 	}
 
 	// clear the tmpFilename so that it doesn't get deleted after we return
 	tmpFilename = ""
-	return form, nil
+	return *form, nil
 }
 
 // readString reads a string from r no longer than maxSize
@@ -312,17 +311,19 @@ func (SubmissionForm) TemplateName() string {
 //	"replacement":	an ID (number) indicating what song to replace in the database with this
 //
 // Any other fields cause an error to be returned and all form parsing to stop.
-func (sf *SubmissionForm) ParseForm(tempdir string, mr *multipart.Reader) error {
+func NewSubmissionForm(tempdir string, mr *multipart.Reader) (*SubmissionForm, error) {
 	const op errors.Op = "SubmissionForm.ParseForm"
+
+	var sf SubmissionForm
 
 	for i := 0; i < formMaxMIMEParts; i++ {
 		part, err := mr.NextPart()
 		if errors.IsE(err, io.EOF) {
 			// finished reading parts
-			return nil
+			return &sf, nil
 		}
 		if err != nil {
-			return errors.E(op, err, errors.InternalServer)
+			return nil, errors.E(op, err, errors.InternalServer)
 		}
 
 		switch part.FormName() {
@@ -357,38 +358,38 @@ func (sf *SubmissionForm) ParseForm(tempdir string, mr *multipart.Reader) error 
 				return nil
 			}()
 			if err != nil {
-				return errors.E(op, err)
+				return nil, errors.E(op, err)
 			}
 		case "comment": // comment to be shown on the pending admin panel
 			s, err := readString(part, formMaxCommentLength)
 			if err != nil {
-				return errors.E(op, err)
+				return nil, errors.E(op, err)
 			}
 			sf.Comment = s
 		case "daypass": // a daypass
 			s, err := readString(part, formMaxDaypassLength)
 			if err != nil {
-				return errors.E(op, err)
+				return nil, errors.E(op, err)
 			}
 			sf.Daypass = s
 		case "replacement": // replacement track identifier
 			s, err := readString(part, formMaxReplacementLength)
 			if err != nil {
-				return errors.E(op, err)
+				return nil, errors.E(op, err)
 			}
 			id, err := strconv.Atoi(s)
 			if err != nil {
-				return errors.E(op, err)
+				return nil, errors.E(op, err)
 			}
 			tid := radio.TrackID(id)
 			sf.Replacement = &tid
 		default:
 			// unknown form field, we just cancel everything and return
-			return errors.E(op, errors.InvalidForm)
+			return nil, errors.E(op, errors.InvalidForm)
 		}
 	}
 
-	return nil
+	return &sf, nil
 }
 
 // Validate checks if required fields are filled in the SubmissionForm and

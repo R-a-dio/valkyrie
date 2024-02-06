@@ -14,13 +14,67 @@ type SubmissionStorage struct {
 	handle handle
 }
 
-func (ss SubmissionStorage) InsertSubmissionStatus(pend radio.PendingSong) error {
-	panic("not implemented")
+type adjustedPendingSong struct {
+	NullTrackID *radio.TrackID
+	NullReason  *string
+	Metadata    string
+
+	radio.PendingSong
+}
+
+const submissionInsertPostPendingQuery = `
+INSERT INTO
+	postpending (
+		trackid,
+		meta,
+		ip,
+		accepted,
+		time,
+		reason,
+		good_upload
+	) VALUES (
+		:nulltrackid,
+		:metadata,
+		:useridentifier,
+		:status,
+		:reviewedat,
+		:nullreason,
+		:goodupload
+	)
+`
+
+func (ss SubmissionStorage) InsertPostPending(pend radio.PendingSong) error {
+	const op errors.Op = "mariadb/SubmissionStorage.InsertPostPending"
+
+	adjusted := adjustedPendingSong{
+		Metadata:    radio.Metadata(pend.Artist, pend.Title),
+		PendingSong: pend,
+	}
+
+	if pend.Reason != "" {
+		adjusted.NullReason = &pend.Reason
+	}
+	if pend.AcceptedSong != nil {
+		adjusted.NullTrackID = &pend.AcceptedSong.TrackID
+	}
+
+	_, err := sqlx.NamedExec(ss.handle, submissionInsertPostPendingQuery, adjusted)
+	if err != nil {
+		return errors.E(op, err)
+	}
+
 	return nil
 }
 
 func (ss SubmissionStorage) RemoveSubmission(id radio.SubmissionID) error {
-	panic("not implemented")
+	const op errors.Op = "mariadb/SubmissionStorage.RemoveSubmission"
+
+	var query = `DELETE FROM pending WHERE id=?;`
+
+	_, err := ss.handle.Exec(query, id)
+	if err != nil {
+		return errors.E(op, err)
+	}
 	return nil
 }
 

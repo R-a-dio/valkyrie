@@ -19,6 +19,7 @@ var sqlxNamedTests = []namedTest{
 	{"songCreateQuery", songCreateQuery, radio.Song{DatabaseTrack: &radio.DatabaseTrack{}}},
 	{"newsCreateQuery", newsCreateQuery, radio.NewsPost{}},
 	{"newsUpdateQuery", newsUpdateQuery, radio.NewsPost{}},
+	{"submissionInsertPostPendingQuery", submissionInsertPostPendingQuery, adjustedPendingSong{}},
 }
 
 // TestSqlxNamed tests if arguments are properly named in queries listed in sqlxNamedTests

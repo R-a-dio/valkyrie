@@ -1,7 +1,6 @@
 package admin
 
 import (
-	"log"
 	"net/http"
 	"net/url"
 	"slices"
@@ -10,6 +9,7 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/R-a-dio/valkyrie/website/public"
 	"github.com/rs/zerolog/hlog"
 )
@@ -92,6 +92,8 @@ func (s *State) PostPending(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	hlog.FromRequest(r).Error().Err(err).Msg("failed post pending")
+
 	// failed, handle the input and see if we can get info back to the user
 	if public.IsHTMX(r) {
 		// htmx, send just the form back
@@ -125,70 +127,168 @@ func (s *State) PostPending(w http.ResponseWriter, r *http.Request) {
 func (s *State) postPending(w http.ResponseWriter, r *http.Request) (PendingForm, error) {
 	const op errors.Op = "website/admin.postPending"
 
-	switch r.PostFormValue("action") {
-	case "replace":
-		return s.postPendingDoReplace(w, r)
-	case "decline":
-		return s.postPendingDoDecline(w, r)
-	case "accept":
-		return s.postPendingDoAccept(w, r)
-	default:
-		return PendingForm{}, errors.E(op, errors.InternalServer)
+	// grab the pending id
+	id, err := strconv.Atoi(r.PostFormValue("id"))
+	if err != nil {
+		return PendingForm{}, errors.E(op, err, errors.InvalidForm)
 	}
+
+	// grab the pending data from the database
+	song, err := s.Storage.Submissions(r.Context()).GetSubmission(radio.SubmissionID(id))
+	if err != nil {
+		return PendingForm{}, errors.E(op, err, errors.InternalServer)
+	}
+
+	// then update it with the submitted form data
+	form := NewPendingForm(*song, r.PostForm)
+	if !form.Validate() {
+		return form, errors.E(op, err, errors.InvalidForm)
+	}
+
+	// continue somewhere else depending on the status
+	switch form.Status {
+	case radio.SubmissionAccepted:
+		return s.postPendingDoAccept(w, r, form)
+	case radio.SubmissionDeclined:
+		return s.postPendingDoDecline(w, r, form)
+	case radio.SubmissionReplacement:
+		return s.postPendingDoReplace(w, r, form)
+	}
+
+	return form, errors.E(op, errors.InvalidArgument)
 }
 
-func (s *State) postPendingDoReplace(w http.ResponseWriter, r *http.Request) (PendingForm, error) {
+func (s *State) postPendingDoReplace(w http.ResponseWriter, r *http.Request, form PendingForm) (PendingForm, error) {
 	const op errors.Op = "website/admin.postPendingDoReplace"
+	var ctx = r.Context()
+
+	// transaction start
+	ss, tx, err := s.Storage.SubmissionsTx(ctx, nil)
+	if err != nil {
+		return form, errors.E(op, err, errors.InternalServer)
+	}
+	defer tx.Rollback() // rollback if we fail anywhere
+
+	ts, _, err := s.Storage.TrackTx(ctx, tx)
+	if err != nil {
+		return form, errors.E(op, err, errors.InternalServer)
+	}
+
+	// create a database song from the form
+	track := form.ToSong(*middleware.UserFromContext(ctx))
+	form.AcceptedSong = &track
+
+	// update tracks data
+	err = ts.UpdateMetadata(track)
+	if err != nil {
+		return form, errors.E(op, err, errors.InternalServer)
+	}
+
+	// insert into post-pending
+	err = ss.InsertPostPending(form.PendingSong)
+	if err != nil {
+		return form, errors.E(op, err, errors.InternalServer)
+	}
+
+	// remove from submissions
+	err = ss.RemoveSubmission(form.ID)
+	if err != nil {
+		return form, errors.E(op, err, errors.InternalServer)
+	}
+
+	// TODO: file move handling
+
+	// commit
+	if err = tx.Commit(); err != nil {
+		return form, errors.E(op, err, errors.InternalServer)
+	}
 
 	return PendingForm{}, nil
 }
 
-func (s *State) postPendingDoDecline(w http.ResponseWriter, r *http.Request) (PendingForm, error) {
+func (s *State) postPendingDoDecline(w http.ResponseWriter, r *http.Request, form PendingForm) (PendingForm, error) {
 	const op errors.Op = "website/admin.postPendingDoDecline"
+	var ctx = r.Context()
 
-	id, err := strconv.Atoi(r.PostForm.Get("id"))
+	// transaction start
+	ss, tx, err := s.Storage.SubmissionsTx(ctx, nil)
 	if err != nil {
-		return PendingForm{}, errors.E(op, err, errors.InvalidForm)
+		return form, errors.E(op, err, errors.InternalServer)
 	}
+	defer tx.Rollback() // rollback if we fail anywhere
 
-	song, err := s.Storage.Submissions(r.Context()).GetSubmission(radio.SubmissionID(id))
+	// insert into post-pending
+	err = ss.InsertPostPending(form.PendingSong)
 	if err != nil {
-		return PendingForm{}, errors.E(op, err, errors.InternalServer)
+		return form, errors.E(op, err, errors.InternalServer)
 	}
 
-	form := NewPendingForm(*song, r.PostForm)
-	if !form.Validate() {
-		return form, errors.E(op, err, errors.InvalidForm)
+	// remove from submissions
+	err = ss.RemoveSubmission(form.ID)
+	if err != nil {
+		return form, errors.E(op, err, errors.InternalServer)
 	}
-	form.Status = radio.SubmissionDeclined
 
-	log.Println(form)
+	// TODO: file deletion handling
+
+	// commit
+	if err = tx.Commit(); err != nil {
+		return form, errors.E(op, err, errors.InternalServer)
+	}
+
 	return form, nil
 }
 
-func (s *State) postPendingDoAccept(w http.ResponseWriter, r *http.Request) (PendingForm, error) {
+func (s *State) postPendingDoAccept(w http.ResponseWriter, r *http.Request, form PendingForm) (PendingForm, error) {
 	const op errors.Op = "website/admin.postPendingDoAccept"
+	var ctx = r.Context()
 
-	id, err := strconv.Atoi(r.PostForm.Get("id"))
+	// transaction start
+	ss, tx, err := s.Storage.SubmissionsTx(ctx, nil)
 	if err != nil {
-		return PendingForm{}, errors.E(op, err, errors.InvalidForm)
+		return form, errors.E(op, err, errors.InternalServer)
 	}
+	defer tx.Rollback() // rollback if we fail anywhere
 
-	song, err := s.Storage.Submissions(r.Context()).GetSubmission(radio.SubmissionID(id))
+	// create a database song from the form
+	track := form.ToSong(*middleware.UserFromContext(ctx))
+
+	ts, _, err := s.Storage.TrackTx(ctx, tx)
 	if err != nil {
-		return PendingForm{}, errors.E(op, err, errors.InternalServer)
+		return form, errors.E(op, err, errors.InternalServer)
 	}
 
-	form := NewPendingForm(*song, r.PostForm)
-	if !form.Validate() {
-		return form, errors.E(op, err, errors.InvalidForm)
+	// insert the song into the database
+	track.TrackID, err = ts.Insert(track)
+	if err != nil {
+		return form, errors.E(op, err, errors.InternalServer)
 	}
-	form.Status = radio.SubmissionAccepted
+	form.AcceptedSong = &track
 
-	log.Println(form)
+	// insert the song into the post-pending info
+	err = ss.InsertPostPending(form.PendingSong)
+	if err != nil {
+		return form, errors.E(op, err, errors.InternalServer)
+	}
+
+	// remove the submission entry
+	err = ss.RemoveSubmission(form.ID)
+	if err != nil {
+		return form, errors.E(op, err, errors.InternalServer)
+	}
+
+	// TODO: file moving/renaming handling
+
+	// commit
+	if err = tx.Commit(); err != nil {
+		return form, errors.E(op, err, errors.InternalServer)
+	}
+
 	return form, nil
 }
 
+// NewPendingForm creates a PendingForm with song as a base and updating those
+// values from the form values given.
 func NewPendingForm(song radio.PendingSong, form url.Values) PendingForm {
 	pf := PendingForm{PendingSong: song}
 	pf.Update(form)
@@ -196,6 +296,17 @@ func NewPendingForm(song radio.PendingSong, form url.Values) PendingForm {
 }
 
 func (pf *PendingForm) Update(form url.Values) {
+	switch form.Get("action") {
+	case "replace":
+		pf.Status = radio.SubmissionReplacement
+	case "decline":
+		pf.Status = radio.SubmissionDeclined
+	case "accept":
+		pf.Status = radio.SubmissionAccepted
+	default:
+		pf.Status = radio.SubmissionInvalid
+	}
+
 	pf.Artist = form.Get("artist")
 	pf.Title = form.Get("title")
 	pf.Album = form.Get("album")
@@ -210,6 +321,9 @@ func (pf *PendingForm) Update(form url.Values) {
 
 func (pf *PendingForm) Validate() bool {
 	pf.Errors = make(map[string]string)
+	if pf.Status == radio.SubmissionInvalid {
+		pf.Errors["action"] = "invalid status"
+	}
 	if len(pf.Artist) > 500 {
 		pf.Errors["artist"] = "artist name too long"
 	}
@@ -229,8 +343,8 @@ func (pf *PendingForm) Validate() bool {
 func (pf *PendingForm) ToSong(user radio.User) radio.Song {
 	var song radio.Song
 
+	song.DatabaseTrack = new(radio.DatabaseTrack)
 	if pf.Status == radio.SubmissionAccepted {
-		song.DatabaseTrack = new(radio.DatabaseTrack)
 		song.Artist = pf.Artist
 		song.Title = pf.Title
 		song.Album = pf.Album

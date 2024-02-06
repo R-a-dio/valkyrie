@@ -101,7 +101,7 @@ INSERT INTO
 		:metadata,
 		:hash,
 		:hash,
-		:length
+		from_go_duration(:length)
 	)
 `
 
@@ -640,17 +640,48 @@ func (ts TrackStorage) Insert(song radio.Song) (radio.TrackID, error) {
 	// create song if not exist
 	_, err = SongStorage{handle}.Create(song)
 	if err != nil {
-		return 0, errors.E(op, err)
+		return 0, errors.E(op, err, song)
 	}
 
 	// execute
 	new, err := namedExecLastInsertId(handle, trackInsertQuery, song)
 	if err != nil {
-		return 0, errors.E(op, err)
+		return 0, errors.E(op, err, song)
 	}
 
 	return radio.TrackID(new), tx.Commit()
+}
 
+const trackUpdateMetadataQuery = `
+UPDATE tracks SET
+	artist=:artist,
+	track=:title,
+	album=:album,
+	path=:filepath,
+	tags=:tags,
+	need_reupload=:needreplacement
+WHERE id=:trackid;
+`
+
+func (ts TrackStorage) UpdateMetadata(song radio.Song) error {
+	const op errors.Op = "mariadb/TrackStorage.Update"
+
+	// validation
+	if !song.HasTrack() {
+		return errors.E(op, errors.InvalidArgument, "nil DatabaseTrack", song)
+	}
+
+	if song.TrackID == 0 {
+		return errors.E(op, errors.InvalidArgument, "TrackID was zero", song)
+	}
+
+	// execute
+	_, err := sqlx.NamedExec(ts.handle, trackUpdateMetadataQuery, song)
+	if err != nil {
+		return errors.E(op, err, song)
+	}
+
+	return nil
 }
 
 func (ts TrackStorage) UpdateUsable(song radio.Song, state radio.TrackState) error {
