@@ -52,17 +52,30 @@ func (c cmd) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{}) 
 		return zc.Str("service", c.name)
 	})
 	// setup telemetry if wanted
-	if useTelemetry {
-		tp, err := telemetry.Init(ctx, os.Args[1])
-		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to initialize telemetry")
-		} else {
-			defer tp.Shutdown(ctx)
+
+	var telemetryShutdown func()
+	defer func() {
+		if telemetryShutdown != nil {
+			telemetryShutdown()
 		}
-	}
+	}()
 
 	loader := func() (config.Config, error) {
-		return config.LoadFile(configFile, configEnvFile)
+		cfg, err := config.LoadFile(configFile, configEnvFile)
+		if err != nil {
+			return cfg, err
+		}
+
+		if !cfg.Conf().Telemetry.Use { // no telemetry
+			return cfg, err
+		}
+
+		// yes telemetry
+		telemetryShutdown, err = telemetry.Init(ctx, cfg, os.Args[1])
+		if err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to initialize telemetry")
+		}
+		return cfg, err
 	}
 
 	errCh <- c.execute(ctx, loader)

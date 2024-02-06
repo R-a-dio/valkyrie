@@ -44,9 +44,10 @@ func (e executor) With(ctx context.Context) Executor {
 }
 
 func (e *executor) Execute(w io.Writer, r *http.Request, input TemplateSelectable) error {
-	theme := GetTheme(r.Context())
+	var ctx = r.Context()
+	theme := GetTheme(ctx)
 
-	return e.ExecuteTemplate(theme, input.TemplateBundle(), input.TemplateName(), w, input)
+	return e.With(ctx).ExecuteTemplate(theme, input.TemplateBundle(), input.TemplateName(), w, input)
 }
 
 func (e *executor) ExecuteFull(theme, page string, output io.Writer, input any) error {

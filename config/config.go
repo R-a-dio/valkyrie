@@ -65,6 +65,10 @@ var defaultConfig = config{
 		Addr:     "127.0.0.1:4848",
 		Fallback: "https://relay0.r-a-d.io/main.mp3",
 	},
+	Telemetry: telemetry{
+		Use:      false,
+		Endpoint: ":5081",
+	},
 }
 
 // config represents a full configuration file of this project, each tool part
@@ -94,6 +98,14 @@ type config struct {
 	Manager  manager
 	Elastic  elasticsearch
 	Balancer balancer
+
+	Telemetry telemetry
+}
+
+type telemetry struct {
+	Use      bool
+	Endpoint string
+	Auth     string
 }
 
 type providers struct {
