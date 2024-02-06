@@ -21,7 +21,7 @@ func NewChatInput(r *http.Request) ChatInput {
 func (s State) GetChat(w http.ResponseWriter, r *http.Request) {
 	input := NewChatInput(r)
 
-	err := s.TemplateExecutor.Execute(w, r, input)
+	err := s.Templates.Execute(w, r, input)
 	if err != nil {
 		s.errorHandler(w, r, err)
 		return

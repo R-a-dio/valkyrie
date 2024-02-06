@@ -34,7 +34,7 @@ func (s State) getQueue(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	return s.TemplateExecutor.Execute(w, r, input)
+	return s.Templates.Execute(w, r, input)
 }
 
 func (s State) GetQueue(w http.ResponseWriter, r *http.Request) {

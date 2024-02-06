@@ -65,5 +65,5 @@ func (s State) getHome(w http.ResponseWriter, r *http.Request) error {
 	}
 	input.News = news.Entries
 
-	return s.TemplateExecutor.Execute(w, r, input)
+	return s.Templates.Execute(w, r, input)
 }

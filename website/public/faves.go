@@ -21,7 +21,7 @@ func NewFavesInput(r *http.Request) FavesInput {
 func (s State) GetFaves(w http.ResponseWriter, r *http.Request) {
 	input := NewFavesInput(r)
 
-	err := s.TemplateExecutor.Execute(w, r, input)
+	err := s.Templates.Execute(w, r, input)
 	if err != nil {
 		s.errorHandler(w, r, err)
 		return

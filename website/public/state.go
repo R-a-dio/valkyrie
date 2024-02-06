@@ -19,12 +19,11 @@ const theme = "default"
 type State struct {
 	config.Config
 
-	Daypass          *daypass.Daypass
-	Templates        *templates.Site
-	TemplateExecutor templates.Executor
-	Manager          radio.ManagerService
-	Streamer         radio.StreamerService
-	Storage          radio.StorageService
+	Daypass   *daypass.Daypass
+	Templates templates.Executor
+	Manager   radio.ManagerService
+	Streamer  radio.StreamerService
+	Storage   radio.StorageService
 }
 
 func (s *State) errorHandler(w http.ResponseWriter, r *http.Request, err error) {

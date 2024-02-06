@@ -35,7 +35,7 @@ func (s State) GetNews(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = s.TemplateExecutor.Execute(w, r, input)
+	err = s.Templates.Execute(w, r, input)
 	if err != nil {
 		s.errorHandler(w, r, err)
 		return

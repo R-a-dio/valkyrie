@@ -111,7 +111,7 @@ func (s State) getSubmit(w http.ResponseWriter, r *http.Request, form *Submissio
 		return errors.E(op, err)
 	}
 
-	return s.TemplateExecutor.Execute(w, r, input)
+	return s.Templates.Execute(w, r, input)
 }
 
 func (s State) PostSubmit(w http.ResponseWriter, r *http.Request) {
@@ -119,7 +119,7 @@ func (s State) PostSubmit(w http.ResponseWriter, r *http.Request) {
 	responseFn := func(form SubmissionForm) {
 		var err error
 		if IsHTMX(r) {
-			err = s.TemplateExecutor.Execute(w, r, form)
+			err = s.Templates.Execute(w, r, form)
 		} else {
 			err = s.getSubmit(w, r, &form)
 		}

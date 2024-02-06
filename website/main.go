@@ -135,13 +135,12 @@ func Execute(ctx context.Context, cfg config.Config) error {
 
 	// public routes
 	r.Route("/", public.Route(ctx, public.State{
-		Config:           cfg,
-		Daypass:          dpass,
-		Templates:        siteTemplates,
-		TemplateExecutor: siteTemplates.Executor(),
-		Manager:          manager,
-		Streamer:         streamer,
-		Storage:          storage,
+		Config:    cfg,
+		Daypass:   dpass,
+		Templates: siteTemplates.Executor(),
+		Manager:   manager,
+		Streamer:  streamer,
+		Storage:   storage,
 	}))
 
 	// setup the http server

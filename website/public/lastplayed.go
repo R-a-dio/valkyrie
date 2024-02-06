@@ -47,7 +47,7 @@ func (s State) getLastPlayed(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	return s.TemplateExecutor.Execute(w, r, input)
+	return s.Templates.Execute(w, r, input)
 }
 
 func (s State) GetLastPlayed(w http.ResponseWriter, r *http.Request) {

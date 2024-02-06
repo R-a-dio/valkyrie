@@ -21,7 +21,7 @@ func (SearchInput) TemplateBundle() string {
 func (s State) GetSearch(w http.ResponseWriter, r *http.Request) {
 	input := NewSearchInput(r)
 
-	err := s.TemplateExecutor.Execute(w, r, input)
+	err := s.Templates.Execute(w, r, input)
 	if err != nil {
 		s.errorHandler(w, r, err)
 		return
