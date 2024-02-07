@@ -95,7 +95,7 @@ func (up UserPermissions) Has(perm UserPermission) bool {
 		return false
 	}
 	_, ok := up[perm]
-	if !ok {
+	if !ok && perm != PermActive { // only if active user
 		// devs have access to everything
 		_, ok = up[PermDev]
 		return ok

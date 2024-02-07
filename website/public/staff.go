@@ -2,6 +2,7 @@ package public
 
 import (
 	"net/http"
+	"slices"
 
 	radio "github.com/R-a-dio/valkyrie"
 )
@@ -21,6 +22,10 @@ func NewStaffInput(us radio.UserStorageService, r *http.Request) (*StaffInput, e
 	if err != nil {
 		return nil, err
 	}
+	// remove inactive users, don't want to show those
+	users = slices.DeleteFunc(users, func(u radio.User) bool {
+		return !u.UserPermissions.Has(radio.PermActive)
+	})
 
 	return &StaffInput{
 		SharedInput: NewSharedInput(r),

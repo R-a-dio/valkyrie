@@ -312,6 +312,7 @@ func (us UserStorage) All() ([]radio.User, error) {
 		users.deleted_at AS deleted_at,
 		users.created_at AS created_at,
 		IFNULL(users.user, '') AS username,
+		(SELECT group_concat(permission) FROM permissions WHERE user_id=users.id) AS userpermissions,
 		djs.id AS 'dj.id',
 		djs.regex AS 'dj.regex',
 		djs.djname AS 'dj.name',
