@@ -9,14 +9,13 @@
 {{end}}
 
 {{define "staff-rows"}}
-{{$ctx := .}}
-    {{range $role := $ctx.Roles}}
+    {{range $role := .Roles}}
         <div class="column block">
             {{template "staff-row-title" $role}}
             <div class="columns is-multiline has-background-white-ter px-4 py-3 content-border-top">
-                {{range $user := $ctx.Users}}
-                    {{if and (eq $user.Visible 1) (eq $user.Role $role)}}
-                        {{template "djcard" $user}}
+                {{range $user := $.Users}}
+                    {{if and $user.DJ.Visible (eq $user.DJ.Role $role)}}
+                        {{template "djcard" $user.DJ}}
                     {{end}}
                 {{end}}
              </div>
@@ -39,11 +38,11 @@
     <div class="card has-background-white-bis p-4 m-2">
     	<div class="card-image">
 	<figure class="image is-square ml-0 mr-0">
-		<img src="/api/dj-image/{{.DjImage}}"/>
+		<img src="/api/dj-image/{{.Image}}"/>
 	</figure>
 	</div>
         <div class="card-content has-text-centered pt-4 pb-0">
-            <div class="title is-4 word-break-ellipsis">{{.DjName}}</div>
+            <div class="title is-4 word-break-ellipsis">{{.Name}}</div>
         </div>
     </div>
 </div>
