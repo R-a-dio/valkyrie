@@ -76,6 +76,7 @@ func (s *State) PostPending(w http.ResponseWriter, r *http.Request) {
 	var input = NewPendingInput(r)
 
 	if input.User == nil || !input.User.UserPermissions.Has(radio.PermPendingEdit) {
+		hlog.FromRequest(r).Warn().Any("user", input.User).Msg("failed permission check")
 		s.GetPending(w, r)
 		return
 	}
@@ -362,4 +363,31 @@ func (pf *PendingForm) ToSong(user radio.User) radio.Song {
 	}
 
 	return song
+}
+
+func (pf *PendingForm) ToValues() url.Values {
+	var v = make(url.Values)
+
+	v.Add("id", strconv.Itoa(int(pf.ID)))
+	switch pf.Status {
+	case radio.SubmissionAccepted:
+		v.Add("action", "accept")
+	case radio.SubmissionDeclined:
+		v.Add("action", "decline")
+	case radio.SubmissionReplacement:
+		v.Add("action", "replace")
+	}
+
+	v.Add("artist", pf.Artist)
+	v.Add("title", pf.Title)
+	v.Add("album", pf.Album)
+	v.Add("tags", pf.Tags)
+	if pf.ReplacementID > 0 {
+		v.Add("replacement", pf.ReplacementID.String())
+	}
+	v.Add("reason", pf.Reason)
+	if pf.GoodUpload {
+		v.Add("good", "checked")
+	}
+	return v
 }

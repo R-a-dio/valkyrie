@@ -348,6 +348,7 @@ const (
 	NoRelays                           // No relays were found in the DB.
 	TemplateUnknown                    // Template does not exist
 	TemplateParseError                 // Template failed to parse
+	Testing                            // For testing purposes
 )
 
 func (k Kind) String() string {
@@ -414,6 +415,8 @@ func (k Kind) String() string {
 		return "template does not exist"
 	case TemplateParseError:
 		return "template parse error"
+	case Testing:
+		return "testing"
 	}
 
 	return "unknown error kind"

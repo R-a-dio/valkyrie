@@ -14,9 +14,26 @@ type SearchService struct {
 }
 
 type searchTrack struct {
-	databaseTrack
+	radio.Song
 	Score float64
 }
+
+var searchSearchQuery = expand(`
+SELECT
+	{trackColumns},
+	(SELECT dt FROM eplay WHERE eplay.isong = esong.id ORDER BY dt DESC LIMIT 1) AS lastplayed,
+	{songColumns}
+FROM
+(SELECT *, MATCH (artist, track, album, tags) AGAINST (? IN BOOLEAN MODE) score
+	FROM tracks 
+	HAVING score > 0
+	ORDER BY score DESC
+	LIMIT ? OFFSET ?) AS tracks
+JOIN
+	esong ON esong.hash = tracks.hash
+ORDER BY
+	score DESC;
+`)
 
 func (ss SearchService) Search(ctx context.Context, search_query string, limit int, offset int) (*radio.SearchResult, error) {
 	search_query, err := processQuery(search_query)
@@ -24,26 +41,16 @@ func (ss SearchService) Search(ctx context.Context, search_query string, limit i
 		return nil, err
 	}
 
-	var query = `
-	SELECT
-		*,
-		MATCH (artist, track, album, tags) AGAINST (? IN BOOLEAN MODE) score
-	FROM tracks
-	HAVING score > 0
-	ORDER BY score DESC
-	LIMIT ? OFFSET ?;
-	`
-
 	var result []searchTrack
 
-	err = sqlx.Select(ss.db, &result, query, search_query, limit, offset)
+	err = sqlx.Select(ss.db, &result, searchSearchQuery, search_query, limit, offset)
 	if err != nil {
 		return nil, err
 	}
 
 	var songs = make([]radio.Song, len(result))
 	for i, tmp := range result {
-		songs[i] = tmp.ToSong()
+		songs[i] = tmp.Song
 	}
 
 	return &radio.SearchResult{Songs: songs}, nil

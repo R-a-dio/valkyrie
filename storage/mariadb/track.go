@@ -2,6 +2,7 @@ package mariadb
 
 import (
 	"database/sql"
+	"strings"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -13,6 +14,36 @@ import (
 // FavePriorityIncrement is the amount we increase/decrease priority by
 // on a track when it gets favorited/unfavorited
 const FavePriorityIncrement = 1
+
+func expand(query string) string {
+	query = strings.ReplaceAll(query, "{trackColumns}", tracksColumns)
+	query = strings.ReplaceAll(query, "{songColumns}", songColumns)
+	return query
+}
+
+const tracksColumns = `
+	tracks.id AS trackid,
+	IFNULL(tracks.artist, '') AS artist,
+	IFNULL(tracks.track, '') AS title,
+	IFNULL(tracks.album, '') AS album,
+	IFNULL(tracks.path, '') AS filepath,
+	IFNULL(tracks.tags, '') AS tags,
+	tracks.accepter AS acceptor,
+	tracks.lasteditor,
+	tracks.priority,
+	IF(tracks.usable, TRUE, FALSE) AS usable,
+	IF(tracks.need_reupload, TRUE, FALSE) AS needreplacement,
+	tracks.lastrequested,
+	tracks.requestcount,
+	tracks.hash
+`
+
+const songColumns = `
+	esong.id AS id,
+	esong.meta AS metadata,
+	to_go_duration(esong.len) AS length,
+	NOW() AS synctime
+`
 
 // databaseTrack is the type used to communicate with the database
 type databaseTrack struct {

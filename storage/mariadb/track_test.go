@@ -28,7 +28,7 @@ func generateDatabaseTrack(v []reflect.Value, r *rand.Rand) {
 			// fields somewhere in a struct
 			switch vt.Name() {
 			case "NullTime":
-				value = reflect.ValueOf(mysql.NullTime{
+				value = reflect.ValueOf(sql.NullTime{
 					Valid: true,
 					Time:  time.Unix(r.Int63(), r.Int63()),
 				})
