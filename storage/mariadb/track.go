@@ -16,12 +16,19 @@ import (
 const FavePriorityIncrement = 1
 
 func expand(query string) string {
-	query = strings.ReplaceAll(query, "{trackColumns}", tracksColumns)
+	var orig = query
+	query = strings.ReplaceAll(query, "{trackColumns}", trackColumns)
+	query = strings.ReplaceAll(query, "{maybeTrackColumns}", maybeTrackColumns)
 	query = strings.ReplaceAll(query, "{songColumns}", songColumns)
+	query = strings.ReplaceAll(query, "{maybeSongColumns}", maybeSongColumns)
+	query = strings.ReplaceAll(query, "{lastplayedSelect}", lastplayedSelect)
+	if orig == query {
+		panic("expand called but nothing was expanded")
+	}
 	return query
 }
 
-const tracksColumns = `
+const trackColumns = `
 	tracks.id AS trackid,
 	IFNULL(tracks.artist, '') AS artist,
 	IFNULL(tracks.track, '') AS title,
@@ -34,87 +41,42 @@ const tracksColumns = `
 	IF(tracks.usable, TRUE, FALSE) AS usable,
 	IF(tracks.need_reupload, TRUE, FALSE) AS needreplacement,
 	tracks.lastrequested,
-	tracks.requestcount,
-	tracks.hash
+	tracks.requestcount
+`
+
+const maybeTrackColumns = `
+	IFNULL(tracks.id, 0) AS trackid,
+	IFNULL(tracks.artist, '') AS artist,
+	IFNULL(tracks.track, '') AS title,
+	IFNULL(tracks.album, '') AS album,
+	IFNULL(tracks.path, '') AS filepath,
+	IFNULL(tracks.tags, '') AS tags,
+	IFNULL(tracks.accepter, '') AS acceptor,
+	IFNULL(tracks.lasteditor, '') AS lasteditor,
+	IFNULL(tracks.priority, 0) AS priority,
+	IF(tracks.usable, TRUE, FALSE) AS usable,
+	IF(tracks.need_reupload, TRUE, FALSE) AS needreplacement,
+	IFNULL(tracks.lastrequested, TIMESTAMP('0000-00-00 00:00:00')) AS lastrequested,
+	IFNULL(tracks.requestcount, 0) AS requestcount
 `
 
 const songColumns = `
 	esong.id AS id,
 	esong.meta AS metadata,
-	to_go_duration(esong.len) AS length,
-	NOW() AS synctime
+	esong.hash AS hash,
+	to_go_duration(esong.len) AS length
 `
 
-// databaseTrack is the type used to communicate with the database
-type databaseTrack struct {
-	// Hash is shared between tracks and esong
-	Hash radio.SongHash
-	// LastPlayed is shared between tracks and eplay
-	LastPlayed sql.NullTime
+const maybeSongColumns = `
+	IFNULL(esong.id, 0) AS id,
+	IFNULL(esong.meta, '') AS metadata,
+	IFNULL(esong.hash, '') AS hash,
+	IFNULL(to_go_duration(esong.len), 0) AS length
+`
 
-	// esong fields
-	ID       sql.NullInt64
-	Length   sql.NullFloat64
-	Metadata sql.NullString
-
-	// tracks fields
-	TrackID       sql.NullInt64
-	Artist        sql.NullString
-	Track         sql.NullString
-	Album         sql.NullString
-	Path          sql.NullString
-	Tags          sql.NullString
-	Priority      sql.NullInt64
-	LastRequested sql.NullTime
-	Usable        sql.NullInt64
-	Acceptor      sql.NullString `db:"accepter"`
-	LastEditor    sql.NullString
-
-	RequestCount    sql.NullInt64
-	NeedReplacement sql.NullInt64 `db:"need_reupload"`
-}
-
-func (dt databaseTrack) ToSong() radio.Song {
-	var track *radio.DatabaseTrack
-	if dt.TrackID.Valid {
-		track = &radio.DatabaseTrack{
-			TrackID:  radio.TrackID(dt.TrackID.Int64),
-			Artist:   dt.Artist.String,
-			Title:    dt.Track.String,
-			Album:    dt.Album.String,
-			FilePath: dt.Path.String,
-			Tags:     dt.Tags.String,
-
-			Acceptor:   dt.Acceptor.String,
-			LastEditor: dt.LastEditor.String,
-
-			Priority: int(dt.Priority.Int64),
-			Usable:   dt.Usable.Int64 == 1,
-
-			LastRequested:   dt.LastRequested.Time,
-			RequestCount:    int(dt.RequestCount.Int64),
-			RequestDelay:    radio.CalculateRequestDelay(int(dt.RequestCount.Int64)),
-			NeedReplacement: dt.NeedReplacement.Int64 == 1,
-		}
-	}
-
-	song := radio.Song{
-		ID:            radio.SongID(dt.ID.Int64),
-		Hash:          dt.Hash,
-		Metadata:      dt.Metadata.String,
-		Length:        time.Duration(float64(time.Second) * dt.Length.Float64),
-		LastPlayed:    dt.LastPlayed.Time,
-		DatabaseTrack: track,
-		SyncTime:      time.Now(),
-	}
-	song.Hydrate()
-	return song
-}
-
-func (dt databaseTrack) ToSongPtr() *radio.Song {
-	song := dt.ToSong()
-	return &song
-}
+const lastplayedSelect = `
+	(SELECT dt FROM eplay WHERE eplay.isong = esong.id ORDER BY dt DESC LIMIT 1) AS lastplayed
+`
 
 // SongStorage implements radio.SongStorage
 type SongStorage struct {
@@ -166,20 +128,28 @@ func (ss SongStorage) FromMetadata(metadata string) (*radio.Song, error) {
 	return song, nil
 }
 
+var songFromHashQuery = expand(`
+SELECT
+	{maybeTrackColumns},
+	{songColumns},
+	{lastplayedSelect},
+	NOW() AS synctime
+FROM
+	tracks
+RIGHT JOIN
+	esong ON tracks.hash=esong.hash
+WHERE
+	esong.hash=?
+LIMIT 1;
+`)
+
 // FromHash implements radio.SongStorage
 func (ss SongStorage) FromHash(hash radio.SongHash) (*radio.Song, error) {
 	const op errors.Op = "mariadb/SongStorage.FromHash"
 
-	var tmp databaseTrack
+	var song radio.Song
 
-	var query = `
-	SELECT tracks.id AS trackid, esong.id AS id, esong.hash AS hash, esong.meta AS metadata,
-	len AS length, eplay.dt AS lastplayed, artist, track, album, path,
-	tags, accepter, lasteditor, priority, usable, lastrequested,
-	requestcount FROM tracks RIGHT JOIN esong ON tracks.hash = esong.hash LEFT JOIN eplay ON
-	esong.id = eplay.isong WHERE esong.hash=? ORDER BY eplay.dt DESC LIMIT 1;`
-
-	err := sqlx.Get(ss.handle, &tmp, query, hash)
+	err := sqlx.Get(ss.handle, &song, songFromHashQuery, hash)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, errors.E(op, errors.SongUnknown)
@@ -187,53 +157,35 @@ func (ss SongStorage) FromHash(hash radio.SongHash) (*radio.Song, error) {
 		return nil, errors.E(op, err)
 	}
 
-	return tmp.ToSongPtr(), nil
+	return &song, nil
 }
+
+var songLastPlayedQuery = expand(`
+SELECT
+	{maybeTrackColumns},
+	{songColumns},
+	eplay.dt AS lastplayed,
+	NOW() AS synctime
+FROM
+	esong
+RIGHT JOIN
+	eplay ON esong.id=eplay.isong
+LEFT JOIN
+	tracks ON esong.hash=tracks.hash
+ORDER BY
+	eplay.dt DESC
+LIMIT ? OFFSET ?;
+`)
 
 // LastPlayed implements radio.SongStorage
 func (ss SongStorage) LastPlayed(offset, amount int) ([]radio.Song, error) {
 	const op errors.Op = "mariadb/SongStorage.LastPlayed"
 
-	var query = `
-	SELECT
-		esong.id AS id,
-		esong.hash AS hash,
-		esong.meta AS metadata,
-		esong.len AS length,
-		tracks.id AS trackid,
-		eplay.dt AS lastplayed,
-		tracks.id AS trackid,
-		tracks.artist,
-		tracks.track,
-		tracks.album,
-		tracks.path,
-		tracks.tags,
-		tracks.accepter,
-		tracks.lasteditor,
-		tracks.priority,
-		tracks.usable,
-		tracks.lastrequested,
-		tracks.requestcount
-	FROM
-		esong
-	RIGHT JOIN
-		eplay ON esong.id = eplay.isong
-	LEFT JOIN
-		tracks ON esong.hash = tracks.hash
-	ORDER BY 
-		eplay.dt DESC
-	LIMIT ? OFFSET ?;`
+	var songs = make([]radio.Song, 0, amount)
 
-	var tmps = make([]databaseTrack, 0, amount)
-
-	err := sqlx.Select(ss.handle, &tmps, query, amount, offset)
+	err := sqlx.Select(ss.handle, &songs, songLastPlayedQuery, amount, offset)
 	if err != nil {
 		return nil, errors.E(op, err)
-	}
-
-	var songs = make([]radio.Song, len(tmps))
-	for i, tmp := range tmps {
-		songs[i] = tmp.ToSong()
 	}
 
 	return songs, nil
@@ -297,52 +249,35 @@ func (ss SongStorage) Favorites(song radio.Song) ([]string, error) {
 	return users, nil
 }
 
+var songFavoritesOfQuery = expand(`
+SELECT
+	{songColumns},
+	{trackColumns},
+	{lastplayedSelect},
+	NOW() AS synctime
+FROM
+	tracks
+LEFT JOIN
+	esong ON tracks.hash = esong.hash
+JOIN
+	efave ON efave.isong = esong.id
+JOIN
+	enick ON efave.inick = enick.id
+WHERE
+	tracks.usable = 1
+AND
+	enick.nick = ?;
+`)
+
 // FavoritesOf implements radio.SongStorage
 func (ss SongStorage) FavoritesOf(nick string) ([]radio.Song, error) {
 	const op errors.Op = "mariadb/SongStorage.FavoritesOf"
 
-	var query = `
-	SELECT
-		esong.id AS id,
-		esong.hash AS hash,
-		esong.meta AS metadata,
-		esong.len AS length,
-		tracks.id AS trackid,
-		tracks.lastplayed,
-		tracks.artist,
-		tracks.track,
-		tracks.album,
-		tracks.path,
-		tracks.tags,
-		tracks.accepter,
-		tracks.lasteditor,
-		tracks.priority,
-		tracks.usable,
-		tracks.lastrequested,
-		tracks.requestcount
-	FROM
-		tracks
-	LEFT JOIN
-		esong ON tracks.hash = esong.hash
-	JOIN
-		efave ON efave.isong = esong.id
-	JOIN
-		enick ON efave.inick = enick.id
-	WHERE
-		tracks.usable=1 AND
-		enick.nick=?;
-	`
+	var songs = []radio.Song{}
 
-	var tmps = []databaseTrack{}
-
-	err := sqlx.Select(ss.handle, &tmps, query, nick)
+	err := sqlx.Select(ss.handle, &songs, songFavoritesOfQuery, nick)
 	if err != nil {
 		return nil, errors.E(op, err)
-	}
-
-	var songs = make([]radio.Song, len(tmps))
-	for i, tmp := range tmps {
-		songs[i] = tmp.ToSong()
 	}
 
 	return songs, nil
@@ -448,25 +383,27 @@ type TrackStorage struct {
 	handle handle
 }
 
+var trackGetQuery = expand(`
+SELECT
+	{trackColumns},
+	{maybeSongColumns},
+	{lastplayedSelect},
+	NOW() AS synctime
+FROM
+	tracks
+LEFT JOIN
+	esong ON tracks.hash = esong.hash
+WHERE
+	tracks.id = ?;
+`)
+
 // Get implements radio.TrackStorage
 func (ts TrackStorage) Get(id radio.TrackID) (*radio.Song, error) {
 	const op errors.Op = "mariadb/TrackStorage.Get"
 
-	// we create a temporary struct to handle NULL values returned by
-	// the query, both Length and Song.ID can be NULL due to the LEFT JOIN
-	// not necessarily having an entry in the `esong` table.
-	// Song.ID is handled by the SongID type implementing sql.Scanner, but
-	// we don't want a separate type for Length, so we're doing it separately.
-	var tmp databaseTrack
+	var song radio.Song
 
-	var query = `
-	SELECT tracks.id AS trackid, esong.id AS id, tracks.hash AS hash,
-	len AS length, lastplayed, artist, track, album, path,
-	tags, accepter, lasteditor, priority, usable, lastrequested,
-	requestcount FROM tracks LEFT JOIN esong ON tracks.hash = esong.hash WHERE 
-	tracks.id=?;`
-
-	err := sqlx.Get(ts.handle, &tmp, query, id)
+	err := sqlx.Get(ts.handle, &song, trackGetQuery, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, errors.E(op, errors.SongUnknown)
@@ -474,80 +411,63 @@ func (ts TrackStorage) Get(id radio.TrackID) (*radio.Song, error) {
 		return nil, errors.E(op, err)
 	}
 
-	return tmp.ToSongPtr(), nil
+	return &song, nil
 }
+
+var trackAllQuery = expand(`
+SELECT
+	{trackColumns},
+	{maybeSongColumns},
+	{lastplayedSelect},
+	NOW() AS synctime
+FROM
+	tracks
+LEFT JOIN
+	esong ON tracks.hash = esong.hash
+JOIN
+	eplay ON eplay.isong = esong.id;
+`)
 
 // All implements radio.TrackStorage
 func (ts TrackStorage) All() ([]radio.Song, error) {
 	const op errors.Op = "mariadb/TrackStorage.All"
 
-	var tmps = []databaseTrack{}
+	var songs = []radio.Song{}
 
-	var query = `
-	SELECT tracks.id AS trackid, esong.id AS id, tracks.hash AS hash,
-	len AS length, lastplayed, artist, track, album, path,
-	tags, accepter, lasteditor, priority, usable, lastrequested,
-	requestcount FROM tracks LEFT JOIN esong ON tracks.hash = esong.hash;`
-
-	err := sqlx.Select(ts.handle, &tmps, query)
+	err := sqlx.Select(ts.handle, &songs, trackAllQuery)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
 
-	var tracks = make([]radio.Song, len(tmps))
-	for i, tmp := range tmps {
-		tracks[i] = tmp.ToSong()
-	}
-
-	return tracks, nil
+	return songs, nil
 }
+
+var trackUnusableQuery = expand(`
+SELECT
+	{maybeSongColumns},
+	{trackColumns},
+	{lastplayedSelect},
+	NOW() as synctime
+FROM
+	tracks
+LEFT JOIN
+	esong ON tracks.hash = esong.hash
+WHERE
+	tracks.usable != 1;
+`)
 
 // Unusable implements radio.TrackStorage
 func (ts TrackStorage) Unusable() ([]radio.Song, error) {
 	const op errors.Op = "mariadb/TrackStorage.Unusable"
 
-	var tmps = []databaseTrack{}
+	var songs = []radio.Song{}
 
-	var query = `
-	SELECT 
-		esong.id AS id,
-		esong.hash AS hash,
-		esong.meta AS metadata,
-		esong.len AS length,
-		tracks.id AS trackid,
-		tracks.lastplayed,
-		tracks.artist,
-		tracks.track,
-		tracks.album,
-		tracks.path,
-		tracks.tags,
-		tracks.accepter,
-		tracks.lasteditor,
-		tracks.priority,
-		tracks.usable,
-		tracks.lastrequested,
-		tracks.requestcount
-	FROM
-		tracks
-	LEFT JOIN 
-		esong
-	ON
-		tracks.hash = esong.hash
-	WHERE
-		tracks.usable != 1;
-	`
-
-	err := sqlx.Select(ts.handle, &tmps, query)
+	err := sqlx.Select(ts.handle, &songs, trackUnusableQuery)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
 
-	var tracks = make([]radio.Song, len(tmps))
-	for i, tmp := range tmps {
-		tracks[i] = tmp.ToSong()
-	}
-
-	return tracks, nil
+	return songs, nil
 }
 
 func IsDuplicateKeyErr(err error) bool {
@@ -785,49 +705,31 @@ func (ts TrackStorage) UpdateLastRequested(id radio.TrackID) error {
 	return nil
 }
 
+var trackBeforeLastRequestedQuery = expand(`
+SELECT
+	{maybeSongColumns},
+	{trackColumns},
+	{lastplayedSelect},
+	NOW() AS synctime
+FROM
+	tracks
+LEFT JOIN
+	esong ON tracks.hash = esong.hash
+WHERE
+	track.lastrequested < ?
+AND
+	requestcount > 0;
+`)
+
 // BeforeLastRequested implements radio.TrackStorage
 func (ts TrackStorage) BeforeLastRequested(before time.Time) ([]radio.Song, error) {
 	const op errors.Op = "mariadb/TrackStorage.BeforeLastRequested"
 
-	var query = `
-		SELECT
-			esong.id AS id,
-			esong.hash AS hash,
-			esong.meta AS metadata,
-			esong.len AS length,
-			tracks.id AS trackid,
-			tracks.lastplayed,
-			tracks.artist,
-			tracks.track,
-			tracks.album,
-			tracks.path,
-			tracks.tags,
-			tracks.accepter,
-			tracks.lasteditor,
-			tracks.priority,
-			tracks.usable,
-			tracks.lastrequested,
-			tracks.requestcount
-		FROM
-			tracks
-		LEFT JOIN
-			esong ON tracks.hash = esong.hash
-		WHERE
-			lastrequested < ?
-		AND
-			requestcount > 0;
-	`
+	var songs = []radio.Song{}
 
-	var tmps = []databaseTrack{}
-
-	err := sqlx.Select(ts.handle, &tmps, query, before)
+	err := sqlx.Select(ts.handle, &songs, trackBeforeLastRequestedQuery, before)
 	if err != nil {
 		return nil, errors.E(op, err)
-	}
-
-	var songs = make([]radio.Song, len(tmps))
-	for i, tmp := range tmps {
-		songs[i] = tmp.ToSong()
 	}
 
 	return songs, nil

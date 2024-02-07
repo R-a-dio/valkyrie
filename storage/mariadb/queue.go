@@ -17,7 +17,7 @@ type queueSong struct {
 	ExpectedStartTime time.Time
 	UserIdentifier    string
 	IsRequest         int
-	databaseTrack
+	radio.Song
 }
 
 // Store stores the queue given under name in the database configured
@@ -71,59 +71,36 @@ func (qs QueueStorage) Store(name string, queue []radio.QueueEntry) error {
 	return tx.Commit()
 }
 
+var queueLoadQuery = expand(`
+SELECT
+	queue.trackid,
+	queue.time AS expectedstarttime,
+	queue.ip AS useridentifier,
+	queue.type AS isrequest,
+	queue.meta AS metadata,
+	queue.length,
+	{lastplayedSelect},
+	{maybeSongColumns},
+	{trackColumns}
+FROM
+	queue
+LEFT JOIN
+	tracks ON queue.trackid = tracks.id
+LEFT JOIN
+	esong ON tracks.hash = esong.hash
+ORDER BY
+	queue.id ASC;
+`)
+
 // Load loads the queue name given from the database configured
 //
 // Implements radio.QueueStorage
 func (qs QueueStorage) Load(name string) ([]radio.QueueEntry, error) {
 	const op errors.Op = "mariadb/QueueStorage.Load"
 
-	// TODO: check if a transaction is really required here?
-	handle, tx, err := requireTx(qs.handle)
-	if err != nil {
-		return nil, errors.E(op, err)
-	}
-	defer tx.Rollback()
-
-	var query = `
-	SELECT
-		queue.trackid,
-		queue.time AS expectedstarttime,
-		queue.ip AS useridentifier,
-		queue.type AS isrequest,
-		queue.meta AS metadata,
-		queue.length, 
-		(
-			SELECT
-				dt
-			FROM eplay
-			WHERE 
-				eplay.isong = esong.id 
-			ORDER BY dt DESC
-			LIMIT 1
-		) AS lastplayed,
-		esong.id AS id,
-		esong.hash AS hash,
-		tracks.artist,
-		tracks.track,
-		tracks.album,
-		tracks.path,
-		tracks.tags,
-		tracks.accepter,
-		tracks.lasteditor,
-		tracks.priority,
-		tracks.usable,
-		tracks.lastrequested,
-		tracks.requestcount
-	FROM queue 
-		LEFT JOIN tracks ON queue.trackid = tracks.id
-		LEFT JOIN esong ON tracks.hash = esong.hash
-	ORDER BY 
-		queue.id ASC;
-	`
-
 	var queue []queueSong
 
-	err = sqlx.Select(handle, &queue, query)
+	err := sqlx.Select(qs.handle, &queue, queueLoadQuery)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
@@ -131,15 +108,11 @@ func (qs QueueStorage) Load(name string) ([]radio.QueueEntry, error) {
 	songs := make([]radio.QueueEntry, len(queue))
 	for i, qSong := range queue {
 		songs[i] = radio.QueueEntry{
-			Song:              qSong.ToSong(),
+			Song:              qSong.Song,
 			IsUserRequest:     qSong.IsRequest == 1,
 			UserIdentifier:    qSong.UserIdentifier,
 			ExpectedStartTime: qSong.ExpectedStartTime,
 		}
-	}
-
-	if err = tx.Commit(); err != nil {
-		return nil, errors.E(op, err)
 	}
 
 	return songs, nil
