@@ -31,7 +31,7 @@ type executor struct {
 	ctx  context.Context
 }
 
-func NewExecutor(site *Site) Executor {
+func newExecutor(site *Site) Executor {
 	return &executor{
 		site: site,
 		ctx:  context.Background(),

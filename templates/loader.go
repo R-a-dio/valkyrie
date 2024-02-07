@@ -56,7 +56,7 @@ type TemplateSelector interface {
 }
 
 func (s *Site) Executor() Executor {
-	return NewExecutor(s)
+	return newExecutor(s)
 }
 
 func (s *Site) ThemeNames() []string {
