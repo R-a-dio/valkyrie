@@ -269,7 +269,10 @@ func LoadFile(filenames ...string) (Config, error) {
 	}
 
 	if f == nil {
-		return newConfig(defaultConfig), errs
+		if len(errs) > 0 {
+			err = errs
+		}
+		return newConfig(defaultConfig), err
 	}
 	defer f.Close()
 

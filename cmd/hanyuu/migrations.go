@@ -12,13 +12,10 @@ import (
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/migrations"
-	"github.com/R-a-dio/valkyrie/storage/mariadb"
 	"github.com/rs/zerolog"
 
 	"github.com/golang-migrate/migrate/v4"
-	mysqldriver "github.com/golang-migrate/migrate/v4/database/mysql"
 	"github.com/golang-migrate/migrate/v4/source"
-	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/google/subcommands"
 )
 
@@ -189,30 +186,10 @@ func (m migrateCmd) version(ctx context.Context, cfg config.Config) error {
 }
 
 func (m *migrateCmd) setup(ctx context.Context, cfg config.Config) error {
-	s, err := iofs.New(migrations.FS, ".")
+	migr, err := migrations.New(ctx, cfg)
 	if err != nil {
 		return err
 	}
-	m.source = s
-
-	db, err := mariadb.ConnectDB(ctx, cfg, true)
-	if err != nil {
-		return err
-	}
-
-	d, err := mysqldriver.WithInstance(db.DB, &mysqldriver.Config{})
-	if err != nil {
-		return err
-	}
-
-	migr, err := migrate.NewWithInstance(
-		"embed", m.source,
-		"mysql", d,
-	)
-	if err != nil {
-		return err
-	}
-
 	if m.verbose {
 		migr.Log = migrateLog{log.New(os.Stderr, "", log.LstdFlags)}
 	}

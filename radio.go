@@ -216,7 +216,7 @@ type SongInfo struct {
 }
 
 type SearchService interface {
-	Search(context.Context, string, int, int) (*SearchResult, error)
+	Search(ctx context.Context, query string, limit int, offset int) (*SearchResult, error)
 	Update(context.Context, ...Song) error
 	Delete(context.Context, ...Song) error
 }

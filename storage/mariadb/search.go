@@ -53,7 +53,7 @@ func (ss SearchService) Search(ctx context.Context, search_query string, limit i
 		songs[i] = tmp.Song
 	}
 
-	return &radio.SearchResult{Songs: songs}, nil
+	return &radio.SearchResult{Songs: songs, TotalHits: len(songs)}, nil
 }
 
 func processQuery(q string) (string, error) {
