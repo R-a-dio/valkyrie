@@ -169,7 +169,9 @@ func (s State) postSubmit(w http.ResponseWriter, r *http.Request) (SubmissionFor
 	cooldown, err := s.canSubmitSong(r)
 	if err != nil {
 		return SubmissionForm{
-			Errors: map[string]string{"cooldown": strconv.FormatInt(int64(cooldown/time.Second), 10)},
+			Errors: map[string]string{
+				"cooldown": strconv.FormatInt(int64(cooldown/time.Second), 10),
+			},
 		}, errors.E(op, err)
 	}
 
@@ -312,7 +314,7 @@ func (SubmissionForm) TemplateName() string {
 //
 // Any other fields cause an error to be returned and all form parsing to stop.
 func NewSubmissionForm(tempdir string, mr *multipart.Reader) (*SubmissionForm, error) {
-	const op errors.Op = "SubmissionForm.ParseForm"
+	const op errors.Op = "public.NewSubmissionForm"
 
 	var sf SubmissionForm
 
@@ -333,25 +335,25 @@ func NewSubmissionForm(tempdir string, mr *multipart.Reader) (*SubmissionForm, e
 				path := filepath.Clean("/" + part.FileName())
 				ext := filepath.Ext(path)
 				if !AllowedExtension(ext) {
-					return errors.E(op, errors.InvalidForm)
+					return errors.E(op, errors.InvalidForm, "extension not allowed", errors.Info(ext))
 				}
 				// remove any * because CreateTemp uses them for the random replacement
 				ext = strings.ReplaceAll(ext, "*", "")
 
 				f, err := os.CreateTemp(tempdir, "pending-*"+ext)
 				if err != nil {
-					return err
+					return errors.E(op, err, "failed to create temp file")
 				}
 				defer f.Close()
 
 				n, err := io.CopyN(f, part, formMaxFileLength)
 				if err != nil && !errors.IsE(err, io.EOF) {
 					os.Remove(f.Name())
-					return err
+					return errors.E(op, err, "copying to temp file failed")
 				}
 				if n >= formMaxFileLength {
 					os.Remove(f.Name())
-					return err
+					return errors.E(op, err, "form was too big")
 				}
 				sf.OriginalFilename = part.FileName()
 				sf.File = f.Name()
@@ -429,11 +431,11 @@ func (sf *SubmissionForm) Validate(ts radio.TrackStorage, dp *daypass.Daypass) b
 func AllowedExtension(ext string) bool {
 	ext = strings.ToLower(ext)
 	switch ext {
-	case "mp3":
+	case ".mp3":
 		return true
-	case "flac":
+	case ".flac":
 		return true
-	case "ogg":
+	case ".ogg":
 		return true
 	}
 	return false
