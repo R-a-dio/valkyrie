@@ -5,7 +5,6 @@ import (
 	"net/url"
 	"slices"
 	"strconv"
-	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
@@ -143,7 +142,7 @@ func (s *State) postPending(w http.ResponseWriter, r *http.Request) (PendingForm
 	// then update it with the submitted form data
 	form := NewPendingForm(*song, r.PostForm)
 	if !form.Validate() {
-		return form, errors.E(op, err, errors.InvalidForm)
+		return form, errors.E(op, errors.InvalidForm)
 	}
 
 	// continue somewhere else depending on the status
@@ -243,6 +242,7 @@ func (s *State) postPendingDoDecline(w http.ResponseWriter, r *http.Request, for
 func (s *State) postPendingDoAccept(w http.ResponseWriter, r *http.Request, form PendingForm) (PendingForm, error) {
 	const op errors.Op = "website/admin.postPendingDoAccept"
 	var ctx = r.Context()
+	var new = form
 
 	// transaction start
 	ss, tx, err := s.Storage.SubmissionsTx(ctx, nil)
@@ -264,7 +264,7 @@ func (s *State) postPendingDoAccept(w http.ResponseWriter, r *http.Request, form
 	if err != nil {
 		return form, errors.E(op, err, errors.InternalServer)
 	}
-	form.AcceptedSong = &track
+	new.AcceptedSong = &track
 
 	// insert the song into the post-pending info
 	err = ss.InsertPostPending(form.PendingSong)
@@ -285,7 +285,7 @@ func (s *State) postPendingDoAccept(w http.ResponseWriter, r *http.Request, form
 		return form, errors.E(op, err, errors.InternalServer)
 	}
 
-	return form, nil
+	return new, nil
 }
 
 // NewPendingForm creates a PendingForm with song as a base and updating those
@@ -308,15 +308,19 @@ func (pf *PendingForm) Update(form url.Values) {
 		pf.Status = radio.SubmissionInvalid
 	}
 
+	if id, err := strconv.ParseUint(form.Get("id"), 10, 0); err == nil {
+		pf.ID = radio.SubmissionID(id)
+	}
 	pf.Artist = form.Get("artist")
 	pf.Title = form.Get("title")
 	pf.Album = form.Get("album")
 	pf.Tags = form.Get("tags")
-	if id, err := strconv.Atoi(form.Get("replacement")); err == nil {
+	if id, err := strconv.ParseUint(form.Get("replacement"), 10, 64); err == nil {
 		pf.ReplacementID = radio.TrackID(id)
 	}
 	pf.Reason = form.Get("reason")
-	pf.ReviewedAt = time.Now()
+	// TODO: move reviewedat into db layer
+	// pf.ReviewedAt = time.Now()
 	pf.GoodUpload = form.Get("good") != ""
 }
 
@@ -368,7 +372,7 @@ func (pf *PendingForm) ToSong(user radio.User) radio.Song {
 func (pf *PendingForm) ToValues() url.Values {
 	var v = make(url.Values)
 
-	v.Add("id", strconv.Itoa(int(pf.ID)))
+	v.Add("id", strconv.FormatUint(uint64(pf.ID), 10))
 	switch pf.Status {
 	case radio.SubmissionAccepted:
 		v.Add("action", "accept")

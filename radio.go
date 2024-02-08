@@ -421,7 +421,7 @@ func (s Song) EqualTo(d Song) bool {
 type TrackID uint64
 
 func (t TrackID) String() string {
-	return strconv.Itoa(int(t))
+	return strconv.FormatUint(uint64(t), 10)
 }
 
 // DatabaseTrack is a song we have the actual audio file for and is available to the
@@ -877,7 +877,7 @@ type SubmissionStats struct {
 }
 
 // SubmissionID is the ID of a pending song
-type SubmissionID int
+type SubmissionID uint
 
 // SubmissionStatus is the status of a submitted song
 type SubmissionStatus int

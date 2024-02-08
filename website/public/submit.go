@@ -195,7 +195,7 @@ func (s State) postSubmit(w http.ResponseWriter, r *http.Request) (SubmissionFor
 	}()
 
 	// Run a sanity check on the form input
-	if !form.Validate(s.Daypass) {
+	if !form.Validate(s.Storage.Track(r.Context()), s.Daypass) {
 		return *form, errors.E(op, errors.InvalidForm)
 	}
 
@@ -395,7 +395,7 @@ func NewSubmissionForm(tempdir string, mr *multipart.Reader) (*SubmissionForm, e
 // Validate checks if required fields are filled in the SubmissionForm and
 // if a daypass was supplied if it was a valid one. Populates sf.Errors with
 // any errors that occur and what input field caused it.
-func (sf *SubmissionForm) Validate(dp *daypass.Daypass) bool {
+func (sf *SubmissionForm) Validate(ts radio.TrackStorage, dp *daypass.Daypass) bool {
 	sf.Errors = make(map[string]string)
 	if sf.File == "" {
 		sf.Errors["track"] = "no temporary file"
@@ -410,6 +410,15 @@ func (sf *SubmissionForm) Validate(dp *daypass.Daypass) bool {
 		sf.IsDaypass = dp.Is(sf.Daypass)
 		if !sf.IsDaypass {
 			sf.Errors["daypass"] = "daypass invalid"
+		}
+	}
+	if sf.Replacement != nil && *sf.Replacement != 0 {
+		song, err := ts.Get(*sf.Replacement)
+		if err != nil {
+			sf.Errors["replacement"] = "TrackID does not exist"
+		}
+		if !song.NeedReplacement {
+			sf.Errors["replacement"] = "TrackID does not need replacement"
 		}
 	}
 
