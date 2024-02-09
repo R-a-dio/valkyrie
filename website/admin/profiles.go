@@ -39,10 +39,8 @@ type ProfileForm struct {
 
 func toUserPermissionSlice(u radio.UserPermissions) []radio.UserPermission {
 	var res []radio.UserPermission
-	for k, v := range u {
-		if v {
-			res = append(res, k)
-		}
+	for perm := range u {
+		res = append(res, perm)
 	}
 	return res
 }
@@ -50,7 +48,7 @@ func toUserPermissionSlice(u radio.UserPermissions) []radio.UserPermission {
 func fromUserPermissionSlice(u []radio.UserPermission) radio.UserPermissions {
 	var res = radio.UserPermissions{}
 	for _, v := range u {
-		res[v] = true
+		res[v] = struct{}{}
 	}
 	return res
 }
@@ -140,7 +138,9 @@ func (s *State) getProfile(w http.ResponseWriter, r *http.Request, form *Profile
 			form.UserPermissions = make(radio.UserPermissions)
 		}
 		for _, perm := range availablePermissions {
-			form.UserPermissions[perm] = slices.Contains(form.Permissions, perm)
+			if slices.Contains(form.Permissions, perm) {
+				form.UserPermissions[perm] = struct{}{}
+			}
 		}
 	}
 

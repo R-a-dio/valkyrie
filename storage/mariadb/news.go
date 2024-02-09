@@ -27,12 +27,9 @@ func (ns NewsStorage) Get(id radio.NewsPostID) (*radio.NewsPost, error) {
 		radio_news.created_at AS created_at,
 		radio_news.updated_at AS updated_at,
 		radio_news.private AS private,
-		users.id AS 'user.id',
-		users.user AS 'user.username'
+		radio_news.user_id AS 'user.id'
 	FROM
 		radio_news
-	JOIN
-		users ON users.id = radio_news.user_id
 	WHERE
 		radio_news.id=?;
 	`
@@ -46,6 +43,14 @@ func (ns NewsStorage) Get(id radio.NewsPostID) (*radio.NewsPost, error) {
 		}
 		return nil, errors.E(op, err)
 	}
+
+	// try to grab the user, but it might not exist in which case
+	// we just return the ID that was stored in our table
+	user, err := UserStorage(ns).GetByID(post.User.ID)
+	if err != nil {
+		return &post, nil
+	}
+	post.User = *user
 
 	return &post, nil
 }

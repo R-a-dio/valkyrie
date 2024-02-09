@@ -50,9 +50,9 @@ type pendingTest struct {
 var genericUser = &radio.User{
 	Username: "Wessie",
 	UserPermissions: radio.UserPermissions{
-		radio.PermActive:      true,
-		radio.PermPendingView: true,
-		radio.PermPendingEdit: true,
+		radio.PermActive:      struct{}{},
+		radio.PermPendingView: struct{}{},
+		radio.PermPendingEdit: struct{}{},
 	},
 }
 

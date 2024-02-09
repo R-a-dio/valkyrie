@@ -121,7 +121,7 @@ func TestNewsStorageDelete(t *testing.T) {
 	}
 
 	err = ns.Delete(1)
-	if !errors.Is(errors.InvalidArgument, err) {
+	if !errors.Is(errors.NewsUnknown, err) {
 		t.Errorf("failed to delete not caught by code")
 	}
 

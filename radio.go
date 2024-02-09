@@ -87,20 +87,22 @@ func (u UserPermission) String() string {
 	return string(u)
 }
 
-type UserPermissions map[UserPermission]bool
+type UserPermissions map[UserPermission]struct{}
 
 // Has returns true if the permission given is in the UserPermissions
 func (up UserPermissions) Has(perm UserPermission) bool {
 	if up == nil { // nil map, has no permissions ever
 		return false
 	}
-	if !up[PermActive] { // not an active user, no permissions ever
+	_, ok := up[PermActive]
+	if !ok { // not an active user, no permissions ever
 		return false
 	}
 
-	ok := up[perm]
+	_, ok = up[perm]
 	if !ok { // don't have this perm but might be dev who has access to everything
-		return up[PermDev]
+		_, ok = up[PermDev]
+		return ok
 	}
 	return ok
 }
@@ -116,11 +118,11 @@ func (upp *UserPermissions) Scan(src interface{}) error {
 	switch perms := src.(type) {
 	case []byte:
 		for _, p := range bytes.Split(perms, []byte(",")) {
-			up[UserPermission(p)] = true
+			up[UserPermission(p)] = struct{}{}
 		}
 	case string:
 		for _, p := range strings.Split(perms, ",") {
-			up[UserPermission(p)] = true
+			up[UserPermission(p)] = struct{}{}
 		}
 	case nil: // no permissions, we made the map above though
 	default:
@@ -128,6 +130,21 @@ func (upp *UserPermissions) Scan(src interface{}) error {
 	}
 
 	return nil
+}
+
+func AllUserPermissions() []UserPermission {
+	return []UserPermission{
+		PermActive,
+		PermNews,
+		PermDJ,
+		PermDev,
+		PermAdmin,
+		PermDatabaseDelete,
+		PermDatabaseEdit,
+		PermDatabaseView,
+		PermPendingEdit,
+		PermPendingView,
+	}
 }
 
 // List of permissions, this should be kept in sync with the database version

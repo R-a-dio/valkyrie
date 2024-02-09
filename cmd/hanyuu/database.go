@@ -154,8 +154,8 @@ func (d databaseCmd) addUser(ctx context.Context, cfg config.Config) error {
 		Username: name,
 		Password: string(hash),
 		UserPermissions: radio.UserPermissions{
-			radio.PermActive: true,
-			radio.PermAdmin:  true,
+			radio.PermActive: struct{}{},
+			radio.PermAdmin:  struct{}{},
 		},
 	}
 
