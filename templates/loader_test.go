@@ -1,10 +1,12 @@
 package templates_test
 
 import (
+	"errors"
 	"io/fs"
 	"log"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/R-a-dio/valkyrie/mocks"
 	"github.com/R-a-dio/valkyrie/templates"
@@ -20,7 +22,11 @@ func TestLoadThemes(t *testing.T) {
 		want    templates.Themes
 		wantErr bool
 	}{
-		{"always error", args{&mocks.ErrorFS{}}, nil, true},
+		{"always error", args{&mocks.FSMock{
+			OpenFunc: func(name string) (fs.File, error) {
+				return nil, errors.New("fucked")
+			},
+		}}, nil, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -36,13 +42,52 @@ func TestLoadThemes(t *testing.T) {
 	}
 }
 
+func randomFS(name string) *mocks.FSMock {
+	return &mocks.FSMock{
+		OpenFunc: func(name string) (fs.File, error) {
+			return &mocks.FileMock{
+				StatFunc: func() (fs.FileInfo, error) {
+					return &mocks.FileInfoMock{
+						NameFunc: func() string {
+							return name
+						},
+						SizeFunc: func() int64 {
+							return 1
+						},
+						ModeFunc: func() fs.FileMode {
+							return fs.FileMode(1)
+						},
+						ModTimeFunc: func() time.Time {
+							return time.Now()
+						},
+						IsDirFunc: func() bool {
+							return false
+						},
+						SysFunc: func() any {
+							return nil
+						},
+					}, nil
+				},
+				ReadFunc: func(bytes []byte) (int, error) {
+					return -1, nil
+				},
+				CloseFunc: func() error { return nil },
+			}, nil
+		},
+		ReadFileFunc: func(name string) ([]byte, error) {
+			return nil, nil
+		},
+	}
+
+}
+
 func FuzzLoadThemes(f *testing.F) {
 	testcases := []string{"wessie", "vin", "ed"}
 	for _, tc := range testcases {
-		f.Add(tc) // Use f.Add to provide a seed corpus
+		f.Add(tc)
 	}
 	f.Fuzz(func(t *testing.T, name string) {
-		rfs := &mocks.RandomFS{Name: name}
+		rfs := randomFS(name)
 		log.Println(name)
 		themes, err := templates.LoadThemes(rfs)
 		if err == nil || themes != nil {
