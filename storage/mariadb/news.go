@@ -150,7 +150,7 @@ func (ns NewsStorage) Delete(id radio.NewsPostID) error {
 	}
 
 	if affected != 1 {
-		return errors.E(op, errors.InvalidArgument)
+		return errors.E(op, errors.NewsUnknown)
 	}
 
 	return nil

@@ -2,7 +2,6 @@ package storage
 
 import (
 	"context"
-	"sync"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
@@ -15,8 +14,6 @@ import (
 type OpenFn func(context.Context, config.Config) (radio.StorageService, error)
 
 var providers = map[string]OpenFn{}
-var instancesMu sync.Mutex
-var instances = map[string]radio.StorageService{}
 
 // Register registers an OpenFn under the name given, it is not safe to
 // call Register from multiple goroutines
@@ -35,15 +32,6 @@ func Open(ctx context.Context, cfg config.Config) (radio.StorageService, error) 
 
 	name := cfg.Conf().Providers.Storage
 
-	instancesMu.Lock()
-	defer instancesMu.Unlock()
-	// see if there is already an instance available
-	store, ok := instances[name]
-	if ok {
-		zerolog.Ctx(ctx).Info().Str("provider", name).Msg("re-using existing StorageService")
-		return store, nil
-	}
-
 	fn, ok := providers[name]
 	if !ok {
 		return nil, errors.E(op, errors.ProviderUnknown, errors.Info(name))
@@ -59,7 +47,6 @@ func Open(ctx context.Context, cfg config.Config) (radio.StorageService, error) 
 	// search package that updates the configured search engine whenever a document
 	// that is in an index is updated
 	if !search.NeedsWrap(cfg) {
-		instances[name] = store
 		return store, nil
 	}
 
@@ -69,6 +56,5 @@ func Open(ctx context.Context, cfg config.Config) (radio.StorageService, error) 
 	}
 
 	store = search.WrapStorageService(ss, store)
-	instances[name] = store
 	return store, nil
 }
