@@ -349,6 +349,7 @@ const (
 	TemplateUnknown                    // Template does not exist
 	TemplateParseError                 // Template failed to parse
 	Testing                            // For testing purposes
+	NoMigrations                       // indicates there were no storage migrations
 )
 
 func (k Kind) String() string {

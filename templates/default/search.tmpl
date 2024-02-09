@@ -2,3 +2,25 @@
 {{define "content"}}
 Search {{.}}
 {{end}}
+{{define "search-api"}}
+    {{with .Result}}
+        <div class="table-container">
+            <table class="table">
+                <thead>
+                    <th>Artist</th>
+                    <th>Title</th>
+                    <th>Request</th>
+                </thead>
+                <tbody>
+                {{range .Songs}}
+                    <tr>
+                        <td>{{.Artist}}</td>
+                        <td>{{.Title}}</td>
+                        <td><button class="button">Request</button></td>
+                    </tr>
+                {{end}}
+                </tbody>
+            </div>
+        </div>
+    {{end}}
+{{end}}

@@ -247,6 +247,20 @@ func (us UserStorage) Get(name string) (*radio.User, error) {
 	return &user, nil
 }
 
+func (us UserStorage) GetByID(id radio.UserID) (*radio.User, error) {
+	const op errors.Op = "mariadb/UserStorage.GetByID"
+
+	var user radio.User
+
+	var query = fmt.Sprintf(getUserQuery, "users.id=?")
+
+	err := sqlx.Get(us.handle, &user, query, id)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+	return &user, nil
+}
+
 // GetByDJID implements radio.UserStorage
 func (us UserStorage) GetByDJID(id radio.DJID) (*radio.User, error) {
 	const op errors.Op = "mariadb/UserStorage.GetByDJID"

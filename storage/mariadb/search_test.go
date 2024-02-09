@@ -1,12 +1,9 @@
 package mariadb
 
 import (
-	"context"
 	"slices"
 	"testing"
 
-	"github.com/R-a-dio/valkyrie/config"
-	"github.com/R-a-dio/valkyrie/search"
 	_ "github.com/R-a-dio/valkyrie/search/storage"
 )
 
@@ -44,22 +41,4 @@ func TestProcessQuery(t *testing.T) {
 			t.Error(result, c.expect)
 		}
 	}
-}
-
-func TestSearch(t *testing.T) {
-	cfg, _ := config.LoadFile()
-
-	ss, err := search.Open(context.Background(), cfg)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	res, err := ss.Search(context.Background(), "''adv*", 10, 0)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	t.Log(res)
 }
