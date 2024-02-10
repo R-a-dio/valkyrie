@@ -4,9 +4,9 @@ import (
 	"errors"
 	"io"
 	"io/fs"
-	"os"
 	"reflect"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/R-a-dio/valkyrie/mocks"
@@ -46,29 +46,25 @@ func randomFS(name string) *mocks.FSMock {
 				CloseFunc: func() error { return nil },
 			}, nil
 		},
-		ReadFileFunc: func(name string) ([]byte, error) {
-			return nil, nil
-		},
 	}
 
-}
-
-type txtFS struct {
-	m   map[string]int
-	mfs *mocks.FSMock
 }
 
 // create a mock FS from a txtarchive
-func txtarFS(a *txtar.Archive) *txtFS {
-	txtfs := new(txtFS)
-	txtfs.m = make(map[string]int)
-	for i, f := range a.Files {
-		txtfs.m[f.Name] = i
+func txtarFS(a *txtar.Archive) fstest.MapFS {
+	mfs := make(fstest.MapFS)
+	for _, f := range a.Files {
+		mfs[f.Name] = &fstest.MapFile{
+			Data:    f.Data,
+			Mode:    fs.ModePerm,
+			ModTime: time.Now(),
+			Sys:     nil,
+		}
 	}
-	return txtfs
+	return mfs
 }
 
-func txtarFSFromBytes(b []byte) *txtFS {
+func txtarFSFromBytes(b []byte) fstest.MapFS {
 	return txtarFS(txtar.Parse(b))
 }
 
@@ -126,7 +122,20 @@ func TestExecuteTemplate(t *testing.T) {
 		wantErr    bool
 		shouldExec bool
 	}{
-		{"0_empty", args{os.DirFS("testdata/0_empty")}, false, true},
+		{"empty", args{txtarFSFromBytes([]byte(`
+-- base.tmpl --
+{{ define "base" }}
+base
+{{ template "empty" }}
+{{ template "empty_part" }}
+{{ end }}
+-- default/default.tmpl --
+{{ define "empty" }}
+{{ end }}
+-- default/partials/empty.tmpl --
+{{ define "empty_part" }}
+empty
+{{ end }}`))}, false, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
