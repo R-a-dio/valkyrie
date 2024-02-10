@@ -135,9 +135,9 @@ func TestExecuteTemplate(t *testing.T) {
 				t.Errorf("FromFS() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			exec := got.Executor()
 			if tt.shouldExec {
-				err = exec.ExecuteTemplate("default", "base", "base", io.Discard, nil)
+				exec := got.Executor()
+				err = exec.ExecuteTemplate("default", "default", "base", io.Discard, nil)
 				if err != nil {
 					t.Errorf("template did not execute: %v", err)
 					return
