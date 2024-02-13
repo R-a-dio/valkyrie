@@ -75,24 +75,13 @@
 	text-overflow: ellipsis;
 }
 
-.song-info-extra {
-    max-height: 0px;
-    height: auto;
-    padding: unset;
-    transition: all 0.25s ease-out 0.1s;
-    visibility: hidden;
-}
-  
-.song-info:hover + .song-info-extra {
-    max-height: 9999px;
-    padding: 1.5rem;
-    visibility: visible;
+.song-info {
+    border-radius: 4px;
+    cursor: pointer;
 }
 
-.song-info-extra:hover {
-    max-height: 9999px;
-    padding: 1.5rem;
-    visibility: visible;
+.song-info-extra {
+    border-radius: 0px 0px 4px 4px;
 }
 
 .dj-image-name {

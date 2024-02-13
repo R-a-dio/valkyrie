@@ -11,7 +11,7 @@
 {{end}}
 
 {{define "song"}}
-<div class="box has-background-white-ter song-info">
+<div class="block has-background-white-ter song-info" onclick=songInfoDropdown(this)>
     <div class="columns is-vcentered has-text-centered">
         <div class="column is-2"><time datetime="{{$.ExpectedStartTime.Unix}}">{{Until $.ExpectedStartTime | PrettyDuration}}</time></div>
         <div class="column is-8">{{$.Metadata}}</div>
@@ -22,9 +22,9 @@
         {{end}}
     </div>
 </div>
-<div class="box has-background-white-ter song-info-extra">
-    <div  class="columns is-vcentered has-text-centered">
-        <div class="column is-1">Song ID: {{$.TrackID}}</div>
+<div class="block is-hidden">
+    <div  class="columns has-background-white-ter is-vcentered has-text-centered mx-4 song-info-extra">
+        <div class="column is-1">ID: {{$.TrackID}}</div>
         <div class="column">
             Last played:
             {{if not (eq $.LastPlayed.String "0001-01-01 00:00:00 +0000 UTC")}}
@@ -42,13 +42,6 @@
         </div>
         <div class="column">Tags: {{$.Tags}}</div>
         <div class="column">Requested {{.RequestCount}} times</div>
-        <div class="column">Needs replacement: 
-            {{if $.NeedReplacement}}
-            yes
-            {{else}}
-            no
-            {{end}}
-        </div>
     </div>
 </div>
 {{end}}
