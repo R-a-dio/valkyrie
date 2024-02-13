@@ -74,3 +74,39 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
+
+.song-info-extra {
+    max-height: 0px;
+    height: auto;
+    padding: unset;
+    transition: all 0.25s ease-out 0.1s;
+    visibility: hidden;
+}
+  
+.song-info:hover + .song-info-extra {
+    max-height: 9999px;
+    padding: 1.5rem;
+    visibility: visible;
+}
+
+.song-info-extra:hover {
+    max-height: 9999px;
+    padding: 1.5rem;
+    visibility: visible;
+}
+
+.dj-image-name {
+    position: relative;
+    top: 0px;
+    opacity: 0;
+    transition: all 0.1s ease-out 0.1s;
+    pointer-events: none;
+    background-color: rgba(0, 0, 0, 0.5);
+    color: #FFF;
+    border-radius: 6px;
+}
+
+.dj-image:hover + .dj-image-name {
+    top: -128px;
+    opacity: 1;
+}
