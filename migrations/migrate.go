@@ -12,9 +12,9 @@ import (
 func New(ctx context.Context, cfg config.Config) (*migrate.Migrate, error) {
 	const op errors.Op = "migrations.NewMigration"
 
-	driverName := cfg.Conf().Providers.Storage
-	switch driverName {
-	case "mysql":
+	storageProvider := cfg.Conf().Providers.Storage
+	switch storageProvider {
+	case "mariadb", "mysql":
 		return mysql.New(ctx, cfg)
 	default:
 		return nil, errors.E(op, errors.NoMigrations)

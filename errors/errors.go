@@ -418,6 +418,8 @@ func (k Kind) String() string {
 		return "template parse error"
 	case Testing:
 		return "testing"
+	case NoMigrations:
+		return "no migrations found"
 	}
 
 	return "unknown error kind"
