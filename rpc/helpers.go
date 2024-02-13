@@ -70,7 +70,6 @@ func toProtoSong(s radio.Song) *Song {
 		song.Usable = s.Usable
 		song.LastRequested = tp(s.LastRequested)
 		song.RequestCount = int32(s.RequestCount)
-		song.RequestDelay = dp(s.RequestDelay)
 	}
 
 	return song
@@ -95,7 +94,6 @@ func fromProtoSong(s *Song) radio.Song {
 			Usable:        s.Usable,
 			LastRequested: t(s.LastRequested),
 			RequestCount:  int(s.RequestCount),
-			RequestDelay:  s.RequestDelay.AsDuration(),
 		}
 	}
 

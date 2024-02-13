@@ -1,8 +1,10 @@
 package admin
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"slices"
 	"strconv"
 
@@ -10,6 +12,7 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/R-a-dio/valkyrie/website/public"
+	"github.com/rs/xid"
 	"github.com/rs/zerolog/hlog"
 )
 
@@ -42,8 +45,9 @@ func (PendingForm) TemplateName() string {
 	return "form_admin_pending"
 }
 
-func (pi *PendingInput) Prepare(s radio.SubmissionStorage) error {
-	const op errors.Op = "website/admin.pendingInput.Prepare"
+// Hydrate hydrates the PendingInput with information from the SubmissionStorage
+func (pi *PendingInput) Hydrate(s radio.SubmissionStorage) error {
+	const op errors.Op = "website/admin.pendingInput.Hydrate"
 
 	subms, err := s.All()
 	if err != nil {
@@ -60,7 +64,7 @@ func (pi *PendingInput) Prepare(s radio.SubmissionStorage) error {
 func (s *State) GetPending(w http.ResponseWriter, r *http.Request) {
 	var input = NewPendingInput(r)
 
-	if err := input.Prepare(s.Storage.Submissions(r.Context())); err != nil {
+	if err := input.Hydrate(s.Storage.Submissions(r.Context())); err != nil {
 		hlog.FromRequest(r).Error().Err(err).Msg("database failure")
 		return
 	}
@@ -105,7 +109,7 @@ func (s *State) PostPending(w http.ResponseWriter, r *http.Request) {
 
 	// no htmx, send a full page back, but we have to hydrate the full list and swap out
 	// the element that was posted with the posted values
-	if err := input.Prepare(s.Storage.Submissions(r.Context())); err != nil {
+	if err := input.Hydrate(s.Storage.Submissions(r.Context())); err != nil {
 		hlog.FromRequest(r).Error().Err(err).Msg("database failure")
 		return
 	}
@@ -127,6 +131,9 @@ func (s *State) PostPending(w http.ResponseWriter, r *http.Request) {
 func (s *State) postPending(w http.ResponseWriter, r *http.Request) (PendingForm, error) {
 	const op errors.Op = "website/admin.postPending"
 
+	if err := r.ParseForm(); err != nil {
+		return PendingForm{}, errors.E(op, err, errors.InvalidForm)
+	}
 	// grab the pending id
 	id, err := strconv.Atoi(r.PostFormValue("id"))
 	if err != nil {
@@ -140,8 +147,8 @@ func (s *State) postPending(w http.ResponseWriter, r *http.Request) (PendingForm
 	}
 
 	// then update it with the submitted form data
-	form := NewPendingForm(*song, r.PostForm)
-	if !form.Validate() {
+	form, err := NewPendingForm(*song, r.PostForm)
+	if err != nil {
 		return form, errors.E(op, errors.InvalidForm)
 	}
 
@@ -174,12 +181,11 @@ func (s *State) postPendingDoReplace(w http.ResponseWriter, r *http.Request, for
 		return form, errors.E(op, err, errors.InternalServer)
 	}
 
-	// create a database song from the form
+	// create a song from the form
 	track := form.ToSong(*middleware.UserFromContext(ctx))
-	form.AcceptedSong = &track
 
-	// update tracks data
-	err = ts.UpdateMetadata(track)
+	// grab our existing song data
+	existing, err := ts.Get(track.TrackID)
 	if err != nil {
 		return form, errors.E(op, err, errors.InternalServer)
 	}
@@ -196,7 +202,30 @@ func (s *State) postPendingDoReplace(w http.ResponseWriter, r *http.Request, for
 		return form, errors.E(op, err, errors.InternalServer)
 	}
 
-	// TODO: file move handling
+	// grab the path of the existing entry
+	existingPath := existing.FilePath
+	if !filepath.IsAbs(existingPath) {
+		existingPath = filepath.Join(s.Conf().MusicPath, existingPath)
+	}
+
+	// then the path of the new entry
+	pendingPath := form.FilePath
+	if !filepath.IsAbs(pendingPath) {
+		pendingPath = filepath.Join(s.Conf().MusicPath, "pending", pendingPath)
+	}
+
+	// and move the new to the old path
+	err = s.FS.Rename(pendingPath, existingPath)
+	if err != nil {
+		return form, errors.E(op, err, errors.InternalServer)
+	}
+	track.FilePath = existing.FilePath
+
+	// update tracks data
+	err = ts.UpdateMetadata(track)
+	if err != nil {
+		return form, errors.E(op, err, errors.InternalServer)
+	}
 
 	// commit
 	if err = tx.Commit(); err != nil {
@@ -229,7 +258,17 @@ func (s *State) postPendingDoDecline(w http.ResponseWriter, r *http.Request, for
 		return form, errors.E(op, err, errors.InternalServer)
 	}
 
-	// TODO: file deletion handling
+	// make path absolute if it isn't
+	filePath := form.FilePath
+	if !filepath.IsAbs(filePath) {
+		filePath = filepath.Join(s.Conf().MusicPath, "pending", filePath)
+	}
+
+	// remove the file
+	err = s.FS.Remove(filePath)
+	if err != nil {
+		return form, errors.E(op, err, errors.InternalServer)
+	}
 
 	// commit
 	if err = tx.Commit(); err != nil {
@@ -242,7 +281,7 @@ func (s *State) postPendingDoDecline(w http.ResponseWriter, r *http.Request, for
 func (s *State) postPendingDoAccept(w http.ResponseWriter, r *http.Request, form PendingForm) (PendingForm, error) {
 	const op errors.Op = "website/admin.postPendingDoAccept"
 	var ctx = r.Context()
-	var new = form
+	var new = form // make a copy so we can return the retrieved form when something goes wrong
 
 	// transaction start
 	ss, tx, err := s.Storage.SubmissionsTx(ctx, nil)
@@ -278,7 +317,30 @@ func (s *State) postPendingDoAccept(w http.ResponseWriter, r *http.Request, form
 		return form, errors.E(op, err, errors.InternalServer)
 	}
 
-	// TODO: file moving/renaming handling
+	// generate a new filename for this song
+	newFilename, err := GenerateMusicFilename(track)
+	if err != nil {
+		return form, errors.E(op, err, errors.InternalServer)
+	}
+	newFilePath := filepath.Join(s.Conf().MusicPath, newFilename)
+
+	// make path absolute if it isn't
+	if !filepath.IsAbs(track.FilePath) {
+		track.FilePath = filepath.Join(s.Conf().MusicPath, "pending", track.FilePath)
+	}
+
+	// rename the file to the actual music directory
+	err = s.FS.Rename(track.FilePath, newFilePath)
+	if err != nil {
+		return form, errors.E(op, err, errors.InternalServer)
+	}
+
+	// now we need to change the filename in the database
+	track.FilePath = newFilename
+	err = ts.UpdateMetadata(track)
+	if err != nil {
+		return form, errors.E(op, err, errors.InternalServer)
+	}
 
 	// commit
 	if err = tx.Commit(); err != nil {
@@ -290,10 +352,15 @@ func (s *State) postPendingDoAccept(w http.ResponseWriter, r *http.Request, form
 
 // NewPendingForm creates a PendingForm with song as a base and updating those
 // values from the form values given.
-func NewPendingForm(song radio.PendingSong, form url.Values) PendingForm {
+func NewPendingForm(song radio.PendingSong, form url.Values) (PendingForm, error) {
+	const op errors.Op = "website/admin.NewPendingForm"
+
 	pf := PendingForm{PendingSong: song}
 	pf.Update(form)
-	return pf
+	if !pf.Validate() {
+		return pf, errors.E(op, errors.InvalidForm)
+	}
+	return pf, nil
 }
 
 func (pf *PendingForm) Update(form url.Values) {
@@ -394,4 +461,21 @@ func (pf *PendingForm) ToValues() url.Values {
 		v.Add("good", "checked")
 	}
 	return v
+}
+
+// GenerateMusicFilename generates a filename that can be used to store
+// the song.
+func GenerateMusicFilename(song radio.Song) (string, error) {
+	const op errors.Op = "website/admin.GenerateMusicFilename"
+
+	uid := xid.New()
+	ext := filepath.Ext(song.FilePath)
+	if ext == "" {
+		return "", errors.E(op, "empty extension on FilePath", song)
+	}
+	if song.TrackID == 0 {
+		return "", errors.E(op, "zero TrackID", song)
+	}
+	filename := fmt.Sprintf("%d_%s%s", song.TrackID, uid.String(), ext)
+	return filename, nil
 }

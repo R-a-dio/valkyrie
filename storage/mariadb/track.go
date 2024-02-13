@@ -75,7 +75,7 @@ const maybeSongColumns = `
 `
 
 const lastplayedSelect = `
-	(SELECT dt FROM eplay WHERE eplay.isong = esong.id ORDER BY dt DESC LIMIT 1) AS lastplayed
+	IFNULL((SELECT dt FROM eplay WHERE eplay.isong = esong.id ORDER BY dt DESC LIMIT 1), TIMESTAMP('0000-00-00 00:00:00')) AS lastplayed
 `
 
 // SongStorage implements radio.SongStorage
@@ -594,7 +594,7 @@ func (ts TrackStorage) Insert(song radio.Song) (radio.TrackID, error) {
 		return 0, errors.E(op, err, song)
 	}
 
-	// execute
+	// insert into track table
 	new, err := namedExecLastInsertId(handle, trackInsertQuery, song)
 	if err != nil {
 		return 0, errors.E(op, err, song)

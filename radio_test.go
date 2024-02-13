@@ -53,7 +53,7 @@ func TestSongRequestable(t *testing.T) {
 			LastPlayed: lp,
 			DatabaseTrack: &DatabaseTrack{
 				LastRequested: lr,
-				RequestDelay:  delay,
+				RequestCount:  0,
 			},
 		}
 	}

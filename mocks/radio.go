@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/errors"
 )
 
 // RollbackTx is a helper function to create a mocked StorageTx
@@ -30,6 +31,19 @@ func CommitTx(t *testing.T) radio.StorageTx {
 		CommitFunc: func() error {
 			commitCalled = true
 			return nil
+		},
+	}
+}
+
+// CommitErrTx is a helper function to create a mocked StorageTx
+// that has the Commit return an error
+func CommitErrTx(t *testing.T) radio.StorageTx {
+	return &StorageTxMock{
+		RollbackFunc: func() error {
+			return nil
+		},
+		CommitFunc: func() error {
+			return errors.E(errors.Testing)
 		},
 	}
 }

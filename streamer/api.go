@@ -9,6 +9,7 @@ import (
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/rpc"
+	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
 )
 
@@ -165,7 +166,8 @@ func (s *streamerService) RequestSong(ctx context.Context, song radio.Song, iden
 
 	err = s.announce.AnnounceRequest(ctx, song)
 	if err != nil {
-		return errors.E(op, err, song)
+		// not a critical error, but log it anyway
+		zerolog.Ctx(ctx).Error().Err(err).Msg("failed to announce request")
 	}
 	return nil
 }

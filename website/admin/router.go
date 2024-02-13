@@ -9,6 +9,7 @@ import (
 	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/R-a-dio/valkyrie/util/daypass"
 	vmiddleware "github.com/R-a-dio/valkyrie/website/middleware"
+	"github.com/spf13/afero"
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
@@ -23,6 +24,7 @@ type State struct {
 	TemplateExecutor templates.Executor
 	SessionManager   *scs.SessionManager
 	Authentication   vmiddleware.Authentication
+	FS               afero.Fs
 }
 
 func Route(ctx context.Context, s State) func(chi.Router) {

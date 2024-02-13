@@ -4,11 +4,13 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/mocks"
 	"github.com/R-a-dio/valkyrie/website/middleware"
@@ -16,7 +18,9 @@ import (
 	"github.com/leanovate/gopter/arbitrary"
 	"github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
+	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type pendingTest struct {
@@ -28,6 +32,10 @@ type pendingTest struct {
 	PendingSong radio.PendingSong
 	// Form we expect back
 	ExpectedForm *PendingForm
+	// Status to use in the form submission
+	Status radio.SubmissionStatus
+	// ShouldRollback indicates if this test should be a rollback
+	ShouldRollback bool
 
 	// Return values for SubmissionStorage.GetSubmission
 	GetSubmissionRet *radio.PendingSong
@@ -45,6 +53,13 @@ type pendingTest struct {
 	// Return values for TrackStorage.Insert
 	InsertRet radio.TrackID
 	InsertErr error
+
+	// Return values for TrackStorage.UpdateMetadata
+	UpdateMetadataErr error
+
+	// Return values for TrackStorage.Get
+	GetRet *radio.Song
+	GetErr error
 }
 
 var genericUser = &radio.User{
@@ -57,41 +72,76 @@ var genericUser = &radio.User{
 }
 
 var genericPendingSong = radio.PendingSong{
-	ID:     50,
-	Status: radio.SubmissionAccepted,
-	Artist: "test-artist",
-	Title:  "test-title",
-	Album:  "test-album",
-	Tags:   "test-tags",
-	Reason: "test-reason",
+	ID:       50,
+	Status:   radio.SubmissionAccepted,
+	Artist:   "test-artist",
+	Title:    "test-title",
+	Album:    "test-album",
+	Tags:     "test-tags",
+	Reason:   "test-reason",
+	FilePath: "test-filepath.mp3",
 }
 
 var pendingTests = []pendingTest{
 	{
-		Name:      "Happy Path",
+		Name:      "Accept Happy Path",
+		Status:    radio.SubmissionAccepted,
 		TxFunc:    mocks.CommitTx,
 		InsertRet: 50,
 	},
 	{
-		Name:      "Fail Insert",
-		TxFunc:    mocks.RollbackTx,
-		InsertErr: errors.E(errors.Testing),
+		Name:           "Accept Fail Insert",
+		Status:         radio.SubmissionAccepted,
+		ShouldRollback: true,
+		TxFunc:         mocks.RollbackTx,
+		InsertErr:      errors.E(errors.Testing),
 	},
 	{
-		Name:                "Fail RemoveSubmission",
+		Name:                "Accept Fail RemoveSubmission",
+		Status:              radio.SubmissionAccepted,
+		ShouldRollback:      true,
 		TxFunc:              mocks.RollbackTx,
 		RemoveSubmissionErr: errors.E(errors.Testing),
 	},
 	{
-		Name:                 "Fail InsertPostPending",
+		Name:                 "Accept Fail InsertPostPending",
+		Status:               radio.SubmissionAccepted,
+		ShouldRollback:       true,
 		TxFunc:               mocks.RollbackTx,
 		InsertPostPendingErr: errors.E(errors.Testing),
 	},
 	{
-		Name:             "Fail GetSubmission",
+		Name:             "Accept Fail GetSubmission",
+		Status:           radio.SubmissionAccepted,
+		ShouldRollback:   true,
 		ExpectedForm:     &PendingForm{},
 		TxFunc:           mocks.NotUsedTx,
 		GetSubmissionErr: errors.E(errors.Testing),
+	},
+	{
+		Name:   "Decline Happy Path",
+		TxFunc: mocks.CommitTx,
+		Status: radio.SubmissionDeclined,
+	},
+	{
+		Name:           "Decline Fail RemoveSubmission",
+		ShouldRollback: true,
+		TxFunc:         mocks.CommitErrTx,
+		Status:         radio.SubmissionDeclined,
+	},
+	{
+		Name:   "Replace Happy Path",
+		Status: radio.SubmissionReplacement,
+		TxFunc: mocks.CommitTx,
+		PendingSong: radio.PendingSong{
+			FilePath:      "testfile.mp3",
+			ReplacementID: 50,
+		},
+		GetRet: &radio.Song{
+			DatabaseTrack: &radio.DatabaseTrack{
+				FilePath: "50_random.mp3",
+			},
+		},
 	},
 }
 
@@ -105,12 +155,15 @@ func TestPostPending(t *testing.T) {
 			if test.PendingSong == *new(radio.PendingSong) {
 				test.PendingSong = genericPendingSong
 			}
+			test.PendingSong.Status = test.Status
+			var newSong radio.Song
 
 			// setup mocks
 			storage := &mocks.StorageServiceMock{}
 			storage.SubmissionsFunc = func(contextMoqParam context.Context) radio.SubmissionStorage {
 				return &mocks.SubmissionStorageMock{
 					GetSubmissionFunc: func(submissionID radio.SubmissionID) (*radio.PendingSong, error) {
+						assert.Equal(t, test.PendingSong.ID, submissionID)
 						if test.GetSubmissionRet == nil {
 							return &test.PendingSong, test.GetSubmissionErr
 						}
@@ -124,6 +177,7 @@ func TestPostPending(t *testing.T) {
 						return test.InsertPostPendingErr
 					},
 					RemoveSubmissionFunc: func(submissionID radio.SubmissionID) error {
+						assert.Equal(t, test.PendingSong.ID, submissionID)
 						return test.RemoveSubmissionErr
 					},
 				}, test.TxFunc(t), nil
@@ -133,11 +187,56 @@ func TestPostPending(t *testing.T) {
 					InsertFunc: func(song radio.Song) (radio.TrackID, error) {
 						return test.InsertRet, test.InsertErr
 					},
+					UpdateMetadataFunc: func(song radio.Song) error {
+						switch test.Status {
+						case radio.SubmissionAccepted:
+							assert.Equal(t, test.InsertRet, song.TrackID)
+						case radio.SubmissionReplacement:
+							assert.Equal(t, test.GetRet.TrackID, song.TrackID)
+						}
+
+						newSong = song
+						return test.UpdateMetadataErr
+					},
+					GetFunc: func(id radio.TrackID) (*radio.Song, error) {
+						return test.GetRet, test.GetErr
+					},
 				}, mocks.NotUsedTx(t), nil
 			}
 
+			// setup a config file
+			cfg, err := config.LoadFile()
+			require.NoError(t, err)
+
+			// setup a fake filesystem
+			path := filepath.Join(cfg.Conf().MusicPath, "pending")
+			fs := afero.NewMemMapFs()
+			// make our pending directory, this will also make the musicpath
+			require.NoError(t, fs.MkdirAll(path, 0775))
+
+			// write a bit of data to the file we've "uploaded"
+			testFileContents := []byte("a music file")
+			require.NoError(t, afero.WriteFile(fs,
+				filepath.Join(path, test.PendingSong.FilePath),
+				testFileContents,
+				0775),
+			)
+
+			// also write a bit of data to the file returned by TrackStorage.Get if one exists
+			getFileContents := []byte("these were already there")
+			if test.GetRet != nil {
+				require.NoError(t, afero.WriteFile(fs,
+					filepath.Join(cfg.Conf().MusicPath, test.GetRet.FilePath),
+					getFileContents,
+					0775),
+				)
+			}
+
+			// setup state
 			state := State{
 				Storage: storage,
+				Config:  cfg,
+				FS:      fs,
 			}
 
 			var formWeSend = PendingForm{
@@ -152,11 +251,12 @@ func TestPostPending(t *testing.T) {
 			req = middleware.RequestWithUser(req, &test.User)
 			w := httptest.NewRecorder()
 
-			form, _ := state.postPending(w, req)
+			form, err := state.postPending(w, req)
 
-			isRollback := test.TxFunc(t).(*mocks.StorageTxMock).CommitFunc == nil
-			if isRollback {
-				// our returned form should not have an accepted song after a rollback
+			if test.ShouldRollback {
+				// should only rollback if there was an error
+				assert.Error(t, err)
+				// we shouldn't have an accepted song after a rollback
 				assert.Nil(t, form.AcceptedSong)
 				// check if we have an expected form return value
 				if test.ExpectedForm == nil {
@@ -167,8 +267,35 @@ func TestPostPending(t *testing.T) {
 					assert.EqualValues(t, *test.ExpectedForm, form, "")
 				}
 			} else {
-				// our returned form should have an accepted song after no rollback
-				assert.NotNil(t, form.AcceptedSong)
+				// should have no error after a successful commit
+				assert.NoError(t, err)
+
+				switch test.PendingSong.Status {
+				case radio.SubmissionAccepted:
+					// our returned form should have an accepted song after no rollback
+					assert.NotNil(t, form.AcceptedSong)
+					// and we should have a file at the filepath given to the database layer
+					contents, err := afero.ReadFile(fs, filepath.Join(cfg.Conf().MusicPath, newSong.FilePath))
+					if assert.NoError(t, err) {
+						assert.Equal(t, testFileContents, contents)
+					}
+				case radio.SubmissionDeclined:
+					assert.Zero(t, len(storage.TrackTxCalls()), "decline path should not have a TrackStorage instance")
+
+					// a decline should not have an accepted song
+					assert.Nil(t, form.AcceptedSong)
+					// and the file should be gone
+					fullPath := filepath.Join(cfg.Conf().MusicPath, "pending", form.FilePath)
+					ok, err := afero.Exists(fs, fullPath)
+					if assert.NoError(t, err) {
+						assert.False(t, ok, "file should no longer exist", fullPath)
+					}
+				case radio.SubmissionReplacement:
+					contents, err := afero.ReadFile(fs, filepath.Join(cfg.Conf().MusicPath, test.GetRet.FilePath))
+					if assert.NoError(t, err) {
+						assert.Equal(t, testFileContents, contents)
+					}
+				}
 			}
 		})
 	}

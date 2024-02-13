@@ -462,7 +462,6 @@ type DatabaseTrack struct {
 	LastRequested time.Time
 
 	RequestCount int
-	RequestDelay time.Duration
 }
 
 // Requestable returns whether this song can be requested by a user
@@ -470,14 +469,15 @@ func (s *Song) Requestable() bool {
 	if s == nil || s.DatabaseTrack == nil {
 		panic("Requestable called with nil database track")
 	}
-	if s.RequestDelay == 0 {
+	delay := s.RequestDelay()
+	if delay == 0 {
 		// unknown song delay
 		return false
 	}
-	if time.Since(s.LastPlayed) < s.RequestDelay {
+	if time.Since(s.LastPlayed) < delay {
 		return false
 	}
-	if time.Since(s.LastRequested) < s.RequestDelay {
+	if time.Since(s.LastRequested) < delay {
 		return false
 	}
 
@@ -486,13 +486,21 @@ func (s *Song) Requestable() bool {
 
 var veryFarAway = time.Hour * 24 * 90
 
+func (s *Song) RequestDelay() time.Duration {
+	if s == nil || s.DatabaseTrack == nil {
+		return 0
+	}
+	return CalculateRequestDelay(s.RequestCount)
+}
+
 // UntilRequestable returns the time until this song can be requested again, returns 0
 // if song.Requestable() == true
 func (s *Song) UntilRequestable() time.Duration {
 	if s.Requestable() {
 		return 0
 	}
-	if s.RequestDelay == 0 {
+	delay := s.RequestDelay()
+	if delay == 0 {
 		return veryFarAway
 	}
 
@@ -507,7 +515,7 @@ func (s *Song) UntilRequestable() time.Duration {
 		return veryFarAway
 	}
 
-	furthest = furthest.Add(s.RequestDelay)
+	furthest = furthest.Add(delay)
 	return time.Until(furthest)
 }
 

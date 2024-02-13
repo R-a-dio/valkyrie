@@ -18,6 +18,7 @@ import (
 	"github.com/R-a-dio/valkyrie/website/public"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
+	"github.com/spf13/afero"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -131,6 +132,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		TemplateExecutor: executor,
 		SessionManager:   sessionManager,
 		Authentication:   authentication,
+		FS:               afero.NewOsFs(),
 	}))
 
 	// public routes

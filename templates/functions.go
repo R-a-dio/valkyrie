@@ -8,12 +8,7 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
-	"golang.org/x/exp/constraints"
 )
-
-type divisible interface {
-	constraints.Integer | constraints.Float
-}
 
 func TemplateFuncs() template.FuncMap {
 	return fnMap

@@ -795,7 +795,7 @@ func TrackInfo(e Event) error {
 			compareTime = song.LastRequested
 		}
 
-		leftover := song.RequestDelay - time.Since(compareTime)
+		leftover := song.RequestDelay() - time.Since(compareTime)
 		if leftover > 0 {
 			cooldownIndicator = FormatDuration(leftover, time.Second)
 		}
@@ -808,7 +808,7 @@ func TrackInfo(e Event) error {
 		playedCount,
 		song.RequestCount,
 		song.Priority,
-		FormatDuration(song.RequestDelay, time.Second), cooldownIndicator,
+		FormatDuration(song.RequestDelay(), time.Second), cooldownIndicator,
 		song.Acceptor,
 		song.Tags,
 	)

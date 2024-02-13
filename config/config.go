@@ -23,7 +23,7 @@ var defaultConfig = config{
 	UserRequestDelay: Duration(time.Hour * 1),
 	UserUploadDelay:  Duration(time.Hour * 2),
 	TemplatePath:     "templates/",
-	MusicPath:        "",
+	MusicPath:        "/radio/music",
 	AssetsPath:       "./assets/",
 	Providers: providers{
 		Storage: "mariadb",
