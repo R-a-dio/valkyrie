@@ -10,8 +10,8 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/website/middleware"
-	"github.com/R-a-dio/valkyrie/website/public"
 	"github.com/rs/xid"
 	"github.com/rs/zerolog/hlog"
 )
@@ -87,7 +87,7 @@ func (s *State) PostPending(w http.ResponseWriter, r *http.Request) {
 	form, err := s.postPending(w, r)
 	if err == nil {
 		// success handle the response back to the client
-		if public.IsHTMX(r) {
+		if util.IsHTMX(r) {
 			// htmx, send an empty response so that the entry gets removed
 			return
 		}
@@ -99,7 +99,7 @@ func (s *State) PostPending(w http.ResponseWriter, r *http.Request) {
 	hlog.FromRequest(r).Error().Err(err).Msg("failed post pending")
 
 	// failed, handle the input and see if we can get info back to the user
-	if public.IsHTMX(r) {
+	if util.IsHTMX(r) {
 		// htmx, send just the form back
 		if err := s.TemplateExecutor.Execute(w, r, form); err != nil {
 			hlog.FromRequest(r).Error().Err(err).Msg("template failure")

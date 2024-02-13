@@ -10,9 +10,9 @@
 </html>
 {{end}}
 {{define "partial-page"}}
-    <div id="content">
-    {{ template "navbar" . }}
-    {{ template "content" . }}
+    <div id="content" hx-history-elt>
+        {{ template "navbar" . }}
+        {{ template "content" . }}
     </div>
 {{end}}
 {{ define "navbar" }}{{ end }}

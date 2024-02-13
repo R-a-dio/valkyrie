@@ -14,6 +14,7 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/streamer/audio"
+	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/util/daypass"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/rs/zerolog/hlog"
@@ -118,7 +119,7 @@ func (s State) PostSubmit(w http.ResponseWriter, r *http.Request) {
 	// setup response function that differs between htmx/non-htmx request
 	responseFn := func(form SubmissionForm) {
 		var err error
-		if IsHTMX(r) {
+		if util.IsHTMX(r) {
 			err = s.Templates.Execute(w, r, form)
 		} else {
 			err = s.getSubmit(w, r, &form)

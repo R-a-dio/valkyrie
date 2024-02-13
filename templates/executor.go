@@ -8,6 +8,7 @@ import (
 	"slices"
 
 	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/util/pool"
 	"go.opentelemetry.io/otel"
 )
@@ -47,7 +48,13 @@ func (e *executor) Execute(w io.Writer, r *http.Request, input TemplateSelectabl
 	var ctx = r.Context()
 	theme := GetTheme(ctx)
 
-	return e.With(ctx).ExecuteTemplate(theme, input.TemplateBundle(), input.TemplateName(), w, input)
+	// switch to a partial-page if we're asking for a full-page and it's htmx
+	templateName := input.TemplateName()
+	if util.IsHTMX(r) && templateName == "full-page" {
+		templateName = "partial-page"
+	}
+
+	return e.With(ctx).ExecuteTemplate(theme, input.TemplateBundle(), templateName, w, input)
 }
 
 func (e *executor) ExecuteFull(theme, page string, output io.Writer, input any) error {
