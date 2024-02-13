@@ -8,6 +8,7 @@ import (
 	"github.com/R-a-dio/valkyrie/storage/mariadb"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/mysql"
+	"github.com/golang-migrate/migrate/v4/source"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 )
 
@@ -15,7 +16,7 @@ import (
 var FS embed.FS
 
 func New(ctx context.Context, cfg config.Config) (*migrate.Migrate, error) {
-	sd, err := iofs.New(FS, ".")
+	sd, err := Source(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -32,4 +33,8 @@ func New(ctx context.Context, cfg config.Config) (*migrate.Migrate, error) {
 		"embed", sd,
 		"mysql", dd,
 	)
+}
+
+func Source(ctx context.Context, cfg config.Config) (source.Driver, error) {
+	return iofs.New(FS, ".")
 }

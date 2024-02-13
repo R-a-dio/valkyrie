@@ -8,16 +8,11 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
-	"github.com/R-a-dio/valkyrie/storage"
 	"github.com/go-sql-driver/mysql" // mariadb
 	"github.com/jmoiron/sqlx"
 	"github.com/rs/zerolog"
 	"go.opentelemetry.io/otel/trace"
 )
-
-func init() {
-	storage.Register("mariadb", Connect)
-}
 
 var DatabaseConnectFunc = sqlx.ConnectContext
 

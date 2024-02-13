@@ -350,6 +350,8 @@ const (
 	TemplateParseError                 // Template failed to parse
 	Testing                            // For testing purposes
 	NoMigrations                       // indicates there were no storage migrations
+	DirtyMigration                     // indicates the migration failed to apply and is in a dirty state
+	MigrationNotApplied                // indicates not all migrations were applied
 )
 
 func (k Kind) String() string {
@@ -420,6 +422,10 @@ func (k Kind) String() string {
 		return "testing"
 	case NoMigrations:
 		return "no migrations found"
+	case DirtyMigration:
+		return "migration status is dirty"
+	case MigrationNotApplied:
+		return "migration needs to be applied"
 	}
 
 	return "unknown error kind"

@@ -6,7 +6,9 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/R-a-dio/valkyrie/migrations"
 	"github.com/R-a-dio/valkyrie/search"
+	"github.com/R-a-dio/valkyrie/storage/mariadb"
 	"github.com/rs/zerolog"
 )
 
@@ -14,6 +16,10 @@ import (
 type OpenFn func(context.Context, config.Config) (radio.StorageService, error)
 
 var providers = map[string]OpenFn{}
+
+func init() {
+	Register("mariadb", mariadb.Connect)
+}
 
 // Register registers an OpenFn under the name given, it is not safe to
 // call Register from multiple goroutines
@@ -40,6 +46,12 @@ func Open(ctx context.Context, cfg config.Config) (radio.StorageService, error) 
 	zerolog.Ctx(ctx).Info().Str("provider", name).Msg("creating new StorageService")
 	store, err := fn(ctx, cfg)
 	if err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	// check if the storage provider has migrations
+	err = migrations.CheckVersion(ctx, cfg)
+	if err != nil && !errors.Is(errors.NoMigrations, err) {
 		return nil, errors.E(op, err)
 	}
 
