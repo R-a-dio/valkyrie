@@ -71,24 +71,35 @@ htmx.on('htmx:load', (event) => {
 });
 
 function prettyDuration(d) {
-    if (d > 0) {
-        if (d <= 60) {
-            return "in less than a min";
-        }
-        if (d < 120) {
-            return "in 1 min";
-        }
-        return "in " + Math.floor(d / 60) + " mins"
-    }
+    return rtf.format(Math.floor(d / 60), "minute");
+}
 
-    d = Math.abs(d)
-    if (d <= 60) {
-        return "less than a min ago";
+const rtf = new Intl.RelativeTimeFormat("en", {
+    localeMatcher: "best fit", // other values: "lookup"
+    numeric: "always", // other values: "auto"
+    style: "long", // other values: "short" or "narrow"
+});
+
+const dtf = new Intl.DateTimeFormat("default", {
+    timeStyle: "long",
+    hour12: false,
+})
+
+const dtfLong = new Intl.DateTimeFormat("default", {
+    timeStyle: "long",
+    dateStyle: "short",
+})
+
+function absoluteTime(d) {
+    let today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let date = new Date(d * 1000);
+    if (date < today) {
+        return dtfLong.format(date);
+    } else {
+        return dtf.format(date);
     }
-    if (d < 120) {
-        return "1 min ago"
-    }
-    return Math.floor(d / 60) + " mins ago";
 }
 
 function prettyProgress(d) {
@@ -109,7 +120,14 @@ function updateTimes() {
 
     document.querySelectorAll("time").forEach((node) => {
         var d = node.dateTime - n;
-        node.textContent = prettyDuration(d);
+        switch (node.dataset.type) {
+            case "absolute":
+                node.textContent = absoluteTime(node.dateTime);
+                break;
+            default:
+                node.textContent = prettyDuration(d);
+                break;
+        }
         nextUpdate = Math.min(nextUpdate, Math.abs(d) % 60);
     })
 

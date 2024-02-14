@@ -78,8 +78,8 @@
                 <div class="dj-image-name">$djname</div>
             </div>
         </div>
-        <div class="column is-8">{{$.Metadata}}</div>
-        <div class="column is-2">$playdate</div>
+        <div class="column is-8">{{.Metadata}}</div>
+        <time datetime="{{.LastPlayed.Unix}}" data-type="absolute" class="column is-2">{{Until .LastPlayed | PrettyDuration}}</time>
     </div>
 </div>
 {{end}}
