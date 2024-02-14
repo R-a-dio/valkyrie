@@ -42,7 +42,7 @@ func (qs QueueStorage) Store(name string, queue []radio.QueueEntry) error {
 	INSERT INTO
 		queue (trackid, time, ip, type, meta, length, id)
 	VALUES
-		(?, ?, ?, ?, ?, ?, ?);
+		(?, ?, ?, ?, ?, from_go_duration(?), ?);
 	`
 	for i, entry := range queue {
 		if !entry.HasTrack() {
@@ -60,7 +60,7 @@ func (qs QueueStorage) Store(name string, queue []radio.QueueEntry) error {
 			entry.UserIdentifier,
 			isRequest,
 			entry.Metadata,
-			entry.Length.Seconds(),
+			entry.Length,
 			i+1, // ordering id
 		)
 		if err != nil {
@@ -78,7 +78,7 @@ SELECT
 	queue.ip AS useridentifier,
 	queue.type AS isrequest,
 	queue.meta AS metadata,
-	queue.length,
+	to_go_duration(queue.length) AS length,
 	{lastplayedSelect},
 	{maybeSongColumns},
 	{trackColumns}

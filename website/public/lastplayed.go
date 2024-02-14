@@ -61,7 +61,7 @@ func (s State) GetLastPlayed(w http.ResponseWriter, r *http.Request) {
 func getPageOffset(r *http.Request, pageSize int) (int, int, error) {
 	var page = 1
 	{
-		rawPage := r.Form.Get("page")
+		rawPage := r.FormValue("page")
 		if rawPage == "" {
 			return page, 0, nil
 		}
