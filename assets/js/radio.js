@@ -63,7 +63,7 @@ htmx.on('htmx:load', (event) => {
     }
     if (stream && stream.button()) {
         console.log("registering stream play/stop button handler");
-        stream.button().onclick = stream.PlayStop;
+        stream.button().onclick = stream.playStop;
         if (stream.audio && !stream.audio.paused) {
             stream.setButton("Stop Stream");
         }
@@ -183,15 +183,15 @@ class Stream {
         return audio;
     }
 
-    PlayStop = (event) => {
+    playStop = (event) => {
         if (!this.audio || this.audio.paused) {
-            this.Play(true);
+            this.play(true);
         } else {
-            this.Stop(true);
+            this.stop(true);
         }
     }
 
-    Play = async (newAudio) => {
+    play = async (newAudio) => {
         if (newAudio) {
             this.audio = this.createAudio();
         }
@@ -201,20 +201,20 @@ class Stream {
         let pp = this.audio.play();
         this.setButton("Connecting...");
         if (!pp || !pp.then || !pp.catch) {
-            this.CheckStarted();
+            this.checkStarted();
             return;
         }
 
         try {
             await pp;
-            this.CheckStarted();
+            this.checkStarted();
         } catch (err) {
             this.setButton("Error Connecting");
             console.log(Date.now(), 'error connecting to stream: ' + err);
         }
     }
 
-    Stop = async (deleteAudio) => {
+    stop = async (deleteAudio) => {
         this.audio.pause()
         if (deleteAudio) {
             this.audio = null;
@@ -227,14 +227,14 @@ class Stream {
         } catch (err) { }
     }
 
-    CheckStarted = () => {
+    checkStarted = () => {
         if (this.audio.paused) {
             this.setButton("Something went wrong, try again");
             return
         }
         this.setButton("Stop Stream");
         this.fadeVolume = 0.0;
-        this.FadeIn();
+        this.fadeIn();
 
         this.gracePeriod = 3;
         this.monitor();
@@ -244,7 +244,7 @@ class Stream {
         } catch (err) { }
     }
 
-    FadeIn = () => {
+    fadeIn = () => {
         clearTimeout(this.fadeTimer);
 
         let cur = this.audio.currentTime;
@@ -259,7 +259,7 @@ class Stream {
             this.setVolume(this.fadeVolume, false);
         }
 
-        this.fadeTimer = setTimeout(this.FadeIn, 20);
+        this.fadeTimer = setTimeout(this.fadeIn, 20);
     }
 
     setVolume = (newVol, storeVol) => {
@@ -295,8 +295,8 @@ class Stream {
         }
         this.recoverLast = Date.now();
 
-        this.Stop();
-        this.Play();
+        this.stop();
+        this.play();
     }
 
     setButton = (text) => {
