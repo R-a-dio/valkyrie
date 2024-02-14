@@ -25,6 +25,7 @@ var fnMap = map[string]any{
 	"PrettyDuration":              TimeagoDuration,
 	"HumanDuration":               HumanDuration,
 	"Div":                         func(a, b int) int { return a / b },
+	"Sub":                         func(a, b int64) int64 { return a - b },
 	"CalculateSubmissionCooldown": radio.CalculateSubmissionCooldown,
 }
 

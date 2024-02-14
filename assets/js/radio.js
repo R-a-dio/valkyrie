@@ -143,7 +143,7 @@ function updateProgress() {
 
 function toggleSongInfoDropdown(div) {
     div.nextElementSibling.classList.toggle("is-hidden")
-}  
+}
 
 setTimeout(updateTimes, 1000);
 setTimeout(updateProgress, 1000);
@@ -312,7 +312,10 @@ class Stream {
     }
 
     setButton(text) {
-        this.button().textContent = text;
+        let button = this.button();
+        if (button) {
+            button.textContent = text;
+        }
     }
 
     button() {
