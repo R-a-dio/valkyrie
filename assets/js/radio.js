@@ -118,7 +118,7 @@ function updateProgress() {
     progressUpdateTimer = setTimeout(updateProgress, minUpdate);
 }
 
-function songInfoDropdown(div) {
+function toggleSongInfoDropdown(div) {
     div.nextElementSibling.classList.toggle("is-hidden")
 }  
 

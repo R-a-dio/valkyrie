@@ -84,18 +84,22 @@
     border-radius: 0px 0px 4px 4px;
 }
 
+.disable-pointer {
+    cursor: unset;
+}
+
 .dj-image-name {
     position: relative;
     top: 0px;
     opacity: 0;
     transition: all 0.1s ease-out 0.1s;
     pointer-events: none;
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: rgba(0, 0, 0, 0.8);
     color: #FFF;
     border-radius: 6px;
 }
 
 .dj-image:hover + .dj-image-name {
-    top: -128px;
+    top: -84px;
     opacity: 1;
 }
