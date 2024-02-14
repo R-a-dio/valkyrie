@@ -178,7 +178,7 @@ LIMIT ? OFFSET ?;
 `)
 
 // LastPlayed implements radio.SongStorage
-func (ss SongStorage) LastPlayed(offset, amount int) ([]radio.Song, error) {
+func (ss SongStorage) LastPlayed(offset, amount int64) ([]radio.Song, error) {
 	const op errors.Op = "mariadb/SongStorage.LastPlayed"
 
 	var songs = make([]radio.Song, 0, amount)
@@ -189,6 +189,20 @@ func (ss SongStorage) LastPlayed(offset, amount int) ([]radio.Song, error) {
 	}
 
 	return songs, nil
+}
+
+// LastPlayedCount implements radio.SongStorage
+func (ss SongStorage) LastPlayedCount() (int64, error) {
+	const op errors.Op = "mariadb/SongStorage.LastPlayedCount"
+
+	var query = `SELECT count(*) FROM eplay;`
+	var playCount int64
+
+	err := sqlx.Get(ss.handle, &playCount, query)
+	if err != nil {
+		return 0, errors.E(op, err)
+	}
+	return playCount, nil
 }
 
 // PlayedCount implements radio.SongStorage

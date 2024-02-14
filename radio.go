@@ -636,7 +636,9 @@ type SongStorage interface {
 
 	// LastPlayed returns songs that have recently played, up to amount given after
 	// applying the offset
-	LastPlayed(offset, amount int) ([]Song, error)
+	LastPlayed(offset, amount int64) ([]Song, error)
+	// LastPlayedCount returns the amount of plays recorded
+	LastPlayedCount() (int64, error)
 	// PlayedCount returns the amount of times the song has been played on stream
 	PlayedCount(Song) (int64, error)
 	// AddPlay adds a play to the song. If present, ldiff is the difference in amount

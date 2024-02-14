@@ -265,7 +265,7 @@ func FaveTrack(e Event) error {
 
 		// count the amount of `last`'s used to determine how far back we should go
 		index := strings.Count(e.Arguments["relative"], "last") - 1
-		songs, err := ss.LastPlayed(index, 1)
+		songs, err := ss.LastPlayed(int64(index), 1)
 		if err != nil {
 			return errors.E(op, err)
 		}

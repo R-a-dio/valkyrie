@@ -3,8 +3,6 @@ package mariadb
 import (
 	"slices"
 	"testing"
-
-	_ "github.com/R-a-dio/valkyrie/search/storage"
 )
 
 type splitCase struct {
