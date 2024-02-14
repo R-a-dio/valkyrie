@@ -2,24 +2,26 @@ package public
 
 import (
 	"net/http"
+
+	"github.com/R-a-dio/valkyrie/website/shared"
 )
 
 type FavesInput struct {
-	SharedInput
+	shared.Input
 }
 
 func (FavesInput) TemplateBundle() string {
 	return "faves"
 }
 
-func NewFavesInput(r *http.Request) FavesInput {
+func NewFavesInput(f *shared.InputFactory, r *http.Request) FavesInput {
 	return FavesInput{
-		SharedInput: NewSharedInput(r),
+		Input: f.New(r),
 	}
 }
 
 func (s State) GetFaves(w http.ResponseWriter, r *http.Request) {
-	input := NewFavesInput(r)
+	input := NewFavesInput(s.Shared, r)
 
 	err := s.Templates.Execute(w, r, input)
 	if err != nil {

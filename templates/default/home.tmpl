@@ -12,7 +12,14 @@
                     </div>
                     <div class="column">
                         <div class="field">
-                            <button class="button is-info is-fullwidth">Play Stream</button>
+                            {{with .StreamURL}}
+                            <noscript>
+                                <audio preload="none" controls>
+                                      <source src="{{.}}" type="audio/mpeg" />
+                                </audio>
+                            </noscript>
+                            {{end}}
+                            <button id="stream-play-pause" class="is-hidden-without-js button is-info is-fullwidth">Play Stream</button>
                         </div>
                         <div class="field has-addons">
                                 <button class="button is-width-90">Direct Stream Link</button>

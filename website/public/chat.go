@@ -2,24 +2,26 @@ package public
 
 import (
 	"net/http"
+
+	"github.com/R-a-dio/valkyrie/website/shared"
 )
 
 type ChatInput struct {
-	SharedInput
+	shared.Input
 }
 
 func (ChatInput) TemplateBundle() string {
 	return "chat"
 }
 
-func NewChatInput(r *http.Request) ChatInput {
+func NewChatInput(f *shared.InputFactory, r *http.Request) ChatInput {
 	return ChatInput{
-		SharedInput: NewSharedInput(r),
+		Input: f.New(r),
 	}
 }
 
 func (s State) GetChat(w http.ResponseWriter, r *http.Request) {
-	input := NewChatInput(r)
+	input := NewChatInput(s.Shared, r)
 
 	err := s.Templates.Execute(w, r, input)
 	if err != nil {

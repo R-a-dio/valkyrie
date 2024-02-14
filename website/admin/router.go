@@ -9,6 +9,7 @@ import (
 	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/R-a-dio/valkyrie/util/daypass"
 	vmiddleware "github.com/R-a-dio/valkyrie/website/middleware"
+	"github.com/R-a-dio/valkyrie/website/shared"
 	"github.com/spf13/afero"
 
 	"github.com/alexedwards/scs/v2"
@@ -18,6 +19,7 @@ import (
 type State struct {
 	config.Config
 
+	Shared           *shared.InputFactory
 	Daypass          *daypass.Daypass
 	Storage          radio.StorageService
 	Templates        *templates.Site

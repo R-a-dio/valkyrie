@@ -74,3 +74,7 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
+
+.is-hidden-without-js {
+    display: none !important;
+}

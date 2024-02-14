@@ -8,7 +8,7 @@ import (
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/R-a-dio/valkyrie/util/daypass"
-	"github.com/R-a-dio/valkyrie/website/middleware"
+	"github.com/R-a-dio/valkyrie/website/shared"
 	"github.com/rs/zerolog/hlog"
 
 	"github.com/go-chi/chi/v5"
@@ -19,6 +19,7 @@ const theme = "default"
 type State struct {
 	config.Config
 
+	Shared    *shared.InputFactory
 	Daypass   *daypass.Daypass
 	Templates templates.Executor
 	Manager   radio.ManagerService
@@ -30,23 +31,6 @@ func (s *State) errorHandler(w http.ResponseWriter, r *http.Request, err error) 
 	hlog.FromRequest(r).Error().Err(err).Msg("")
 	// TODO: handle errors more gracefully
 	http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-}
-
-type SharedInput struct {
-	IsUser bool
-	User   *radio.User
-}
-
-func (SharedInput) TemplateName() string {
-	return "full-page"
-}
-
-func NewSharedInput(r *http.Request) SharedInput {
-	user := middleware.UserFromContext(r.Context())
-	return SharedInput{
-		IsUser: user != nil,
-		User:   user,
-	}
 }
 
 func Route(ctx context.Context, s State) func(chi.Router) {
@@ -66,8 +50,4 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 		r.Post("/favorites", s.PostFaves)
 		r.Get("/irc", s.GetChat)
 	}
-}
-
-func IsHTMX(r *http.Request) bool {
-	return r.Header.Get("Hx-Request") == "true"
 }

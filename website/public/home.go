@@ -5,11 +5,12 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/R-a-dio/valkyrie/website/shared"
 	"github.com/rs/zerolog/hlog"
 )
 
 type HomeInput struct {
-	SharedInput
+	shared.Input
 
 	Status     *radio.Status
 	Queue      []radio.QueueEntry
@@ -17,9 +18,9 @@ type HomeInput struct {
 	News       []radio.NewsPost
 }
 
-func NewHomeInput(r *http.Request) HomeInput {
+func NewHomeInput(f *shared.InputFactory, r *http.Request) HomeInput {
 	return HomeInput{
-		SharedInput: NewSharedInput(r),
+		Input: f.New(r),
 	}
 }
 
@@ -38,7 +39,7 @@ func (s State) GetHome(w http.ResponseWriter, r *http.Request) {
 func (s State) getHome(w http.ResponseWriter, r *http.Request) error {
 	const op errors.Op = "website/public.getHome"
 
-	input := NewHomeInput(r)
+	input := NewHomeInput(s.Shared, r)
 	ctx := r.Context()
 
 	status, err := s.Manager.Status(ctx)

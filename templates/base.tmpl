@@ -5,6 +5,13 @@
     {{ template "scripts" . }}
 </head>
 <body style="padding-bottom: 60px;">
+    {{with .StreamURL}}
+    <div class="is-hidden">
+        <audio id="stream-audio" preload="none">
+            <source src="{{.}}" type="audio/mpeg" />
+        </audio>
+    </div>
+    {{end}}
     {{ template "partial-page" . }}
 </body>
 </html>

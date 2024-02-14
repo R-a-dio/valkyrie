@@ -34,10 +34,11 @@ var defaultConfig = config{
 		DSN:        "radio@unix(/run/mysqld/mysqld.sock)/radio?parseTime=true",
 	},
 	Website: website{
-		WebsiteAddr:    "localhost:3241",
-		Addr:           ":4747",
-		ListenAddr:     ":4747",
-		DJImageMaxSize: 10 * 1024 * 1024,
+		WebsiteAddr:     "localhost:3241",
+		Addr:            ":4747",
+		ListenAddr:      ":4747",
+		DJImageMaxSize:  10 * 1024 * 1024,
+		PublicStreamURL: "http://localhost:8000/main.mp3",
 	},
 	Streamer: streamer{
 		Addr:            ":4545",
@@ -135,6 +136,8 @@ type website struct {
 	DJImageMaxSize int64
 	// DJImagePath is the path where to store dj images
 	DJImagePath string // required
+	// PublicStreamURL is the public url to the stream
+	PublicStreamURL string
 }
 
 // streamer contains all the fields only relevant to the streamer

@@ -16,6 +16,7 @@ import (
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/website/middleware"
+	"github.com/R-a-dio/valkyrie/website/shared"
 	"github.com/rs/zerolog/hlog"
 	"golang.org/x/crypto/bcrypt"
 
@@ -70,7 +71,7 @@ func (s *State) GetProfile(w http.ResponseWriter, r *http.Request) {
 }
 
 type profileInput struct {
-	SharedInput
+	shared.Input
 
 	IsAdmin              bool
 	IsNew                bool
@@ -145,7 +146,7 @@ func (s *State) getProfile(w http.ResponseWriter, r *http.Request, form *Profile
 	}
 
 	tmplInput := profileInput{
-		SharedInput:          NewSharedInput(r),
+		Input:                s.Shared.New(r),
 		IsAdmin:              isAdmin,
 		IsNew:                isNew,
 		IsNewProfile:         isNewProfile,

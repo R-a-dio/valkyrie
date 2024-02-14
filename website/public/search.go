@@ -2,15 +2,17 @@ package public
 
 import (
 	"net/http"
+
+	"github.com/R-a-dio/valkyrie/website/shared"
 )
 
 type SearchInput struct {
-	SharedInput
+	shared.Input
 }
 
-func NewSearchInput(r *http.Request) SearchInput {
+func NewSearchInput(f *shared.InputFactory, r *http.Request) SearchInput {
 	return SearchInput{
-		SharedInput: NewSharedInput(r),
+		Input: f.New(r),
 	}
 }
 
@@ -19,7 +21,7 @@ func (SearchInput) TemplateBundle() string {
 }
 
 func (s State) GetSearch(w http.ResponseWriter, r *http.Request) {
-	input := NewSearchInput(r)
+	input := NewSearchInput(s.Shared, r)
 
 	err := s.Templates.Execute(w, r, input)
 	if err != nil {
