@@ -167,27 +167,15 @@ class Stream {
         // recover state
         this.recoverLast = 0;
         this.recoverGrace = 3 * 1000; // 3 seconds between recover attempts
-
-        // fix javascript garbage
-        this.cacheAvoidURL = this.cacheAvoidURL.bind(this);
-        this.createAudio = this.createAudio.bind(this);
-        this.PlayStop = this.PlayStop.bind(this);
-        this.Play = this.Play.bind(this);
-        this.Stop = this.Stop.bind(this);
-        this.CheckStarted = this.CheckStarted.bind(this);
-        this.FadeIn = this.FadeIn.bind(this);
-        this.recover = this.recover.bind(this);
-        this.setButton = this.setButton.bind(this);
-        this.monitor = this.monitor.bind(this);
     }
 
-    cacheAvoidURL() {
+    cacheAvoidURL = () => {
         let url = new URL(this.url);
         url.searchParams.set("_t", Date.now());
         return url.href;
     }
 
-    createAudio() {
+    createAudio = () => {
         let audio = new Audio();
         audio.crossOrigin = 'anonymous';
         audio.preload = "none";
@@ -195,7 +183,7 @@ class Stream {
         return audio;
     }
 
-    PlayStop() {
+    PlayStop = (event) => {
         if (!this.audio || this.audio.paused) {
             this.Play(true);
         } else {
@@ -203,7 +191,7 @@ class Stream {
         }
     }
 
-    async Play(newAudio) {
+    Play = async (newAudio) => {
         if (newAudio) {
             this.audio = this.createAudio();
         }
@@ -226,7 +214,7 @@ class Stream {
         }
     }
 
-    async Stop(deleteAudio) {
+    Stop = async (deleteAudio) => {
         this.audio.pause()
         if (deleteAudio) {
             this.audio = null;
@@ -239,7 +227,7 @@ class Stream {
         } catch (err) { }
     }
 
-    CheckStarted() {
+    CheckStarted = () => {
         if (this.audio.paused) {
             this.setButton("Something went wrong, try again");
             return
@@ -256,7 +244,7 @@ class Stream {
         } catch (err) { }
     }
 
-    FadeIn() {
+    FadeIn = () => {
         clearTimeout(this.fadeTimer);
 
         let cur = this.audio.currentTime;
@@ -274,7 +262,7 @@ class Stream {
         this.fadeTimer = setTimeout(this.FadeIn, 20);
     }
 
-    setVolume(newVol, storeVol) {
+    setVolume = (newVol, storeVol) => {
         let calculatedVol = Math.pow(newVol, 2.0);
         if (this.audio) {
             this.audio.volume = calculatedVol;
@@ -287,7 +275,7 @@ class Stream {
         }
     }
 
-    recover() {
+    recover = () => {
         if (!this.audio) { // we got called while there isn't supposed to be a stream
             return
         }
@@ -311,18 +299,18 @@ class Stream {
         this.Play();
     }
 
-    setButton(text) {
+    setButton = (text) => {
         let button = this.button();
         if (button) {
             button.textContent = text;
         }
     }
 
-    button() {
+    button = () => {
         return document.getElementById("stream-play-pause");
     }
 
-    monitor() {
+    monitor = () => {
         if (!this.audio) {
             return;
         }
