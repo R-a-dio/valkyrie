@@ -78,6 +78,11 @@
 .is-hidden-without-js {
     display: none !important;
 }
+
+.block {
+    border-radius: 4px;
+}
+
 .song-info {
     border-radius: 4px;
     cursor: pointer;
