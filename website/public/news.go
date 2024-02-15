@@ -48,6 +48,6 @@ func (s State) GetNewsEntry(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func (s State) PostNews(w http.ResponseWriter, r *http.Request) {
+func (s State) PostNewsEntry(w http.ResponseWriter, r *http.Request) {
 	return
 }

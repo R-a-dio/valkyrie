@@ -35,6 +35,7 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 		r.Post("/profile", s.PostProfile)
 		r.Get("/pending", vmiddleware.RequirePermission(radio.PermPendingView, s.GetPending))
 		r.Post("/pending", vmiddleware.RequirePermission(radio.PermPendingEdit, s.PostPending))
+		r.Get("/pending-song/{SubmissionID:[0-9]+}", vmiddleware.RequirePermission(radio.PermPendingView, s.GetPendingSong))
 		// debug handlers, might not be needed later
 		r.HandleFunc("/streamer/start", vmiddleware.RequirePermission(radio.PermAdmin, s.StartStreamer))
 		r.HandleFunc("/streamer/stop", vmiddleware.RequirePermission(radio.PermAdmin, s.StopStreamer))

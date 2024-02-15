@@ -12,6 +12,7 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/website/middleware"
+	"github.com/go-chi/chi/v5"
 	"github.com/rs/xid"
 	"github.com/rs/zerolog/hlog"
 )
@@ -59,6 +60,31 @@ func (pi *PendingInput) Hydrate(s radio.SubmissionStorage) error {
 		pi.Submissions[i].PendingSong = v
 	}
 	return nil
+}
+
+func (s *State) GetPendingSong(w http.ResponseWriter, r *http.Request) {
+	textID := chi.URLParam(r, "SubmissionID")
+	intID, err := strconv.Atoi(textID)
+	if err != nil {
+		panic("non-number found: " + textID)
+	}
+	id := radio.SubmissionID(intID)
+
+	song, err := s.Storage.Submissions(r.Context()).GetSubmission(id)
+	if err != nil {
+		hlog.FromRequest(r).Error().Err(err).Msg("database failure")
+		return
+	}
+
+	// grab the path of the song and make it absolute
+	path := song.FilePath
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(s.Conf().MusicPath, path)
+	}
+
+	w.Header().Set("Content-Disposition", "attachment")
+	http.ServeFile(w, r, path)
+	return
 }
 
 func (s *State) GetPending(w http.ResponseWriter, r *http.Request) {

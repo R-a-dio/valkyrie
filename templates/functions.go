@@ -25,6 +25,7 @@ var fnMap = map[string]any{
 	"PrettyDuration":              TimeagoDuration,
 	"AbsoluteDate":                AbsoluteDate,
 	"HumanDuration":               HumanDuration,
+	"MediaDuration":               MediaDuration,
 	"Div":                         func(a, b int) int { return a / b },
 	"Sub":                         func(a, b int64) int64 { return a - b },
 	"CalculateSubmissionCooldown": radio.CalculateSubmissionCooldown,
@@ -83,4 +84,8 @@ func AbsoluteDate(t time.Time) string {
 
 func HumanDuration(d time.Duration) string {
 	return d.Truncate(time.Second).String()
+}
+
+func MediaDuration(d time.Duration) string {
+	return fmt.Sprintf("%02d:%02d", d/time.Minute, d%time.Minute/time.Second)
 }
