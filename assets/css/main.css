@@ -81,6 +81,10 @@ span {
 	text-overflow: ellipsis;
 }
 
+.word-break-all {
+    word-break: break-all;
+}
+
 .is-hidden-without-js {
     display: none !important;
 }
