@@ -79,6 +79,18 @@
     display: none !important;
 }
 
+.mobile-spacer {
+    margin-bottom: 2.5rem;
+}
+
+.disable-pointer {
+    cursor: unset;
+}
+
+.fill-sides {
+    margin: auto;
+}
+
 .block {
     border-radius: 4px;
 }
@@ -92,11 +104,7 @@
     border-radius: 0px 0px 4px 4px;
 }
 
-.disable-pointer {
-    cursor: unset;
-}
-
-.dj-image-name {
+.dj-image-name-64 {
     position: relative;
     top: 0px;
     opacity: 0;
@@ -107,7 +115,23 @@
     border-radius: 6px;
 }
 
-.dj-image:hover + .dj-image-name {
+.dj-image-name-128 {
+    position: relative;
+    top: 0px;
+    opacity: 0;
+    transition: all 0.1s ease-out 0.1s;
+    pointer-events: none;
+    background-color: rgba(0, 0, 0, 0.8);
+    color: #FFF;
+    border-radius: 6px;
+}
+
+.dj-image:hover + .dj-image-name-64 {
     top: -84px;
+    opacity: 1;
+}
+
+.dj-image:hover + .dj-image-name-128 {
+    top: -142px;
     opacity: 1;
 }
