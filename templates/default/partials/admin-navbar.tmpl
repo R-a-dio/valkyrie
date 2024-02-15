@@ -1,7 +1,7 @@
 {{define "admin-navbar"}}
-<nav class="navbar is-fixed-bottom is-dark" role="navigation">
+<nav class="navbar is-fixed-bottom is-dark" role="navigation" hx-boost="true" hx-push-url="true" hx-target="#content">
     <div class="navbar-brand">
-        <a class="navbar-item" href="/">
+        <a class="navbar-item" href="/admin">
             <img src="/assets/images/logotitle_2.png" alt="r/a/dio logo">
         </a>
         <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="admin-navbar" onclick="this.classList.toggle('is-active'); document.getElementById(this.dataset.target).classList.toggle('is-active')">
