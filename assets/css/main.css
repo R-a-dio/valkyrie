@@ -69,6 +69,12 @@
 	border-top: 2px rgba(0, 0, 0, .1) solid;
 }
 
+span {
+	word-break: unset;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
 .word-break-ellipsis {
 	word-break: unset;
 	overflow: hidden;
@@ -98,6 +104,11 @@
 .song-info {
     border-radius: 4px;
     cursor: pointer;
+}
+
+.song-info:hover {
+    background-color: hsl(0, 0%, 90%) !important;
+    transition: 0.125s all ease-in-out;
 }
 
 .song-info-extra {
@@ -134,4 +145,9 @@
 .dj-image:hover + .dj-image-name-128 {
     top: -142px;
     opacity: 1;
+}
+
+.message:hover, .message:hover > .message-header:nth-child(2) {
+    background-color: hsl(0, 0%, 90%) !important;
+    transition: 0.125s all ease-in-out;
 }
