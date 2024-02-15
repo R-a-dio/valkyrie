@@ -352,6 +352,7 @@ const (
 	NoMigrations                       // indicates there were no storage migrations
 	DirtyMigration                     // indicates the migration failed to apply and is in a dirty state
 	MigrationNotApplied                // indicates not all migrations were applied
+	LoginError                         // Login error
 )
 
 func (k Kind) String() string {
@@ -426,6 +427,8 @@ func (k Kind) String() string {
 		return "migration status is dirty"
 	case MigrationNotApplied:
 		return "migration needs to be applied"
+	case LoginError:
+		return "login error"
 	}
 
 	return "unknown error kind"

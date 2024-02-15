@@ -30,8 +30,8 @@
             <img src="/assets/images/logo_image_small.png">
         </div>
         <div id="login-error">
-            {{if .Failed}}
-            <h2>{{.Message}}</h2>
+            {{with .ErrorMessage}}
+            <h2>{{.}}</h2>
             {{end}}
         </div>
         <div id="login-username">

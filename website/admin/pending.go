@@ -12,19 +12,18 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/website/middleware"
-	"github.com/R-a-dio/valkyrie/website/shared"
 	"github.com/rs/xid"
 	"github.com/rs/zerolog/hlog"
 )
 
 type PendingInput struct {
-	shared.Input
+	middleware.Input
 	Submissions []PendingForm
 }
 
-func NewPendingInput(f *shared.InputFactory, r *http.Request) PendingInput {
+func NewPendingInput(r *http.Request) PendingInput {
 	return PendingInput{
-		Input: f.New(r),
+		Input: middleware.InputFromRequest(r),
 	}
 }
 
@@ -63,7 +62,7 @@ func (pi *PendingInput) Hydrate(s radio.SubmissionStorage) error {
 }
 
 func (s *State) GetPending(w http.ResponseWriter, r *http.Request) {
-	var input = NewPendingInput(s.Shared, r)
+	var input = NewPendingInput(r)
 
 	if err := input.Hydrate(s.Storage.Submissions(r.Context())); err != nil {
 		hlog.FromRequest(r).Error().Err(err).Msg("database failure")
@@ -77,7 +76,7 @@ func (s *State) GetPending(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *State) PostPending(w http.ResponseWriter, r *http.Request) {
-	var input = NewPendingInput(s.Shared, r)
+	var input = NewPendingInput(r)
 
 	if input.User == nil || !input.User.UserPermissions.Has(radio.PermPendingEdit) {
 		hlog.FromRequest(r).Warn().Any("user", input.User).Msg("failed permission check")

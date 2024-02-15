@@ -16,7 +16,6 @@ import (
 	v1 "github.com/R-a-dio/valkyrie/website/api/v1"
 	vmiddleware "github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/R-a-dio/valkyrie/website/public"
-	"github.com/R-a-dio/valkyrie/website/shared"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
 	"github.com/spf13/afero"
@@ -91,6 +90,8 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	// user handling
 	authentication := vmiddleware.NewAuthentication(storage, executor, sessionManager)
 	r.Use(authentication.UserMiddleware)
+	// shared input handling, stuff the base template needs
+	r.Use(vmiddleware.InputMiddleware(cfg))
 	// theme state management
 	r.Use(templates.ThemeCtx(storage))
 
@@ -127,7 +128,6 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	r.Get("/logout", authentication.LogoutHandler) // outside so it isn't login restricted
 	r.Route("/admin", admin.Route(ctx, admin.State{
 		Config:           cfg,
-		Shared:           shared.NewInputFactory(cfg),
 		Daypass:          dpass,
 		Storage:          storage,
 		Templates:        siteTemplates,
@@ -140,7 +140,6 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	// public routes
 	r.Route("/", public.Route(ctx, public.State{
 		Config:    cfg,
-		Shared:    shared.NewInputFactory(cfg),
 		Daypass:   dpass,
 		Templates: siteTemplates.Executor(),
 		Manager:   manager,

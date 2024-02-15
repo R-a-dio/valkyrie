@@ -5,11 +5,11 @@ import (
 	"slices"
 
 	radio "github.com/R-a-dio/valkyrie"
-	"github.com/R-a-dio/valkyrie/website/shared"
+	"github.com/R-a-dio/valkyrie/website/middleware"
 )
 
 type StaffInput struct {
-	shared.Input
+	middleware.Input
 
 	Users []radio.User
 }
@@ -18,7 +18,7 @@ func (si StaffInput) Roles() []string {
 	return []string{"staff", "dev", "dj"}
 }
 
-func NewStaffInput(f *shared.InputFactory, us radio.UserStorageService, r *http.Request) (*StaffInput, error) {
+func NewStaffInput(us radio.UserStorageService, r *http.Request) (*StaffInput, error) {
 	users, err := us.User(r.Context()).All()
 	if err != nil {
 		return nil, err
@@ -29,7 +29,7 @@ func NewStaffInput(f *shared.InputFactory, us radio.UserStorageService, r *http.
 	})
 
 	return &StaffInput{
-		Input: f.New(r),
+		Input: middleware.InputFromRequest(r),
 		Users: users,
 	}, nil
 }
@@ -39,7 +39,7 @@ func (StaffInput) TemplateBundle() string {
 }
 
 func (s State) GetStaff(w http.ResponseWriter, r *http.Request) {
-	input, err := NewStaffInput(s.Shared, s.Storage, r)
+	input, err := NewStaffInput(s.Storage, r)
 	if err != nil {
 		s.errorHandler(w, r, err)
 		return

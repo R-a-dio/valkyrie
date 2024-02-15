@@ -4,16 +4,16 @@ import (
 	"net/http"
 
 	"github.com/R-a-dio/valkyrie/errors"
-	"github.com/R-a-dio/valkyrie/website/shared"
+	"github.com/R-a-dio/valkyrie/website/middleware"
 )
 
 type ScheduleInput struct {
-	shared.Input
+	middleware.Input
 }
 
-func NewScheduleInput(f *shared.InputFactory, r *http.Request) ScheduleInput {
+func NewScheduleInput(r *http.Request) ScheduleInput {
 	return ScheduleInput{
-		Input: f.New(r),
+		Input: middleware.InputFromRequest(r),
 	}
 }
 
@@ -32,7 +32,7 @@ func (s State) GetSchedule(w http.ResponseWriter, r *http.Request) {
 func (s State) getSchedule(w http.ResponseWriter, r *http.Request) error {
 	const op errors.Op = "website/public.getSchedule"
 
-	input := NewScheduleInput(s.Shared, r)
+	input := NewScheduleInput(r)
 
 	return s.Templates.Execute(w, r, input)
 }

@@ -8,7 +8,6 @@ import (
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/R-a-dio/valkyrie/util/daypass"
-	"github.com/R-a-dio/valkyrie/website/shared"
 	"github.com/rs/zerolog/hlog"
 
 	"github.com/go-chi/chi/v5"
@@ -19,7 +18,6 @@ const theme = "default"
 type State struct {
 	config.Config
 
-	Shared    *shared.InputFactory
 	Daypass   *daypass.Daypass
 	Templates templates.Executor
 	Manager   radio.ManagerService

@@ -39,7 +39,7 @@ type Authentication interface {
 	UserMiddleware(http.Handler) http.Handler
 	LoginMiddleware(http.Handler) http.Handler
 	GetLogin(http.ResponseWriter, *http.Request)
-	PostLogin(http.ResponseWriter, *http.Request) error
+	PostLogin(http.ResponseWriter, *http.Request)
 	LogoutHandler(http.ResponseWriter, *http.Request)
 }
 
@@ -105,98 +105,117 @@ func (a authentication) LoginMiddleware(next http.Handler) http.Handler {
 		ctx := r.Context()
 		username := a.sessions.GetString(ctx, usernameKey)
 
-		// no known username yet, so we're not logged in, give them a login box
-		if username == "" && r.Method != "POST" {
-			a.GetLogin(w, r)
+		// no known username yet, so we're not logged in
+		if username == "" {
+			if r.Method == http.MethodPost {
+				// if it's a POST try and see if they're trying to login
+				a.PostLogin(w, r)
+			} else {
+				// otherwise send them to the login form
+				a.GetLogin(w, r)
+			}
 			return
 		}
 
 		// we have a username, this suggests we are logged in, try and retrieve
 		// the permissions for the user and check if it's an active account
-		if username != "" {
-			user, err := a.storage.User(ctx).Get(username)
-			if err != nil {
-				if errors.Is(errors.UserUnknown, err) {
-					// unknown user, we force log them out
-					a.LogoutHandler(w, r)
-					return
-				}
-
-				// other unknown error, just internal server and log stuff
-				http.Error(w,
-					http.StatusText(http.StatusInternalServerError),
-					http.StatusInternalServerError)
-				hlog.FromRequest(r).Error().Err(err).Msg("")
+		user, err := a.storage.User(ctx).Get(username)
+		if err != nil {
+			if errors.Is(errors.UserUnknown, err) {
+				// unknown user, we force log them out
+				a.LogoutHandler(w, r)
 				return
 			}
 
-			if user.UserPermissions.Has(radio.PermActive) {
-				// user is indeed active, so forward them to their actual destination
-				r = RequestWithUser(r, user)
-				next.ServeHTTP(w, r)
-				return
-			}
+			// other unknown error, just internal server and log stuff
+			http.Error(w,
+				http.StatusText(http.StatusInternalServerError),
+				http.StatusInternalServerError)
+			hlog.FromRequest(r).Error().Err(err).Msg("")
+			return
+		}
 
-			// user account is inactive, force log them out
+		if !user.UserPermissions.Has(radio.PermActive) {
+			// user isn't active, so log them out
 			a.LogoutHandler(w, r)
 			return
 		}
 
-		err := a.PostLogin(w, r)
-		if err == nil {
-			// login successful, send them back to the page they requested at first
-			http.Redirect(w, r, r.URL.String(), 302)
-			return
-		}
-
-		// record that we failed a login, and give a very generic error so that
-		// bruteforcing isn't made easier by having us tell them what was wrong
-		a.sessions.Put(ctx, failedLoginKey, true)
-		var message string
-		if errors.Is(errors.InvalidArgument, err) {
-			message = "invalid credentials"
-		} else {
-			message = "internal server error"
-		}
-		a.sessions.Put(ctx, failedLoginMessageKey, message)
-		hlog.FromRequest(r).Error().Err(err).Msg("")
-		// either way we're going to send them back to the login page again
-		http.Redirect(w, r, r.URL.String(), 302)
+		// otherwise, use is active so forward them to their destination
+		r = RequestWithUser(r, user)
+		next.ServeHTTP(w, r)
+		return
 	})
 }
 
 func (a *authentication) GetLogin(w http.ResponseWriter, r *http.Request) {
 	const op errors.Op = "admin/authentication.GetLogin"
 
-	// check if a previous request failed a login
-	failed := a.sessions.PopBool(r.Context(), failedLoginKey)
-	var failedMessage string
-	if failed {
-		failedMessage = a.sessions.PopString(r.Context(), failedLoginMessageKey)
-	}
-
-	err := a.templates.Execute(w, r, loginInfo{failed, failedMessage})
+	err := a.getLogin(w, r, nil)
 	if err != nil {
 		hlog.FromRequest(r).Error().Err(err).Msg("")
 		return
 	}
+	return
 }
 
-type loginInfo struct {
-	Failed  bool
-	Message string
+func (a *authentication) getLogin(w http.ResponseWriter, r *http.Request, input *LoginInput) error {
+	const op errors.Op = "website/middleware.authentication.getLogin"
+
+	if input == nil {
+		tmp := NewLoginInput(r, "")
+		input = &tmp
+	}
+
+	err := a.templates.Execute(w, r, input)
+	if err != nil {
+		return errors.E(op, err)
+	}
+	return nil
 }
 
-func (loginInfo) TemplateBundle() string {
+func NewLoginInput(r *http.Request, message string) LoginInput {
+	return LoginInput{
+		Input:        InputFromRequest(r),
+		ErrorMessage: message,
+	}
+}
+
+type LoginInput struct {
+	Input
+
+	ErrorMessage string
+}
+
+func (LoginInput) TemplateBundle() string {
 	return "admin-login"
 }
 
-func (loginInfo) TemplateName() string {
-	return "full-page"
+func (a *authentication) PostLogin(w http.ResponseWriter, r *http.Request) {
+	const op errors.Op = "website/middleware.authentication.PostLogin"
+
+	err := a.postLogin(w, r)
+	if err != nil {
+		// failed to login, log an error and give the user a generic error
+		// message alongside the login page again
+		hlog.FromRequest(r).Error().Err(err).Msg("")
+
+		input := NewLoginInput(r, "invalid credentials")
+		err = a.getLogin(w, r, &input)
+		if err != nil {
+			hlog.FromRequest(r).Error().Err(err).Msg("failed to send login page")
+			return
+		}
+		return
+	}
+
+	// successful login so send them to where they were trying to go
+	http.Redirect(w, r, r.URL.String(), 302)
+	return
 }
 
-func (a *authentication) PostLogin(w http.ResponseWriter, r *http.Request) error {
-	const op errors.Op = "admin/authentication.PostLogin"
+func (a *authentication) postLogin(w http.ResponseWriter, r *http.Request) error {
+	const op errors.Op = "website/middleware.authentication.postLogin"
 	var ctx = r.Context()
 
 	err := r.ParseForm()
@@ -206,12 +225,12 @@ func (a *authentication) PostLogin(w http.ResponseWriter, r *http.Request) error
 
 	username := r.PostFormValue("username")
 	if username == "" || len(username) > 50 {
-		return errors.E(op, errors.InvalidArgument, "empty or long username")
+		return errors.E(op, errors.LoginError, "empty or long username")
 	}
 
 	password := r.PostFormValue("password")
 	if password == "" {
-		return errors.E(op, errors.InvalidArgument, "empty password")
+		return errors.E(op, errors.LoginError, "empty password")
 	}
 
 	user, err := a.storage.User(ctx).Get(username)
@@ -219,21 +238,22 @@ func (a *authentication) PostLogin(w http.ResponseWriter, r *http.Request) error
 		// if it was an unknown username, turn it into a generic invalid argument
 		// error instead so the user doesn't get an internal server error
 		if errors.Is(errors.UserUnknown, err) {
-			return errors.E(op, err, errors.InvalidArgument)
+			return errors.E(op, err, errors.LoginError)
 		}
 		return errors.E(op, err)
 	}
 
 	if !user.UserPermissions.Has(radio.PermActive) {
 		// inactive user account, don't allow login attempts
-		return errors.E(op, errors.InvalidArgument, "inactive user")
+		return errors.E(op, errors.LoginError, "inactive user")
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
 	if err != nil {
-		return errors.E(op, err, errors.InvalidArgument, "invalid password")
+		return errors.E(op, err, errors.LoginError, "invalid password")
 	}
 
+	// success put their username in the session so we know they're logged in
 	a.sessions.Put(ctx, usernameKey, username)
 	return nil
 }

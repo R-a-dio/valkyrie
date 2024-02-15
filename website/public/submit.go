@@ -17,7 +17,6 @@ import (
 	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/util/daypass"
 	"github.com/R-a-dio/valkyrie/website/middleware"
-	"github.com/R-a-dio/valkyrie/website/shared"
 	"github.com/rs/zerolog/hlog"
 )
 
@@ -33,12 +32,12 @@ const (
 )
 
 type SubmitInput struct {
-	shared.Input
+	middleware.Input
 	Form  SubmissionForm
 	Stats radio.SubmissionStats
 }
 
-func NewSubmitInput(f *shared.InputFactory, storage radio.SubmissionStorageService, r *http.Request, form *SubmissionForm) (*SubmitInput, error) {
+func NewSubmitInput(storage radio.SubmissionStorageService, r *http.Request, form *SubmissionForm) (*SubmitInput, error) {
 	const op errors.Op = "website.NewSubmitInput"
 
 	if form == nil {
@@ -52,7 +51,7 @@ func NewSubmitInput(f *shared.InputFactory, storage radio.SubmissionStorageServi
 	}
 
 	return &SubmitInput{
-		Input: f.New(r),
+		Input: middleware.InputFromRequest(r),
 		Form:  *form,
 		Stats: stats,
 	}, nil
@@ -108,7 +107,7 @@ func (s State) GetSubmit(w http.ResponseWriter, r *http.Request) {
 func (s State) getSubmit(w http.ResponseWriter, r *http.Request, form *SubmissionForm) error {
 	const op errors.Op = "website.getSubmit"
 
-	input, err := NewSubmitInput(s.Shared, s.Storage, r, form)
+	input, err := NewSubmitInput(s.Storage, r, form)
 	if err != nil {
 		return errors.E(op, err)
 	}

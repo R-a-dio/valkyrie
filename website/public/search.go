@@ -3,16 +3,16 @@ package public
 import (
 	"net/http"
 
-	"github.com/R-a-dio/valkyrie/website/shared"
+	"github.com/R-a-dio/valkyrie/website/middleware"
 )
 
 type SearchInput struct {
-	shared.Input
+	middleware.Input
 }
 
-func NewSearchInput(f *shared.InputFactory, r *http.Request) SearchInput {
+func NewSearchInput(r *http.Request) SearchInput {
 	return SearchInput{
-		Input: f.New(r),
+		Input: middleware.InputFromRequest(r),
 	}
 }
 
@@ -21,7 +21,7 @@ func (SearchInput) TemplateBundle() string {
 }
 
 func (s State) GetSearch(w http.ResponseWriter, r *http.Request) {
-	input := NewSearchInput(s.Shared, r)
+	input := NewSearchInput(r)
 
 	err := s.Templates.Execute(w, r, input)
 	if err != nil {

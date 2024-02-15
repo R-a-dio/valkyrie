@@ -6,6 +6,7 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/R-a-dio/valkyrie/website/shared"
 )
 
@@ -14,7 +15,7 @@ const (
 )
 
 type LastPlayedInput struct {
-	shared.Input
+	middleware.Input
 
 	Songs []radio.Song
 	Page  *shared.Pagination
@@ -24,7 +25,7 @@ func (LastPlayedInput) TemplateBundle() string {
 	return "lastplayed"
 }
 
-func NewLastPlayedInput(f *shared.InputFactory, s radio.SongStorageService, r *http.Request) (*LastPlayedInput, error) {
+func NewLastPlayedInput(s radio.SongStorageService, r *http.Request) (*LastPlayedInput, error) {
 	const op errors.Op = "website/public.NewLastPlayedInput"
 
 	page, offset, err := getPageOffset(r, lastplayedSize)
@@ -44,7 +45,7 @@ func NewLastPlayedInput(f *shared.InputFactory, s radio.SongStorageService, r *h
 	}
 
 	return &LastPlayedInput{
-		Input: f.New(r),
+		Input: middleware.InputFromRequest(r),
 		Songs: songs,
 		Page: shared.NewPagination(
 			page, shared.PageCount(total, lastplayedSize),
@@ -54,7 +55,7 @@ func NewLastPlayedInput(f *shared.InputFactory, s radio.SongStorageService, r *h
 }
 
 func (s State) getLastPlayed(w http.ResponseWriter, r *http.Request) error {
-	input, err := NewLastPlayedInput(s.Shared, s.Storage, r)
+	input, err := NewLastPlayedInput(s.Storage, r)
 	if err != nil {
 		return err
 	}
