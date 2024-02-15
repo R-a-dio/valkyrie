@@ -70,6 +70,17 @@ htmx.on('htmx:load', (event) => {
     }
 });
 
+htmx.on('htmx:afterSettle', (event) => {
+    if (event.target.getAttribute("sse-swap") == "metadata") {
+        if (stream) {
+            let metadata = document.getElementById("metadata");
+            if (metadata) {
+                stream.updateMediaSessionMetadata(metadata.textContent);
+            }
+        }
+    }
+});
+
 function prettyDuration(d) {
     return rtf.format(Math.floor(d / 60), "minute");
 }
@@ -192,6 +203,36 @@ class Stream {
         // recover state
         this.recoverLast = 0;
         this.recoverGrace = 3 * 1000; // 3 seconds between recover attempts
+
+        try {
+            // setup phone action handlers, these are shown in the notification area
+            navigator.mediaSession.setActionHandler("pause", (event) => {
+                this.playStop();
+            });
+            navigator.mediaSession.setActionHandler("stop", (event) => {
+                this.playStop();
+            });
+            navigator.mediaSession.setActionHandler("play", (event) => {
+                this.playStop();
+            })
+        } catch (err) { }
+    }
+
+    updateMediaSessionMetadata = (metadata) => {
+        if (!this.audio || this.audio.paused) {
+            return
+        }
+        try {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: metadata,
+                artwork: [
+                    {
+                        "src": "/assets/images/logo_image_small.png",
+                        "type": "image/png",
+                    },
+                ],
+            })
+        } catch (err) { }
     }
 
     cacheAvoidURL = () => {
@@ -266,6 +307,7 @@ class Stream {
 
         try {
             navigator.mediaSession.playbackState = "playing";
+            this.updateMediaSessionMetadata(document.getElementById("metadata").textContent);
         } catch (err) { }
     }
 

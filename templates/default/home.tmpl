@@ -89,7 +89,7 @@ Home {{printjson .}}
 {{end}}
 {{define "nowplaying"}}
 <h2 id="current-song">
-    <p class="title is-2 has-text-centered" style="cursor: pointer;">{{.Song.Metadata}}</p>
+    <p id="metadata" class="title is-2 has-text-centered" style="cursor: pointer;">{{.Song.Metadata}}</p>
     <p class="subtitle is-4 has-text-centered" style="font-size: 14px;">{{if .Song.DatabaseTrack}}{{.Song.Tags}}{{end}}</p>
 </h2>
 <progress id="current-song-progress" class="progress is-large" value="0" max="{{.Song.Length.Seconds}}"></progress>
