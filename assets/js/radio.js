@@ -119,10 +119,14 @@ function updateTimes() {
     var nextUpdate = 60;
 
     document.querySelectorAll("time").forEach((node) => {
+        if (node.dataset.timeset) {
+            return
+        }
         var d = node.dateTime - n;
         switch (node.dataset.type) {
             case "absolute":
                 node.textContent = absoluteTime(node.dateTime);
+                node.dataset.timeset = true;
                 break;
             default:
                 node.textContent = prettyDuration(d);
@@ -175,7 +179,10 @@ class Stream {
         // volume state
         this.volume = 0.8; // default to 80%
         try { // but try to load the prefered value from local storage
-            this.volume = parseInt(localStorage.getItem('volume')) / 100.0;
+            let storedVol = localStorage.getItem('volume');
+            if (storedVol) {
+                this.volume = parseInt(storedVol) / 100.0;
+            }
         } catch (err) { }
 
         // fade-in state

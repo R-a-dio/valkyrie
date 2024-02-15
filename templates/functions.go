@@ -23,6 +23,7 @@ var fnMap = map[string]any{
 	"Now":                         time.Now,
 	"TimeagoDuration":             TimeagoDuration,
 	"PrettyDuration":              TimeagoDuration,
+	"AbsoluteDate":                AbsoluteDate,
 	"HumanDuration":               HumanDuration,
 	"Div":                         func(a, b int) int { return a / b },
 	"Sub":                         func(a, b int64) int64 { return a - b },
@@ -69,6 +70,15 @@ func TimeagoDuration(d time.Duration) string {
 		}
 		return fmt.Sprintf("%.0f mins ago", d.Minutes())
 	}
+}
+
+func AbsoluteDate(t time.Time) string {
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	if t.Before(today) {
+		return t.Format("2006-01-02 15:04:05 MST")
+	}
+	return t.Format("15:04:05 MST")
 }
 
 func HumanDuration(d time.Duration) string {

@@ -1,5 +1,5 @@
 {{define "content"}}
-<section class="section">
+<section class="section" hx-trigger="load delay:30s" hx-get="/queue" hx-target="#content">
     <div class="container">
         <div class="content">
             <div class="title has-text-centered mb-6">
