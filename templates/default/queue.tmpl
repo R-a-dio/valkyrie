@@ -17,11 +17,11 @@
 <div class="block has-background-white-ter song-info" onclick=toggleSongInfoDropdown(this)>
     <div class="columns is-vcentered has-text-centered">
         <div class="column is-2"><time datetime="{{$.ExpectedStartTime.Unix}}">{{Until $.ExpectedStartTime | PrettyDuration}}</time></div>
-        <div class="column is-8">{{$.Metadata}}</div>
+        <div class="column">{{$.Metadata}}</div>
         {{if not $.IsUserRequest}}
-        <div class="column is-2">inserted</div>
+        <div class="column is-narrow"></div>
         {{else}}
-        <div class="column is-2">/r/equested</div>
+        <div class="column is-narrow mr-4">/r/</div>
         {{end}}
     </div>
 </div>

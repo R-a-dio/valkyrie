@@ -141,6 +141,10 @@ span {
     border-radius: 6px;
 }
 
+.dj-image {
+    border-radius: 4px;
+}
+
 .dj-image:hover + .dj-image-name-64 {
     top: -84px;
     opacity: 1;
