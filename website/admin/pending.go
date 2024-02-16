@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"slices"
 	"strconv"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/R-a-dio/valkyrie/streamer/audio"
 	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/go-chi/chi/v5"
@@ -82,8 +84,22 @@ func (s *State) GetPendingSong(w http.ResponseWriter, r *http.Request) {
 		path = filepath.Join(s.Conf().MusicPath, path)
 	}
 
-	w.Header().Set("Content-Disposition", "attachment")
-	http.ServeFile(w, r, path)
+	// if we want the audio file, send that back
+	if r.FormValue("spectrum") == "" {
+		w.Header().Set("Content-Disposition", "attachment")
+		http.ServeFile(w, r, path)
+		return
+	}
+
+	// otherwise prep the spectrum image
+	specPath, err := audio.Spectrum(r.Context(), path)
+	if err != nil {
+		hlog.FromRequest(r).Error().Err(err).Msg("ffmpeg failure")
+		return
+	}
+	defer os.Remove(specPath)
+
+	http.ServeFile(w, r, specPath)
 	return
 }
 
