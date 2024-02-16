@@ -1,26 +1,45 @@
 {{define "title"}}R/a/dio Search{{end}}
 {{define "content"}}
-Search {{.}}
-{{end}}
-{{define "search-api"}}
-    {{with .Result}}
-        <div class="table-container">
-            <table class="table">
-                <thead>
-                    <th>Artist</th>
-                    <th>Title</th>
-                    <th>Request</th>
-                </thead>
-                <tbody>
-                {{range .Songs}}
-                    <tr>
-                        <td>{{.Artist}}</td>
-                        <td>{{.Title}}</td>
-                        <td><button class="button">Request</button></td>
-                    </tr>
-                {{end}}
-                </tbody>
+<section class="section">
+    <div class="container">
+        <div class="content">
+            <div class="title has-text-centered mb-6 is-hidden-mobile">
+                <h3>Search & Request</h3>
             </div>
+            <div class="columns is-centered mb-5">
+                <form action="/search" class="column is-8 control is-flex" hx-boost="true" hx-push-url="true" hx-target="#content">
+                    <input class="input" type="text" id="something" name="something" placeholder="Search" value="">
+                    <input class="submit button is-link ml-3" type="submit" value="Submit">
+                </form>
+            </div>
+            {{template "search-header"}}
+            {{/*template "pagination" .*/}}
+            {{template "search-results" .}}
+        </div>
+    </div>
+</section>
+{{end}}
+
+{{define "search-results"}}
+    {{with .}}
+        <div class="columns has-text-centered is-vcentered has-background-white-ter song-info">
+        {{/*range .Songs*/}}
+            <div class="column">{{/*.Artist*/}} Some artist</div>
+            <div class="column">{{/*.Title*/}} Some song</div>
+            <div class="column">
+                <button class="submit button is-primary">Request</button>
+            </div>
+        {{/*end*/}}
         </div>
     {{end}}
+{{end}}
+
+{{define "search-header"}}
+<div class="block has-text-centered is-hidden-mobile">
+    <div class="columns is-vcentered mb-5">
+        <div class="column is-size-4">Artist</div>
+        <div class="column is-size-4">Title</div>
+        <div class="column is-size-4">Request</div>
+    </div>
+</div>
 {{end}}
