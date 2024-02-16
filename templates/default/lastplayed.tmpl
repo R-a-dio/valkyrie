@@ -2,7 +2,7 @@
 <section class="section">
     <div class="container">
         <div class="content">
-            <div class="title has-text-centered mb-6">
+            <div class="title has-text-centered mb-6 is-hidden-mobile">
                 <h3>Last Played</h3>
             </div>
             {{template "pagination" .Page}}
@@ -72,13 +72,13 @@
 {{define "song"}}
 <div class="block has-background-white-ter song-info disable-pointer">
     <div class="columns is-vcentered has-text-centered">
-        <div class="column is-hidden-mobile is-2 py-0 my-0">
+        <div class="column is-hidden-mobile is-narrow py-0 my-0">
             <div class="image is-64x64">
                 <img class="dj-image" src="https://r-a-d.io/api/dj-image/53-dade8ac2.png" />
-                <div class="dj-image-name">$djname</div>
+                <div class="dj-image-name-64">$djname</div>
             </div>
         </div>
-        <div class="column is-8">{{.Metadata}}</div>
+        <div class="column word-break-all">{{.Metadata}}</div>
         <time datetime="{{.LastPlayed.Unix}}" data-type="absolute" class="column is-2">{{.LastPlayed | AbsoluteDate}}</time>
     </div>
 </div>

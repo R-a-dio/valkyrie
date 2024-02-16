@@ -2,7 +2,7 @@
 <section class="section" hx-trigger="load delay:30s" hx-get="/queue" hx-target="#content">
     <div class="container">
         <div class="content">
-            <div class="title has-text-centered mb-6">
+            <div class="title has-text-centered mb-6 is-hidden-mobile">
                 <h3>Queue</h3>
             </div>
             {{range $song := $.Queue}}
@@ -17,25 +17,17 @@
 <div class="block has-background-white-ter song-info" onclick=toggleSongInfoDropdown(this)>
     <div class="columns is-vcentered has-text-centered">
         <div class="column is-2"><time datetime="{{$.ExpectedStartTime.Unix}}">{{Until $.ExpectedStartTime | PrettyDuration}}</time></div>
-        <div class="column is-8">{{$.Metadata}}</div>
+        <div class="column">{{$.Metadata}}</div>
         {{if not $.IsUserRequest}}
-        <div class="column is-2">inserted</div>
+        <div class="column is-narrow"></div>
         {{else}}
-        <div class="column is-2">/r/equested</div>
+        <div class="column is-narrow mr-4">/r/</div>
         {{end}}
     </div>
 </div>
 <div class="block is-hidden">
     <div  class="columns has-background-white-ter is-vcentered has-text-centered ml-4 mr-0 song-info-extra">
         <div class="column is-1">ID: {{$.TrackID}}</div>
-        <div class="column">
-            Last played:
-            {{if not (eq $.LastPlayed.String "0001-01-01 00:00:00 +0000 UTC")}}
-            <time datetime="{{$.LastPlayed.Unix}}">{{Until $.LastPlayed | PrettyDuration}}</time>
-            {{else}}
-            never
-            {{end}}
-        </div>
         <div class="column">Album: 
             {{if not (eq $.Album "")}}
             {{$.Album}}
@@ -44,7 +36,14 @@
             {{end}}
         </div>
         <div class="column">Tags: {{$.Tags}}</div>
-        <div class="column">Requested {{.RequestCount}} times</div>
+        <div class="column">
+            Last played:
+            {{if not (eq $.LastPlayed.String "0001-01-01 00:00:00 +0000 UTC")}}
+            <time datetime="{{$.LastPlayed.Unix}}">{{Until $.LastPlayed | PrettyDuration}}</time>
+            {{else}}
+            never
+            {{end}}
+        </div>
     </div>
 </div>
 {{end}}

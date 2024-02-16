@@ -1,3 +1,32 @@
 {{define "content"}}
-News {{.}}
+<section class="section">
+    <div class="content">
+        <div class="title has-text-centered mb-6 is-hidden-mobile">
+            <h3>News Archive</h3>
+        </div>
+        <div class="columns is-multiline">
+            {{range $news := $.News.Entries}}
+                {{template "news-post" $news}}
+            {{end}}
+        </div>
+    </div>
+</section>
+{{end}}
+
+{{define "news-post"}}
+<div class="column is-3-fullhd is-4-desktop is-half-tablet">
+    <a href="/news/{{$.ID}}">
+        <article class="message m-3 p-0">
+            <div class="message-header">
+                <span>{{$.Title}}</span>
+                <span>~{{$.User.Username}}</span>
+            </div>
+            <div class="message-header has-background-white-ter has-text-grey-dark m-1 p-1">
+                <span class="has-text-left"></span>
+                <time datetime="{{.CreatedAt.Unix}}" data-type="absolute">{{.CreatedAt | AbsoluteDate}}</time>
+            </div>
+            <div class="message-body pt-0 disable-message-border">{{$.Header}}</div>
+        </article>
+    </a>
+</div>
 {{end}}
