@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/R-a-dio/valkyrie/util/eventstream"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // CalculateRequestDelay returns the delay between two requests of a song
@@ -176,6 +177,10 @@ type User struct {
 
 	DJ              DJ
 	UserPermissions UserPermissions
+}
+
+func (u User) ComparePassword(passwd string) error {
+	return bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(passwd))
 }
 
 // DJID is an identifier corresponding to a dj

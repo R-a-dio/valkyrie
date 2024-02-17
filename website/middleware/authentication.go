@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -12,8 +13,6 @@ import (
 	"github.com/alexedwards/scs/v2"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
 // keys used in sessions
@@ -248,7 +247,7 @@ func (a *authentication) postLogin(w http.ResponseWriter, r *http.Request) error
 		return errors.E(op, errors.LoginError, "inactive user")
 	}
 
-	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
+	err = user.ComparePassword(password)
 	if err != nil {
 		return errors.E(op, err, errors.LoginError, "invalid password")
 	}
@@ -382,4 +381,60 @@ func UserFromContext(ctx context.Context) *radio.User {
 func RequestWithUser(r *http.Request, u *radio.User) *http.Request {
 	ctx := context.WithValue(r.Context(), userContextKey{}, u)
 	return r.WithContext(ctx)
+}
+
+// BasicAuth lets users login through the HTTP Basic Authorization header
+//
+// This should ONLY be used for situations where a human cannot input the
+// login info somehow. Namely for icecast source clients.
+func BasicAuth(us radio.UserStorage) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			username, passwd, ok := r.BasicAuth()
+			if !ok || username == "" || passwd == "" {
+				hlog.FromRequest(r).Error().Msg("basic auth failure")
+				BasicAuthFailure(w, r)
+				return
+			}
+
+			if username == "source" {
+				// we support a weird feature where you can submit
+				// the username as part of the password by separating
+				// them with a '|' so split that
+				if strings.Contains(passwd, "|") {
+					username, passwd, _ = strings.Cut(passwd, "|")
+				}
+			}
+
+			user, err := us.Get(username)
+			if err != nil {
+				hlog.FromRequest(r).Error().Err(err).Str("username", username).Msg("database error")
+				BasicAuthFailure(w, r)
+				return
+			}
+
+			if !user.UserPermissions.Has(radio.PermActive) {
+				hlog.FromRequest(r).Error().Str("username", username).Msg("inactive user")
+				BasicAuthFailure(w, r)
+				return
+			}
+
+			err = user.ComparePassword(passwd)
+			if err != nil {
+				hlog.FromRequest(r).Error().Str("username", username).Msg("invalid password")
+				BasicAuthFailure(w, r)
+				return
+			}
+
+			next.ServeHTTP(w, RequestWithUser(r, user))
+		})
+	}
+}
+
+// BasicAuthFailure writes a http StatusUnauthorized response with extra text
+// that some icecast source clients expect
+func BasicAuthFailure(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("WWW-Authenticate", `Basic realm="R/a/dio"`)
+	w.WriteHeader(http.StatusUnauthorized)
+	_, _ = w.Write([]byte("401 Unauthorized\n"))
 }

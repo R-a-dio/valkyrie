@@ -1919,3 +1919,369 @@ func (mock *SubmissionStorageMock) UpdateSubmissionTimeCalls() []struct {
 	mock.lockUpdateSubmissionTime.RUnlock()
 	return calls
 }
+
+// Ensure, that UserStorageMock does implement radio.UserStorage.
+// If this is not the case, regenerate this file with moq.
+var _ radio.UserStorage = &UserStorageMock{}
+
+// UserStorageMock is a mock implementation of radio.UserStorage.
+//
+//	func TestSomethingThatUsesUserStorage(t *testing.T) {
+//
+//		// make and configure a mocked radio.UserStorage
+//		mockedUserStorage := &UserStorageMock{
+//			AllFunc: func() ([]radio.User, error) {
+//				panic("mock out the All method")
+//			},
+//			ByNickFunc: func(nick string) (*radio.User, error) {
+//				panic("mock out the ByNick method")
+//			},
+//			GetFunc: func(name string) (*radio.User, error) {
+//				panic("mock out the Get method")
+//			},
+//			GetByDJIDFunc: func(dJID radio.DJID) (*radio.User, error) {
+//				panic("mock out the GetByDJID method")
+//			},
+//			LookupNameFunc: func(name string) (*radio.User, error) {
+//				panic("mock out the LookupName method")
+//			},
+//			PermissionsFunc: func() ([]radio.UserPermission, error) {
+//				panic("mock out the Permissions method")
+//			},
+//			RecordListenersFunc: func(n int, user radio.User) error {
+//				panic("mock out the RecordListeners method")
+//			},
+//			UpdateUserFunc: func(user radio.User) (radio.User, error) {
+//				panic("mock out the UpdateUser method")
+//			},
+//		}
+//
+//		// use mockedUserStorage in code that requires radio.UserStorage
+//		// and then make assertions.
+//
+//	}
+type UserStorageMock struct {
+	// AllFunc mocks the All method.
+	AllFunc func() ([]radio.User, error)
+
+	// ByNickFunc mocks the ByNick method.
+	ByNickFunc func(nick string) (*radio.User, error)
+
+	// GetFunc mocks the Get method.
+	GetFunc func(name string) (*radio.User, error)
+
+	// GetByDJIDFunc mocks the GetByDJID method.
+	GetByDJIDFunc func(dJID radio.DJID) (*radio.User, error)
+
+	// LookupNameFunc mocks the LookupName method.
+	LookupNameFunc func(name string) (*radio.User, error)
+
+	// PermissionsFunc mocks the Permissions method.
+	PermissionsFunc func() ([]radio.UserPermission, error)
+
+	// RecordListenersFunc mocks the RecordListeners method.
+	RecordListenersFunc func(n int, user radio.User) error
+
+	// UpdateUserFunc mocks the UpdateUser method.
+	UpdateUserFunc func(user radio.User) (radio.User, error)
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// All holds details about calls to the All method.
+		All []struct {
+		}
+		// ByNick holds details about calls to the ByNick method.
+		ByNick []struct {
+			// Nick is the nick argument value.
+			Nick string
+		}
+		// Get holds details about calls to the Get method.
+		Get []struct {
+			// Name is the name argument value.
+			Name string
+		}
+		// GetByDJID holds details about calls to the GetByDJID method.
+		GetByDJID []struct {
+			// DJID is the dJID argument value.
+			DJID radio.DJID
+		}
+		// LookupName holds details about calls to the LookupName method.
+		LookupName []struct {
+			// Name is the name argument value.
+			Name string
+		}
+		// Permissions holds details about calls to the Permissions method.
+		Permissions []struct {
+		}
+		// RecordListeners holds details about calls to the RecordListeners method.
+		RecordListeners []struct {
+			// N is the n argument value.
+			N int
+			// User is the user argument value.
+			User radio.User
+		}
+		// UpdateUser holds details about calls to the UpdateUser method.
+		UpdateUser []struct {
+			// User is the user argument value.
+			User radio.User
+		}
+	}
+	lockAll             sync.RWMutex
+	lockByNick          sync.RWMutex
+	lockGet             sync.RWMutex
+	lockGetByDJID       sync.RWMutex
+	lockLookupName      sync.RWMutex
+	lockPermissions     sync.RWMutex
+	lockRecordListeners sync.RWMutex
+	lockUpdateUser      sync.RWMutex
+}
+
+// All calls AllFunc.
+func (mock *UserStorageMock) All() ([]radio.User, error) {
+	if mock.AllFunc == nil {
+		panic("UserStorageMock.AllFunc: method is nil but UserStorage.All was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockAll.Lock()
+	mock.calls.All = append(mock.calls.All, callInfo)
+	mock.lockAll.Unlock()
+	return mock.AllFunc()
+}
+
+// AllCalls gets all the calls that were made to All.
+// Check the length with:
+//
+//	len(mockedUserStorage.AllCalls())
+func (mock *UserStorageMock) AllCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockAll.RLock()
+	calls = mock.calls.All
+	mock.lockAll.RUnlock()
+	return calls
+}
+
+// ByNick calls ByNickFunc.
+func (mock *UserStorageMock) ByNick(nick string) (*radio.User, error) {
+	if mock.ByNickFunc == nil {
+		panic("UserStorageMock.ByNickFunc: method is nil but UserStorage.ByNick was just called")
+	}
+	callInfo := struct {
+		Nick string
+	}{
+		Nick: nick,
+	}
+	mock.lockByNick.Lock()
+	mock.calls.ByNick = append(mock.calls.ByNick, callInfo)
+	mock.lockByNick.Unlock()
+	return mock.ByNickFunc(nick)
+}
+
+// ByNickCalls gets all the calls that were made to ByNick.
+// Check the length with:
+//
+//	len(mockedUserStorage.ByNickCalls())
+func (mock *UserStorageMock) ByNickCalls() []struct {
+	Nick string
+} {
+	var calls []struct {
+		Nick string
+	}
+	mock.lockByNick.RLock()
+	calls = mock.calls.ByNick
+	mock.lockByNick.RUnlock()
+	return calls
+}
+
+// Get calls GetFunc.
+func (mock *UserStorageMock) Get(name string) (*radio.User, error) {
+	if mock.GetFunc == nil {
+		panic("UserStorageMock.GetFunc: method is nil but UserStorage.Get was just called")
+	}
+	callInfo := struct {
+		Name string
+	}{
+		Name: name,
+	}
+	mock.lockGet.Lock()
+	mock.calls.Get = append(mock.calls.Get, callInfo)
+	mock.lockGet.Unlock()
+	return mock.GetFunc(name)
+}
+
+// GetCalls gets all the calls that were made to Get.
+// Check the length with:
+//
+//	len(mockedUserStorage.GetCalls())
+func (mock *UserStorageMock) GetCalls() []struct {
+	Name string
+} {
+	var calls []struct {
+		Name string
+	}
+	mock.lockGet.RLock()
+	calls = mock.calls.Get
+	mock.lockGet.RUnlock()
+	return calls
+}
+
+// GetByDJID calls GetByDJIDFunc.
+func (mock *UserStorageMock) GetByDJID(dJID radio.DJID) (*radio.User, error) {
+	if mock.GetByDJIDFunc == nil {
+		panic("UserStorageMock.GetByDJIDFunc: method is nil but UserStorage.GetByDJID was just called")
+	}
+	callInfo := struct {
+		DJID radio.DJID
+	}{
+		DJID: dJID,
+	}
+	mock.lockGetByDJID.Lock()
+	mock.calls.GetByDJID = append(mock.calls.GetByDJID, callInfo)
+	mock.lockGetByDJID.Unlock()
+	return mock.GetByDJIDFunc(dJID)
+}
+
+// GetByDJIDCalls gets all the calls that were made to GetByDJID.
+// Check the length with:
+//
+//	len(mockedUserStorage.GetByDJIDCalls())
+func (mock *UserStorageMock) GetByDJIDCalls() []struct {
+	DJID radio.DJID
+} {
+	var calls []struct {
+		DJID radio.DJID
+	}
+	mock.lockGetByDJID.RLock()
+	calls = mock.calls.GetByDJID
+	mock.lockGetByDJID.RUnlock()
+	return calls
+}
+
+// LookupName calls LookupNameFunc.
+func (mock *UserStorageMock) LookupName(name string) (*radio.User, error) {
+	if mock.LookupNameFunc == nil {
+		panic("UserStorageMock.LookupNameFunc: method is nil but UserStorage.LookupName was just called")
+	}
+	callInfo := struct {
+		Name string
+	}{
+		Name: name,
+	}
+	mock.lockLookupName.Lock()
+	mock.calls.LookupName = append(mock.calls.LookupName, callInfo)
+	mock.lockLookupName.Unlock()
+	return mock.LookupNameFunc(name)
+}
+
+// LookupNameCalls gets all the calls that were made to LookupName.
+// Check the length with:
+//
+//	len(mockedUserStorage.LookupNameCalls())
+func (mock *UserStorageMock) LookupNameCalls() []struct {
+	Name string
+} {
+	var calls []struct {
+		Name string
+	}
+	mock.lockLookupName.RLock()
+	calls = mock.calls.LookupName
+	mock.lockLookupName.RUnlock()
+	return calls
+}
+
+// Permissions calls PermissionsFunc.
+func (mock *UserStorageMock) Permissions() ([]radio.UserPermission, error) {
+	if mock.PermissionsFunc == nil {
+		panic("UserStorageMock.PermissionsFunc: method is nil but UserStorage.Permissions was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockPermissions.Lock()
+	mock.calls.Permissions = append(mock.calls.Permissions, callInfo)
+	mock.lockPermissions.Unlock()
+	return mock.PermissionsFunc()
+}
+
+// PermissionsCalls gets all the calls that were made to Permissions.
+// Check the length with:
+//
+//	len(mockedUserStorage.PermissionsCalls())
+func (mock *UserStorageMock) PermissionsCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockPermissions.RLock()
+	calls = mock.calls.Permissions
+	mock.lockPermissions.RUnlock()
+	return calls
+}
+
+// RecordListeners calls RecordListenersFunc.
+func (mock *UserStorageMock) RecordListeners(n int, user radio.User) error {
+	if mock.RecordListenersFunc == nil {
+		panic("UserStorageMock.RecordListenersFunc: method is nil but UserStorage.RecordListeners was just called")
+	}
+	callInfo := struct {
+		N    int
+		User radio.User
+	}{
+		N:    n,
+		User: user,
+	}
+	mock.lockRecordListeners.Lock()
+	mock.calls.RecordListeners = append(mock.calls.RecordListeners, callInfo)
+	mock.lockRecordListeners.Unlock()
+	return mock.RecordListenersFunc(n, user)
+}
+
+// RecordListenersCalls gets all the calls that were made to RecordListeners.
+// Check the length with:
+//
+//	len(mockedUserStorage.RecordListenersCalls())
+func (mock *UserStorageMock) RecordListenersCalls() []struct {
+	N    int
+	User radio.User
+} {
+	var calls []struct {
+		N    int
+		User radio.User
+	}
+	mock.lockRecordListeners.RLock()
+	calls = mock.calls.RecordListeners
+	mock.lockRecordListeners.RUnlock()
+	return calls
+}
+
+// UpdateUser calls UpdateUserFunc.
+func (mock *UserStorageMock) UpdateUser(user radio.User) (radio.User, error) {
+	if mock.UpdateUserFunc == nil {
+		panic("UserStorageMock.UpdateUserFunc: method is nil but UserStorage.UpdateUser was just called")
+	}
+	callInfo := struct {
+		User radio.User
+	}{
+		User: user,
+	}
+	mock.lockUpdateUser.Lock()
+	mock.calls.UpdateUser = append(mock.calls.UpdateUser, callInfo)
+	mock.lockUpdateUser.Unlock()
+	return mock.UpdateUserFunc(user)
+}
+
+// UpdateUserCalls gets all the calls that were made to UpdateUser.
+// Check the length with:
+//
+//	len(mockedUserStorage.UpdateUserCalls())
+func (mock *UserStorageMock) UpdateUserCalls() []struct {
+	User radio.User
+} {
+	var calls []struct {
+		User radio.User
+	}
+	mock.lockUpdateUser.RLock()
+	calls = mock.calls.UpdateUser
+	mock.lockUpdateUser.RUnlock()
+	return calls
+}
