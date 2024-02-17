@@ -120,15 +120,19 @@ func TestBasicAuth(t *testing.T) {
 	for _, test := range basicAuthCases {
 		test := test
 		t.Run(test.Name, func(t *testing.T) {
-			us := &mocks.UserStorageMock{
-				GetFunc: func(name string) (*radio.User, error) {
-					if test.GetFuncRet == nil {
-						return nil, test.GetFuncErr
+			storage := &mocks.StorageServiceMock{
+				UserFunc: func(contextMoqParam context.Context) radio.UserStorage {
+					return &mocks.UserStorageMock{
+						GetFunc: func(name string) (*radio.User, error) {
+							if test.GetFuncRet == nil {
+								return nil, test.GetFuncErr
+							}
+							if test.GetFuncRet.Username != name {
+								return nil, errors.E(errors.UserUnknown)
+							}
+							return test.GetFuncRet, test.GetFuncErr
+						},
 					}
-					if test.GetFuncRet.Username != name {
-						return nil, errors.E(errors.UserUnknown)
-					}
-					return test.GetFuncRet, test.GetFuncErr
 				},
 			}
 
@@ -141,7 +145,7 @@ func TestBasicAuth(t *testing.T) {
 			w := httptest.NewRecorder()
 
 			r := chi.NewRouter()
-			r.Use(BasicAuth(us))
+			r.Use(BasicAuth(storage))
 			r.Get("/*", func(w http.ResponseWriter, r *http.Request) {
 				user := UserFromContext(r.Context())
 				assert.Equal(t, test.GetFuncRet, user)

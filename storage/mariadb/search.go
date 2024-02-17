@@ -35,7 +35,7 @@ ORDER BY
 	score DESC;
 `)
 
-func (ss SearchService) Search(ctx context.Context, search_query string, limit int, offset int) (*radio.SearchResult, error) {
+func (ss SearchService) Search(ctx context.Context, search_query string, limit int64, offset int64) (*radio.SearchResult, error) {
 	search_query, err := processQuery(search_query)
 	if err != nil {
 		return nil, err

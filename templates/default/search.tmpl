@@ -8,13 +8,13 @@
             </div>
             <div class="columns is-centered mb-5">
                 <form action="/search" class="column is-8 control is-flex" hx-boost="true" hx-push-url="true" hx-target="#content">
-                    <input class="input" type="text" id="something" name="something" placeholder="Search" value="">
+                    <input class="input" type="text" name="q" placeholder="Search" value="{{.Query}}">
                     <input class="submit button is-link ml-3" type="submit" value="Submit">
                 </form>
             </div>
             {{template "search-header"}}
-            {{/*template "pagination" .*/}}
-            {{template "search-results" .}}
+            {{template "search-results" .Songs}}
+            {{template "pagination" .Page}}
         </div>
     </div>
 </section>
@@ -22,15 +22,15 @@
 
 {{define "search-results"}}
     {{with .}}
+        {{range .}}
         <div class="columns has-text-centered is-vcentered has-background-white-ter song-info">
-        {{/*range .Songs*/}}
-            <div class="column">{{/*.Artist*/}} Some artist</div>
-            <div class="column">{{/*.Title*/}} Some song</div>
+            <div class="column">{{.Artist}}</div>
+            <div class="column">{{.Title}}</div>
             <div class="column">
                 <button class="submit button is-primary">Request</button>
             </div>
-        {{/*end*/}}
         </div>
+        {{end}}
     {{end}}
 {{end}}
 

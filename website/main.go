@@ -8,6 +8,7 @@ import (
 
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/R-a-dio/valkyrie/search"
 	"github.com/R-a-dio/valkyrie/storage"
 	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/R-a-dio/valkyrie/util/daypass"
@@ -63,6 +64,11 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	executor := siteTemplates.Executor()
 	// daypass generation
 	dpass := daypass.New(ctx)
+	// search service
+	searchService, err := search.Open(ctx, cfg)
+	if err != nil {
+		return errors.E(op, err)
+	}
 
 	r := NewRouter()
 
@@ -145,6 +151,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		Manager:   manager,
 		Streamer:  streamer,
 		Storage:   storage,
+		Search:    searchService,
 	}))
 
 	// setup the http server

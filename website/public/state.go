@@ -23,6 +23,7 @@ type State struct {
 	Manager   radio.ManagerService
 	Streamer  radio.StreamerService
 	Storage   radio.StorageService
+	Search    radio.SearchService
 }
 
 func (s *State) errorHandler(w http.ResponseWriter, r *http.Request, err error) {

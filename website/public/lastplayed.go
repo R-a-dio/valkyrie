@@ -49,7 +49,7 @@ func NewLastPlayedInput(s radio.SongStorageService, r *http.Request) (*LastPlaye
 		Songs: songs,
 		Page: shared.NewPagination(
 			page, shared.PageCount(total, lastplayedSize),
-			"/last-played?page=%d",
+			r.URL,
 		),
 	}, nil
 }

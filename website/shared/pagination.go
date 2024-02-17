@@ -1,8 +1,9 @@
 package shared
 
 import (
-	"fmt"
 	"html/template"
+	"net/url"
+	"strconv"
 )
 
 func PageCount(total, size int64) int64 {
@@ -13,22 +14,30 @@ func PageCount(total, size int64) int64 {
 	return full
 }
 
-func NewPagination(current, total int64, urlFormat string) *Pagination {
+func NewPagination(current, total int64, uri *url.URL) *Pagination {
 	return &Pagination{
-		Nr:     current,
-		Total:  total,
-		format: urlFormat,
+		Nr:    current,
+		Total: total,
+		uri:   uri,
 	}
 }
 
 type Pagination struct {
-	Nr     int64
-	Total  int64
-	format string
+	Nr    int64
+	Total int64
+	uri   *url.URL
 }
 
 func (p *Pagination) URL() template.URL {
-	return template.URL(fmt.Sprintf(p.format, p.Nr))
+	u := *p.uri
+	v := u.Query()
+	v.Set("page", strconv.FormatInt(p.Nr, 10))
+	u.RawQuery = v.Encode()
+	return template.URL(u.RequestURI())
+}
+
+func (p *Pagination) BaseURL() template.URL {
+	return template.URL(p.uri.Path)
 }
 
 func (p *Pagination) createPage(page int64) *Pagination {
@@ -43,9 +52,9 @@ func (p *Pagination) createPage(page int64) *Pagination {
 	}
 
 	return &Pagination{
-		Nr:     page,
-		Total:  p.Total,
-		format: p.format,
+		Nr:    page,
+		Total: p.Total,
+		uri:   p.uri,
 	}
 }
 

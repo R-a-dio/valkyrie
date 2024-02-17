@@ -387,7 +387,7 @@ func RequestWithUser(r *http.Request, u *radio.User) *http.Request {
 //
 // This should ONLY be used for situations where a human cannot input the
 // login info somehow. Namely for icecast source clients.
-func BasicAuth(us radio.UserStorage) func(http.Handler) http.Handler {
+func BasicAuth(uss radio.UserStorageService) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			username, passwd, ok := r.BasicAuth()
@@ -406,6 +406,7 @@ func BasicAuth(us radio.UserStorage) func(http.Handler) http.Handler {
 				}
 			}
 
+			us := uss.User(r.Context())
 			user, err := us.Get(username)
 			if err != nil {
 				hlog.FromRequest(r).Error().Err(err).Str("username", username).Msg("database error")
