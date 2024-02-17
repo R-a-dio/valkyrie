@@ -159,3 +159,7 @@ span {
     background-color: hsl(0, 0%, 90%) !important;
     transition: 0.125s all ease-in-out;
 }
+
+.disable-message-hover:hover, .disable-message-hover:hover > .message-header:nth-child(2) {
+    background-color: initial !important;
+}
