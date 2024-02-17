@@ -397,6 +397,7 @@ func (a *API) postRequest(w http.ResponseWriter, r *http.Request) {
 		hlog.FromRequest(r).Error().Err(err).Msg("")
 		response["error"] = "something broke, report to IRC."
 	}
+	hlog.FromRequest(r).Info().Err(err).Msg("")
 }
 
 func newV0Status(ctx context.Context, storage radio.SongStorageService,

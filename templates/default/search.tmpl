@@ -7,14 +7,16 @@
                 <h3>Search & Request</h3>
             </div>
             <div class="columns is-centered mb-5">
-                <form action="/search" class="column is-8 control is-flex" hx-boost="true" hx-push-url="true" hx-target="#content">
-                    <input class="input" type="text" name="q" placeholder="Search" value="{{.Query}}">
+                <form action="/search" class="column is-8 control is-flex" hx-boost="true" hx-push-url="true" hx-target="#search-content" hx-select="#search-content">
+                    <input class="input" type="text" name="q" placeholder="Search" value="{{.Query}}" hx-get="/search" hx-target="#search-content" hx-select="#search-content" hx-trigger="keyup changed delay:500ms">
                     <input class="submit button is-link ml-3" type="submit" value="Submit">
                 </form>
             </div>
+            <div id="search-content">
             {{template "search-header"}}
             {{template "search-results" .Songs}}
             {{template "pagination" .Page}}
+            </div>
         </div>
     </div>
 </section>
@@ -27,7 +29,9 @@
             <div class="column">{{.Artist}}</div>
             <div class="column">{{.Title}}</div>
             <div class="column">
-                <button class="submit button is-primary">Request</button>
+                <form method="POST" action="/request/{{.TrackID}}" hx-post="/request/{{.TrackID}}">
+                    <button type="submit" class="button is-primary" name="id" value="{{.TrackID}}" {{if not .Requestable}}disabled{{end}}>Request</button>
+                </form>
             </div>
         </div>
         {{end}}
