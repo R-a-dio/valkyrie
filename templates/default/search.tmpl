@@ -13,19 +13,20 @@
                 </form>
             </div>
             <div id="search-content">
+            {{template "pagination" .Page}}
             {{template "search-header"}}
             {{template "search-results" .Songs}}
-            {{template "pagination" .Page}}
             </div>
         </div>
     </div>
 </section>
+{{printjson .}}
 {{end}}
 
 {{define "search-results"}}
     {{with .}}
         {{range .}}
-        <div class="columns has-text-centered is-vcentered has-background-white-ter song-info">
+        <div class="columns has-text-centered is-vcentered has-background-white-ter mb-5 song-info" onclick=toggleSongInfoDropdown(this)>
             <div class="column">{{.Artist}}</div>
             <div class="column">{{.Title}}</div>
             <div class="column">
@@ -34,6 +35,7 @@
                 </form>
             </div>
         </div>
+        {{template "song-info-extra" .}}
         {{end}}
     {{end}}
 {{end}}

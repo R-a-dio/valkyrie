@@ -25,25 +25,5 @@
         {{end}}
     </div>
 </div>
-<div class="block is-hidden">
-    <div  class="columns has-background-white-ter is-vcentered has-text-centered ml-4 mr-0 song-info-extra">
-        <div class="column is-1">ID: {{$.TrackID}}</div>
-        <div class="column">Album: 
-            {{if not (eq $.Album "")}}
-            {{$.Album}}
-            {{else}}
-            not found
-            {{end}}
-        </div>
-        <div class="column">Tags: {{$.Tags}}</div>
-        <div class="column">
-            Last played:
-            {{if not (eq $.LastPlayed.String "0001-01-01 00:00:00 +0000 UTC")}}
-            <time datetime="{{$.LastPlayed.Unix}}">{{Until $.LastPlayed | PrettyDuration}}</time>
-            {{else}}
-            never
-            {{end}}
-        </div>
-    </div>
-</div>
+{{template "song-info-extra" .}}
 {{end}}
