@@ -99,8 +99,13 @@ type config struct {
 	Manager  manager
 	Elastic  elasticsearch
 	Balancer balancer
+	Proxy    proxy
 
 	Telemetry telemetry
+}
+
+type proxy struct {
+	Address string
 }
 
 type telemetry struct {
