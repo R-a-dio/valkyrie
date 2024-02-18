@@ -21,7 +21,7 @@ type searchTrack struct {
 var searchSearchQuery = expand(`
 SELECT
 	{trackColumns},
-	(SELECT dt FROM eplay WHERE eplay.isong = esong.id ORDER BY dt DESC LIMIT 1) AS lastplayed,
+	{lastplayedSelect},
 	{songColumns}
 FROM
 (SELECT *, MATCH (artist, track, album, tags) AGAINST (? IN BOOLEAN MODE) score
