@@ -35,15 +35,30 @@ ORDER BY
 	score DESC;
 `)
 
+var searchTotalQuery = `
+SELECT COUNT(*) FROM 
+(SELECT *, MATCH (artist, track, album, tags) AGAINST (? IN BOOLEAN MODE) score
+	FROM tracks 
+	HAVING score > 0) AS tracks;
+`
+
 func (ss SearchService) Search(ctx context.Context, search_query string, limit int64, offset int64) (*radio.SearchResult, error) {
+	h := handle{ss.db, ctx, "search"}
+
 	search_query, err := processQuery(search_query)
 	if err != nil {
 		return nil, err
 	}
 
+	var total int
 	var result []searchTrack
 
-	err = sqlx.Select(ss.db, &result, searchSearchQuery, search_query, limit, offset)
+	err = sqlx.Select(h, &result, searchSearchQuery, search_query, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+
+	err = sqlx.Get(h, &total, searchTotalQuery, search_query)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +68,7 @@ func (ss SearchService) Search(ctx context.Context, search_query string, limit i
 		songs[i] = tmp.Song
 	}
 
-	return &radio.SearchResult{Songs: songs, TotalHits: len(songs)}, nil
+	return &radio.SearchResult{Songs: songs, TotalHits: total}, nil
 }
 
 func processQuery(q string) (string, error) {
