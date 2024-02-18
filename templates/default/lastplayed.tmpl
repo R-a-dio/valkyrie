@@ -9,10 +9,10 @@
             {{range $song := $.Songs}}
             {{template "song" $song}}
             {{end}}
+            {{template "pagination" .Page}}
         </div>
     </div>
 </section>
-{{printjson .}}
 {{end}}
 
 {{define "song"}}

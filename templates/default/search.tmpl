@@ -1,4 +1,3 @@
-{{define "title"}}R/a/dio Search{{end}}
 {{define "content"}}
 <section class="section">
     <div class="container">
@@ -9,30 +8,43 @@
             <div class="columns is-centered mb-5">
                 <form action="/search" class="column is-8 control is-flex" hx-boost="true" hx-push-url="true" hx-target="#search-content" hx-select="#search-content">
                     <input class="input" type="text" name="q" placeholder="Search" value="{{.Query}}" hx-get="/search" hx-target="#search-content" hx-select="#search-content" hx-trigger="keyup changed delay:500ms">
-                    <input class="submit button is-link ml-3" type="submit" value="Submit">
                 </form>
             </div>
             <div id="search-content">
-            {{template "pagination" .Page}}
+            {{if len .Songs}}
             {{template "search-header"}}
+            {{template "pagination" .Page}}
+            {{else}}
+                <div class="block has-text-centered is-size-5">
+                    <p>Search for something! You can click on the songs to show some additional information.</p>
+                    <p>You can request once every two hours.</p>
+                </div>
+            {{end}}
             {{template "search-results" .Songs}}
+            {{if len .Songs}}
+            {{template "pagination" .Page}}
+            {{end}}
             </div>
         </div>
     </div>
 </section>
-{{printjson .}}
 {{end}}
 
 {{define "search-results"}}
     {{with .}}
         {{range .}}
-        <div class="columns has-text-centered is-vcentered has-background-white-ter mb-5 song-info" onclick=toggleSongInfoDropdown(this)>
-            <div class="column">{{.Artist}}</div>
-            <div class="column">{{.Title}}</div>
-            <div class="column">
-                <form method="POST" action="/request/{{.TrackID}}" hx-post="/request/{{.TrackID}}">
-                    <button type="submit" class="button is-primary" name="id" value="{{.TrackID}}" {{if not .Requestable}}disabled{{end}}>Request</button>
-                </form>
+        <div class="block has-background-white-ter song-info" onclick=toggleSongInfoDropdown(this)>
+            <div class="columns is-vcentered has-text-centered">
+                <div class="column">{{.Metadata}}</div>
+                <div class="column is-2">
+                    <form id="sneed" method="POST" action="/request/{{.TrackID}}" hx-post="/request/{{.TrackID}}">
+                        {{if not .Requestable}}
+                        <button type="submit" class="button is-danger" name="id" value="{{.TrackID}}" onclick=event.stopPropagation() disabled>Request</button>
+                        {{else}}
+                        <button type="submit" class="button is-primary" name="id" value="{{.TrackID}}" onclick=event.stopPropagation()>Request</button>
+                        {{end}}
+                    </form>
+                </div>
             </div>
         </div>
         {{template "song-info-extra" .}}
@@ -43,9 +55,8 @@
 {{define "search-header"}}
 <div class="block has-text-centered is-hidden-mobile">
     <div class="columns is-vcentered mb-5">
-        <div class="column is-size-4">Artist</div>
-        <div class="column is-size-4">Title</div>
-        <div class="column is-size-4">Request</div>
+        <div class="column is-size-4">Song</div>
+        <div class="column is-size-4 is-2 mr-3">Request</div>
     </div>
 </div>
 {{end}}

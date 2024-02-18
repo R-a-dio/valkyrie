@@ -175,7 +175,7 @@ function updateProgress() {
 }
 
 function toggleSongInfoDropdown(div) {
-    div.nextElementSibling.classList.toggle("is-hidden")
+    div.nextElementSibling.classList.toggle("is-hidden");
 }
 
 setTimeout(updateTimes, 1000);
