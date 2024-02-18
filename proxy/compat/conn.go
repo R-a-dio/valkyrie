@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"net"
+	"reflect"
 
 	"github.com/rs/zerolog"
 )
@@ -84,4 +85,27 @@ func (c *Conn) Read(b []byte) (n int, err error) {
 
 func (c *Conn) Close() error {
 	return c.Conn.Close()
+}
+
+func ToNetConn(conn net.Conn) net.Conn {
+	if c, ok := conn.(*Conn); ok && c.CanUseConn() {
+		return c.Conn
+	}
+	return conn
+}
+
+func (c *Conn) CanUseConn() bool {
+	return isSingleReader(c.r)
+}
+
+func isSingleReader(r io.Reader) bool {
+	v := reflect.Indirect(reflect.ValueOf(r))
+	if !v.IsValid() || v.NumField() != 1 {
+		return false
+	}
+	fv := v.Field(0)
+	if fv.Type().Kind() != reflect.Slice {
+		return false
+	}
+	return fv.Len() == 1
 }
