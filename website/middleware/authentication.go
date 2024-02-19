@@ -427,6 +427,16 @@ func BasicAuth(uss radio.UserStorageService) func(http.Handler) http.Handler {
 				return
 			}
 
+			// before we pass it back to the handlers we reset the deadlines because the
+			// comparison above is long under some conditions
+			v := r.Context().Value(http.ServerContextKey)
+			if v != nil {
+				srv := v.(*http.Server)
+				rc := http.NewResponseController(w)
+				_ = rc.SetWriteDeadline(time.Now().Add(srv.WriteTimeout))
+				_ = rc.SetReadDeadline(time.Now().Add(srv.ReadTimeout))
+			}
+
 			next.ServeHTTP(w, RequestWithUser(r, user))
 		})
 	}
