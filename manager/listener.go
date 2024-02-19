@@ -42,7 +42,7 @@ func NewListener(ctx context.Context, cfg config.Config, m radio.ManagerService)
 		done:    make(chan struct{}),
 	}
 
-	ctx, ln.cancel = context.WithCancel(context.Background())
+	ctx, ln.cancel = context.WithCancel(ctx)
 	go func() {
 		defer ln.cancel()
 		defer close(ln.done)
