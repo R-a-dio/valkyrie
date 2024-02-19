@@ -35,6 +35,7 @@ func (s *State) errorHandler(w http.ResponseWriter, r *http.Request, err error) 
 func Route(ctx context.Context, s State) func(chi.Router) {
 	return func(r chi.Router) {
 		r.Get("/", s.GetHome)
+		r.Get("/index", s.GetHome)
 		r.Get("/news", s.GetNews)
 		r.Get("/news/{NewsID:[0-9]+}", s.GetNewsEntry)
 		r.Post("/news/{NewsID:[0-9]+}", s.PostNewsEntry)
@@ -45,8 +46,8 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 		r.Get("/submit", s.GetSubmit)
 		r.Post("/submit", s.PostSubmit)
 		r.Get("/staff", s.GetStaff)
-		r.Get("/favorites", s.GetFaves)
-		r.Post("/favorites", s.PostFaves)
+		r.Get("/faves", s.GetFaves)
+		r.Post("/faves", s.PostFaves)
 		r.Get("/irc", s.GetChat)
 	}
 }
