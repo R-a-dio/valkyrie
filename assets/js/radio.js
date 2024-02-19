@@ -381,6 +381,7 @@ class Stream {
         if (!this.audio) {
             return;
         }
+        clearTimeout(this.MonitorTimer);
 
         if (this.gracePeriod > 0) {
             // wait for grace period to end before trying to reconnect
@@ -393,6 +394,6 @@ class Stream {
             }
             this.monitorLastTime = cur;
         }
-        setTimeout(this.monitor, 3000);
+        this.monitorTimer = setTimeout(this.monitor, 3000);
     }
 }
