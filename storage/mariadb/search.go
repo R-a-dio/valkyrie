@@ -1,9 +1,9 @@
 package mariadb
 
 import (
+	"bytes"
 	"context"
 	"regexp"
-	"strings"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/jmoiron/sqlx"
@@ -45,15 +45,12 @@ SELECT COUNT(*) FROM
 func (ss SearchService) Search(ctx context.Context, search_query string, limit int64, offset int64) (*radio.SearchResult, error) {
 	h := handle{ss.db, ctx, "search"}
 
-	search_query, err := processQuery(search_query)
-	if err != nil {
-		return nil, err
-	}
+	search_query = processQuery(search_query)
 
 	var total int
 	var result []searchTrack
 
-	err = sqlx.Select(h, &result, searchSearchQuery, search_query, limit, offset)
+	err := sqlx.Select(h, &result, searchSearchQuery, search_query, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -71,37 +68,73 @@ func (ss SearchService) Search(ctx context.Context, search_query string, limit i
 	return &radio.SearchResult{Songs: songs, TotalHits: total}, nil
 }
 
-var queryReplacer = strings.NewReplacer("-", " ")
+var (
+	queryMinus = []byte("-")
+	querySpace = []byte(" ")
+)
 
-func processQuery(q string) (string, error) {
-	terms := splitQuery(q)
+func processQuery(q string) string {
+	return string(processQueryB([]byte(q)))
+}
+
+func processQueryB(q []byte) []byte {
+	terms := splitQueryB(q)
 	for i, term := range terms {
+		// no extra handling if the term is quoted, we pass it as-is
 		if isQuoted(term) {
 			continue
 		}
-
-		term = queryReplacer.Replace(term)
-		term = strings.TrimSpace(term)
-
-		if term[len(term)-1] != '*' {
-			terms[i] = term + "*"
+		// if we're in a parenthesed block we run processQuery recursively
+		if isParen(term) {
+			noParen := term[1 : len(term)-1]
+			noParen = processQueryB(noParen)
+			term = append(term[:1], noParen...)
+			terms[i] = append(term, ')')
+			continue
 		}
+
+		// remove any -
+		term = bytes.ReplaceAll(term, queryMinus, querySpace)
+		term = bytes.TrimSpace(term)
+
+		if len(term) > 0 {
+			switch term[len(term)-1] {
+			case ')':
+			default:
+				term = append(term, '*')
+			}
+		}
+
+		term = bytes.TrimSpace(term)
+		terms[i] = term
 	}
-	return strings.Join(terms, " "), nil
+	return bytes.Join(terms, querySpace)
 }
 
 // splits on any whitespace but keeps quoted sections together
-var splitRe = regexp.MustCompile(`[^\s"]+|"([^"]*)"`)
+// var splitRe = regexp.MustCompile(`[^\s"]+|"([^"]*)"`)
+var splitRe = regexp.MustCompile(`\(([^)]*)\)|[^\s"]+|"([^"]*)"`)
 
-func splitQuery(q string) []string {
-	return splitRe.FindAllString(q, -1)
+func splitQueryB(q []byte) [][]byte {
+	return splitRe.FindAll(q, -1)
 }
 
-func isQuoted(s string) bool {
+func splitQuery(q string) [][]byte {
+	return splitQueryB([]byte(q))
+}
+
+func isQuoted(s []byte) bool {
 	if len(s) == 0 {
 		return false
 	}
 	return s[0] == '"' && s[len(s)-1] == '"'
+}
+
+func isParen(s []byte) bool {
+	if len(s) == 0 {
+		return false
+	}
+	return s[0] == '(' && s[len(s)-1] == ')'
 }
 
 func (ss SearchService) Update(context.Context, ...radio.Song) error {
