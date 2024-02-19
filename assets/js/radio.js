@@ -381,7 +381,7 @@ class Stream {
         if (!this.audio) {
             return;
         }
-        clearTimeout(this.MonitorTimer);
+        clearTimeout(this.monitorTimer);
 
         if (this.gracePeriod > 0) {
             // wait for grace period to end before trying to reconnect
@@ -390,9 +390,11 @@ class Stream {
             let cur = this.audio.currentTime
             if (cur > 0 && cur <= this.monitorLastTime) {
                 console.log(Date.now(), "reconnecting", cur);
+                this.monitorLastTime = 0;
                 this.recover();
+            } else {
+                this.monitorLastTime = cur;
             }
-            this.monitorLastTime = cur;
         }
         this.monitorTimer = setTimeout(this.monitor, 3000);
     }

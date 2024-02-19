@@ -3,6 +3,7 @@ package proxy
 import (
 	"context"
 	"hash/fnv"
+	"html"
 	"io"
 	"net"
 	"net/http"
@@ -73,7 +74,7 @@ func (s *Server) GetMetadata(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) GetListClients(w http.ResponseWriter, r *http.Request) {
-	response := []byte("<?xml version=\"1.0\"?>\n<icestats><source mount=\"" + GetMountpoint(r) + "\"><Listeners>0</Listeners></source></icestats>\n")
+	response := []byte("<?xml version=\"1.0\"?>\n<icestats><source mount=\"" + html.EscapeString(GetMountpoint(r)) + "\"><Listeners>0</Listeners></source></icestats>\n")
 
 	w.Header().Set("Content-Length", strconv.Itoa(len(response)))
 	_, err := w.Write(response)
