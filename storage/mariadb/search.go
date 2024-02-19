@@ -71,12 +71,17 @@ func (ss SearchService) Search(ctx context.Context, search_query string, limit i
 	return &radio.SearchResult{Songs: songs, TotalHits: total}, nil
 }
 
+var queryReplacer = strings.NewReplacer("-", " ")
+
 func processQuery(q string) (string, error) {
 	terms := splitQuery(q)
 	for i, term := range terms {
 		if isQuoted(term) {
 			continue
 		}
+
+		term = queryReplacer.Replace(term)
+		term = strings.TrimSpace(term)
 
 		if term[len(term)-1] != '*' {
 			terms[i] = term + "*"
@@ -85,6 +90,7 @@ func processQuery(q string) (string, error) {
 	return strings.Join(terms, " "), nil
 }
 
+// splits on any whitespace but keeps quoted sections together
 var splitRe = regexp.MustCompile(`[^\s"]+|"([^"]*)"`)
 
 func splitQuery(q string) []string {
