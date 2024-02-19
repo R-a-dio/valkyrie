@@ -45,23 +45,17 @@ func (l *Listener) Accept() (net.Conn, error) {
 	return &Conn{Conn: conn, logger: l.logger}, nil
 }
 
-func NewConn(r io.Reader, conn net.Conn) *Conn {
-	return &Conn{
-		r:    r,
-		Conn: conn,
-	}
-}
-
 type Conn struct {
-	r io.Reader
 	net.Conn
+	multi io.Reader
+
 	logger *zerolog.Logger
 }
 
 func (c *Conn) Read(b []byte) (n int, err error) {
 	// if we already have a multireader present use that
-	if c.r != nil {
-		return c.r.Read(b)
+	if c.multi != nil {
+		return c.multi.Read(b)
 	}
 
 	n, err = c.Conn.Read(b)
@@ -77,28 +71,18 @@ func (c *Conn) Read(b []byte) (n int, err error) {
 		if len(new) > len(old) && c.logger != nil {
 			c.logger.Info().Str("address", c.RemoteAddr().String()).Msg("ICE/1.0")
 		}
-		c.r = io.MultiReader(bytes.NewReader(new), c.Conn)
+
+		c.multi = MultiReader(bytes.NewReader(new), c.Conn)
 	}
 
-	return c.r.Read(b)
+	return c.multi.Read(b)
 }
 
 func (c *Conn) Close() error {
 	return c.Conn.Close()
 }
 
-func ToNetConn(conn net.Conn) net.Conn {
-	if c, ok := conn.(*Conn); ok && c.CanUseConn() {
-		return c.Conn
-	}
-	return conn
-}
-
-func (c *Conn) CanUseConn() bool {
-	return isSingleReader(c.r)
-}
-
-func isSingleReader(r io.Reader) bool {
+func isSingleOrNoReader(r io.Reader) bool {
 	v := reflect.Indirect(reflect.ValueOf(r))
 	if !v.IsValid() || v.NumField() != 1 {
 		return false
@@ -107,5 +91,65 @@ func isSingleReader(r io.Reader) bool {
 	if fv.Type().Kind() != reflect.Slice {
 		return false
 	}
-	return fv.Len() == 1
+	return fv.Len() <= 1
+}
+
+func MultiReader(r1, r2 io.Reader) io.Reader {
+	mr, ok := r2.(*multiReader)
+	if !ok {
+		// not a previous multiReader so just attach them together
+		return &multiReader{
+			first:  r1,
+			second: r2,
+			Reader: io.MultiReader(r1, r2),
+		}
+	}
+
+	// if we only have one reader left we can cut out the extra multireader
+	if isSingleOrNoReader(mr.Reader) {
+		return &multiReader{
+			first:  r1,
+			second: mr.second,
+			Reader: io.MultiReader(r1, mr.second),
+		}
+	}
+
+	// otherwise just attach them together
+	return &multiReader{
+		first:  r1,
+		second: r2,
+		Reader: io.MultiReader(r1, r2),
+	}
+}
+
+type multiReader struct {
+	first  io.Reader
+	second io.Reader
+	io.Reader
+}
+
+func IsSingleReader(r io.Reader) bool {
+	mr, ok := r.(*multiReader)
+	if !ok {
+		return true
+	}
+
+	// we've exhausted the first reader
+	if isSingleOrNoReader(mr.Reader) {
+		// recursively check if the last reader is a multiReader
+		return IsSingleReader(mr.second)
+	}
+
+	return false
+}
+
+func UnwrapReader(r io.Reader) io.Reader {
+	for {
+		mr, ok := r.(*multiReader)
+		if !ok {
+			return r
+		}
+
+		r = mr.second
+	}
 }

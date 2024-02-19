@@ -8,8 +8,10 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
+	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/rs/zerolog"
@@ -23,6 +25,13 @@ func (s *Server) GetMetadata(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	query := r.URL.Query()
+
+	mount := GetMountpoint(r)
+	if mount == "" {
+		// ignore empty mount
+		hlog.FromRequest(r).Info().Msg("empty mount")
+		return
+	}
 
 	metadata := query.Get("song")
 	if metadata == "" {
@@ -44,7 +53,18 @@ func (s *Server) GetMetadata(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// do something with metadata
+	err := s.proxy.SendMetadata(ctx, &Metadata{
+		Time:       time.Now(),
+		Identifier: IdentFromRequest(r),
+		User:       *middleware.UserFromContext(ctx),
+		MountName:  mount,
+		Addr:       r.RemoteAddr,
+		Value:      metadata,
+	})
+	if err != nil {
+		hlog.FromRequest(r).Error().Err(err).Msg("failed to send metadata to proxy manager")
+		return
+	}
 
 	response := []byte("<?xml version=\"1.0\"?>\n<iceresponse><message>Metadata update successful</message><return>1</return></iceresponse>\n")
 
@@ -57,7 +77,19 @@ func (s *Server) GetListClients(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Length", strconv.Itoa(len(response)))
 	_, err := w.Write(response)
-	hlog.FromRequest(r).Err(err).Msg("failed to write listclients response")
+	if err != nil {
+		hlog.FromRequest(r).Error().Err(err).Msg("failed to write listclients response")
+	}
+}
+
+type Metadata struct {
+	Time       time.Time
+	Identifier Identifier
+	User       radio.User
+	MountName  string
+	Addr       string
+
+	Value string
 }
 
 func ToUTF8(ctx context.Context, charset, meta string) string {

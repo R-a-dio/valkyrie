@@ -22,22 +22,22 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	m := cfg.Conf().Manager.Client()
 
 	// get our configuration
-	addr := cfg.Conf().Proxy.Address
+	addr := cfg.Conf().Proxy.Addr
 
 	srv, err := NewServer(ctx, m, storage)
 	if err != nil {
 		return errors.E(op, err)
 	}
 
-	logger.Info().Str("address", addr).Msg("proxy started listening")
 	ln, err := compat.Listen(logger, "tcp", addr)
 	if err != nil {
 		return errors.E(op, err)
 	}
+	logger.Info().Str("address", ln.Addr().String()).Msg("proxy started listening")
 
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- srv.Serve(ln)
+		errCh <- srv.Serve(ctx, ln)
 	}()
 
 	select {

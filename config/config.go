@@ -66,6 +66,9 @@ var defaultConfig = config{
 		Addr:     "127.0.0.1:4848",
 		Fallback: "https://relay0.r-a-d.io/main.mp3",
 	},
+	Proxy: proxy{
+		Addr: ":1337",
+	},
 	Telemetry: telemetry{
 		Use:      false,
 		Endpoint: ":5081",
@@ -105,7 +108,7 @@ type config struct {
 }
 
 type proxy struct {
-	Address string
+	Addr string
 }
 
 type telemetry struct {

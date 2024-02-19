@@ -8,14 +8,15 @@ import (
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/website"
 	"github.com/R-a-dio/valkyrie/website/middleware"
-	"github.com/go-chi/chi/v5"
 	chiware "github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
 )
 
 type Server struct {
+	proxy   *ProxyManager
 	storage radio.UserStorageService
 	manager radio.ManagerService
 	http    *http.Server
@@ -31,13 +32,14 @@ func zerologLoggerFunc(r *http.Request, status, size int, duration time.Duration
 
 func NewServer(ctx context.Context, manager radio.ManagerService, storage radio.UserStorageService) (*Server, error) {
 	var srv = &Server{
+		proxy:   NewProxyManager(),
 		manager: manager,
 		storage: storage,
 	}
 
 	logger := zerolog.Ctx(ctx)
 	// setup our routes
-	r := chi.NewRouter()
+	r := website.NewRouter()
 	// setup zerolog
 	r.Use(
 		hlog.NewHandler(*logger),
@@ -56,14 +58,13 @@ func NewServer(ctx context.Context, manager radio.ManagerService, storage radio.
 	// and generate an identifier for the user
 	r.Use(IdentifierMiddleware)
 	// metadata route used to update mp3 metadata out-of-bound
-	r.Get("/admin/metadata", srv.GetMetadata)
+	r.Get("/admin/metadata", middleware.RequirePermission(radio.PermDJ, srv.GetMetadata))
 	// listclients would normally listen all listener clients but since we
 	// don't have any of those we could normally just not implement this. But
 	// some streaming software assumes this endpoint exists to display a listener
 	// count, so we just return a static 0;
 	r.Get("/admin/listclients", srv.GetListClients)
-	r.MethodFunc(http.MethodPut, "/", srv.PutSource)
-	r.MethodFunc("SOURCE", "/", srv.PutSource)
+	r.HandleFunc("/", middleware.RequirePermission(radio.PermDJ, srv.PutSource))
 
 	srv.http = &http.Server{
 		Handler:      r,
@@ -74,7 +75,8 @@ func NewServer(ctx context.Context, manager radio.ManagerService, storage radio.
 	return srv, nil
 }
 
-func (s *Server) Serve(l net.Listener) error {
+func (s *Server) Serve(ctx context.Context, l net.Listener) error {
+	go s.proxy.Run(ctx)
 	return s.http.Serve(l)
 }
 

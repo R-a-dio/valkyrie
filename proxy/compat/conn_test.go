@@ -114,7 +114,7 @@ func TestIsSingleReader(t *testing.T) {
 
 	r := io.MultiReader(bytes.NewReader(firstInput), bytes.NewReader(secondInput))
 
-	assert.False(t, isSingleReader(r))
+	assert.False(t, isSingleOrNoReader(r))
 	// first read is asking for more bytes than our first input provides, with
 	// current MultiReader implementation this exhausts the first input and then
 	// returns before starting on the next reader on the next Read call
@@ -123,22 +123,157 @@ func TestIsSingleReader(t *testing.T) {
 	assert.Equal(t, firstInput, p[:n])
 	// our first reader isn't cleaned up until this next call, so we should still be
 	// returning false for now
-	assert.False(t, isSingleReader(r))
+	assert.False(t, isSingleOrNoReader(r))
 	n, err = r.Read(p)
 	require.NoError(t, err)
 	assert.Equal(t, secondInput[:len(p)], p[:n])
 	// we've now read from our second reader so we should just have one reader left
-	assert.True(t, isSingleReader(r))
+	assert.True(t, isSingleOrNoReader(r))
 	rest, err := io.ReadAll(r)
 	require.NoError(t, err)
 	assert.Equal(t, secondInput[len(p):], rest)
 	// we've now exhausted both readers so we should have no readers left in the multireader
-	assert.False(t, isSingleReader(r))
+	assert.True(t, isSingleOrNoReader(r))
 }
 
 func TestIsSingleReaderNoPanic(t *testing.T) {
-	assert.False(t, isSingleReader(nil))
-	assert.False(t, isSingleReader(struct{ io.Reader }{}))
-	assert.False(t, isSingleReader(strings.NewReader("")))
-	assert.False(t, isSingleReader(bytes.NewReader([]byte(""))))
+	assert.False(t, isSingleOrNoReader(nil))
+	assert.False(t, isSingleOrNoReader(struct{ io.Reader }{}))
+	assert.False(t, isSingleOrNoReader(strings.NewReader("")))
+	assert.False(t, isSingleOrNoReader(bytes.NewReader([]byte(""))))
+}
+
+func TestMultiReader(t *testing.T) {
+	ReadN := func(r io.Reader, n int) ([]byte, error) {
+		return io.ReadAll(io.LimitReader(r, int64(n)))
+	}
+	_ = ReadN
+	Concat := func(b1, b2, b3 []byte) []byte {
+		tmp := append(b1, b2...)
+		return append(tmp, b3...)
+	}
+	Readers := func(b1, b2, b3 []byte) (io.Reader, io.Reader, io.Reader) {
+		return bytes.NewReader(b1), bytes.NewReader(b2), bytes.NewReader(b3)
+	}
+
+	properties := gopter.NewProperties(nil)
+	properties.Property("3 nested readers read everything", prop.ForAllNoShrink(
+		func(b1, b2, b3 []byte) bool {
+			final := Concat(b1, b2, b3)
+
+			r1, r2, r3 := Readers(b1, b2, b3)
+
+			// all of these are not multiReader so should return true
+			assert.True(t, IsSingleReader(r1))
+			assert.True(t, IsSingleReader(r2))
+			assert.True(t, IsSingleReader(r3))
+
+			// this is a multireader with two readers still so should be false
+			mr1 := MultiReader(r2, r3)
+			assert.False(t, IsSingleReader(mr1))
+
+			// same as above
+			mr2 := MultiReader(r1, mr1)
+			assert.False(t, IsSingleReader(mr2))
+
+			// now we read everything available
+			data, err := io.ReadAll(mr2)
+			assert.NoError(t, err)
+			assert.Equal(t, final, data)
+
+			assert.True(t, IsSingleReader(mr2))
+			assert.Equal(t, UnwrapReader(mr2), r3)
+
+			return true
+		},
+		gen.SliceOf(gen.UInt8()),
+		gen.SliceOf(gen.UInt8()),
+		gen.SliceOf(gen.UInt8()),
+	))
+	properties.Property("3 nested readers read 2", prop.ForAllNoShrink(
+		func(b1, b2, b3 []byte) bool {
+			r1, r2, r3 := Readers(b1, b2, b3)
+
+			// all of these are not multiReader so should return true
+			assert.True(t, IsSingleReader(r1))
+			assert.True(t, IsSingleReader(r2))
+			assert.True(t, IsSingleReader(r3))
+
+			// this is a multireader with two readers still so should be false
+			mr1 := MultiReader(r2, r3)
+			assert.False(t, IsSingleReader(mr1))
+
+			// same as above
+			mr2 := MultiReader(r1, mr1)
+			assert.False(t, IsSingleReader(mr2))
+
+			// now we read the first two readers
+			data, err := ReadN(mr2, len(b1)+len(b2))
+			assert.NoError(t, err)
+			assert.Equal(t, Concat(b1, b2, nil), data)
+			// then a little bit of the third
+			n := len(b3) / 2
+			data, err = ReadN(mr2, n)
+
+			assert.NoError(t, err)
+			assert.Equal(t, b3[:n], data)
+
+			assert.True(t, IsSingleReader(mr2))
+			assert.Equal(t, UnwrapReader(mr2), r3)
+
+			// and now we should be able to just read the rest from r3 directly
+			data, err = io.ReadAll(r3)
+			assert.NoError(t, err)
+			assert.Equal(t, b3[n:], data)
+
+			return true
+		},
+		gen.SliceOf(gen.UInt8()).SuchThat(func(b []byte) bool { return len(b) > 16 }),
+		gen.SliceOf(gen.UInt8()).SuchThat(func(b []byte) bool { return len(b) > 16 }),
+		gen.SliceOf(gen.UInt8()).SuchThat(func(b []byte) bool { return len(b) > 16 }),
+	))
+	properties.Property("3 nested readers read first before creating second multi", prop.ForAllNoShrink(
+		func(b1, b2, b3 []byte) bool {
+			r1, r2, r3 := Readers(b1, b2, b3)
+
+			// all of these are not multiReader so should return true
+			assert.True(t, IsSingleReader(r1))
+			assert.True(t, IsSingleReader(r2))
+			assert.True(t, IsSingleReader(r3))
+
+			// this is a multireader with two readers still so should be false
+			mr1 := MultiReader(r2, r3)
+			assert.False(t, IsSingleReader(mr1))
+
+			// same as above
+			mr2 := MultiReader(r1, mr1)
+			assert.False(t, IsSingleReader(mr2))
+
+			// now we read the first two readers
+			data, err := ReadN(mr2, len(b1)+len(b2))
+			assert.NoError(t, err)
+			assert.Equal(t, Concat(b1, b2, nil), data)
+			// then a little bit of the third
+			n := len(b3) / 2
+			data, err = ReadN(mr2, n)
+
+			assert.NoError(t, err)
+			assert.Equal(t, b3[:n], data)
+
+			assert.True(t, IsSingleReader(mr2))
+			assert.Equal(t, UnwrapReader(mr2), r3)
+
+			// and now we should be able to just read the rest from r3 directly
+			data, err = io.ReadAll(r3)
+			assert.NoError(t, err)
+			assert.Equal(t, b3[n:], data)
+
+			return true
+		},
+		gen.SliceOf(gen.UInt8()).SuchThat(func(b []byte) bool { return len(b) > 16 }),
+		gen.SliceOf(gen.UInt8()).SuchThat(func(b []byte) bool { return len(b) > 16 }),
+		gen.SliceOf(gen.UInt8()).SuchThat(func(b []byte) bool { return len(b) > 16 }),
+	))
+
+	properties.TestingRun(t)
 }
