@@ -1,0 +1,104 @@
+{{define "content"}}
+<section class="section">
+    <div class="container">
+        <div class="content">
+            {{template "news-post" .}}
+            {{template "news-comments" .}}
+        </div>
+    </div>
+</section>
+{{end}}
+
+{{define "news-post"}}
+<div class="columns block has-background-white-ter mb-5">
+    <article class="message column is-12 disable-message-hover">
+        <a href="/news/{{/*$.ID*/}}">
+            <div class="block message-header">
+                <span>{{/*$.Title*/}}News Title</span>
+                <span>~{{/*$.User.Username*/}}Username</span>
+            </div>
+        </a>
+        <div class="block message-header has-background-white-ter has-text-grey-dark m-1 p-1 disable-message-hover">
+            <span class="has-text-left"></span>
+            <time datetime="{{/*.CreatedAt.Unix*/}}" data-type="absolute">{{/*.CreatedAt | AbsoluteDate*/}}News Created At</time>
+        </div>
+        <div class="message-body pt-0 disable-message-border">{{/*$.News.Body*/}}
+            <p>When the great provincial armies were gradually disbanded under Hideyoshi
+            and Ieyasu, many out-of-work samurai roamed the country redundant in an era
+            of peace. Musashi was one such samurai, a "ronin" or "wave man".</p> <p>There were
+            still samurai retainers to the Tokugawas and provincial lords, but their numbers
+            were few. The hordes of redundant samurai found themselves living in a society
+            which was completely based on the old chivalry, but at the same time they were
+            apart from a society in which there was no place for men at arms.</p> <p>They became
+            an inverted class, keeping the old chivalry alive by devotion to military arts
+            with the fervour only the Japanese possess. This was the time of the flowering
+            of Kendo.</p></div>
+    </article>
+</div>
+{{end}}
+
+{{define "news-comments"}}
+<div class="columns">
+    {{/*range $comment := $comments*/}}
+    <div class="column is-8 m-0 p-0">
+        <!-- post 3 -->
+        <div class="column block has-background-white-ter mb-4">
+            <div class="columns">
+                <div class="column is-narrow is-flex-mobile pb-0 ml-4">{{/*$post-username*/}}Anonymous</div>
+                <div class="column is-hidden-mobile"></div>
+                <div class="column is-narrow is-flex-mobile pb-0 mr-4">{{/*$post-date*/}}01/01/1970, 02:00:00</div>
+            </div>
+            <div class="block has-background-white-bis message-body">
+                <div class="">Shinmen Musashi No Kami Fujiwara No Genshin, or as he is commonly known
+                    Miyamoto Musashi, was born in the village called Miyamoto in the province
+                    Mimasaka in 1584. "Musashi" is the name of an area south-west of Tokyo, and
+                    the appellation "No Kami" means noble person of the area, while "Fujiwara" is
+                    the name of a noble family foremost in Japan over a thousand years ago.</div>
+            </div>
+        </div>
+        <!-- post 2 -->
+        <div class="column block has-background-white-ter mb-4">
+            <div class="columns">
+                <div class="column is-narrow is-flex-mobile pb-0 ml-4">{{/*$post-username*/}}Anonymous</div>
+                <div class="column is-hidden-mobile"></div>
+                <div class="column is-narrow is-flex-mobile pb-0 mr-4">{{/*$post-date*/}}01/01/1970, 02:00:00</div>
+            </div>
+            <div class="block has-background-white-bis message-body">
+                <div class="">The Way of the sword is the moral teaching of the samurai, fostered by the
+                    Confucianist philosophy which shaped the Tokugawa system, together with
+                    the native Shinto religion of Japan. The warrior courts of Japan from the
+                    Kamakura period to the Muromachi period encouraged the austere Zen study
+                    among the samurai, and Zen went hand in hand with the arts of war.</div>
+            </div>
+        </div>
+        <!-- post 1 -->
+        <div class="column block has-background-white-ter mb-4">
+            <div class="columns">
+                <div class="column is-narrow is-flex-mobilepb-0 ml-4">{{/*$post-username*/}}Anonymous</div>
+                <div class="column is-hidden-mobile"></div>
+                <div class="column is-narrow is-flex-mobile pb-0 mr-4">{{/*$post-date*/}}01/01/1970, 02:00:00</div>
+            </div>
+            <div class="block has-background-white-bis message-body">
+                <div class="">The first technique is the last, the beginner and the master behave in the
+                    same way. Knowledge is a full circle. The first of Musashi's chapter headings is
+                    Ground, for the basis of Kendo and Zen, and the last book is Void, for that
+                    understanding which can only be expressed as nothingness.</div>
+            </div>
+        </div>
+    </div>
+    {{/*end*/}}
+    <div class="column has-background-white-ter ml-4 is-align-self-flex-start">
+        <textarea name="comment" rows="4" class="textarea mb-4" placeholder="Enter a comment..."></textarea>
+        <div class="columns">
+            <div class="column is-8">
+                <p>Logged in (as $user)</p>
+                <p>Comments use markdown formatting ($link)</p>
+                <p>$charlimit characters remaining.</p>
+            </div>
+            <div class="column is-narrow is-flex is-align-self-flex-end">
+                <button class="submit button is-primary">Submit</button>
+            </div>               
+        </div>
+    </div>
+</div>
+{{end}}

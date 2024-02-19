@@ -1,6 +1,6 @@
 {{define "pagination"}}
 <div class="columns">
-    <nav class="column pagination is-left is-flex is-hidden-mobile mb-0" hx-boost="true" hx-push-url="true" hx-target="#content" role="navigation">
+    <nav class="column pagination is-left is-flex mb-0" hx-boost="true" hx-push-url="true" hx-target="#content" role="navigation">
         {{with .Prev 1}}
         <a class="pagination-previous" href="{{.URL}}">Previous</a>
         {{else}}
@@ -39,7 +39,7 @@
             {{end}}
         </ul>
     </nav>
-    <form action="{{.BaseURL}}" class="column control is-2 is-flex" hx-boost="true" hx-push-url="true" hx-target="#content">
+    <form action="{{.BaseURL}}" class="column control is-2 is-flex is-hidden-mobile" hx-boost="true" hx-push-url="true" hx-target="#content">
         <input class="input" type="text" id="page" name="page" placeholder="Enter Page Number">
         <input class="is-hidden" type="submit">
     </form>
