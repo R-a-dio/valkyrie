@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"errors"
+	"html"
 	"io"
 	"net/http"
 	"strconv"
@@ -213,7 +214,9 @@ func (ln *Listener) parseResponse(ctx context.Context, metasize int, src io.Read
 		go func() {
 			ctx, cancel := context.WithTimeout(ctx, time.Second*5)
 			defer cancel()
-			err := ln.manager.UpdateSong(ctx, &radio.SongUpdate{Song: s, Info: info})
+
+			update := &radio.SongUpdate{Song: s, Info: info}
+			err := ln.manager.UpdateSong(ctx, update)
 			if err != nil {
 				logger.Error().Err(err).Msg("updating stream song")
 			}
@@ -263,6 +266,9 @@ func parseMetadata(b []byte) map[string]string {
 			break
 		}
 
+		// try and do any html escaping, icecast default configuration will send unicode chars
+		// as html escaped characters
+		value = html.UnescapeString(value)
 		// replace any broken utf8, since other layers expect valid utf8 we do it at the edge
 		value = strings.ToValidUTF8(value, string(utf8.RuneError))
 
