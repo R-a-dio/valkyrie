@@ -91,6 +91,16 @@ func (d databaseCmd) addTrack(ctx context.Context, cfg config.Config) error {
 			return err
 		}
 
+		fn := filepath.Base(filename)
+		fn = strings.TrimSuffix(fn, filepath.Ext(fn))
+		artist, title, _ := strings.Cut(fn, " - ")
+		if info.Format.Tags.Title == "" {
+			info.Format.Tags.Title = title
+		}
+		if info.Format.Tags.Artist == "" {
+			info.Format.Tags.Artist = artist
+		}
+
 		track := radio.DatabaseTrack{
 			TrackID:    0,
 			Artist:     info.Format.Tags.Artist,
