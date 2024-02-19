@@ -420,23 +420,13 @@ type Song struct {
 
 // EqualTo returns s == d based on unique fields
 func (s Song) EqualTo(d Song) bool {
-	// check if we have a SongID in both
-	if s.ID == 0 || d.ID == 0 {
-		// if we don't, check for Tracks
-		if !s.HasTrack() || !d.HasTrack() {
-			// if we don't, we can't do an equality check
-			return false
-		}
+	// both songs we get are copies so we can hydrate them inside
+	// and use the hash as unique identifier since it should handle
+	// any special cases
+	s.Hydrate()
+	d.Hydrate()
 
-		// check if we have a TrackID in both
-		if s.TrackID == 0 || d.TrackID == 0 {
-			return false
-		}
-
-		return s.TrackID == d.TrackID
-	}
-
-	return s.ID == d.ID
+	return s.Hash == d.Hash
 }
 
 // TrackID is a database track identifier

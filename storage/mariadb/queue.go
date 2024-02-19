@@ -81,7 +81,7 @@ SELECT
 	to_go_duration(queue.length) AS length,
 	{lastplayedSelect},
 	{maybeSongColumns},
-	{trackColumns}
+	{maybeTrackColumns}
 FROM
 	queue
 LEFT JOIN
