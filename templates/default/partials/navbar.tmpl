@@ -1,6 +1,6 @@
 {{define "public-navbar"}}
 <nav class="navbar is-dark" role="navigation" hx-boost="true" hx-push-url="true" hx-target="#content">
-    <div class="navbar-brand">
+    <div class="navbar-brand is-hidden-desktop">
         <a class="navbar-item" href="/">
             <img src="/assets/images/logotitle_2.png" alt="r/a/dio logo">
         </a>
@@ -10,28 +10,31 @@
             <span aria-hidden="true"></span>
         </a>
     </div>
-    <div id="public-navbar" class="navbar-menu">
-        <div class="navbar-start">
-            <a class="navbar-item" href="/news">News</a>
-            <a class="navbar-item" href="/irc">Chat</a>
-            <a class="navbar-item" href="/search">Search</a>
-            <a class="navbar-item" href="/schedule">Schedule</a>
-            <a class="navbar-item" href="/last-played">Play History</a>
-            <a class="navbar-item" href="/queue">Queue</a>
-            <a class="navbar-item" href="/faves">Favorites</a>
-            <a class="navbar-item" href="/staff">Staff</a>
-            <a class="navbar-item" href="/submit">Submit</a>
-        </div>
-        <div class="navbar-end is-flex-grow-1 mr-3">
-            <form class="is-flex is-width-90 my-auto" method="POST" action="/search" accept-charset="UTF-8">
-                <div class="field is-flex is-fullwidth"><div class="control is-flex is-fullwidth">
-                    <input hx-get="/v1/search" hx-trigger="keyup changed delay:500ms" hx-target="#search-bar" class="input" type="text" name="q" placeholder="Request Song" role="search">
-                </div></div>
-            </form>
+    <div id="public-navbar" class="navbar-menu is-justify-content-center">
+        <div class="navbar-container is-flex is-justify-content-space-evenly">
+            <a id="radio-logo" class="navbar-item is-hidden-touch" href="/">
+                <img src="/assets/images/logotitle_2.png" alt="r/a/dio logo">
+            </a>
+            <div class="navbar-start has-text-centered">
+                <a class="navbar-item" href="/news">News</a>
+                <a class="navbar-item" href="/irc">Chat</a>
+                <a class="navbar-item" href="/search">Search</a>
+                <a class="navbar-item" href="/schedule">Schedule</a>
+                <a class="navbar-item" href="/last-played">Play History</a>
+                <a class="navbar-item" href="/queue">Queue</a>
+                <a class="navbar-item" href="/favorites">Favorites</a>
+                <a class="navbar-item" href="/staff">Staff</a>
+                <a class="navbar-item" href="/submit">Submit</a>
+            </div>
+            <div class="navbar-end is-hidden-touch">
+                <form class="is-flex is-width-90 my-auto" method="POST" action="/search" accept-charset="UTF-8" onkeydown=searchFromNavbar(event)>
+                    <input id="navbarinput" hx-get="/v1/search" hx-trigger="keyup changed delay:250ms" hx-target="#search-bar" class="input" type="text" name="q" placeholder="Request Song" role="search" onblur=clearNavbarSearchValue(event)>
+                </form>
+                <div id="search-bar" style="position: absolute;"></div>
+            </div>
         </div>
     </div>
 </nav>
- <div id="search-bar"></div>
 {{if .IsUser}}{{template "admin-navbar" .}}{{end}}
 {{end}}
 {{define "navbar"}}{{template "public-navbar" .}}{{end}}
