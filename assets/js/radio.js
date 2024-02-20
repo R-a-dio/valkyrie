@@ -186,7 +186,7 @@ function clearNavbarSearchValue(event) {
     document.getElementById("content").addEventListener("click", (e) => {
         if (!parent.contains(e.explicitOriginalTarget)) {
             originalTarget.value = "";
-            htmx.trigger(originalTarget, "keyup");
+            htmx.trigger(originalTarget, "input");
             document.body.removeEventListener("click", this, true);
         }
     })

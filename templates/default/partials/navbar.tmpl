@@ -28,7 +28,7 @@
             </div>
             <div class="navbar-end is-hidden-touch">
                 <form class="is-flex is-width-90 my-auto" method="GET" action="/search" accept-charset="UTF-8">
-                    <input id="navbarinput" hx-push-url="false" hx-get="/v1/search" hx-trigger="keyup changed delay:250ms" hx-target="#search-bar" class="input" type="text" name="q" placeholder="Request Song" role="search" onblur=clearNavbarSearchValue(event)>
+                    <input id="navbarinput" hx-push-url="false" hx-get="/v1/search" hx-trigger="input changed delay:250ms" hx-target="#search-bar" class="input" type="text" name="q" placeholder="Request Song" role="search" onblur=clearNavbarSearchValue(event)>
                 </form>
                 <div id="search-bar" style="position: absolute;"></div>
             </div>
