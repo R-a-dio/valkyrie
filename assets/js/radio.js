@@ -259,7 +259,9 @@ class Stream {
         let audio = new Audio();
         audio.crossOrigin = 'anonymous';
         audio.preload = "none";
-        audio.addEventListener('error', this.recover, true);
+        audio.addEventListener('error', () => {
+            this.recover(true);
+        }, true);
         return audio;
     }
 
@@ -312,7 +314,7 @@ class Stream {
             this.setButton("Something went wrong, try again");
             return
         }
-        this.setButton("Stop Stream");
+
         this.fadeVolume = 0.0;
         this.fadeIn();
 
@@ -323,6 +325,8 @@ class Stream {
             navigator.mediaSession.playbackState = "playing";
             this.updateMediaSessionMetadata(document.getElementById("metadata").textContent);
         } catch (err) { }
+
+        this.setButton("Stop Stream");
     }
 
     fadeIn = () => {
@@ -356,7 +360,7 @@ class Stream {
         }
     }
 
-    recover = () => {
+    recover = (fromErrorHandler) => {
         if (!this.audio) { // we got called while there isn't supposed to be a stream
             return
         }
@@ -370,6 +374,12 @@ class Stream {
             }
         }
 
+        if (fromErrorHandler) {
+            // if we're coming from the error handler a server or our network
+            // probably went missing, start a monitor and see if we can periodically
+            // reconnect
+            this.monitor();
+        }
         if (this.recoverLast + this.recoverGrace >= Date.now()) {
             // don't recover if we've recently been called
             return
@@ -402,10 +412,10 @@ class Stream {
             this.gracePeriod--;
         } else {
             let cur = this.audio.currentTime
-            if (cur > 0 && cur <= this.monitorLastTime) {
+            if (cur <= this.monitorLastTime) {
                 console.log(Date.now(), "reconnecting", cur);
                 this.monitorLastTime = 0;
-                this.recover();
+                this.recover(false);
             } else {
                 this.monitorLastTime = cur;
             }

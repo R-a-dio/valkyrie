@@ -251,8 +251,8 @@ func (s *Stream) Shutdown() {
 	}
 }
 
-func (s *Stream) NewMessage(event EventName, template string, data any) message {
-	m, err := s.templates.ExecuteTemplateAll(template, data)
+func (s *Stream) NewMessage(event EventName, data templates.TemplateSelectable) message {
+	m, err := s.templates.ExecuteAll(data)
 	if err != nil {
 		// TODO: handle error cases better
 		log.Println("failed creating message", err)
@@ -268,15 +268,18 @@ func (s *Stream) NewMessage(event EventName, template string, data any) message 
 }
 
 func (s *Stream) SendNowPlaying(data *radio.SongUpdate) {
-	s.SendEvent(EventMetadata, s.NewMessage(EventMetadata, "nowplaying", data))
+	if data == nil {
+		return
+	}
+	s.SendEvent(EventMetadata, s.NewMessage(EventMetadata, NowPlaying(*data)))
 }
 
 func (s *Stream) SendLastPlayed(data []radio.Song) {
-	s.SendEvent(EventLastPlayed, s.NewMessage(EventLastPlayed, "lastplayed", data))
+	s.SendEvent(EventLastPlayed, s.NewMessage(EventLastPlayed, LastPlayed(data)))
 }
 
 func (s *Stream) SendQueue(data []radio.QueueEntry) {
-	s.SendEvent(EventQueue, s.NewMessage(EventQueue, "queue", data))
+	s.SendEvent(EventQueue, s.NewMessage(EventQueue, Queue(data)))
 }
 
 // request send over the management channel
@@ -288,3 +291,33 @@ type request struct {
 }
 
 type message map[string][]byte
+
+type NowPlaying radio.SongUpdate
+
+func (NowPlaying) TemplateName() string {
+	return "nowplaying"
+}
+
+func (NowPlaying) TemplateBundle() string {
+	return "home"
+}
+
+type LastPlayed []radio.Song
+
+func (LastPlayed) TemplateName() string {
+	return "lastplayed"
+}
+
+func (LastPlayed) TemplateBundle() string {
+	return "home"
+}
+
+type Queue []radio.QueueEntry
+
+func (Queue) TemplateName() string {
+	return "queue"
+}
+
+func (Queue) TemplateBundle() string {
+	return "home"
+}

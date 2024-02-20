@@ -24,11 +24,11 @@ var _ templates.Executor = &ExecutorMock{}
 //			ExecuteFunc: func(w io.Writer, r *http.Request, input templates.TemplateSelectable) error {
 //				panic("mock out the Execute method")
 //			},
+//			ExecuteAllFunc: func(input templates.TemplateSelectable) (map[string][]byte, error) {
+//				panic("mock out the ExecuteAll method")
+//			},
 //			ExecuteTemplateFunc: func(theme string, page string, template string, output io.Writer, input any) error {
 //				panic("mock out the ExecuteTemplate method")
-//			},
-//			ExecuteTemplateAllFunc: func(template string, input any) (map[string][]byte, error) {
-//				panic("mock out the ExecuteTemplateAll method")
 //			},
 //			WithFunc: func(contextMoqParam context.Context) templates.Executor {
 //				panic("mock out the With method")
@@ -43,11 +43,11 @@ type ExecutorMock struct {
 	// ExecuteFunc mocks the Execute method.
 	ExecuteFunc func(w io.Writer, r *http.Request, input templates.TemplateSelectable) error
 
+	// ExecuteAllFunc mocks the ExecuteAll method.
+	ExecuteAllFunc func(input templates.TemplateSelectable) (map[string][]byte, error)
+
 	// ExecuteTemplateFunc mocks the ExecuteTemplate method.
 	ExecuteTemplateFunc func(theme string, page string, template string, output io.Writer, input any) error
-
-	// ExecuteTemplateAllFunc mocks the ExecuteTemplateAll method.
-	ExecuteTemplateAllFunc func(template string, input any) (map[string][]byte, error)
 
 	// WithFunc mocks the With method.
 	WithFunc func(contextMoqParam context.Context) templates.Executor
@@ -60,6 +60,11 @@ type ExecutorMock struct {
 			W io.Writer
 			// R is the r argument value.
 			R *http.Request
+			// Input is the input argument value.
+			Input templates.TemplateSelectable
+		}
+		// ExecuteAll holds details about calls to the ExecuteAll method.
+		ExecuteAll []struct {
 			// Input is the input argument value.
 			Input templates.TemplateSelectable
 		}
@@ -76,23 +81,16 @@ type ExecutorMock struct {
 			// Input is the input argument value.
 			Input any
 		}
-		// ExecuteTemplateAll holds details about calls to the ExecuteTemplateAll method.
-		ExecuteTemplateAll []struct {
-			// Template is the template argument value.
-			Template string
-			// Input is the input argument value.
-			Input any
-		}
 		// With holds details about calls to the With method.
 		With []struct {
 			// ContextMoqParam is the contextMoqParam argument value.
 			ContextMoqParam context.Context
 		}
 	}
-	lockExecute            sync.RWMutex
-	lockExecuteTemplate    sync.RWMutex
-	lockExecuteTemplateAll sync.RWMutex
-	lockWith               sync.RWMutex
+	lockExecute         sync.RWMutex
+	lockExecuteAll      sync.RWMutex
+	lockExecuteTemplate sync.RWMutex
+	lockWith            sync.RWMutex
 }
 
 // Execute calls ExecuteFunc.
@@ -132,6 +130,38 @@ func (mock *ExecutorMock) ExecuteCalls() []struct {
 	mock.lockExecute.RLock()
 	calls = mock.calls.Execute
 	mock.lockExecute.RUnlock()
+	return calls
+}
+
+// ExecuteAll calls ExecuteAllFunc.
+func (mock *ExecutorMock) ExecuteAll(input templates.TemplateSelectable) (map[string][]byte, error) {
+	if mock.ExecuteAllFunc == nil {
+		panic("ExecutorMock.ExecuteAllFunc: method is nil but Executor.ExecuteAll was just called")
+	}
+	callInfo := struct {
+		Input templates.TemplateSelectable
+	}{
+		Input: input,
+	}
+	mock.lockExecuteAll.Lock()
+	mock.calls.ExecuteAll = append(mock.calls.ExecuteAll, callInfo)
+	mock.lockExecuteAll.Unlock()
+	return mock.ExecuteAllFunc(input)
+}
+
+// ExecuteAllCalls gets all the calls that were made to ExecuteAll.
+// Check the length with:
+//
+//	len(mockedExecutor.ExecuteAllCalls())
+func (mock *ExecutorMock) ExecuteAllCalls() []struct {
+	Input templates.TemplateSelectable
+} {
+	var calls []struct {
+		Input templates.TemplateSelectable
+	}
+	mock.lockExecuteAll.RLock()
+	calls = mock.calls.ExecuteAll
+	mock.lockExecuteAll.RUnlock()
 	return calls
 }
 
@@ -180,42 +210,6 @@ func (mock *ExecutorMock) ExecuteTemplateCalls() []struct {
 	mock.lockExecuteTemplate.RLock()
 	calls = mock.calls.ExecuteTemplate
 	mock.lockExecuteTemplate.RUnlock()
-	return calls
-}
-
-// ExecuteTemplateAll calls ExecuteTemplateAllFunc.
-func (mock *ExecutorMock) ExecuteTemplateAll(template string, input any) (map[string][]byte, error) {
-	if mock.ExecuteTemplateAllFunc == nil {
-		panic("ExecutorMock.ExecuteTemplateAllFunc: method is nil but Executor.ExecuteTemplateAll was just called")
-	}
-	callInfo := struct {
-		Template string
-		Input    any
-	}{
-		Template: template,
-		Input:    input,
-	}
-	mock.lockExecuteTemplateAll.Lock()
-	mock.calls.ExecuteTemplateAll = append(mock.calls.ExecuteTemplateAll, callInfo)
-	mock.lockExecuteTemplateAll.Unlock()
-	return mock.ExecuteTemplateAllFunc(template, input)
-}
-
-// ExecuteTemplateAllCalls gets all the calls that were made to ExecuteTemplateAll.
-// Check the length with:
-//
-//	len(mockedExecutor.ExecuteTemplateAllCalls())
-func (mock *ExecutorMock) ExecuteTemplateAllCalls() []struct {
-	Template string
-	Input    any
-} {
-	var calls []struct {
-		Template string
-		Input    any
-	}
-	mock.lockExecuteTemplateAll.RLock()
-	calls = mock.calls.ExecuteTemplateAll
-	mock.lockExecuteTemplateAll.RUnlock()
 	return calls
 }
 

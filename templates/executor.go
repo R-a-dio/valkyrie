@@ -24,7 +24,7 @@ type Executor interface {
 	With(context.Context) Executor
 	Execute(w io.Writer, r *http.Request, input TemplateSelectable) error
 	ExecuteTemplate(theme, page, template string, output io.Writer, input any) error
-	ExecuteTemplateAll(template string, input any) (map[string][]byte, error)
+	ExecuteAll(input TemplateSelectable) (map[string][]byte, error)
 }
 
 type executor struct {
@@ -111,8 +111,8 @@ func (e *executor) ExecuteTemplate(theme, page string, template string, output i
 }
 
 // ExecuteTemplateAll executes the template given feeding the input given for all known themes
-func (e *executor) ExecuteTemplateAll(template string, input any) (map[string][]byte, error) {
-	const op errors.Op = "templates/Executor.ExecuteTemplateAll"
+func (e *executor) ExecuteAll(input TemplateSelectable) (map[string][]byte, error) {
+	const op errors.Op = "templates/Executor.ExecuteAll"
 
 	var out = make(map[string][]byte)
 
@@ -120,12 +120,12 @@ func (e *executor) ExecuteTemplateAll(template string, input any) (map[string][]
 	defer bufferPool.Put(b)
 
 	for _, theme := range e.site.ThemeNames() {
-		tmpl, err := e.site.Template(theme, "home")
+		tmpl, err := e.site.Template(theme, input.TemplateBundle())
 		if err != nil {
 			return nil, errors.E(op, err)
 		}
 
-		err = tmpl.ExecuteTemplate(b, template, input)
+		err = tmpl.ExecuteTemplate(b, input.TemplateName(), input)
 		if err != nil {
 			return nil, errors.E(op, err)
 		}
