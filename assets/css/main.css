@@ -163,3 +163,35 @@ span {
 .disable-message-hover:hover, .disable-message-hover:hover > .message-header:nth-child(2) {
     background-color: initial !important;
 }
+
+#radio-logo:hover {
+    background-color: initial;
+}
+
+#search-bar-popup {
+    position: absolute;
+    z-index: 99;
+    transition: 0.125s all ease-in-out;
+    max-height: 33vh;
+    min-width: 30rem;
+    overflow: scroll;
+    border: 2px solid hsl(0, 0%, 90%);
+    right: -0.125rem;
+    top: calc(3.25rem + 1rem)
+}
+
+@media screen and (max-width:1023px) {
+    .navbar-container {
+        position: absolute;
+        background-color: hsl(0, 0%, 96%);
+        border-bottom: 2px solid hsl(0, 0%, 90%);
+        z-index: 99;
+        width: 100vw;
+        top: 3.25rem
+    }
+}
+
+#search-bar-popup > .columns:nth-child(even) {
+    background-color: hsl(0, 0%, 96%);
+    border-top: 2px solid hsl(0, 0%, 90%);
+}

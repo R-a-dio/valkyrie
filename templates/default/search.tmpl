@@ -21,7 +21,7 @@
                 </div>
             {{end}}
             {{template "search-results" .Songs}}
-            {{if len .Songs}}
+            {{if gt (len .Songs) 10 }}
             {{template "pagination" .Page}}
             {{end}}
             </div>
@@ -37,7 +37,7 @@
             <div class="columns is-vcentered has-text-centered">
                 <div class="column">{{.Metadata}}</div>
                 <div class="column is-2">
-                    <form id="sneed" method="POST" action="/request/{{.TrackID}}" hx-post="/request/{{.TrackID}}">
+                    <form method="POST" action="/request/{{.TrackID}}" hx-post="/request/{{.TrackID}}">
                         {{if not .Requestable}}
                         <button type="submit" class="button is-danger" name="id" value="{{.TrackID}}" onclick=event.stopPropagation() disabled>Request</button>
                         {{else}}
@@ -59,4 +59,25 @@
         <div class="column is-size-4 is-2 mr-3">Request</div>
     </div>
 </div>
+{{end}}
+
+{{define "search-api"}}
+    {{with .Result}}
+        <div id="search-bar-popup" class="box has-text-centered">
+                {{range .Songs}}
+                <div class="columns">
+                    <div class="column">{{.Metadata}}</div>
+                    <div class="column is-narrow">
+                        <form method="POST" action="/request/{{.TrackID}}" hx-post="/request/{{.TrackID}}">
+                            {{if not .Requestable}}
+                            <button type="submit" class="button is-danger" name="id" value="{{.TrackID}}" disabled>Request</button>
+                            {{else}}
+                            <button type="submit" class="button is-primary" name="id" value="{{.TrackID}}">Request</button>
+                            {{end}}
+                        </form>
+                    </div>
+                </div>
+                {{end}}
+        </div>
+    {{end}}
 {{end}}
