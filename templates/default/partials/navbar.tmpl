@@ -23,10 +23,10 @@
             <a class="navbar-item" href="/submit">Submit</a>
         </div>
         <div class="navbar-end is-flex-grow-1 mr-3">
-            <form class="is-flex is-width-90 my-auto" method="POST" action="/search" accept-charset="UTF-8">
+            <form class="is-flex is-width-90 my-auto" method="GET" action="/search" hx-get="/search" accept-charset="UTF-8">
                 <div class="field is-flex is-fullwidth"><div class="control is-flex is-fullwidth">
-                    <input hx-get="/v1/search" hx-trigger="keyup changed delay:500ms" hx-target="#search-bar" class="input" type="text" name="q" placeholder="Request Song" role="search">
-                </div></div>
+                    <input hx-push-url="false" hx-get="/v1/search" hx-trigger="keyup changed delay:500ms" hx-target="#search-bar" class="input" type="text" name="q" placeholder="Request Song" role="search">
+                </div>
             </form>
         </div>
     </div>
