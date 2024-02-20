@@ -34,5 +34,9 @@ func (s State) getSchedule(w http.ResponseWriter, r *http.Request) error {
 
 	input := NewScheduleInput(r)
 
-	return s.Templates.Execute(w, r, input)
+	err := s.Templates.Execute(w, r, input)
+	if err != nil {
+		return errors.E(op, err)
+	}
+	return nil
 }

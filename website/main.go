@@ -27,10 +27,6 @@ import (
 
 var NewRouter = func() chi.Router { return chi.NewRouter() }
 
-func chiFunc(router chi.Router, middlewares ...func(http.Handler) http.Handler) {
-	router.Use(middlewares...)
-}
-
 func zerologLoggerFunc(r *http.Request, status, size int, duration time.Duration) {
 	hlog.FromRequest(r).Info().
 		Int("status_code", status).

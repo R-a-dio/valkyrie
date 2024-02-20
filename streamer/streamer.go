@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -479,7 +479,7 @@ func (s *Streamer) encodeToMP3(task streamerTask) error {
 		// so that we don't keep it in memory longer than needed, this is all
 		// the audio data stored in pcm
 		pcm = nil
-		fmt.Fprint(ioutil.Discard, pcm)
+		fmt.Fprint(io.Discard, pcm)
 		go func() { // exit on task finish
 			time.Sleep(time.Second)
 			debug.FreeOSMemory()

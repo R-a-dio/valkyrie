@@ -31,5 +31,4 @@ func (s State) GetFaves(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s State) PostFaves(w http.ResponseWriter, r *http.Request) {
-	return
 }

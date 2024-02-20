@@ -293,7 +293,7 @@ func LoadFile(filenames ...string) (Config, error) {
 // Load loads a configuration file from the reader given, it expects TOML as input
 func Load(r io.Reader) (Config, error) {
 	var c = defaultConfig
-	m, err := toml.DecodeReader(r, &c)
+	m, err := toml.NewDecoder(r).Decode(&c)
 	if err != nil {
 		return newConfig(defaultConfig), err
 	}

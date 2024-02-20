@@ -45,9 +45,7 @@ func (s State) GetNews(w http.ResponseWriter, r *http.Request) {
 
 func (s State) GetNewsEntry(w http.ResponseWriter, r *http.Request) {
 	s.errorHandler(w, r, nil)
-	return
 }
 
 func (s State) PostNewsEntry(w http.ResponseWriter, r *http.Request) {
-	return
 }

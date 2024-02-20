@@ -13,8 +13,6 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-const theme = "default"
-
 type State struct {
 	config.Config
 

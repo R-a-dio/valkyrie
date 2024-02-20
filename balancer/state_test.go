@@ -65,6 +65,4 @@ func TestStateHealth(t *testing.T) {
 				})
 		}
 	*/
-
-	return
 }

@@ -2,7 +2,7 @@ package balancer
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"sync"
@@ -46,7 +46,7 @@ func health(ctx context.Context, c *http.Client, r radio.Relay) radio.Relay {
 		return res
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		res.Err = err.Error()
 		return res

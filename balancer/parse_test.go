@@ -23,7 +23,7 @@ Stream Genre: various</annotation>
 </playlist>`)
 	listeners, err := parsexml(x)
 	if err != nil {
-		t.Errorf("parsexml could not parse valid xml: %w", err)
+		t.Errorf("parsexml could not parse valid xml: %s", err)
 		return
 	}
 	if listeners != 1337 {

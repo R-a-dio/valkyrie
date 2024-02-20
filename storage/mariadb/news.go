@@ -253,5 +253,6 @@ func (ns NewsStorage) ListPublic(limit int, offset int) (radio.NewsList, error) 
 // Comments implements radio.NewsStorage
 func (ns NewsStorage) Comments(radio.NewsPostID) ([]radio.NewsComment, error) {
 	const op errors.Op = "mariadb/NewsStorage.Comments"
+	_ = op
 	return nil, nil
 }

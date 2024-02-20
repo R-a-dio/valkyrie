@@ -160,7 +160,6 @@ func (s State) PostSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	responseFn(back)
-	return
 }
 
 func (s State) postSubmit(w http.ResponseWriter, r *http.Request) (SubmissionForm, error) {

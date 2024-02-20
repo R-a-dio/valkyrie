@@ -100,7 +100,6 @@ func (s *State) GetPendingSong(w http.ResponseWriter, r *http.Request) {
 	defer os.Remove(specPath)
 
 	http.ServeFile(w, r, specPath)
-	return
 }
 
 func (s *State) GetPending(w http.ResponseWriter, r *http.Request) {

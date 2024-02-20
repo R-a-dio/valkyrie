@@ -83,6 +83,7 @@ func (a authentication) UserMiddleware(next http.Handler) http.Handler {
 
 		user, err := a.storage.User(ctx).Get(username)
 		if err != nil {
+			err = errors.E(op, err)
 			http.Error(w,
 				http.StatusText(http.StatusInternalServerError),
 				http.StatusInternalServerError)
@@ -126,6 +127,7 @@ func (a authentication) LoginMiddleware(next http.Handler) http.Handler {
 				return
 			}
 
+			err = errors.E(op, err)
 			// other unknown error, just internal server and log stuff
 			http.Error(w,
 				http.StatusText(http.StatusInternalServerError),
@@ -143,7 +145,6 @@ func (a authentication) LoginMiddleware(next http.Handler) http.Handler {
 		// otherwise, use is active so forward them to their destination
 		r = RequestWithUser(r, user)
 		next.ServeHTTP(w, r)
-		return
 	})
 }
 
@@ -152,10 +153,10 @@ func (a *authentication) GetLogin(w http.ResponseWriter, r *http.Request) {
 
 	err := a.getLogin(w, r, nil)
 	if err != nil {
+		err = errors.E(op, err)
 		hlog.FromRequest(r).Error().Err(err).Msg("")
 		return
 	}
-	return
 }
 
 func (a *authentication) getLogin(w http.ResponseWriter, r *http.Request, input *LoginInput) error {
@@ -195,6 +196,7 @@ func (a *authentication) PostLogin(w http.ResponseWriter, r *http.Request) {
 
 	err := a.postLogin(w, r)
 	if err != nil {
+		err = errors.E(op, err)
 		// failed to login, log an error and give the user a generic error
 		// message alongside the login page again
 		hlog.FromRequest(r).Error().Err(err).Msg("")
@@ -202,6 +204,7 @@ func (a *authentication) PostLogin(w http.ResponseWriter, r *http.Request) {
 		input := NewLoginInput(r, "invalid credentials")
 		err = a.getLogin(w, r, &input)
 		if err != nil {
+			err = errors.E(op, err)
 			hlog.FromRequest(r).Error().Err(err).Msg("failed to send login page")
 			return
 		}
@@ -209,8 +212,7 @@ func (a *authentication) PostLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// successful login so send them to where they were trying to go
-	http.Redirect(w, r, r.URL.String(), 302)
-	return
+	http.Redirect(w, r, r.URL.String(), http.StatusFound)
 }
 
 func (a *authentication) postLogin(w http.ResponseWriter, r *http.Request) error {
@@ -262,6 +264,7 @@ func (a *authentication) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 
 	err := a.sessions.Destroy(r.Context())
 	if err != nil {
+		err = errors.E(op, err)
 		hlog.FromRequest(r).Error().Err(err).Msg("")
 		http.Error(w,
 			http.StatusText(http.StatusInternalServerError),
@@ -270,8 +273,7 @@ func (a *authentication) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// success, redirect to the home page
-	http.Redirect(w, r, "/", 302)
-	return
+	http.Redirect(w, r, "/", http.StatusFound)
 }
 
 // NewSessionStore returns a new SessionStore that uses the storage provided

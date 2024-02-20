@@ -30,7 +30,7 @@ func compareAsJSON(t *testing.T, a, b interface{}) {
 		t.Fatal(err)
 	}
 
-	if bytes.Compare(aj, bj) != 0 {
+	if !bytes.Equal(aj, bj) {
 		t.Errorf("%s != %s", aj, bj)
 	}
 }

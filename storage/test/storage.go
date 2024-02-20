@@ -32,8 +32,8 @@ type Suite struct {
 }
 
 func (suite *Suite) SetupSuite() {
-	suite.ctx = zerolog.New(os.Stdout).Level(zerolog.DebugLevel).WithContext(context.Background())
-	suite.ctx = context.WithValue(suite.ctx, testingKey{}, suite.T())
+	suite.ctx = zerolog.New(os.Stdout).Level(zerolog.ErrorLevel).WithContext(context.Background())
+	suite.ctx = PutT(suite.ctx, suite.T())
 
 	s, err := suite.ToBeTested.Setup(suite.ctx)
 	if err != nil {
@@ -51,6 +51,10 @@ func (suite *Suite) TearDownSuite() {
 
 type testingKey struct{}
 
-func CtxT(ctx context.Context) *testing.T {
-	return ctx.Value(testingKey{}).(*testing.T)
+func CtxT(ctx context.Context) testing.TB {
+	return ctx.Value(testingKey{}).(testing.TB)
+}
+
+func PutT(ctx context.Context, t testing.TB) context.Context {
+	return context.WithValue(ctx, testingKey{}, t)
 }
