@@ -27,7 +27,6 @@ jobs:
         go install github.com/matryer/moq@latest
         go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
         go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-        go install honnef.co/go/tools/cmd/staticcheck@latest
 
     - name: Generate
       run: go generate
@@ -35,8 +34,11 @@ jobs:
     - name: Build
       run: go build -v ./...
 
-    - name: Staticcheck
-      run: staticcheck ./...
-
     - name: Test
       run: go test -v ./...
+
+    - name: Staticcheck
+      uses: dominikh/staticcheck-action@v1.2.0
+      with:
+        install-go: false
+        
