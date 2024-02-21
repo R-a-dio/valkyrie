@@ -11,19 +11,27 @@ import (
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/R-a-dio/valkyrie/util/sse"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
 )
 
-func prepareStream[T any](ctx context.Context, fn func(context.Context) (T, error)) T {
+func prepareStream[T any](ctx context.Context, fn func(context.Context) (T, error)) (T, error) {
 	for {
 		s, err := fn(ctx)
 		if err == nil {
-			return s
+			return s, nil
 		}
+		zerolog.Ctx(ctx).Error().Err(err).Msg("failed to prepare stream")
+
 		time.Sleep(time.Second * 3)
+		select {
+		case <-ctx.Done():
+			return s, ctx.Err()
+		default:
+		}
 	}
 }
 
@@ -42,9 +50,14 @@ func (a *API) runSSE(ctx context.Context) error {
 }
 
 func (a *API) runSongUpdates(ctx context.Context) error {
+	const op errors.Op = "website/api/v1/API.runSongUpdates"
+
 	log := zerolog.Ctx(ctx).With().Str("stream", "song").Logger()
 
-	song_stream := prepareStream(ctx, a.manager.CurrentSong)
+	song_stream, err := prepareStream(ctx, a.manager.CurrentSong)
+	if err != nil {
+		return errors.E(op, err)
+	}
 
 	for {
 		us, err := song_stream.Next()
@@ -152,7 +165,7 @@ func (s *Stream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// send a sync timestamp
 	now := strconv.FormatInt(time.Now().UnixMilli(), 10)
-	w.Write(sse.Event{Name: "time", Data: []byte(now)}.Encode())
+	_, _ = w.Write(sse.Event{Name: "time", Data: []byte(now)}.Encode())
 
 	// send events that have already happened, one for each event so that
 	// we're certain the page is current

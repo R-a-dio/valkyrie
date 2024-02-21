@@ -1,94 +1,74 @@
 package radio
 
 import (
+	"reflect"
 	"testing"
 	"time"
+	"unicode"
+
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/arbitrary"
+	"github.com/leanovate/gopter/gen"
+	"github.com/leanovate/gopter/prop"
 )
 
 func TestSongEqualTo(t *testing.T) {
-	// helper functions
-	set := func(id SongID, tid TrackID) Song {
-		return Song{
-			ID: id,
-			DatabaseTrack: &DatabaseTrack{
-				TrackID: tid,
-			},
-		}
-	}
-	// tests
-	var tests = []struct {
-		a, b     Song
-		expected bool
-	}{
-		{set(0, 0), set(0, 0), false},
-		{set(100, 0), set(100, 600), true},
-		{set(0, 200), set(200, 0), false},
-		{set(0, 300), set(0, 300), true},
-		{set(300, 200), set(200, 300), false},
-		{set(400, 0), set(400, 0), true},
-		{set(400, 0), set(400, 500), true},
-		{set(0, 0), set(400, 500), false},
-		{Song{ID: 200}, Song{ID: 200}, true},
-		{Song{ID: 0}, Song{ID: 200}, false},
-		{Song{ID: 200}, Song{ID: 0}, false},
-		{Song{ID: 0}, Song{ID: 0}, false},
-	}
+	tp := gopter.DefaultTestParameters()
+	tp.MinSuccessfulTests = 500
+	a := arbitrary.DefaultArbitraries()
+	p := gopter.NewProperties(tp)
 
-	// run
-	for _, u := range tests {
-		actual := u.a.EqualTo(u.b)
-		if actual != u.expected {
-			t.Errorf("expected %t got %t instead: %v %v", u.expected, actual, u.a, u.b)
-		}
-		if actual != u.b.EqualTo(u.a) {
-			t.Errorf("%v != %v", u.a, u.b)
-		}
-	}
+	// we only want songs with actual string data to compare against
+	a.RegisterGen(gen.UnicodeString(unicode.Katakana).SuchThat(func(s string) bool { return len(s) > 5 }))
+
+	p.Property("song a != b",
+		a.ForAll(func(a, b Song) bool {
+			return !a.EqualTo(b)
+		}),
+	)
+	p.Property("song b != a",
+		a.ForAll(func(a, b Song) bool {
+			return !b.EqualTo(a)
+		}),
+	)
+	p.Property("song a == a",
+		a.ForAll(func(a, b Song) bool {
+			return a.EqualTo(a)
+		}),
+	)
+	p.Property("song b == b",
+		a.ForAll(func(a, b Song) bool {
+			return b.EqualTo(b)
+		}),
+	)
+
+	p.TestingRun(t)
 }
 
 func TestSongRequestable(t *testing.T) {
-	// helper functions
-	set := func(delay time.Duration, lp time.Time, lr time.Time) Song {
-		return Song{
-			LastPlayed: lp,
-			DatabaseTrack: &DatabaseTrack{
-				LastRequested: lr,
-				RequestCount:  0,
-			},
-		}
-	}
-	add := func(d time.Duration) time.Time {
-		return time.Now().Add(d)
-	}
-	sub := func(d time.Duration) time.Time {
-		return time.Now().Add(-d)
-	}
+	tp := gopter.DefaultTestParameters()
+	tp.MinSuccessfulTests = 500
+	a := arbitrary.DefaultArbitraries()
+	p := gopter.NewProperties(tp)
+	aNoTimes := arbitrary.DefaultArbitraries()
+	aNoTimes.RegisterGen(gen.TimeRange(time.Time{}, time.Hour))
 
-	// tests
-	var tests = []struct {
-		a        Song
-		expected bool
-	}{
-		{set(0, time.Now(), time.Now()), false},
-		{set(time.Hour, time.Now(), time.Now()), false},
-		{set(time.Hour, add(time.Hour*2), time.Now()), false},
-		{set(time.Hour, add(0), add(time.Hour*2)), false},
-		{set(time.Hour, sub(time.Hour*2), sub(time.Hour*2)), true},
-		{set(time.Hour, sub(time.Hour), sub(time.Hour)), true},
-		{set(time.Hour, sub(time.Minute*30), sub(time.Hour)), false},
-	}
+	songType := reflect.TypeOf(Song{})
 
-	// run
-	for i, u := range tests {
-		actual := u.a.Requestable()
-		if actual != u.expected {
-			t.Errorf("%d: expected %t got %t instead: %v", i, u.expected, actual, u.a)
-		}
-		if actual && u.a.UntilRequestable() != 0 {
-			t.Errorf("%d: expected 0 from UntilRequestable if requestable song: got %s",
-				i, u.a.UntilRequestable())
-		}
-	}
+	p.Property("if Requestable then UntilRequestable == 0", prop.ForAll(
+		func(s Song) bool {
+			return s.UntilRequestable() == 0
+		},
+		aNoTimes.GenForType(songType).SuchThat(func(s Song) bool { return s.Requestable() }),
+	))
+
+	p.Property("if not Requestable then UntilRequestable > 0", prop.ForAll(
+		func(s Song) bool {
+			return s.UntilRequestable() > 0
+		}, a.GenForType(songType).SuchThat(func(s Song) bool { return !s.Requestable() }),
+	))
+
+	p.TestingRun(t)
 }
 
 func TestCalculateCooldown(t *testing.T) {
@@ -108,4 +88,16 @@ func TestCalculateCooldown(t *testing.T) {
 			t.Errorf("failed %s on %s, returned: %s", test.last, test.delay, d)
 		}
 	}
+}
+
+func TestCalculateRequestDelay(t *testing.T) {
+	tp := gopter.DefaultTestParameters()
+	tp.MinSuccessfulTests = 10000
+	a := arbitrary.DefaultArbitraries()
+	p := gopter.NewProperties(tp)
+
+	p.Property("+1 should be higher or equal", a.ForAll(func(i int) bool {
+		return CalculateRequestDelay(i) <= CalculateRequestDelay(i+1)
+	}))
+	p.TestingRun(t)
 }

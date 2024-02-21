@@ -7,6 +7,7 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
+	"github.com/R-a-dio/valkyrie/util"
 )
 
 type inputKey struct{}
@@ -21,6 +22,7 @@ func InputMiddleware(cfg config.Config) func(http.Handler) http.Handler {
 
 			user := UserFromContext(ctx)
 			input := Input{
+				IsHTMX:    util.IsHTMX(r),
 				IsUser:    user != nil,
 				User:      user,
 				StreamURL: PublicStreamURL,
@@ -45,6 +47,7 @@ func InputFromRequest(r *http.Request) Input {
 // Input is a bunch of data that should be accessable to the base template
 type Input struct {
 	IsUser    bool
+	IsHTMX    bool
 	User      *radio.User
 	StreamURL template.URL
 }

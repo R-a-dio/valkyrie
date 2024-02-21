@@ -462,7 +462,7 @@ type DatabaseTrack struct {
 // Requestable returns whether this song can be requested by a user
 func (s *Song) Requestable() bool {
 	if s == nil || s.DatabaseTrack == nil {
-		panic("Requestable called with nil database track")
+		return false
 	}
 	delay := s.RequestDelay()
 	if delay == 0 {
