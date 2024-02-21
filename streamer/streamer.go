@@ -1,14 +1,10 @@
 package streamer
 
 import (
-	"bytes"
 	"context"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"net"
-	"net/http"
-	"net/url"
 	"path/filepath"
 	"runtime/debug"
 	"sync"
@@ -19,6 +15,7 @@ import (
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/streamer/audio"
+	"github.com/R-a-dio/valkyrie/streamer/icecast"
 	"github.com/cenkalti/backoff"
 	"github.com/rs/zerolog"
 )
@@ -495,73 +492,10 @@ func (s *Streamer) encodeToMP3(task streamerTask) error {
 }
 
 func (s *Streamer) newIcecastConn(streamurl string) (conn net.Conn, err error) {
-	var buf = new(bytes.Buffer)
-
-	uri, err := url.Parse(streamurl)
-	if err != nil {
-		return nil, err
-	}
-
-	// start of http request
-	_, err = fmt.Fprintf(buf, "SOURCE %s HTTP/1.0\r\n", uri.RequestURI())
-	if err != nil {
-		return nil, err
-	}
-
-	// host header to send
-	_, err = fmt.Fprintf(buf, "Host: %s\r\n", uri.Host)
-	if err != nil {
-		return nil, err
-	}
-
-	// base64 encode our username:password combination
-	auth := base64.StdEncoding.EncodeToString([]byte(uri.User.String()))
-	// normal headers
-	var h = http.Header{}
-	h.Set("Authorization", "Basic "+auth)
-	h.Set("User-Agent", s.Conf().UserAgent)
-	h.Set("Content-Type", "audio/mpeg")
-	if err = h.Write(buf); err != nil {
-		return nil, err
-	}
-
-	// end of headers
-	_, err = fmt.Fprintf(buf, "\r\n")
-	if err != nil {
-		return nil, err
-	}
-
-	// now we connect and write our request
-	conn, err = net.Dial("tcp", uri.Host)
-	//conn, err := net.DialTimeout("tcp", uri.Host, time.Second*5)
-	if err != nil {
-		return nil, err
-	}
-
-	// write request
-	_, err = buf.WriteTo(conn)
-	if err != nil {
-		return nil, err
-	}
-
-	var b = make([]byte, 40)
-	// read response
-	_, err = conn.Read(b)
-	if err != nil {
-		return nil, err
-	}
-
-	// parse response for errors
-	switch {
-	case bytes.HasPrefix(b, httpUnauthorized):
-		return nil, errors.New("connection error: wrong password")
-	case bytes.HasPrefix(b, httpMountInUse):
-		return nil, errors.New("connection error: mount in use")
-	case !bytes.HasPrefix(b, httpOK):
-		return nil, errors.New("connection error: unknown error:\n" + string(b))
-	}
-
-	return conn, nil
+	return icecast.Dial(context.TODO(), streamurl,
+		icecast.ContentType("audio/mpeg"),
+		icecast.UserAgent(s.Conf().UserAgent),
+	)
 }
 
 func (s *Streamer) streamToIcecast(task streamerTask) error {
@@ -642,23 +576,11 @@ func (s *Streamer) streamToIcecast(task streamerTask) error {
 }
 
 func (s *Streamer) metadataToIcecast(task streamerTask) error {
-	// metaurl creates the required URL using StreamURL as base
-	metaurl := func(meta string) (string, error) {
-		uri, err := url.Parse(s.Conf().Streamer.StreamURL)
-		if err != nil {
-			return "", err
-		}
-
-		q := url.Values{}
-		q.Set("mode", "updinfo")
-		q.Set("mount", uri.Path)
-		q.Set("charset", "utf8")
-		q.Set("song", meta)
-
-		uri.Path = "/admin/metadata"
-		uri.RawQuery = q.Encode()
-
-		return uri.String(), nil
+	metaFn, err := icecast.Metadata(s.Conf().Streamer.StreamURL,
+		icecast.UserAgent(s.Conf().UserAgent),
+	)
+	if err != nil {
+		return err
 	}
 
 	// for retrying the metadata request
@@ -697,37 +619,14 @@ func (s *Streamer) metadataToIcecast(task streamerTask) error {
 			}
 		}
 
-		uri, err := metaurl(track.track.Metadata)
-		if err != nil {
-			// StreamURL is invalid
-			return err
-		}
-
-		req, err := http.NewRequest("GET", uri, nil)
-		if err != nil {
-			// request creation failed, either wrong method or URL invalid
-			return err
-		}
 		// use a timeout so we don't hang on a request for ages
 		ctx, cancel := context.WithTimeout(task.Context, time.Second*5)
-		req = req.WithContext(ctx)
-
-		req.Header.Set("User-Agent", s.Conf().UserAgent)
-
-		resp, err := http.DefaultClient.Do(req)
+		err = metaFn(ctx, track.track.Metadata)
 		cancel()
 		if err != nil {
-			s.logger.Error().Err(err).Str("url", uri).Msg("failed to send metadata")
+			s.logger.Error().Err(err).Msg("failed to send metadata")
 			// try and retry the operation in a little while
 			retrying = true
-		} else if resp.StatusCode != 200 {
-			s.logger.Error().Str("url", uri).Int("status_code", resp.StatusCode).Msg("failed to send metadata")
-			// try and retry the operation in a little while
-			retrying = true
-		}
-		// make sure we close the body if we get a non-200 status
-		if err == nil {
-			resp.Body.Close()
 		}
 	}
 }
