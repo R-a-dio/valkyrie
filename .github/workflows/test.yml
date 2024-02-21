@@ -1,10 +1,7 @@
-# This workflow will build a golang project
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
-
-name: Build and Test
+name: test
 on: [push, pull_request]
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -36,9 +33,3 @@ jobs:
 
     - name: Test
       run: go test -v ./...
-
-    - name: Staticcheck
-      uses: dominikh/staticcheck-action@v1.2.0
-      with:
-        install-go: false
-        

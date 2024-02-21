@@ -1,14 +1,18 @@
 # valkyrie
+[![Go Reference](https://pkg.go.dev/badge/github.com/R-a-dio/valkyrie.svg)](https://pkg.go.dev/github.com/R-a-dio/valkyrie)
+![Test](https://github.com/github/docs/actions/workflows/test.yml/badge.svg)
+![Staticcheck](https://github.com/github/docs/actions/workflows/staticcheck.yml/badge.svg)
+
 Repository of rebirth
 
 Installation
 =====
 
-`git clone https://github.com/R-a-dio/valkyrie.git` into location of your choosing because we use the new go modules that don't require a `GOPATH`. To avoid weird tooling issues it's best to completely avoid your `GOPATH` when working with modules so don't clone it into your `GOPATH`.
+`git clone https://github.com/R-a-dio/valkyrie.git`
 
 Required
 -----
-- Go version 1.12+
+- Go version 1.21+
 - MySQL/MariaDB
 
 Optional
@@ -18,8 +22,11 @@ for work and running of `streamer/`
 - ffprobe
 - libmp3lame-dev
 
-for work in `rpc/`
-- [twirp](https://twitchtv.github.io/twirp/docs/install.html)
+for work in `rpc/` and running `go generate`
+- [protoc](https://github.com/protocolbuffers/protobuf#protobuf-compiler-installation)
+- `go install google.golang.org/protobuf/cmd/protoc-gen-go@latest`
+- `go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest`
+- `go install github.com/matryer/moq@latest`
 
 Building
 =====
@@ -35,8 +42,3 @@ an example configuration file is included as `example.toml`. Other documentation
 - the environment variable `HANYUU_CONFIG` which can either be a relative or absolute path
 
 You can also run `hanyuu config` to see what the currently loaded configuration looks like, the output is a valid TOML file so can also be piped into a file if so desired
-
-Before you commit
------
-
-If you've edited `rpc/radio.proto` or added a migration file under `migrations/` you should run `go generate` before you commit.
