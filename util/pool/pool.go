@@ -39,5 +39,5 @@ func NewResetPool[T Resetable](newFn func() T) *ResetPool[T] {
 
 func (p *ResetPool[T]) Put(v T) {
 	v.Reset()
-	p.p.Put(v)
+	p.Pool.Put(v)
 }
