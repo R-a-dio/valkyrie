@@ -1,6 +1,7 @@
 package eventstream
 
 import (
+	"context"
 	"sync"
 	"testing"
 )
@@ -67,6 +68,60 @@ func TestEventServer(t *testing.T) {
 	}
 }
 
+func TestEventServerStream(t *testing.T) {
+	for _, cas := range intCases {
+		t.Run(cas.name, func(t *testing.T) {
+			initial := 0
+			es := NewEventStream[int](initial)
+			wg := new(sync.WaitGroup)
+			// setup clients
+			client := func(stream Stream[int]) {
+				// rename some variables for easier reasoning
+				should_next := initial
+				have_received := 0
+				should_receive := cas.messages + 1 // because of the initial value
+
+				// start receiving
+				for {
+					m, err := stream.Next()
+					if err != nil {
+						break
+					}
+
+					have_received++
+					if m != should_next {
+						t.Error("m != next", m, should_next)
+					}
+
+					should_next = cas.next(m)
+
+				}
+
+				if should_receive != have_received {
+					t.Error("should_receive != have_received", should_receive, have_received)
+				}
+
+				wg.Done()
+			}
+
+			for i := 0; i < cas.clients; i++ {
+				wg.Add(1)
+				go client(es.SubStream(context.Background()))
+			}
+
+			// send the messages
+			var val int
+			for i := 0; i < cas.messages; i++ {
+				val = cas.next(val)
+				es.Send(val)
+			}
+
+			es.Shutdown()
+			wg.Wait()
+		})
+	}
+}
+
 func TestEventServerLeave(t *testing.T) {
 	es := NewEventStream[string]("hello world")
 
@@ -75,6 +130,21 @@ func TestEventServerLeave(t *testing.T) {
 		t.Fatal("failed to subscribe")
 	}
 	es.Leave(ch)
+	es.Send("secondary")
+	if len(es.subs) != 0 {
+		t.Fatal("failed to leave:", es.subs)
+	}
+}
+
+func TestEventServerLeaveStream(t *testing.T) {
+	es := NewEventStream[string]("hello world")
+
+	s := es.SubStream(context.Background())
+	if len(es.subs) != 1 {
+		t.Fatal("failed to subscribe")
+	}
+	_ = s.Close()
+
 	es.Send("secondary")
 	if len(es.subs) != 0 {
 		t.Fatal("failed to leave:", es.subs)

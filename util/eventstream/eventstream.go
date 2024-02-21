@@ -49,9 +49,9 @@ type EventStream[M any] struct {
 	subs []chan M
 	// last stores the last value send to subscribers
 	last atomic.Pointer[M]
-	// fallbehindFn holds a function that is called when a subscriber falls behind
+	// FallbehindFn holds a function that is called when a subscriber falls behind
 	// and isn't keeping up with SENDs
-	fallbehindFn func(chan M, M)
+	FallbehindFn func(chan M, M)
 }
 
 func (es *EventStream[M]) run() {
@@ -94,8 +94,8 @@ func (es *EventStream[M]) run() {
 				select {
 				case ch <- req.m:
 				case <-ticker.C: // sub didn't receive fast enough
-					if es.fallbehindFn != nil {
-						es.fallbehindFn(ch, req.m)
+					if es.FallbehindFn != nil {
+						es.FallbehindFn(ch, req.m)
 					}
 					// TODO: see if we want to do book keeping and kicking of bad subs
 				}
