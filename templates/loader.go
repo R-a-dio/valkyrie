@@ -150,25 +150,6 @@ func (s *Site) ResolveThemeName(name string) string {
 	return DEFAULT_DIR
 }
 
-func (s *Site) makeCache() error {
-	const op errors.Op = "templates/makeCache"
-
-	cache := make(map[string]*template.Template)
-	for themeName, theme := range s.themes {
-		for name, bundle := range theme.pages {
-			key := themeName + "/" + name
-			tmpl, err := bundle.Template()
-			if err != nil {
-				return errors.E(op, err)
-			}
-			cache[key] = tmpl
-		}
-	}
-
-	s.cache = cache
-	return nil
-}
-
 func FromDirectory(dir string) (*Site, error) {
 	const op errors.Op = "templates/FromDirectory"
 
