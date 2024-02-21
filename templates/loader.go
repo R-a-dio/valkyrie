@@ -56,7 +56,7 @@ type TemplateSelector interface {
 }
 
 func (s *Site) Executor() Executor {
-	return NewExecutor(s)
+	return newExecutor(s)
 }
 
 func (s *Site) ThemeNames() []string {
@@ -252,7 +252,7 @@ func (tb ThemeBundle) Page(name string) (*TemplateBundle, error) {
 
 	tlb, ok := tb.pages[name]
 	if !ok {
-		return nil, errors.E(op, errors.TemplateUnknown)
+		return nil, errors.E(op, errors.TemplateUnknown, errors.Info(fmt.Sprintf("page: %s", name)))
 	}
 
 	return tlb, nil
