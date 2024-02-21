@@ -64,7 +64,7 @@ func TestTemplateInputs(t *testing.T) {
 			p.Property(theme+"-"+rtyp.Name(), prop.ForAll(
 				func(a any) bool {
 					// some types used for TemplateSelectable are just aliases/simple renames
-					// and those loose their "proper" type when gopter generates them so we
+					// and those lose their "proper" type when gopter generates them so we
 					// need to convert it back into the type we expect
 					v := reflect.ValueOf(a).Convert(rtyp)
 					input := v.Interface().(templates.TemplateSelectable)
