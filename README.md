@@ -1,6 +1,6 @@
 # valkyrie
 [![Go Reference](https://pkg.go.dev/badge/github.com/R-a-dio/valkyrie.svg)](https://pkg.go.dev/github.com/R-a-dio/valkyrie)
-![Test](https://github.com/github/R-a-dio/valkyrie/actions/workflows/test.yml/badge.svg)
+![Test](https://github.com/R-a-dio/valkyrie/actions/workflows/test.yml/badge.svg)
 ![Staticcheck](https://github.com/R-a-dio/valkyrie/actions/workflows/staticcheck.yml/badge.svg)
 
 Repository of rebirth
