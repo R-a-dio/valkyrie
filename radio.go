@@ -191,7 +191,7 @@ func (u User) ComparePassword(passwd string) error {
 type DJID uint64
 
 func (id DJID) String() string {
-	return strconv.Itoa(int(id))
+	return strconv.FormatUint(uint64(id), 10)
 }
 
 // DJ is someone that has access to streaming
@@ -961,6 +961,10 @@ type PendingSong struct {
 	// Accepted fields
 	GoodUpload   bool
 	AcceptedSong *Song
+}
+
+func (p PendingSong) Metadata() string {
+	return Metadata(p.Artist, p.Title)
 }
 
 // RelayStorage deals with the relays table.

@@ -29,6 +29,10 @@ type Pagination struct {
 }
 
 func (p *Pagination) URL() template.URL {
+	if p == nil || p.uri == nil {
+		return template.URL("")
+	}
+
 	u := *p.uri
 	v := u.Query()
 	v.Set("page", strconv.FormatInt(p.Nr, 10))
@@ -37,6 +41,9 @@ func (p *Pagination) URL() template.URL {
 }
 
 func (p *Pagination) BaseURL() template.URL {
+	if p == nil || p.uri == nil {
+		return template.URL("")
+	}
 	return template.URL(p.uri.Path)
 }
 

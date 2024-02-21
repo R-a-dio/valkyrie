@@ -13,8 +13,7 @@ func ThemeCtx(storage radio.StorageService) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
-
-			ctx = context.WithValue(ctx, themeKey{}, "default")
+			ctx = SetTheme(ctx, "default")
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -34,4 +33,8 @@ func GetTheme(ctx context.Context) string {
 	}
 
 	return theme
+}
+
+func SetTheme(ctx context.Context, theme string) context.Context {
+	return context.WithValue(ctx, themeKey{}, theme)
 }

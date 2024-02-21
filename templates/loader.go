@@ -30,6 +30,8 @@ const (
 
 // Site is an overarching struct containing all the themes of the website.
 type Site struct {
+	Production bool
+
 	fs fs.FS
 
 	mu     sync.RWMutex
@@ -72,6 +74,9 @@ func (s *Site) ThemeNames() []string {
 //
 // If theme does not exist it uses the default-theme
 func (s *Site) Template(theme, page string) (*template.Template, error) {
+	if s.Production {
+		return s.prodTemplate(theme, page)
+	}
 	return s.devTemplate(theme, page)
 }
 
