@@ -113,17 +113,21 @@ func (up UserPermissions) Has(perm UserPermission) bool {
 // Done in a way that it expects all permissions to be a single string or []byte
 // separated by a comma
 func (upp *UserPermissions) Scan(src interface{}) error {
+	if upp == nil {
+		return fmt.Errorf("nil found in Scan")
+	}
+
 	*upp = make(UserPermissions)
 	up := *upp
 
 	switch perms := src.(type) {
 	case []byte:
 		for _, p := range bytes.Split(perms, []byte(",")) {
-			up[UserPermission(p)] = struct{}{}
+			up[UserPermission(bytes.TrimSpace(p))] = struct{}{}
 		}
 	case string:
 		for _, p := range strings.Split(perms, ",") {
-			up[UserPermission(p)] = struct{}{}
+			up[UserPermission(strings.TrimSpace(p))] = struct{}{}
 		}
 	case nil: // no permissions, we made the map above though
 	default:
