@@ -318,16 +318,18 @@ JOIN
 WHERE
 	tracks.usable = 1
 AND
-	enick.nick = ?;
+	enick.nick = ?
+ORDER BY esong.meta ASC
+LIMIT ? OFFSET ?;
 `)
 
 // FavoritesOf implements radio.SongStorage
-func (ss SongStorage) FavoritesOf(nick string) ([]radio.Song, error) {
+func (ss SongStorage) FavoritesOf(nick string, limit, offset int64) ([]radio.Song, error) {
 	const op errors.Op = "mariadb/SongStorage.FavoritesOf"
 
 	var songs = []radio.Song{}
 
-	err := sqlx.Select(ss.handle, &songs, songFavoritesOfQuery, nick)
+	err := sqlx.Select(ss.handle, &songs, songFavoritesOfQuery, nick, limit, offset)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}

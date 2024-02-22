@@ -652,7 +652,7 @@ type SongStorage interface {
 	// Favorites returns all users that have this song on their favorite list
 	Favorites(Song) ([]string, error)
 	// FavoritesOf returns all songs that are on a users favorite list
-	FavoritesOf(nick string) ([]Song, error)
+	FavoritesOf(nick string, limit, offset int64) ([]Song, error)
 	// AddFavorite adds the given song to nicks favorite list
 	AddFavorite(song Song, nick string) (bool, error)
 	// RemoveFavorite removes the given song from nicks favorite list

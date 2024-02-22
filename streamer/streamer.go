@@ -24,11 +24,6 @@ var (
 	bufferMP3Size = 1024 * 32 // about 1.3 seconds of audio
 	bufferPCMSize = 1024 * 64 // about 0.4 seconds of audio
 )
-var (
-	httpOK           = []byte("HTTP/1.0 200 OK")
-	httpMountInUse   = []byte("HTTP/1.0 403 Mountpoint in use")
-	httpUnauthorized = []byte("HTTP/1.0 401 Unauthorized")
-)
 
 // Streamer represents a single icecast stream
 type Streamer struct {

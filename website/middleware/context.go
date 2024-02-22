@@ -61,7 +61,7 @@ func UserByDJIDCtx(storage radio.UserStorageService) func(http.Handler) http.Han
 			tmp1 := chi.URLParamFromCtx(ctx, "DJID")
 			tmp2, err := strconv.Atoi(tmp1)
 			if err != nil {
-				http.Error(w, http.StatusText(404), 404)
+				http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 				return
 			}
 			id := radio.DJID(tmp2)
