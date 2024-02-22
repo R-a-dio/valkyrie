@@ -103,6 +103,17 @@ func (m migrateCmd) up(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 
+	done := make(chan struct{})
+	defer close(done)
+
+	go func() {
+		select {
+		case <-ctx.Done():
+			m.migrate.GracefulStop <- true
+		case <-done:
+		}
+	}()
+
 	return m.migrate.Up()
 }
 
