@@ -18,9 +18,12 @@ func TestSongEqualTo(t *testing.T) {
 	tp.MinSuccessfulTests = 500
 	a := arbitrary.DefaultArbitraries()
 	p := gopter.NewProperties(tp)
+	ab := arbitrary.DefaultArbitraries()
 
 	// we only want songs with actual string data to compare against
 	a.RegisterGen(gen.UnicodeString(unicode.Katakana).SuchThat(func(s string) bool { return len(s) > 5 }))
+	a.RegisterGen(ab.GenForType(reflect.TypeOf(&User{})))
+	a.RegisterGen(ab.GenForType(reflect.TypeOf(&DatabaseTrack{})))
 
 	p.Property("song a != b",
 		a.ForAll(func(a, b Song) bool {

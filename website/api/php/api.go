@@ -302,6 +302,7 @@ func (a *API) getCanRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// TODO(wessie): check if this is the right identifier
 	identifier := r.RemoteAddr
 	userLastRequest, err := a.storage.Request(r.Context()).LastRequest(identifier)
 	if err != nil {
