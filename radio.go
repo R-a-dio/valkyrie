@@ -415,6 +415,8 @@ type Song struct {
 	Length time.Duration
 	// LastPlayed is the last time this song played on stream
 	LastPlayed time.Time
+	// LastPlayedBy is the user that last played this song, can be nil
+	LastPlayedBy *User
 	// DatabaseTrack is only available if the song is in our streamer database
 	*DatabaseTrack
 

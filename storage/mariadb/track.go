@@ -165,15 +165,44 @@ SELECT
 	{maybeTrackColumns},
 	{songColumns},
 	eplay.dt AS lastplayed,
+	IFNULL(users.id, 0) AS 'lastplayedby.id',
+	IFNULL(users.user, '') AS 'lastplayedby.username',
+	IFNULL(users.pass, '') AS 'lastplayedby.password',
+	IFNULL(users.email, '') AS 'lastplayedby.email',
+	IFNULL(users.ip, '') AS 'lastplayedby.ip',
+	IFNULL(users.updated_at, TIMESTAMP('0000-00-00 00:00:00')) AS 'lastplayedby.updated_at',
+	IFNULL(users.deleted_at, TIMESTAMP('0000-00-00 00:00:00')) AS 'lastplayedby.deleted_at',
+	IFNULL(users.created_at, TIMESTAMP('0000-00-00 00:00:00')) AS 'lastplayedby.created_at',
+	(SELECT group_concat(permission) FROM permissions WHERE user_id=users.id) AS 'lastplayedby.userpermissions',
+	IFNULL(djs.id, 0) AS 'lastplayedby.dj.id',
+	IFNULL(djs.regex, '') AS 'lastplayedby.dj.regex',
+	IFNULL(djs.djname, '') AS 'lastplayedby.dj.name',
+	IFNULL(djs.djtext, '') AS 'lastplayedby.dj.text',
+	IFNULL(djs.djimage, '') AS 'lastplayedby.dj.image',
+	IFNULL(djs.visible, 0) AS 'lastplayedby.dj.visible',
+	IFNULL(djs.priority, 0) AS 'lastplayedby.dj.priority',
+	IFNULL(djs.role, '') AS 'lastplayedby.dj.role',
+	IFNULL(djs.css, '') AS 'lastplayedby.dj.css',
+	IFNULL(djs.djcolor, '') AS 'lastplayedby.dj.color',
+	IFNULL(themes.id, 0) AS 'lastplayedby.dj.theme.id',
+	IFNULL(themes.name, 'default') AS 'lastplayedby.dj.theme.name',
+	IFNULL(themes.display_name, 'default') AS 'lastplayedby.dj.theme.displayname',
+	IFNULL(themes.author, 'unknown') AS 'lastplayedby.dj.theme.author',
 	NOW() AS synctime
 FROM
 	esong
 RIGHT JOIN
-	eplay ON esong.id=eplay.isong
+	eplay ON esong.id = eplay.isong
 LEFT JOIN
-	tracks ON esong.hash=tracks.hash
+	tracks ON esong.hash = tracks.hash
+LEFT JOIN
+	djs ON eplay.djs_id = djs.id
+LEFT JOIN
+	users ON djs.id = users.djid
+LEFT JOIN
+	themes ON djs.theme_id = themes.id
 ORDER BY
-	eplay.dt DESC
+	eplay.dt DESC, eplay.id DESC
 LIMIT ? OFFSET ?;
 `)
 
@@ -186,6 +215,15 @@ func (ss SongStorage) LastPlayed(offset, amount int64) ([]radio.Song, error) {
 	err := sqlx.Select(ss.handle, &songs, songLastPlayedQuery, amount, offset)
 	if err != nil {
 		return nil, errors.E(op, err)
+	}
+
+	for i := range songs {
+		if songs[i].DatabaseTrack != nil && songs[i].TrackID == 0 {
+			songs[i].DatabaseTrack = nil
+		}
+		if songs[i].LastPlayedBy != nil && songs[i].LastPlayedBy.ID == 0 {
+			songs[i].LastPlayedBy = nil
+		}
 	}
 
 	return songs, nil
