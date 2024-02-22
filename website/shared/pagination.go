@@ -14,10 +14,10 @@ func PageCount(total, size int64) int64 {
 	return full
 }
 
-func NewPagination(current, total int64, uri *url.URL) *Pagination {
+func NewPagination(currentPage, totalPages int64, uri *url.URL) *Pagination {
 	return &Pagination{
-		Nr:    current,
-		Total: total,
+		Nr:    currentPage,
+		Total: totalPages,
 		uri:   uri,
 	}
 }
