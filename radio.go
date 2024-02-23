@@ -892,13 +892,13 @@ type SubmissionStats struct {
 	AcceptedTotal        int `db:"accepted_total"`
 	AcceptedLastTwoWeeks int `db:"accepted_last_two_weeks"`
 	AcceptedYou          int `db:"accepted_you"`
-	RecentAccepts        []Song
+	RecentAccepts        []PostPendingSong
 
 	// Information about declined songs
 	DeclinedTotal        int `db:"declined_total"`
 	DeclinedLastTwoWeeks int `db:"declined_last_two_weeks"`
 	DeclinedYou          int `db:"declined_you"`
-	RecentDeclines       []PendingSong
+	RecentDeclines       []PostPendingSong
 
 	// Information about (You)
 	LastSubmissionTime time.Time `db:"last_submission_time"`
@@ -911,8 +911,8 @@ type SubmissionID uint
 type SubmissionStatus int
 
 // Possible status for song submissions
+const SubmissionInvalid SubmissionStatus = -1
 const (
-	SubmissionInvalid  SubmissionStatus = -1
 	SubmissionDeclined SubmissionStatus = iota
 	SubmissionAccepted
 	SubmissionReplacement
@@ -967,6 +967,17 @@ type PendingSong struct {
 
 func (p PendingSong) Metadata() string {
 	return Metadata(p.Artist, p.Title)
+}
+
+type PostPendingID int64
+
+type PostPendingSong struct {
+	ID             PostPendingID
+	AcceptedSong   *TrackID
+	Metadata       string
+	UserIdentifier string
+	ReviewedAt     time.Time
+	DeclineReason  *string
 }
 
 // RelayStorage deals with the relays table.

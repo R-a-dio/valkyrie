@@ -47,7 +47,7 @@ func (ss SubmissionStorage) InsertPostPending(pend radio.PendingSong) error {
 	const op errors.Op = "mariadb/SubmissionStorage.InsertPostPending"
 
 	adjusted := adjustedPendingSong{
-		Metadata:    radio.Metadata(pend.Artist, pend.Title),
+		Metadata:    pend.Metadata(),
 		PendingSong: pend,
 	}
 
@@ -129,6 +129,7 @@ func (ss SubmissionStorage) SubmissionStats(identifier string) (radio.Submission
 		Identifier: identifier,
 	}
 
+	// get the statistics first
 	query := `
 	SELECT 
 		(SELECT count(*) FROM pending) AS current_pending,
@@ -153,6 +154,30 @@ func (ss SubmissionStorage) SubmissionStats(identifier string) (radio.Submission
 	}
 
 	if err = rows.StructScan(&stats); err != nil {
+		return stats, errors.E(op, err)
+	}
+
+	// then get our recent declined and accepted songs separately
+	query = `
+	SELECT
+		id,
+		meta AS metadata,
+		trackid AS acceptedsong,
+		ip AS useridentifier,
+		time AS reviewedat,
+		reason AS declinereason
+	FROM postpending WHERE accepted=? ORDER BY time DESC LIMIT 20;
+	`
+
+	stats.RecentDeclines = make([]radio.PostPendingSong, 0, 20)
+	err = sqlx.Select(ss.handle, &stats.RecentDeclines, query, radio.SubmissionDeclined)
+	if err != nil {
+		return stats, errors.E(op, err)
+	}
+
+	stats.RecentAccepts = make([]radio.PostPendingSong, 0, 20)
+	err = sqlx.Select(ss.handle, &stats.RecentAccepts, query, radio.SubmissionAccepted)
+	if err != nil {
 		return stats, errors.E(op, err)
 	}
 

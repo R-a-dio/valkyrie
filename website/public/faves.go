@@ -3,7 +3,6 @@ package public
 import (
 	"encoding/json"
 	"fmt"
-	"html"
 	"net/http"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -38,7 +37,6 @@ func NewFavesInput(ss radio.SongStorage, r *http.Request) (*FavesInput, error) {
 	if nickname == "" {
 		nickname = r.FormValue("nick")
 	}
-	nickname = html.EscapeString(nickname)
 
 	faves, err := ss.FavoritesOf(nickname, favesPageSize, offset)
 	if err != nil {
