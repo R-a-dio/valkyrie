@@ -275,7 +275,7 @@ func (sri *searchResponseItem) fromSong(s radio.Song) error {
 }
 
 func (a *API) getCanRequest(w http.ResponseWriter, r *http.Request) {
-	status, err := a.manager.Status(r.Context())
+	status, err := radio.OneOff(r.Context(), a.manager.CurrentStatus)
 	if err != nil {
 		return
 	}
@@ -569,7 +569,7 @@ func (s *v0Status) createStatusJSON(ctx context.Context) (v0StatusJSON, error) {
 		status.ListCreatedOn = now
 	}
 
-	ms, err := s.manager.Status(ctx)
+	ms, err := radio.OneOff(ctx, s.manager.CurrentStatus)
 	if err != nil {
 		return last, err
 	}

@@ -20,7 +20,7 @@ func NowPlaying(e Event) error {
 	// in the announcement code
 	message := "Now playing:{red} '%s' {clear}[%s/%s](%s), %s, %s, {green}LP:{clear} %s"
 
-	status, err := e.Bot.Manager.Status(e.Ctx)
+	status, err := radio.OneOff(e.Ctx, e.Bot.Manager.CurrentStatus)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -200,7 +200,7 @@ func StreamerUserInfo(e Event) error {
 	name := e.Arguments["DJ"]
 	if name == "" || !HasAccess(e.Client, e.Event) {
 		// simple path with no argument or no access
-		status, err := e.Bot.Manager.Status(e.Ctx)
+		status, err := radio.OneOff(e.Ctx, e.Bot.Manager.CurrentStatus)
 		if err != nil {
 			return errors.E(op, err)
 		}
@@ -340,7 +340,7 @@ func ThreadURL(e Event) error {
 		}
 	}
 
-	resp, err := e.Bot.Manager.Status(e.Ctx)
+	resp, err := radio.OneOff(e.Ctx, e.Bot.Manager.CurrentStatus)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -426,7 +426,7 @@ func KillStreamer(e Event) error {
 	case <-e.Ctx.Done():
 	}
 
-	status, err := e.Bot.Manager.Status(e.Ctx)
+	status, err := radio.OneOff(e.Ctx, e.Bot.Manager.CurrentStatus)
 	if err != nil {
 		e.EchoPublic("Disconnecting after the current song")
 	} else {

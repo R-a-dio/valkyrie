@@ -177,7 +177,7 @@ func (s *stream[T]) Next() (v T, err error) {
 		}
 		return v, nil
 	case <-s.ctx.Done():
-		return v, context.Canceled
+		return v, io.EOF
 	}
 }
 

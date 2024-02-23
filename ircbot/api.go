@@ -15,9 +15,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-func NewHTTPServer(b *Bot) (*grpc.Server, error) {
-	service := NewAnnounceService(b.Config, b.Storage, b)
-
+func NewHTTPServer(service radio.AnnounceService) (*grpc.Server, error) {
 	gs := rpc.NewGrpcServer()
 	rpc.RegisterAnnouncerServer(gs, rpc.NewAnnouncer(service))
 
@@ -212,9 +210,8 @@ func (ann *announceService) AnnounceRequest(ctx context.Context, song radio.Song
 		message = Fmt(message, song.Metadata)
 	}
 
-	// Announce to the channel the request
+	// Announce the request to the main channel
 	ann.bot.c.Cmd.Message(ann.Conf().IRC.MainChannel, message)
 
-	// All done!
 	return nil
 }

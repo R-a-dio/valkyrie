@@ -40,7 +40,7 @@ message Song {
 }
 
 service Manager {
-    rpc Status(google.protobuf.Empty) returns (StatusResponse);
+    rpc CurrentStatus(google.protobuf.Empty) returns (stream StatusResponse);
 
     rpc CurrentSong(google.protobuf.Empty) returns (stream SongUpdate);
     rpc UpdateSong(SongUpdate) returns (google.protobuf.Empty);

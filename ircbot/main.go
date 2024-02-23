@@ -28,8 +28,13 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	// setup our announce service
+	announce := NewAnnounceService(b.Config, b.Storage, b)
+
+	manager := cfg.Conf().Manager.Client()
+
 	// setup a http server for our RPC API
-	srv, err := NewHTTPServer(b)
+	srv, err := NewHTTPServer(announce)
 	if err != nil {
 		return err
 	}
@@ -41,10 +46,16 @@ func Execute(ctx context.Context, cfg config.Config) error {
 
 	errCh := make(chan error, 2)
 	go func() {
+		// run the irc client
 		errCh <- b.runClient(ctx)
 	}()
 	go func() {
+		// run the grpc server
 		errCh <- srv.Serve(ln)
+	}()
+	go func() {
+		// setup our listener for new songs on the stream
+		errCh <- WaitForStatus(ctx, manager, announce)
 	}()
 
 	// wait for our context to be canceled or Serve to error out
@@ -178,6 +189,43 @@ func (b *Bot) syncConfiguration(ctx context.Context) {
 		for _, wanted := range c.IRC.Channels {
 			if !b.c.IsInChannel(wanted) {
 				b.c.Cmd.Join(wanted)
+			}
+		}
+	}
+}
+
+func WaitForStatus(ctx context.Context, manager radio.ManagerService, announce radio.AnnounceService) error {
+	const op errors.Op = "ircbot.WaitForStatus"
+
+	var noRetry = make(chan time.Time)
+	close(noRetry)
+	var retry <-chan time.Time = noRetry
+
+	for {
+		stream, err := manager.CurrentStatus(ctx)
+		if err != nil {
+			return errors.E(op, err)
+		}
+		defer stream.Close()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-retry:
+			}
+			retry = noRetry
+
+			status, err := stream.Next()
+			if err != nil {
+				retry = time.After(time.Second * 5)
+				continue
+			}
+
+			err = announce.AnnounceSong(ctx, status)
+			if err != nil {
+				retry = time.After(time.Second * 5)
+				continue
 			}
 		}
 	}

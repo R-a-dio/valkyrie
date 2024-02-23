@@ -76,6 +76,7 @@ func NewManager(ctx context.Context, cfg config.Config) (*Manager, error) {
 	m.threadStream = eventstream.NewEventStream(old.Thread)
 	m.songStream = eventstream.NewEventStream(&radio.SongUpdate{Song: old.Song, Info: old.SongInfo})
 	m.listenerStream = eventstream.NewEventStream(radio.Listeners(old.Listeners))
+	m.statusStream = eventstream.NewEventStream(*old)
 
 	m.client.streamer = cfg.Conf().Streamer.Client()
 	return &m, nil
@@ -104,6 +105,7 @@ type Manager struct {
 	threadStream   *eventstream.EventStream[radio.Thread]
 	songStream     *eventstream.EventStream[*radio.SongUpdate]
 	listenerStream *eventstream.EventStream[radio.Listeners]
+	statusStream   *eventstream.EventStream[radio.Status]
 }
 
 // updateStreamStatus is a legacy layer to keep supporting streamstatus table usage
@@ -132,6 +134,8 @@ func (m *Manager) updateStreamStatus() {
 		if status.SongInfo.End.IsZero() {
 			status.SongInfo.End = status.SongInfo.Start
 		}
+
+		m.statusStream.Send(status)
 
 		err := ss.Store(status)
 		if err != nil {

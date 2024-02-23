@@ -81,21 +81,11 @@ type ManagerClientRPC struct {
 var _ radio.ManagerService = ManagerClientRPC{}
 
 // Status implements radio.ManagerService
-func (m ManagerClientRPC) Status(ctx context.Context) (*radio.Status, error) {
-	s, err := m.rpc.Status(ctx, new(emptypb.Empty))
-	if err != nil {
-		return nil, err
+func (m ManagerClientRPC) CurrentStatus(ctx context.Context) (eventstream.Stream[radio.Status], error) {
+	c := func(ctx context.Context, e *emptypb.Empty, opts ...grpc.CallOption) (pbReceiver[*StatusResponse], error) {
+		return m.rpc.CurrentStatus(ctx, e, opts...)
 	}
-
-	return &radio.Status{
-		User:            fromProtoUser(s.User),
-		Song:            fromProtoSong(s.Song),
-		SongInfo:        fromProtoSongInfo(s.Info),
-		Listeners:       int(s.ListenerInfo.Listeners),
-		Thread:          s.Thread,
-		RequestsEnabled: s.StreamerConfig.RequestsEnabled,
-		StreamerName:    s.StreamerName,
-	}, nil
+	return streamFromProtobuf(ctx, c, fromProtoStatus)
 }
 
 func (m ManagerClientRPC) CurrentUser(ctx context.Context) (eventstream.Stream[radio.User], error) {

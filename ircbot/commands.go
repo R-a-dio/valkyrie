@@ -230,7 +230,7 @@ func (e Event) ArgumentTrack(key string) (*radio.Song, error) {
 func (e Event) CurrentTrack() (*radio.Song, error) {
 	const op errors.Op = "irc/Event.CurrentTrack"
 
-	status, err := e.Bot.Manager.Status(e.Ctx)
+	status, err := radio.OneOff(e.Ctx, e.Bot.Manager.CurrentStatus)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}

@@ -2,8 +2,10 @@ package rpc
 
 import (
 	"context"
+	"io"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/util/eventstream"
 	grpc "google.golang.org/grpc"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -55,25 +57,8 @@ type ManagerShim struct {
 }
 
 // Status implements Manager
-func (m ManagerShim) Status(ctx context.Context, _ *emptypb.Empty) (*StatusResponse, error) {
-	s, err := m.manager.Status(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return &StatusResponse{
-		User: toProtoUser(s.User),
-		Song: toProtoSong(s.Song),
-		Info: toProtoSongInfo(s.SongInfo),
-		ListenerInfo: &ListenerInfo{
-			Listeners: int64(s.Listeners),
-		},
-		Thread: s.Thread,
-		StreamerConfig: &StreamerConfig{
-			RequestsEnabled: s.RequestsEnabled,
-		},
-		StreamerName: s.StreamerName,
-	}, nil
+func (sm ManagerShim) CurrentStatus(_ *emptypb.Empty, s Manager_CurrentStatusServer) error {
+	return streamToProtobuf(s, sm.manager.CurrentStatus, toProtoStatus)
 }
 
 type pbSender[P any] interface {
@@ -89,14 +74,21 @@ func streamToProtobuf[T any, P any](s pbSender[P], streamFn func(context.Context
 	if err != nil {
 		return err
 	}
+	defer stream.Close()
 
 	for {
 		recv, err := stream.Next()
 		if err != nil {
+			if errors.IsE(err, io.EOF) {
+				return nil
+			}
 			return err
 		}
 		err = s.Send(conv(recv))
 		if err != nil {
+			if errors.IsE(err, io.EOF) {
+				return nil
+			}
 			return err
 		}
 	}

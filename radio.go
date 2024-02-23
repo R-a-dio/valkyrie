@@ -271,7 +271,7 @@ type ManagerService interface {
 	CurrentListeners(context.Context) (eventstream.Stream[Listeners], error)
 	UpdateListeners(context.Context, Listeners) error
 
-	Status(context.Context) (*Status, error)
+	CurrentStatus(context.Context) (eventstream.Stream[Status], error)
 }
 
 func OneOff[T any](ctx context.Context, fn func(context.Context) (eventstream.Stream[T], error)) (T, error) {

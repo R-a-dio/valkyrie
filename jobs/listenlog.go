@@ -3,6 +3,7 @@ package jobs
 import (
 	"context"
 
+	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/storage"
 )
@@ -17,7 +18,7 @@ func ExecuteListenerLog(ctx context.Context, cfg config.Config) error {
 
 	m := cfg.Conf().Manager.Client()
 
-	status, err := m.Status(ctx)
+	status, err := radio.OneOff[radio.Status](ctx, m.CurrentStatus)
 	if err != nil {
 		return err
 	}

@@ -46,6 +46,34 @@ func dp(x time.Duration) *durationpb.Duration {
 	return durationpb.New(x)
 }
 
+func fromProtoStatus(s *StatusResponse) radio.Status {
+	return radio.Status{
+		User:            fromProtoUser(s.User),
+		Song:            fromProtoSong(s.Song),
+		SongInfo:        fromProtoSongInfo(s.Info),
+		Listeners:       int(s.ListenerInfo.Listeners),
+		Thread:          s.Thread,
+		RequestsEnabled: s.StreamerConfig.RequestsEnabled,
+		StreamerName:    s.StreamerName,
+	}
+}
+
+func toProtoStatus(s radio.Status) *StatusResponse {
+	return &StatusResponse{
+		User: toProtoUser(s.User),
+		Song: toProtoSong(s.Song),
+		Info: toProtoSongInfo(s.SongInfo),
+		ListenerInfo: &ListenerInfo{
+			Listeners: int64(s.Listeners),
+		},
+		Thread: s.Thread,
+		StreamerConfig: &StreamerConfig{
+			RequestsEnabled: s.RequestsEnabled,
+		},
+		StreamerName: s.StreamerName,
+	}
+}
+
 func toProtoSong(s radio.Song) *Song {
 	song := &Song{
 		Id:         int32(s.ID),

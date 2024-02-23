@@ -36,6 +36,10 @@ func (m *Manager) CurrentListeners(ctx context.Context) (eventstream.Stream[radi
 	return m.listenerStream.SubStream(ctx), nil
 }
 
+func (m *Manager) CurrentStatus(ctx context.Context) (eventstream.Stream[radio.Status], error) {
+	return m.statusStream.SubStream(ctx), nil
+}
+
 // Status returns the current status of the radio
 func (m *Manager) Status(ctx context.Context) (*radio.Status, error) {
 	m.mu.Lock()
