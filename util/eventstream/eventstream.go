@@ -78,7 +78,8 @@ func (es *EventStream[M]) run() {
 				}
 			}
 		case SEND:
-			es.last.Store(&req.m)
+			v := req.m
+			es.last.Store(&v)
 			// send to all our subs with a small timeout grace period
 			// so that clients have a bit of leeway between receives
 			ticker.Reset(TIMEOUT)

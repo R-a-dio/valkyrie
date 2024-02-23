@@ -4,7 +4,24 @@ import (
 	"context"
 	"sync"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
+
+func TestEventStreamInitialValue(t *testing.T) {
+	initial := 500
+	stream := NewEventStream(initial)
+
+	s1 := stream.Sub()
+	assert.Equal(t, initial, <-s1)
+	stream.Leave(s1)
+
+	second := 1000
+	stream.Send(second)
+	s2 := stream.Sub()
+	assert.Equal(t, second, <-s2)
+	stream.Leave(s2)
+}
 
 type testCase[V any] struct {
 	name     string
