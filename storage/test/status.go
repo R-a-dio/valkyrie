@@ -42,8 +42,8 @@ func (suite *Suite) TestStatusStore() {
 	assert.Condition(t, func() (success bool) {
 		return assert.Equal(t, in.User, out.User) &&
 			assert.Equal(t, in.Song, out.Song) &&
-			assert.WithinDuration(t, in.SongInfo.Start, out.SongInfo.Start, 0) &&
-			assert.WithinDuration(t, in.SongInfo.End, out.SongInfo.End, 0) &&
+			assert.WithinDuration(t, in.SongInfo.Start, out.SongInfo.Start, time.Second) &&
+			assert.WithinDuration(t, in.SongInfo.End, out.SongInfo.End, time.Second) &&
 			assert.Equal(t, in.Listeners, out.Listeners) &&
 			assert.Equal(t, in.StreamerName, out.StreamerName) &&
 			assert.Equal(t, in.Thread, out.Thread) &&

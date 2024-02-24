@@ -341,8 +341,20 @@ func (ss SongStorage) FavoritesOf(nick string, limit, offset int64) ([]radio.Son
 func (ss SongStorage) AddFavorite(song radio.Song, nick string) (bool, error) {
 	const op errors.Op = "mariadb/SongStorage.AddFavorite"
 
-	var query = `SELECT enick.id AS id, EXISTS(SELECT efave.id FROM efave WHERE
-		inick=enick.id AND isong=?) AS hasfave FROM enick WHERE enick.nick=?;`
+	var query = `
+	SELECT
+		enick.id AS id,
+		EXISTS(
+			SELECT
+				efave.id 
+			FROM
+				efave
+			WHERE inick=enick.id AND isong=?
+		) AS hasfave
+	FROM 
+		enick
+	WHERE 
+		enick.nick=?;`
 
 	var info = struct {
 		ID      int64
@@ -358,10 +370,16 @@ func (ss SongStorage) AddFavorite(song radio.Song, nick string) (bool, error) {
 		return false, nil
 	}
 
-	// TODO(wessie): use a transaction here
+	// we're gonna do some inserting and updating, do this in a transaction
+	handle, tx, err := requireTx(ss.handle)
+	if err != nil {
+		return false, errors.E(op, err)
+	}
+	defer tx.Rollback()
+
 	if info.ID == 0 {
 		query = `INSERT INTO enick (nick) VALUES (?)`
-		res, err := ss.handle.Exec(query, nick)
+		res, err := handle.Exec(query, nick)
 		if err != nil {
 			return false, errors.E(op, err)
 		}
@@ -373,7 +391,7 @@ func (ss SongStorage) AddFavorite(song radio.Song, nick string) (bool, error) {
 	}
 
 	query = `INSERT INTO efave (inick, isong) VALUES (?, ?)`
-	_, err = ss.handle.Exec(query, info.ID, song.ID)
+	_, err = handle.Exec(query, info.ID, song.ID)
 	if err != nil {
 		return false, errors.E(op, err)
 	}
@@ -381,10 +399,14 @@ func (ss SongStorage) AddFavorite(song radio.Song, nick string) (bool, error) {
 	// we increase a search priority when a song gets favorited
 	if song.DatabaseTrack != nil && song.TrackID != 0 {
 		query = `UPDATE tracks SET priority=priority+? WHERE id=?`
-		_, err = ss.handle.Exec(query, FavePriorityIncrement, song.TrackID)
+		_, err = handle.Exec(query, FavePriorityIncrement, song.TrackID)
 		if err != nil {
 			return false, errors.E(op, err)
 		}
+	}
+
+	if err = tx.Commit(); err != nil {
+		return false, errors.E(op, err)
 	}
 
 	return true, nil
