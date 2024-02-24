@@ -201,7 +201,7 @@ func WaitForStatus(ctx context.Context, manager radio.ManagerService, announce r
 	close(noRetry)
 	var retry <-chan time.Time = noRetry
 
-	var lastSong radio.Song
+	var previous radio.Status
 
 	for {
 		// if we lost connection or are just starting out we retry the connection
@@ -211,8 +211,10 @@ func WaitForStatus(ctx context.Context, manager radio.ManagerService, announce r
 			return errors.E(op, ctx.Err())
 		case <-retry:
 		}
+		retry = noRetry
 
 		// connect to the status stream
+		zerolog.Ctx(ctx).Info().Msg("connecting to manager for status updates")
 		stream, err := manager.CurrentStatus(ctx)
 		if err != nil {
 			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to connect to manager")
@@ -221,6 +223,7 @@ func WaitForStatus(ctx context.Context, manager radio.ManagerService, announce r
 			continue
 		}
 
+		zerolog.Ctx(ctx).Info().Msg("starting status update reading")
 		for {
 			select {
 			case <-ctx.Done():
@@ -231,21 +234,27 @@ func WaitForStatus(ctx context.Context, manager radio.ManagerService, announce r
 
 			status, err := stream.Next()
 			if err != nil {
+				zerolog.Ctx(ctx).Error().Err(err).Msg("failed next")
 				// stream error means we have to get a new stream and should
 				// break out of this inner loop
 				retry = time.After(time.Second * 5)
 				break
 			}
 
-			// if song is different from last we announce a Now Starting
-			if !lastSong.EqualTo(status.Song) {
-				err = announce.AnnounceSong(ctx, status)
-				if err != nil {
-					zerolog.Ctx(ctx).Error().Err(err).Msg("failed to announce song")
-				} else {
-					lastSong = status.Song
-				}
+			// if song is same as previous skip the announce
+			if previous.Song.EqualTo(status.Song) {
+				zerolog.Ctx(ctx).Info().Msg("skipping same song announce")
+				continue
 			}
+
+			// otherwise we announce
+			err = announce.AnnounceSong(ctx, status)
+			if err != nil {
+				zerolog.Ctx(ctx).Error().Err(err).Msg("failed to announce song")
+				continue
+			}
+
+			previous = status
 		}
 
 		// if we leave the inner loop it means our stream broke so we're getting a new one

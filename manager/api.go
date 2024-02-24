@@ -50,7 +50,7 @@ func (m *Manager) Status(ctx context.Context) (*radio.Status, error) {
 
 // UpdateUser sets information about the current streamer
 func (m *Manager) UpdateUser(ctx context.Context, u radio.User) error {
-	defer m.updateStreamStatus()
+	defer m.updateStreamStatus(true)
 	m.userStream.Send(u)
 
 	m.mu.Lock()
@@ -112,7 +112,7 @@ func (m *Manager) UpdateSong(ctx context.Context, update *radio.SongUpdate) erro
 	m.mu.Unlock()
 
 	// otherwise continue like it's a new song
-	defer m.updateStreamStatus()
+	defer m.updateStreamStatus(true)
 
 	ss, tx, err := m.Storage.SongTx(ctx, nil)
 	if err != nil {
@@ -224,7 +224,7 @@ func (m *Manager) UpdateSong(ctx context.Context, update *radio.SongUpdate) erro
 
 // UpdateThread sets the current thread information on the front page and chats
 func (m *Manager) UpdateThread(ctx context.Context, thread radio.Thread) error {
-	defer m.updateStreamStatus()
+	defer m.updateStreamStatus(true)
 	m.threadStream.Send(thread)
 
 	m.mu.Lock()
@@ -235,7 +235,7 @@ func (m *Manager) UpdateThread(ctx context.Context, thread radio.Thread) error {
 
 // UpdateListeners sets the listener count
 func (m *Manager) UpdateListeners(ctx context.Context, listeners radio.Listeners) error {
-	defer m.updateStreamStatus()
+	defer m.updateStreamStatus(false)
 	m.listenerStream.Send(listeners)
 
 	m.mu.Lock()

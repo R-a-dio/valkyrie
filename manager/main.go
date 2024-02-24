@@ -110,7 +110,7 @@ type Manager struct {
 
 // updateStreamStatus is a legacy layer to keep supporting streamstatus table usage
 // in the website.
-func (m *Manager) updateStreamStatus() {
+func (m *Manager) updateStreamStatus(send bool) {
 	go func() {
 		m.mu.Lock()
 		status := m.status.Copy()
@@ -135,7 +135,9 @@ func (m *Manager) updateStreamStatus() {
 			status.SongInfo.End = status.SongInfo.Start
 		}
 
-		m.statusStream.Send(status)
+		if send {
+			m.statusStream.Send(status)
+		}
 
 		err := ss.Store(status)
 		if err != nil {
