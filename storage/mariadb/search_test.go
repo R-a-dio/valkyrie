@@ -12,6 +12,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type splitCase struct {
@@ -85,9 +86,7 @@ func FuzzProcessQuery(f *testing.F) {
 
 	setup := new(MariaDBSetup)
 	s, err := setup.Setup(setupCtx)
-	if err != nil {
-		assert.NoError(f, err)
-	}
+	require.NoError(f, err)
 	defer setup.TearDown(ctx)
 
 	ss := s.(interface {

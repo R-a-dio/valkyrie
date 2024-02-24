@@ -30,23 +30,12 @@
                 </div>
                 <div sse-swap="metadata">
                     {{template "nowplaying" .Status}}
-                </div>
-                <div class="columns">
-                    <div class="column is-6">
-                        <p class="has-text-centered">Listeners: <span id="listener-count">{{.Status.Listeners}}</span></p>
-                    </div>
-                    <div class="column is-6">
-                        <p class="has-text-centered"><span id="progress-current" data-start="{{.Status.SongInfo.Start.UnixMilli}}">00:00</span> / <span id="progress-max">00:00<span></p>
-                    </div>
+                
+
                 </div>
             </div>
-            <div class="column is-3">
-                <div id="dj-image" class="md-5">
-                    <figure class="image is-square">
-                        <img src="/api/dj-image/{{.Status.User.DJ.Image}}">
-                    </figure>
-                    <h4 class="title has-text-centered">{{.Status.User.DJ.Name}}</h4>
-                </div>
+            <div class="column is-3" sse-swap="streamer">
+                {{template "streamer" .Status.User}}
             </div>
         </div>
         <div class="columns">
@@ -92,7 +81,15 @@ Home {{printjson .}}
     <p id="metadata" class="title is-2 has-text-centered" style="cursor: pointer;">{{.Song.Metadata}}</p>
     <p class="subtitle is-4 has-text-centered" style="font-size: 14px;">{{if .Song.DatabaseTrack}}{{.Song.Tags}}{{end}}</p>
 </h2>
-<progress id="current-song-progress" class="progress is-large" value="0" max="{{.Song.Length.Seconds}}"></progress>
+<progress id="current-song-progress" class="progress is-large mb-0" value="0" max="{{.Song.Length.Seconds}}"></progress>
+<div class="columns">
+    <div class="column is-6">
+        <p class="has-text-centered">Listeners: <span id="listener-count">{{.Listeners}}</span></p>
+    </div>
+    <div class="column is-6">
+        <p class="has-text-centered"><span id="progress-current" data-start="{{.SongInfo.Start.UnixMilli}}">00:00</span> / <span id="progress-max">{{.Song.Length | MediaDuration}}<span></p>
+    </div>
+</div>
 {{end}}
 {{define "lastplayed"}}
 <p class="title is-4 has-text-centered">Last Played</p>
@@ -118,5 +115,17 @@ Home {{printjson .}}
         </li>
         {{end}}
     </ul>
+</div>
+{{end}}
+{{define "streamer"}}
+<div class="card has-background-white-bis p-4 m-2">
+    <div class="card-image">
+        <figure class="image is-square ml-0 mr-0">
+            <img src="/api/dj-image/{{.DJ.Image}}"/>
+        </figure>
+    </div>
+    <div class="card-content has-text-centered pt-4 pb-0">
+        <div class="title is-4 word-break-ellipsis">{{.DJ.Name}}</div>
+    </div>
 </div>
 {{end}}

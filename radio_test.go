@@ -75,6 +75,13 @@ func TestSongRequestable(t *testing.T) {
 	p.TestingRun(t)
 }
 
+func TestStatusIsZero(t *testing.T) {
+	var status Status
+	assert.True(t, status.IsZero())
+	status.Song.DatabaseTrack = &DatabaseTrack{}
+	assert.True(t, status.IsZero())
+}
+
 func TestCalculateCooldown(t *testing.T) {
 	now := time.Now()
 

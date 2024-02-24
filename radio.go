@@ -67,6 +67,18 @@ type Status struct {
 	RequestsEnabled bool
 }
 
+func (s *Status) IsZero() bool {
+	ok := s.User.ID == 0 &&
+		s.Song.ID == 0 &&
+		s.SongInfo == (SongInfo{}) &&
+		s.StreamerName == "" &&
+		s.Listeners == 0 &&
+		s.Thread == "" &&
+		(!s.Song.HasTrack() || s.Song.TrackID == 0)
+
+	return ok
+}
+
 // Copy makes a deep-copy of the status object
 func (s Status) Copy() Status {
 	c := s

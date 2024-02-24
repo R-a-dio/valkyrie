@@ -26,56 +26,62 @@ func prepareStream[T any](ctx context.Context, fn func(context.Context) (T, erro
 		}
 		zerolog.Ctx(ctx).Error().Err(err).Msg("failed to prepare stream")
 
-		time.Sleep(time.Second * 3)
 		select {
 		case <-ctx.Done():
 			return s, ctx.Err()
-		default:
+		case <-time.After(time.Second * 3):
 		}
 	}
 }
 
-func (a *API) runSSE(ctx context.Context) error {
-	var wg sync.WaitGroup
-
-	wg.Add(1)
-	// prepare our eventstreams from the manager
-	go func() {
-		defer wg.Done()
-		a.runSongUpdates(ctx)
-	}()
-
-	wg.Wait()
-	return nil
+func (a *API) runSSE(ctx context.Context) {
+	for {
+		err := a.runStatusUpdates(ctx)
+		if errors.IsE(err, context.Canceled) {
+			return
+		}
+	}
 }
 
-func (a *API) runSongUpdates(ctx context.Context) error {
+func (a *API) runStatusUpdates(ctx context.Context) error {
 	const op errors.Op = "website/api/v1/API.runSongUpdates"
 
-	log := zerolog.Ctx(ctx).With().Str("stream", "song").Logger()
+	log := zerolog.Ctx(ctx).With().Str("sse", "song").Logger()
 
-	song_stream, err := prepareStream(ctx, a.manager.CurrentSong)
+	statusStream, err := prepareStream(ctx, a.manager.CurrentStatus)
 	if err != nil {
 		return errors.E(op, err)
 	}
 
+	var previous radio.Status
+
 	for {
-		us, err := song_stream.Next()
+		status, err := statusStream.Next()
 		if err != nil {
 			log.Error().Err(err).Msg("source failure")
 			break
 		}
 
-		if us == nil {
-			log.Debug().Msg("nil value")
+		if status.IsZero() {
+			log.Debug().Msg("zero value")
 			continue
 		}
 
-		log.Debug().Any("value", us).Msg("sending")
-		a.sse.SendNowPlaying(us)
-		// TODO: add a timeout scenario
-		go a.sendQueue(ctx)
-		go a.sendLastPlayed(ctx)
+		// we send to the now playing sse stream and separately to
+		// a streamer sse stream
+		if !status.Song.EqualTo(previous.Song) {
+			log.Debug().Str("event", EventMetadata).Any("value", status).Msg("sending")
+			a.sse.SendNowPlaying(status)
+			go a.sendQueue(ctx)
+			go a.sendLastPlayed(ctx)
+		}
+
+		if status.User.ID != previous.User.ID {
+			log.Debug().Str("event", EventStreamer).Any("value", status.User).Msg("sending")
+			a.sse.SendStreamer(status.User)
+		}
+
+		previous = status
 	}
 
 	return nil
@@ -84,7 +90,7 @@ func (a *API) runSongUpdates(ctx context.Context) error {
 func (a *API) sendQueue(ctx context.Context) {
 	q, err := a.streamer.Queue(ctx)
 	if err != nil {
-		zerolog.Ctx(ctx).Error().Err(err).Str("stream", "queue").Msg("")
+		zerolog.Ctx(ctx).Error().Err(err).Str("sse", "queue").Msg("")
 		return
 	}
 
@@ -94,7 +100,7 @@ func (a *API) sendQueue(ctx context.Context) {
 func (a *API) sendLastPlayed(ctx context.Context) {
 	lp, err := a.song.Song(ctx).LastPlayed(0, 5)
 	if err != nil {
-		zerolog.Ctx(ctx).Error().Err(err).Str("stream", "lastplayed").Msg("")
+		zerolog.Ctx(ctx).Error().Err(err).Str("sse", "lastplayed").Msg("")
 		return
 	}
 
@@ -177,6 +183,7 @@ func (s *Stream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for _, m := range init {
 		log.Debug().Bytes("value", m[theme]).Msg("send")
 		if _, err := w.Write(m[theme]); err != nil {
+			log.Error().Err(err).Msg("sse client write error")
 			return
 		}
 	}
@@ -187,6 +194,7 @@ func (s *Stream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for m := range ch {
 		log.Debug().Bytes("value", m[theme]).Msg("send")
 		if _, err := w.Write(m[theme]); err != nil {
+			log.Error().Err(err).Msg("sse client write error")
 			return
 		}
 		controller.Flush()
@@ -280,11 +288,12 @@ func (s *Stream) NewMessage(event EventName, data templates.TemplateSelectable) 
 	return m
 }
 
-func (s *Stream) SendNowPlaying(data *radio.SongUpdate) {
-	if data == nil {
-		return
-	}
-	s.SendEvent(EventMetadata, s.NewMessage(EventMetadata, NowPlaying(*data)))
+func (s *Stream) SendStreamer(data radio.User) {
+	s.SendEvent(EventStreamer, s.NewMessage(EventStreamer, Streamer(data)))
+}
+
+func (s *Stream) SendNowPlaying(data radio.Status) {
+	s.SendEvent(EventMetadata, s.NewMessage(EventMetadata, NowPlaying(data)))
 }
 
 func (s *Stream) SendLastPlayed(data []radio.Song) {
@@ -305,7 +314,7 @@ type request struct {
 
 type message map[string][]byte
 
-type NowPlaying radio.SongUpdate
+type NowPlaying radio.Status
 
 func (NowPlaying) TemplateName() string {
 	return "nowplaying"
@@ -332,5 +341,15 @@ func (Queue) TemplateName() string {
 }
 
 func (Queue) TemplateBundle() string {
+	return "home"
+}
+
+type Streamer radio.User
+
+func (Streamer) TemplateName() string {
+	return "streamer"
+}
+
+func (Streamer) TemplateBundle() string {
 	return "home"
 }

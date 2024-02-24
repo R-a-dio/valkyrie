@@ -162,8 +162,8 @@ func (m *Manager) loadStreamStatus(ctx context.Context) (*radio.Status, error) {
 			status.Song = *song
 		}
 	}
-	if status.StreamerName != "" {
-		user, err := m.Storage.User(ctx).LookupName(status.StreamerName)
+	if status.User.DJ.ID != 0 {
+		user, err := m.Storage.User(ctx).GetByDJID(status.User.DJ.ID)
 		if err != nil {
 			m.logger.Warn().Err(err).Msg("retrieving database user")
 		} else {

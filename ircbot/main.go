@@ -201,12 +201,25 @@ func WaitForStatus(ctx context.Context, manager radio.ManagerService, announce r
 	close(noRetry)
 	var retry <-chan time.Time = noRetry
 
+	var lastSong radio.Song
+
 	for {
+		// if we lost connection or are just starting out we retry the connection
+		// only way to exit this loop is by the context being canceled
+		select {
+		case <-ctx.Done():
+			return errors.E(op, ctx.Err())
+		case <-retry:
+		}
+
+		// connect to the status stream
 		stream, err := manager.CurrentStatus(ctx)
 		if err != nil {
-			return errors.E(op, err)
+			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to connect to manager")
+			// if it fails we retry in a short period
+			retry = time.After(time.Second * 5)
+			continue
 		}
-		defer stream.Close()
 
 		for {
 			select {
@@ -218,15 +231,25 @@ func WaitForStatus(ctx context.Context, manager radio.ManagerService, announce r
 
 			status, err := stream.Next()
 			if err != nil {
+				// stream error means we have to get a new stream and should
+				// break out of this inner loop
 				retry = time.After(time.Second * 5)
-				continue
+				break
 			}
 
-			err = announce.AnnounceSong(ctx, status)
-			if err != nil {
-				retry = time.After(time.Second * 5)
-				continue
+			// if song is different from last we announce a Now Starting
+			if !lastSong.EqualTo(status.Song) {
+				err = announce.AnnounceSong(ctx, status)
+				if err != nil {
+					zerolog.Ctx(ctx).Error().Err(err).Msg("failed to announce song")
+				} else {
+					lastSong = status.Song
+				}
 			}
 		}
+
+		// if we leave the inner loop it means our stream broke so we're getting a new one
+		// soon, clean up this current one
+		stream.Close()
 	}
 }
