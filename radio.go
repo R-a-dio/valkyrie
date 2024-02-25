@@ -60,7 +60,7 @@ type Status struct {
 	// StreamerName is the name given to us by the user that is streaming
 	StreamerName string
 	// Listeners is the current amount of stream listeners
-	Listeners int
+	Listeners Listeners
 	// Thread is an URL to a third-party platform related to the current stream
 	Thread string
 	// RequestsEnabled tells you if requests to the automated streamer are enabled
@@ -646,7 +646,7 @@ type SongStorage interface {
 	PlayedCount(Song) (int64, error)
 	// AddPlay adds a play to the song. If present, ldiff is the difference in amount
 	// of listeners between song-start and song-end
-	AddPlay(song Song, ldiff *int) error
+	AddPlay(song Song, ldiff *Listeners) error
 
 	// FavoriteCount returns the amount of users that have added this song to
 	// their favorite list
@@ -747,7 +747,7 @@ type UserStorage interface {
 	// Permissions returns all available permissions
 	Permissions() ([]UserPermission, error)
 	// RecordListeners records a history of listener count
-	RecordListeners(int, User) error
+	RecordListeners(Listeners, User) error
 }
 
 // StatusStorageService is a service able to supply a StatusStorage

@@ -128,27 +128,29 @@ func Execute(ctx context.Context, cfg config.Config) error {
 
 	// admin routes
 	r.Get("/logout", authentication.LogoutHandler) // outside so it isn't login restricted
-	r.Route("/admin", admin.Route(ctx, admin.State{
-		Config:           cfg,
-		Daypass:          dpass,
-		Storage:          storage,
-		Templates:        siteTemplates,
-		TemplateExecutor: executor,
-		SessionManager:   sessionManager,
-		Authentication:   authentication,
-		FS:               afero.NewOsFs(),
-	}))
+	r.Route("/admin", admin.Route(ctx, admin.NewState(
+		ctx,
+		cfg,
+		dpass,
+		storage,
+		siteTemplates,
+		executor,
+		sessionManager,
+		authentication,
+		afero.NewOsFs(),
+	)))
 
 	// public routes
-	r.Route("/", public.Route(ctx, public.State{
-		Config:    cfg,
-		Daypass:   dpass,
-		Templates: siteTemplates.Executor(),
-		Manager:   manager,
-		Streamer:  streamer,
-		Storage:   storage,
-		Search:    searchService,
-	}))
+	r.Route("/", public.Route(ctx, public.NewState(
+		ctx,
+		cfg,
+		dpass,
+		executor,
+		manager,
+		streamer,
+		storage,
+		searchService,
+	)))
 
 	// setup the http server
 	conf := cfg.Conf()

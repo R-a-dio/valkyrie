@@ -28,7 +28,9 @@ import (
 func NewAPI(ctx context.Context, cfg config.Config, storage radio.StorageService,
 	streamer radio.StreamerService, manager radio.ManagerService) (*API, error) {
 
-	status, err := newV0Status(ctx, storage, streamer, manager)
+	statusValue := util.StreamValue(ctx, manager.CurrentStatus)
+
+	status, err := newV0Status(ctx, storage, streamer, statusValue)
 	if err != nil {
 		return nil, err
 	}
@@ -38,12 +40,12 @@ func NewAPI(ctx context.Context, cfg config.Config, storage radio.StorageService
 	}
 
 	api := API{
-		Config:   cfg,
-		storage:  storage,
-		streamer: streamer,
-		manager:  manager,
-		status:   status,
-		search:   searcher,
+		Config:      cfg,
+		storage:     storage,
+		streamer:    streamer,
+		status:      status,
+		search:      searcher,
+		StatusValue: statusValue,
 	}
 	return &api, nil
 }
@@ -54,15 +56,16 @@ type API struct {
 	search   radio.SearchService
 	storage  radio.StorageService
 	streamer radio.StreamerService
-	manager  radio.ManagerService
 	status   *v0Status
+
+	StatusValue *util.Value[radio.Status]
 }
 
 func (a *API) Route(r chi.Router) {
 	r.Use(chiware.SetHeader("Content-Type", "application/json"))
 	r.Method("GET", "/", a.status)
 	r.Get("/ping", func(w http.ResponseWriter, _ *http.Request) {
-		w.Write([]byte(`{"ping":true}`))
+		_, _ = w.Write([]byte(`{"ping":true}`))
 	})
 	r.Get("/user-cooldown", a.getUserCooldown)
 	r.Get("/news", a.getNews)
@@ -273,14 +276,12 @@ func (sri *searchResponseItem) fromSong(s radio.Song) error {
 }
 
 func (a *API) getCanRequest(w http.ResponseWriter, r *http.Request) {
-	status, err := util.OneOff(r.Context(), a.manager.CurrentStatus)
-	if err != nil {
-		return
-	}
+	status := a.StatusValue.Latest()
 
 	response := canRequestResponse{}
 
 	// send our response when we return
+	var err error
 	defer func() {
 		// but not if an error occured
 		if err != nil {
@@ -400,12 +401,12 @@ func (a *API) postRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func newV0Status(ctx context.Context, storage radio.SongStorageService,
-	streamer radio.StreamerService, manager radio.ManagerService) (*v0Status, error) {
+	streamer radio.StreamerService, status *util.Value[radio.Status]) (*v0Status, error) {
 
 	s := v0Status{
 		songs:            storage,
 		streamer:         streamer,
-		manager:          manager,
+		status:           status,
 		updatePeriod:     time.Second * 2,
 		longUpdatePeriod: time.Second * 10,
 	}
@@ -430,8 +431,8 @@ type v0Status struct {
 	songs radio.SongStorageService
 	// streamer for queue contents
 	streamer radio.StreamerService
-	// manager for overall stream status
-	manager radio.ManagerService
+	// status value
+	status *util.Value[radio.Status]
 
 	updatePeriod     time.Duration
 	longUpdatePeriod time.Duration
@@ -447,7 +448,7 @@ type v0StatusJSON struct {
 
 type v0StatusMain struct {
 	NowPlaying   string `json:"np"`
-	Listeners    int    `json:"listeners"`
+	Listeners    int64  `json:"listeners"`
 	BitRate      int    `json:"bitrate"`
 	IsAFKStream  bool   `json:"isafkstream"`
 	IsStreamDesk bool   `json:"isstreamdesk"`
@@ -567,10 +568,7 @@ func (s *v0Status) createStatusJSON(ctx context.Context) (v0StatusJSON, error) {
 		status.ListCreatedOn = now
 	}
 
-	ms, err := util.OneOff(ctx, s.manager.CurrentStatus)
-	if err != nil {
-		return last, err
-	}
+	ms := s.status.Latest()
 
 	// End might be the zero time, in which case calling Unix
 	// returns a large negative number that we don't want

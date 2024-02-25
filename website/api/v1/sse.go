@@ -13,6 +13,7 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/templates"
+	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/util/sse"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
@@ -54,6 +55,14 @@ func (a *API) runStatusUpdates(ctx context.Context) error {
 	}
 
 	var previous radio.Status
+
+	// we don't care about the actual value, and the goroutine it spawns should keep everything
+	// alive aslong as the ctx isn't canceled
+	_ = util.StreamValue(ctx, a.manager.CurrentListeners, func(ctx context.Context, i int64) {
+		// always send listeners, this acts as a keep-alive for the long-polling but also gives us
+		// a bit more up to date listener count display
+		a.sse.SendListeners(i)
+	})
 
 	for {
 		status, err := statusStream.Next()
@@ -120,6 +129,7 @@ const (
 const (
 	EventTime       = "time"
 	EventMetadata   = "metadata"
+	EventListeners  = "listeners"
 	EventStreamer   = "streamer"
 	EventQueue      = "queue"
 	EventLastPlayed = "lastplayed"
@@ -170,6 +180,7 @@ func (s *Stream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("X-Accel-Buffering", "no")
 
 	// send a sync timestamp
 	now := strconv.FormatInt(time.Now().UnixMilli(), 10)
@@ -306,6 +317,10 @@ func (s *Stream) SendQueue(data []radio.QueueEntry) {
 	s.SendEvent(EventQueue, s.NewMessage(EventQueue, Queue(data)))
 }
 
+func (s *Stream) SendListeners(data radio.Listeners) {
+	s.SendEvent(EventListeners, s.NewMessage(EventListeners, Listeners(data)))
+}
+
 // request send over the management channel
 type request struct {
 	cmd string       // required
@@ -353,5 +368,15 @@ func (Streamer) TemplateName() string {
 }
 
 func (Streamer) TemplateBundle() string {
+	return "home"
+}
+
+type Listeners radio.Listeners
+
+func (Listeners) TemplateName() string {
+	return "listeners"
+}
+
+func (Listeners) TemplateBundle() string {
 	return "home"
 }

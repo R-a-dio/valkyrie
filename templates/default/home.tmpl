@@ -30,8 +30,6 @@
                 </div>
                 <div sse-swap="metadata">
                     {{template "nowplaying" .Status}}
-                
-
                 </div>
             </div>
             <div class="column is-3" sse-swap="streamer">
@@ -84,12 +82,15 @@ Home {{printjson .}}
 <progress id="current-song-progress" class="progress is-large mb-0" value="0" max="{{.Song.Length.Seconds}}"></progress>
 <div class="columns">
     <div class="column is-6">
-        <p class="has-text-centered">Listeners: <span id="listener-count">{{.Listeners}}</span></p>
+        <p class="has-text-centered" sse-swap="listeners">{{template "listeners" .Listeners}}</p>
     </div>
     <div class="column is-6">
         <p class="has-text-centered"><span id="progress-current" data-start="{{.SongInfo.Start.UnixMilli}}">00:00</span> / <span id="progress-max">{{.Song.Length | MediaDuration}}<span></p>
     </div>
 </div>
+{{end}}
+{{define "listeners"}}
+    Listeners: <span id="listener-count">{{.}}</span>
 {{end}}
 {{define "lastplayed"}}
 <p class="title is-4 has-text-centered">Last Played</p>

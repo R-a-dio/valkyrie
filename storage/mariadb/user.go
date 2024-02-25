@@ -387,7 +387,7 @@ func (us UserStorage) Permissions() ([]radio.UserPermission, error) {
 }
 
 // RecordListeners implements radio.UserStorage
-func (us UserStorage) RecordListeners(listeners int, user radio.User) error {
+func (us UserStorage) RecordListeners(listeners radio.Listeners, user radio.User) error {
 	const op errors.Op = "mariadb/UserStorage.RecordListeners"
 
 	var query = `INSERT INTO listenlog (listeners, dj) VALUES (?, ?);`

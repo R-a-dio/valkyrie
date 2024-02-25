@@ -1948,7 +1948,7 @@ var _ radio.UserStorage = &UserStorageMock{}
 //			PermissionsFunc: func() ([]radio.UserPermission, error) {
 //				panic("mock out the Permissions method")
 //			},
-//			RecordListenersFunc: func(n int, user radio.User) error {
+//			RecordListenersFunc: func(n int64, user radio.User) error {
 //				panic("mock out the RecordListeners method")
 //			},
 //			UpdateUserFunc: func(user radio.User) (radio.User, error) {
@@ -1980,7 +1980,7 @@ type UserStorageMock struct {
 	PermissionsFunc func() ([]radio.UserPermission, error)
 
 	// RecordListenersFunc mocks the RecordListeners method.
-	RecordListenersFunc func(n int, user radio.User) error
+	RecordListenersFunc func(n int64, user radio.User) error
 
 	// UpdateUserFunc mocks the UpdateUser method.
 	UpdateUserFunc func(user radio.User) (radio.User, error)
@@ -2016,7 +2016,7 @@ type UserStorageMock struct {
 		// RecordListeners holds details about calls to the RecordListeners method.
 		RecordListeners []struct {
 			// N is the n argument value.
-			N int
+			N int64
 			// User is the user argument value.
 			User radio.User
 		}
@@ -2219,12 +2219,12 @@ func (mock *UserStorageMock) PermissionsCalls() []struct {
 }
 
 // RecordListeners calls RecordListenersFunc.
-func (mock *UserStorageMock) RecordListeners(n int, user radio.User) error {
+func (mock *UserStorageMock) RecordListeners(n int64, user radio.User) error {
 	if mock.RecordListenersFunc == nil {
 		panic("UserStorageMock.RecordListenersFunc: method is nil but UserStorage.RecordListeners was just called")
 	}
 	callInfo := struct {
-		N    int
+		N    int64
 		User radio.User
 	}{
 		N:    n,
@@ -2241,11 +2241,11 @@ func (mock *UserStorageMock) RecordListeners(n int, user radio.User) error {
 //
 //	len(mockedUserStorage.RecordListenersCalls())
 func (mock *UserStorageMock) RecordListenersCalls() []struct {
-	N    int
+	N    int64
 	User radio.User
 } {
 	var calls []struct {
-		N    int
+		N    int64
 		User radio.User
 	}
 	mock.lockRecordListeners.RLock()

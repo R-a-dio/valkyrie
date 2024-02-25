@@ -32,7 +32,7 @@ func (as AnnouncerShim) AnnounceSong(ctx context.Context, a *SongAnnouncement) (
 	err := as.announcer.AnnounceSong(ctx, radio.Status{
 		Song:      fromProtoSong(a.Song),
 		SongInfo:  fromProtoSongInfo(a.Info),
-		Listeners: int(a.ListenerInfo.Listeners),
+		Listeners: a.ListenerInfo.Listeners,
 	})
 	return new(emptypb.Empty), err
 }

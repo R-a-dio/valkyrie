@@ -98,7 +98,7 @@ type Manager struct {
 	status            radio.Status
 	autoStreamerTimer *time.Timer
 	// listener count at the start of a song
-	songStartListenerCount int
+	songStartListenerCount radio.Listeners
 
 	// streaming support
 	userStream     *eventstream.EventStream[radio.User]

@@ -5,7 +5,6 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
-	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/rs/zerolog/hlog"
 )
@@ -43,11 +42,7 @@ func (s State) getHome(w http.ResponseWriter, r *http.Request) error {
 	input := NewHomeInput(r)
 	ctx := r.Context()
 
-	status, err := util.OneOff(ctx, s.Manager.CurrentStatus)
-	if err != nil {
-		return errors.E(op, errors.InternalServer, err)
-	}
-	input.Status = status
+	input.Status = s.StatusValue.Latest()
 
 	queue, err := s.Streamer.Queue(ctx)
 	if err != nil {

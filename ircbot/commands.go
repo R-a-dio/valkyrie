@@ -8,7 +8,6 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
-	"github.com/R-a-dio/valkyrie/util"
 	"github.com/lrstanley/girc"
 	"github.com/rs/zerolog"
 )
@@ -231,10 +230,7 @@ func (e Event) ArgumentTrack(key string) (*radio.Song, error) {
 func (e Event) CurrentTrack() (*radio.Song, error) {
 	const op errors.Op = "irc/Event.CurrentTrack"
 
-	status, err := util.OneOff(e.Ctx, e.Bot.Manager.CurrentStatus)
-	if err != nil {
-		return nil, errors.E(op, err)
-	}
+	status := e.Bot.StatusValue.Latest()
 
 	song, err := e.Storage.Song(e.Ctx).FromMetadata(status.Song.Metadata)
 	if err != nil {

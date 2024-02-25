@@ -15,6 +15,12 @@ function now() {
 htmx.createEventSource = function (url) {
     console.log(url);
     es = new EventSource(url);
+    es.addEventListener("streamer", (event) => {
+        console.log(event.data);
+    });
+    es.addEventListener("listeners", (event) => {
+        console.log(event.data, Date.now());
+    });
     es.addEventListener("metadata", (event) => {
         console.log(event.data);
     });
@@ -61,9 +67,10 @@ htmx.on('htmx:load', (event) => {
         console.log("creating stream player");
         stream = new Stream(initStream.getElementsByTagName("source")[0].src);
     }
-    if (stream && stream.button()) {
+    if (stream && stream.button() && !stream.button().dataset.hasclick) {
         console.log("registering stream play/stop button handler");
         stream.button().onclick = stream.playStop;
+        stream.button().dataset.hasclick = true;
         if (stream.audio && !stream.audio.paused) {
             stream.setButton("Stop Stream");
         }

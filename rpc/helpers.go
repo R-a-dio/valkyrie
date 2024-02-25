@@ -51,7 +51,7 @@ func fromProtoStatus(s *StatusResponse) radio.Status {
 		User:            fromProtoUser(s.User),
 		Song:            fromProtoSong(s.Song),
 		SongInfo:        fromProtoSongInfo(s.Info),
-		Listeners:       int(s.ListenerInfo.Listeners),
+		Listeners:       s.ListenerInfo.Listeners,
 		Thread:          s.Thread,
 		RequestsEnabled: s.StreamerConfig.RequestsEnabled,
 		StreamerName:    s.StreamerName,

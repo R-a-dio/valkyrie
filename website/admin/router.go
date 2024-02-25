@@ -15,6 +15,29 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+func NewState(
+	_ context.Context,
+	cfg config.Config,
+	dp *daypass.Daypass,
+	storage radio.StorageService,
+	siteTmpl *templates.Site,
+	exec templates.Executor,
+	sessionManager *scs.SessionManager,
+	auth vmiddleware.Authentication,
+	fs afero.Fs,
+) State {
+	return State{
+		Config:           cfg,
+		Daypass:          dp,
+		Storage:          storage,
+		Templates:        siteTmpl,
+		TemplateExecutor: exec,
+		SessionManager:   sessionManager,
+		Authentication:   auth,
+		FS:               fs,
+	}
+}
+
 type State struct {
 	config.Config
 

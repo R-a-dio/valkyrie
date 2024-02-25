@@ -151,7 +151,7 @@ func (m *Manager) UpdateSong(ctx context.Context, update *radio.SongUpdate) erro
 
 	var prev radio.Song
 	var prevInfo radio.SongInfo
-	var listenerCountDiff *int
+	var listenerCountDiff *radio.Listeners
 
 	// critical section to swap our new song with the previous one
 	m.mu.Lock()
@@ -162,7 +162,7 @@ func (m *Manager) UpdateSong(ctx context.Context, update *radio.SongUpdate) erro
 	// record listener count and calculate the difference between start/end of song
 	currentListenerCount := m.status.Listeners
 	// update and retrieve listener count of start of song
-	var startListenerCount int
+	var startListenerCount radio.Listeners
 	startListenerCount, m.songStartListenerCount = m.songStartListenerCount, currentListenerCount
 
 	m.mu.Unlock()
@@ -239,7 +239,7 @@ func (m *Manager) UpdateListeners(ctx context.Context, listeners radio.Listeners
 	m.listenerStream.Send(listeners)
 
 	m.mu.Lock()
-	m.status.Listeners = int(listeners)
+	m.status.Listeners = listeners
 	m.mu.Unlock()
 	return nil
 }

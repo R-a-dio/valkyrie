@@ -244,3 +244,99 @@ func (mock *ExecutorMock) WithCalls() []struct {
 	mock.lockWith.RUnlock()
 	return calls
 }
+
+// Ensure, that TemplateSelectableMock does implement templates.TemplateSelectable.
+// If this is not the case, regenerate this file with moq.
+var _ templates.TemplateSelectable = &TemplateSelectableMock{}
+
+// TemplateSelectableMock is a mock implementation of templates.TemplateSelectable.
+//
+//	func TestSomethingThatUsesTemplateSelectable(t *testing.T) {
+//
+//		// make and configure a mocked templates.TemplateSelectable
+//		mockedTemplateSelectable := &TemplateSelectableMock{
+//			TemplateBundleFunc: func() string {
+//				panic("mock out the TemplateBundle method")
+//			},
+//			TemplateNameFunc: func() string {
+//				panic("mock out the TemplateName method")
+//			},
+//		}
+//
+//		// use mockedTemplateSelectable in code that requires templates.TemplateSelectable
+//		// and then make assertions.
+//
+//	}
+type TemplateSelectableMock struct {
+	// TemplateBundleFunc mocks the TemplateBundle method.
+	TemplateBundleFunc func() string
+
+	// TemplateNameFunc mocks the TemplateName method.
+	TemplateNameFunc func() string
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// TemplateBundle holds details about calls to the TemplateBundle method.
+		TemplateBundle []struct {
+		}
+		// TemplateName holds details about calls to the TemplateName method.
+		TemplateName []struct {
+		}
+	}
+	lockTemplateBundle sync.RWMutex
+	lockTemplateName   sync.RWMutex
+}
+
+// TemplateBundle calls TemplateBundleFunc.
+func (mock *TemplateSelectableMock) TemplateBundle() string {
+	if mock.TemplateBundleFunc == nil {
+		panic("TemplateSelectableMock.TemplateBundleFunc: method is nil but TemplateSelectable.TemplateBundle was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockTemplateBundle.Lock()
+	mock.calls.TemplateBundle = append(mock.calls.TemplateBundle, callInfo)
+	mock.lockTemplateBundle.Unlock()
+	return mock.TemplateBundleFunc()
+}
+
+// TemplateBundleCalls gets all the calls that were made to TemplateBundle.
+// Check the length with:
+//
+//	len(mockedTemplateSelectable.TemplateBundleCalls())
+func (mock *TemplateSelectableMock) TemplateBundleCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockTemplateBundle.RLock()
+	calls = mock.calls.TemplateBundle
+	mock.lockTemplateBundle.RUnlock()
+	return calls
+}
+
+// TemplateName calls TemplateNameFunc.
+func (mock *TemplateSelectableMock) TemplateName() string {
+	if mock.TemplateNameFunc == nil {
+		panic("TemplateSelectableMock.TemplateNameFunc: method is nil but TemplateSelectable.TemplateName was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockTemplateName.Lock()
+	mock.calls.TemplateName = append(mock.calls.TemplateName, callInfo)
+	mock.lockTemplateName.Unlock()
+	return mock.TemplateNameFunc()
+}
+
+// TemplateNameCalls gets all the calls that were made to TemplateName.
+// Check the length with:
+//
+//	len(mockedTemplateSelectable.TemplateNameCalls())
+func (mock *TemplateSelectableMock) TemplateNameCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockTemplateName.RLock()
+	calls = mock.calls.TemplateName
+	mock.lockTemplateName.RUnlock()
+	return calls
+}
