@@ -49,6 +49,11 @@ func (suite *Suite) TestSongLastPlayed() {
 	base := radio.Song{
 		Metadata: "test-song-last-played-",
 	}
+	user := radio.User{
+		DJ: radio.DJ{
+			ID: 10,
+		},
+	}
 	amount := int64(50)
 
 	// create 50 testing songs
@@ -69,7 +74,7 @@ func (suite *Suite) TestSongLastPlayed() {
 
 	// now have them all play
 	for i, song := range songs {
-		err := ss.AddPlay(song, nil)
+		err := ss.AddPlay(song, user, nil)
 		require.NoError(t, err)
 
 		if i == 15 || i == 40 { // Artificially wait a second in the middle somewhere

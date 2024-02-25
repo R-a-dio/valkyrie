@@ -149,14 +149,14 @@ func (m *Manager) UpdateSong(ctx context.Context, update *radio.SongUpdate) erro
 		info.End = info.End.Add(song.Length)
 	}
 
-	var prev radio.Song
+	var prev radio.Status
 	var prevInfo radio.SongInfo
 	var listenerCountDiff *radio.Listeners
 
 	// critical section to swap our new song with the previous one
 	m.mu.Lock()
 
-	prev, m.status.Song = m.status.Song, *song
+	prev, m.status.Song = m.status, *song
 	prevInfo, m.status.SongInfo = m.status.SongInfo, info
 
 	// record listener count and calculate the difference between start/end of song
@@ -184,32 +184,32 @@ func (m *Manager) UpdateSong(ctx context.Context, update *radio.SongUpdate) erro
 	// after this point, any reference to the `song` variable is an error, so we
 	// make it nil so it will panic if done by mistake
 	song = nil
-	if prev.ID == 0 { // protect against a zero'd song
+	if prev.Song.ID == 0 { // protect against a zero'd song
 		return nil
 	}
 
 	// insert a played entry
-	err = ss.AddPlay(prev, listenerCountDiff)
+	err = ss.AddPlay(prev.Song, prev.User, listenerCountDiff)
 	if err != nil {
 		return errors.E(op, err)
 	}
 
 	// update lastplayed if the streamer is a robot and the song has a track
-	if prev.HasTrack() && isRobot {
+	if prev.Song.HasTrack() && isRobot {
 		ts, _, err := m.Storage.TrackTx(ctx, tx)
 		if err != nil {
 			return errors.E(op, err)
 		}
 
-		err = ts.UpdateLastPlayed(prev.TrackID)
+		err = ts.UpdateLastPlayed(prev.Song.TrackID)
 		if err != nil {
 			return errors.E(op, err, prev)
 		}
 	}
 
 	// update song length only if it didn't already have one
-	if prev.Length == 0 {
-		err = ss.UpdateLength(prev, time.Since(prevInfo.Start))
+	if prev.Song.Length == 0 {
+		err = ss.UpdateLength(prev.Song, time.Since(prevInfo.Start))
 		if err != nil {
 			return errors.E(op, err, prev)
 		}

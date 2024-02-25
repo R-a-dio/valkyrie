@@ -644,9 +644,10 @@ type SongStorage interface {
 	LastPlayedCount() (int64, error)
 	// PlayedCount returns the amount of times the song has been played on stream
 	PlayedCount(Song) (int64, error)
-	// AddPlay adds a play to the song. If present, ldiff is the difference in amount
-	// of listeners between song-start and song-end
-	AddPlay(song Song, ldiff *Listeners) error
+	// AddPlay adds a play to the song. streamer is the dj that played the song.
+	// If present, ldiff is the difference in amount of listeners between
+	// song-start and song-end.
+	AddPlay(song Song, streamer User, ldiff *Listeners) error
 
 	// FavoriteCount returns the amount of users that have added this song to
 	// their favorite list

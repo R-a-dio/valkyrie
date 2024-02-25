@@ -258,12 +258,12 @@ func (ss SongStorage) PlayedCount(song radio.Song) (int64, error) {
 }
 
 // AddPlay implements radio.SongStorage
-func (ss SongStorage) AddPlay(song radio.Song, ldiff *radio.Listeners) error {
+func (ss SongStorage) AddPlay(song radio.Song, user radio.User, ldiff *radio.Listeners) error {
 	const op errors.Op = "mariadb/SongStorage.AddPlay"
 
-	var query = `INSERT INTO eplay (isong, ldiff) VALUES (?, ?);`
+	var query = `INSERT INTO eplay (isong, djs_id, ldiff) VALUES (?, ?, ?);`
 
-	_, err := ss.handle.Exec(query, song.ID, ldiff)
+	_, err := ss.handle.Exec(query, song.ID, user.DJ.ID, ldiff)
 	if err != nil {
 		return errors.E(op, err)
 	}
