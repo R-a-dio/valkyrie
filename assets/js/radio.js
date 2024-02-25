@@ -306,10 +306,12 @@ class Stream {
     stop = async (deleteAudio) => {
         this.audio.pause()
         if (deleteAudio) {
+            this.audio.src = null;
             this.audio = null;
         }
 
         this.setButton("Start Stream");
+        this.monitorLastTime = 0;
 
         try {
             navigator.mediaSession.playbackState = "paused";
