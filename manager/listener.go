@@ -99,6 +99,7 @@ func (ln *Listener) newConn(ctx context.Context) (io.ReadCloser, int, error) {
 	req.Close = true
 	// we want interleaved metadata so we have to ask for it
 	req.Header.Add("Icy-MetaData", "1")
+	req.Header.Set("User-Agent", ln.Conf().UserAgent)
 	req = req.WithContext(ctx)
 
 	resp, err := http.DefaultClient.Do(req)
