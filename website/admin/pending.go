@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strconv"
+	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
@@ -427,8 +428,7 @@ func (pf *PendingForm) Update(form url.Values) {
 		pf.ReplacementID = radio.TrackID(id)
 	}
 	pf.Reason = form.Get("reason")
-	// TODO: move reviewedat into db layer
-	// pf.ReviewedAt = time.Now()
+	pf.ReviewedAt = time.Now()
 	pf.GoodUpload = form.Get("good") != ""
 }
 

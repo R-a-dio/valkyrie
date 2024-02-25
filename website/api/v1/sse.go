@@ -67,8 +67,8 @@ func (a *API) runStatusUpdates(ctx context.Context) error {
 			continue
 		}
 
-		// we send to the now playing sse stream and separately to
-		// a streamer sse stream
+		// only send events if the relevant data to said event has changed
+		// since our previous status
 		if !status.Song.EqualTo(previous.Song) {
 			log.Debug().Str("event", EventMetadata).Any("value", status).Msg("sending")
 			a.sse.SendNowPlaying(status)
@@ -79,6 +79,8 @@ func (a *API) runStatusUpdates(ctx context.Context) error {
 		if status.User.ID != previous.User.ID {
 			log.Debug().Str("event", EventStreamer).Any("value", status.User).Msg("sending")
 			a.sse.SendStreamer(status.User)
+			// TODO(wessie): queue is technically only used for the automated streamer
+			// and should probably have an extra event trigger here to make it disappear
 		}
 
 		previous = status
@@ -116,7 +118,7 @@ const (
 )
 
 const (
-	EventPing       = "ping"
+	EventTime       = "time"
 	EventMetadata   = "metadata"
 	EventStreamer   = "streamer"
 	EventQueue      = "queue"
@@ -171,7 +173,7 @@ func (s *Stream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// send a sync timestamp
 	now := strconv.FormatInt(time.Now().UnixMilli(), 10)
-	_, _ = w.Write(sse.Event{Name: "time", Data: []byte(now)}.Encode())
+	_, _ = w.Write(sse.Event{Name: string(EventTime), Data: []byte(now)}.Encode())
 
 	// send events that have already happened, one for each event so that
 	// we're certain the page is current

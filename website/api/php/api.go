@@ -177,9 +177,7 @@ func (a *API) getSearch(w http.ResponseWriter, r *http.Request) {
 		rawLimit := values.Get("limit")
 		parsedLimit, err := strconv.Atoi(rawLimit)
 		if err == nil && parsedLimit < 20 {
-			// TODO: check if we just want to throw a fit if NaN
-			// only use the value if it's a number and it's
-			// not above the allowed limit
+			// if used defined limit isn't a number just return the standard 20
 			limit = parsedLimit
 		}
 	}
@@ -188,8 +186,7 @@ func (a *API) getSearch(w http.ResponseWriter, r *http.Request) {
 		rawPage := values.Get("page")
 		parsedPage, err := strconv.Atoi(rawPage)
 		if err == nil {
-			// TODO: check if we just want to throw a fit if NaN
-			// only use the value if it's a valid number
+			// if it's not a number just return the first page
 			page = parsedPage
 		}
 	}
