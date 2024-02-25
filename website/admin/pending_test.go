@@ -258,6 +258,10 @@ func TestPostPending(t *testing.T) {
 				assert.Error(t, err)
 				// we shouldn't have an accepted song after a rollback
 				assert.Nil(t, form.AcceptedSong)
+				// the form is updated with a ReviewedAt field when it passes through
+				// parsing but we don't have the exact value so we swap it over to the
+				// "input" form before comparing.
+				formWeSend.ReviewedAt = form.ReviewedAt
 				// check if we have an expected form return value
 				if test.ExpectedForm == nil {
 					// if not try the form we send over the wire
@@ -324,6 +328,10 @@ func TestPendingFormRoundTrip(t *testing.T) {
 			var out PendingForm
 
 			out.Update(in.ToValues())
+
+			// ReviewedAt is set to Now on Update so copy that over to our in
+			// so we can actually compare them
+			in.ReviewedAt = out.ReviewedAt
 
 			return out.PendingSong == in.PendingSong
 		}, pendingSongGen,
