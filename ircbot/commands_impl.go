@@ -20,10 +20,7 @@ func NowPlaying(e Event) error {
 	// in the announcement code
 	message := "Now playing:{red} '%s' {clear}[%s/%s](%s), %s, %s, {green}LP:{clear} %s"
 
-	status, err := radio.OneOff(e.Ctx, e.Bot.Manager.CurrentStatus)
-	if err != nil {
-		return errors.E(op, err)
-	}
+	status := e.Bot.StatusValue.Latest()
 
 	if status.SongInfo.IsFallback {
 		e.EchoPublic("Stream is currently down.")
@@ -57,7 +54,7 @@ func NowPlaying(e Event) error {
 	e.EchoPublic(message,
 		status.Song.Metadata,
 		FormatPlaybackDuration(songPosition), FormatPlaybackDuration(songLength),
-		Pluralf("%d listeners", int64(status.Listeners)),
+		Pluralf("%d listeners", e.Bot.ListenersValue.Latest()),
 		Pluralf("%d faves", favoriteCount),
 		Pluralf("played %d times", playedCount),
 		FormatLongDuration(lastPlayedDiff),
@@ -200,10 +197,7 @@ func StreamerUserInfo(e Event) error {
 	name := e.Arguments["DJ"]
 	if name == "" || !HasAccess(e.Client, e.Event) {
 		// simple path with no argument or no access
-		status, err := radio.OneOff(e.Ctx, e.Bot.Manager.CurrentStatus)
-		if err != nil {
-			return errors.E(op, err)
-		}
+		status := e.Bot.StatusValue.Latest()
 		e.EchoPublic("Current DJ: {green}%s", status.StreamerName)
 		return nil
 	}
@@ -340,12 +334,9 @@ func ThreadURL(e Event) error {
 		}
 	}
 
-	resp, err := radio.OneOff(e.Ctx, e.Bot.Manager.CurrentStatus)
-	if err != nil {
-		return errors.E(op, err)
-	}
+	status := e.Bot.StatusValue.Latest()
 
-	e.Echo("Thread: %s", resp.Thread)
+	e.Echo("Thread: %s", status.Thread)
 	return nil
 }
 
@@ -426,20 +417,17 @@ func KillStreamer(e Event) error {
 	case <-e.Ctx.Done():
 	}
 
-	status, err := radio.OneOff(e.Ctx, e.Bot.Manager.CurrentStatus)
-	if err != nil {
+	status := e.Bot.StatusValue.Latest()
+
+	until := time.Until(status.SongInfo.End)
+	if force {
+		e.EchoPublic("Disconnecting right now")
+	} else if until == 0 {
 		e.EchoPublic("Disconnecting after the current song")
 	} else {
-		until := time.Until(status.SongInfo.End)
-		if force {
-			e.EchoPublic("Disconnecting right now")
-		} else if until == 0 {
-			e.EchoPublic("Disconnecting after the current song")
-		} else {
-			e.EchoPublic("Disconnecting in about %s",
-				FormatLongDuration(until),
-			)
-		}
+		e.EchoPublic("Disconnecting in about %s",
+			FormatLongDuration(until),
+		)
 	}
 
 	return nil

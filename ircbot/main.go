@@ -14,6 +14,7 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/search"
 	"github.com/R-a-dio/valkyrie/storage"
+	"github.com/R-a-dio/valkyrie/util"
 	"github.com/lrstanley/girc"
 )
 
@@ -44,6 +45,14 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 
+	b.StatusValue = util.StreamValue(ctx, manager.CurrentStatus, func(ctx context.Context, s radio.Status) {
+		err := announce.AnnounceSong(ctx, s)
+		if err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to announce")
+		}
+	})
+	b.ListenersValue = util.StreamValue(ctx, manager.CurrentListeners)
+
 	errCh := make(chan error, 2)
 	go func() {
 		// run the irc client
@@ -52,10 +61,6 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	go func() {
 		// run the grpc server
 		errCh <- srv.Serve(ln)
-	}()
-	go func() {
-		// setup our listener for new songs on the stream
-		errCh <- WaitForStatus(ctx, manager, announce)
 	}()
 
 	// wait for our context to be canceled or Serve to error out
@@ -109,8 +114,12 @@ func NewBot(ctx context.Context, cfg config.Config) (*Bot, error) {
 		c:        girc.New(ircConf),
 	}
 
-	RegisterCommonHandlers(b, b.c)
-	RegisterCommandHandlers(ctx, b)
+	if err = RegisterCommonHandlers(b, b.c); err != nil {
+		return nil, err
+	}
+	if err = RegisterCommandHandlers(ctx, b); err != nil {
+		return nil, err
+	}
 
 	go b.syncConfiguration(ctx)
 	return b, nil
@@ -124,6 +133,10 @@ type Bot struct {
 	Manager  radio.ManagerService
 	Streamer radio.StreamerService
 	Searcher radio.SearchService
+
+	// Values used by commands
+	StatusValue    *util.Value[radio.Status]
+	ListenersValue *util.Value[radio.Listeners]
 
 	c *girc.Client
 }
@@ -191,74 +204,5 @@ func (b *Bot) syncConfiguration(ctx context.Context) {
 				b.c.Cmd.Join(wanted)
 			}
 		}
-	}
-}
-
-func WaitForStatus(ctx context.Context, manager radio.ManagerService, announce radio.AnnounceService) error {
-	const op errors.Op = "ircbot.WaitForStatus"
-
-	var noRetry = make(chan time.Time)
-	close(noRetry)
-	var retry <-chan time.Time = noRetry
-
-	var previous radio.Status
-
-	for {
-		// if we lost connection or are just starting out we retry the connection
-		// only way to exit this loop is by the context being canceled
-		select {
-		case <-ctx.Done():
-			return errors.E(op, ctx.Err())
-		case <-retry:
-		}
-		retry = noRetry
-
-		// connect to the status stream
-		zerolog.Ctx(ctx).Info().Msg("connecting to manager for status updates")
-		stream, err := manager.CurrentStatus(ctx)
-		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to connect to manager")
-			// if it fails we retry in a short period
-			retry = time.After(time.Second * 5)
-			continue
-		}
-
-		zerolog.Ctx(ctx).Info().Msg("starting status update reading")
-		for {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-retry:
-			}
-			retry = noRetry
-
-			status, err := stream.Next()
-			if err != nil {
-				zerolog.Ctx(ctx).Error().Err(err).Msg("failed next")
-				// stream error means we have to get a new stream and should
-				// break out of this inner loop
-				retry = time.After(time.Second * 5)
-				break
-			}
-
-			// if song is same as previous skip the announce
-			if previous.Song.EqualTo(status.Song) {
-				zerolog.Ctx(ctx).Info().Msg("skipping same song announce")
-				continue
-			}
-
-			// otherwise we announce
-			err = announce.AnnounceSong(ctx, status)
-			if err != nil {
-				zerolog.Ctx(ctx).Error().Err(err).Msg("failed to announce song")
-				continue
-			}
-
-			previous = status
-		}
-
-		// if we leave the inner loop it means our stream broke so we're getting a new one
-		// soon, clean up this current one
-		stream.Close()
 	}
 }

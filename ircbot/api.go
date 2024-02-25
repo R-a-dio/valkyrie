@@ -34,16 +34,21 @@ type announceService struct {
 	config.Config
 	Storage radio.StorageService
 
-	bot              *Bot
-	lastAnnounceSong time.Time
+	bot                  *Bot
+	lastAnnounceSongTime time.Time
+	lastAnnounceSong     radio.Song
 }
 
 func (ann *announceService) AnnounceSong(ctx context.Context, status radio.Status) error {
 	const op errors.Op = "irc/announceService.AnnounceSong"
 
 	// don't do the announcement if the last one was recent enough
-	if time.Since(ann.lastAnnounceSong) < time.Duration(ann.Conf().IRC.AnnouncePeriod) {
-		zerolog.Ctx(ctx).Info().Str("metadata", status.Song.Metadata).Msg("skipping announce")
+	if time.Since(ann.lastAnnounceSongTime) < time.Duration(ann.Conf().IRC.AnnouncePeriod) {
+		zerolog.Ctx(ctx).Info().Str("metadata", status.Song.Metadata).Msg("skipping announce: announce period")
+		return nil
+	}
+	if ann.lastAnnounceSong.EqualTo(status.Song) {
+		zerolog.Ctx(ctx).Info().Str("metadata", status.Song.Metadata).Msg("skipping announce: same as last song")
 		return nil
 	}
 	message := "Now starting:{red} '%s' {clear}[%s](%s), %s, %s, {green}LP:{clear} %s"
@@ -75,7 +80,8 @@ func (ann *announceService) AnnounceSong(ctx context.Context, status radio.Statu
 	)
 
 	ann.bot.c.Cmd.Message(ann.Conf().IRC.MainChannel, message)
-	ann.lastAnnounceSong = time.Now()
+	ann.lastAnnounceSong = status.Song
+	ann.lastAnnounceSongTime = time.Now()
 
 	//
 	// ======= favorite announcements below =========

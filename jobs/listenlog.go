@@ -6,6 +6,7 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/storage"
+	"github.com/R-a-dio/valkyrie/util"
 )
 
 // ExecuteListenerLog fetches the listener count from the manager and inserts a line into
@@ -18,7 +19,7 @@ func ExecuteListenerLog(ctx context.Context, cfg config.Config) error {
 
 	m := cfg.Conf().Manager.Client()
 
-	status, err := radio.OneOff[radio.Status](ctx, m.CurrentStatus)
+	status, err := util.OneOff[radio.Status](ctx, m.CurrentStatus)
 	if err != nil {
 		return err
 	}

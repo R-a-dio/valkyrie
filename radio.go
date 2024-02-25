@@ -286,16 +286,6 @@ type ManagerService interface {
 	CurrentStatus(context.Context) (eventstream.Stream[Status], error)
 }
 
-func OneOff[T any](ctx context.Context, fn func(context.Context) (eventstream.Stream[T], error)) (T, error) {
-	s, err := fn(ctx)
-	if err != nil {
-		return *new(T), err
-	}
-	defer s.Close()
-
-	return s.Next()
-}
-
 type StreamerService interface {
 	Start(context.Context) error
 	Stop(ctx context.Context, force bool) error

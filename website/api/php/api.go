@@ -16,6 +16,7 @@ import (
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/search"
+	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
@@ -272,7 +273,7 @@ func (sri *searchResponseItem) fromSong(s radio.Song) error {
 }
 
 func (a *API) getCanRequest(w http.ResponseWriter, r *http.Request) {
-	status, err := radio.OneOff(r.Context(), a.manager.CurrentStatus)
+	status, err := util.OneOff(r.Context(), a.manager.CurrentStatus)
 	if err != nil {
 		return
 	}
@@ -566,7 +567,7 @@ func (s *v0Status) createStatusJSON(ctx context.Context) (v0StatusJSON, error) {
 		status.ListCreatedOn = now
 	}
 
-	ms, err := radio.OneOff(ctx, s.manager.CurrentStatus)
+	ms, err := util.OneOff(ctx, s.manager.CurrentStatus)
 	if err != nil {
 		return last, err
 	}
