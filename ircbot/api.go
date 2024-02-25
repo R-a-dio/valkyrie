@@ -47,6 +47,14 @@ func (ann *announceService) AnnounceSong(ctx context.Context, status radio.Statu
 		zerolog.Ctx(ctx).Info().Str("metadata", status.Song.Metadata).Msg("skipping announce: announce period")
 		return nil
 	}
+	// don't do the announcement if this is the first song we see since we get an initial
+	// value from somewhere hopefully
+	if ann.lastAnnounceSong.ID == 0 {
+		zerolog.Ctx(ctx).Info().Str("metadata", status.Song.Metadata).Msg("skipping anounce: first song")
+		ann.lastAnnounceSong = status.Song
+		return nil
+	}
+	// don't do the announcement if this song is equal to the last song we announced
 	if ann.lastAnnounceSong.EqualTo(status.Song) {
 		zerolog.Ctx(ctx).Info().Str("metadata", status.Song.Metadata).Msg("skipping announce: same as last song")
 		return nil
