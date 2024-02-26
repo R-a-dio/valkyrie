@@ -1,4 +1,5 @@
 {{define "pagination"}}
+{{if gt .Total 1}}
 <div class="columns">
     <nav class="column pagination is-left is-flex mb-0" hx-boost="true" hx-push-url="true" hx-target="#content" role="navigation">
         {{with .Prev 1}}
@@ -44,6 +45,7 @@
         <input class="is-hidden" type="submit">
     </form>
 </div>
+{{end}}
 {{end}}
 {{define "page-link"}}
 <li class="m-0">

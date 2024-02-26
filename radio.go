@@ -801,7 +801,7 @@ type NewsList struct {
 }
 
 // NewsPostID is an identifier for a news post
-type NewsPostID int64
+type NewsPostID uint64
 
 // NewsPost is a single news post created on the website
 type NewsPost struct {
@@ -854,7 +854,7 @@ func (np NewsPost) HasRequired() (string, bool) {
 }
 
 // NewsCommentID is an identifier for a news comment
-type NewsCommentID int64
+type NewsCommentID uint64
 
 // NewsComment is a single comment under a news post on the website
 type NewsComment struct {
