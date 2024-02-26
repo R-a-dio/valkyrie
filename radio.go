@@ -808,7 +808,7 @@ type NewsPost struct {
 	Header string
 	Body   string
 
-	User      User
+	User      *User
 	DeletedAt *time.Time
 	CreatedAt time.Time
 	UpdatedAt *time.Time

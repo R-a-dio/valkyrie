@@ -37,6 +37,7 @@ func OneOff[T any](ctx context.Context, fn StreamFn[T]) (T, error) {
 // calling .Latest
 func StreamValue[T any](ctx context.Context, fn StreamFn[T], callbackFn ...StreamCallbackFn[T]) *Value[T] {
 	var value Value[T]
+	value.last.Store(new(T))
 
 	go func() {
 		for {

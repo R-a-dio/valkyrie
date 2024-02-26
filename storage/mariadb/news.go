@@ -50,7 +50,7 @@ func (ns NewsStorage) Get(id radio.NewsPostID) (*radio.NewsPost, error) {
 	if err != nil {
 		return &post, nil
 	}
-	post.User = *user
+	post.User = user
 
 	return &post, nil
 }
@@ -175,11 +175,11 @@ func (ns NewsStorage) List(limit int, offset int) (radio.NewsList, error) {
 		radio_news.created_at AS created_at,
 		radio_news.updated_at AS updated_at,
 		radio_news.private AS private,
-		users.id AS 'user.id',
-		users.user AS 'user.username'
+		IFNULL(users.id, 0) AS 'user.id',
+		IFNULL(users.user, 0) AS 'user.username'
 	FROM
 		radio_news
-	JOIN
+	LEFT JOIN
 		users ON radio_news.user_id = users.id
 	ORDER BY
 		radio_news.created_at DESC
@@ -218,11 +218,11 @@ func (ns NewsStorage) ListPublic(limit int, offset int) (radio.NewsList, error) 
 		radio_news.created_at AS created_at,
 		radio_news.updated_at AS updated_at,
 		radio_news.private AS private,
-		users.id AS 'user.id',
-		users.user AS 'user.username'
+		IFNULL(users.id, 0) AS 'user.id',
+		IFNULL(users.user, 0) AS 'user.username'
 	FROM
 		radio_news
-	JOIN
+	LEFT JOIN
 		users ON radio_news.user_id = users.id
 	WHERE
 		radio_news.private=0 AND
