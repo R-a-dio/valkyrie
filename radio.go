@@ -7,12 +7,14 @@ import (
 	"database/sql/driver"
 	"encoding/hex"
 	"fmt"
+	"html/template"
 	"math"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/R-a-dio/valkyrie/util/eventstream"
+	"github.com/yuin/goldmark"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -813,6 +815,24 @@ type NewsPost struct {
 	CreatedAt time.Time
 	UpdatedAt *time.Time
 	Private   bool
+}
+
+func (np NewsPost) BodyParsed() (template.HTML, error) {
+	var buf bytes.Buffer
+	err := goldmark.Convert([]byte(np.Body), &buf)
+	if err != nil {
+		return "", err
+	}
+	return template.HTML(buf.String()), nil
+}
+
+func (np NewsPost) HeaderParsed() (template.HTML, error) {
+	var buf bytes.Buffer
+	err := goldmark.Convert([]byte(np.Header), &buf)
+	if err != nil {
+		return "", err
+	}
+	return template.HTML(buf.String()), nil
 }
 
 // HasRequired tells if you all required fields in a news post are filled,

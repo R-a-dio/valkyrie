@@ -6,6 +6,7 @@ require (
 	github.com/BurntSushi/toml v1.3.2
 	github.com/DATA-DOG/go-sqlmock v1.5.1
 	github.com/XSAM/otelsql v0.27.0
+	github.com/alevinval/sse v1.0.2
 	github.com/alexedwards/scs/v2 v2.7.0
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/davecgh/go-spew v1.1.1
@@ -23,6 +24,7 @@ require (
 	github.com/tcolgate/mp3 v0.0.0-20170426193717-e79c5a46d300
 	github.com/testcontainers/testcontainers-go v0.27.0
 	github.com/testcontainers/testcontainers-go/modules/mariadb v0.27.0
+	github.com/yuin/goldmark v1.7.0
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.47.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.47.0
 	go.opentelemetry.io/otel v1.23.0
@@ -43,7 +45,6 @@ require (
 	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
 	github.com/Microsoft/go-winio v0.6.1 // indirect
 	github.com/Microsoft/hcsshim v0.11.4 // indirect
-	github.com/alevinval/sse v1.0.2 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
 	github.com/containerd/containerd v1.7.11 // indirect
 	github.com/containerd/log v0.1.0 // indirect

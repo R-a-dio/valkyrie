@@ -2,9 +2,11 @@ package public
 
 import (
 	"net/http"
+	"strconv"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/website/middleware"
+	"github.com/go-chi/chi/v5"
 )
 
 type NewsInput struct {
@@ -43,8 +45,49 @@ func (s State) GetNews(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+type NewsEntryInput struct {
+	middleware.Input
+
+	Entry radio.NewsPost
+}
+
+func (NewsEntryInput) TemplateBundle() string {
+	return "news-single"
+}
+
+func NewNewsEntryInput(ns radio.NewsStorage, r *http.Request) (*NewsEntryInput, error) {
+	ctx := r.Context()
+
+	id := chi.URLParamFromCtx(ctx, "NewsID")
+	iid, err := strconv.Atoi(id)
+	if err != nil {
+		return nil, err
+	}
+	newsid := radio.NewsPostID(iid)
+
+	post, err := ns.Get(newsid)
+	if err != nil {
+		return nil, err
+	}
+
+	return &NewsEntryInput{
+		Input: middleware.InputFromContext(ctx),
+		Entry: *post,
+	}, nil
+}
+
 func (s State) GetNewsEntry(w http.ResponseWriter, r *http.Request) {
-	s.errorHandler(w, r, nil)
+	input, err := NewNewsEntryInput(s.Storage.News(r.Context()), r)
+	if err != nil {
+		s.errorHandler(w, r, err)
+		return
+	}
+
+	err = s.Templates.Execute(w, r, input)
+	if err != nil {
+		s.errorHandler(w, r, err)
+		return
+	}
 }
 
 func (s State) PostNewsEntry(w http.ResponseWriter, r *http.Request) {
