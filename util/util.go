@@ -70,7 +70,6 @@ func StreamValue[T any](ctx context.Context, fn StreamFn[T], callbackFn ...Strea
 				value.last.Store(&v)
 
 				for _, callback := range callbackFn {
-					// TODO(wessie): run in goroutine?
 					callback(ctx, v)
 				}
 			}
