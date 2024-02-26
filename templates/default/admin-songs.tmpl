@@ -1,0 +1,17 @@
+{{define "content"}}
+<section class="section">
+    <div class="container pb-4">
+        <form action="/admin/songs" class="control is-flex" hx-boost="true" hx-push-url="true" hx-target="#songs-content" hx-select="#songs-content">
+            <input class="input" type="text" name="q" placeholder="Search" value="{{.Query}}" hx-get="/admin/songs" hx-target="#songs-content" hx-select="#songs-content" hx-trigger="keyup changed delay:500ms">
+            <button class="button is-info" type="submit">Search</button>
+        </form>
+    </div>
+    <div id="songs-content">
+        {{template "pagination" .Page}}
+        {{range .Forms}}
+            {{template "form_admin_songs" .}}
+        {{end}}
+        {{template "pagination" .Page}}
+    </div>
+</section>
+{{end}}

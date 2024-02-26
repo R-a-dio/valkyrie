@@ -34,14 +34,14 @@ func NewSearchInput(s radio.SearchService, rs radio.RequestStorage, r *http.Requ
 	query := r.FormValue("q")
 	searchResult, err := s.Search(ctx, query, searchPageSize, offset)
 	if err != nil {
-		return nil, err
+		return nil, errors.E(op, err)
 	}
 
 	// TODO(wessie): check if this is the right identifier
 	identifier := r.RemoteAddr
 	lastRequest, err := rs.LastRequest(identifier)
 	if err != nil {
-		return nil, err
+		return nil, errors.E(op, err)
 	}
 
 	cd, ok := radio.CalculateCooldown(requestDelay, lastRequest)

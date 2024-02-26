@@ -137,6 +137,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		cfg,
 		dpass,
 		storage,
+		searchService,
 		siteTemplates,
 		executor,
 		sessionManager,

@@ -15,7 +15,7 @@
             <a class="navbar-item" href="/admin">Home</a>
             {{if .User.UserPermissions.Has "news"}}<a class="navbar-item" href="/admin/news">News</a>{{end}}
             {{if .User.UserPermissions.Has "pending_view"}}<a class="navbar-item" href="/admin/pending">Pending</a>{{end}}
-            {{if .User.UserPermissions.Has "database_view"}}<a class="navbar-item" href="/admin/database">Song Database</a>{{end}}
+            {{if .User.UserPermissions.Has "database_view"}}<a class="navbar-item" href="/admin/songs">Song Database</a>{{end}}
             {{if .User.UserPermissions.Has "admin"}}<a class="navbar-item" href="/admin/users">Users</a>{{end}}
             <a class="navbar-item" href="/admin/profile">Profile</a>
         </div>

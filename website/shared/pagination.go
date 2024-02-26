@@ -2,8 +2,11 @@ package shared
 
 import (
 	"html/template"
+	"net/http"
 	"net/url"
 	"strconv"
+
+	"github.com/R-a-dio/valkyrie/errors"
 )
 
 func PageCount(total, size int64) int64 {
@@ -12,6 +15,26 @@ func PageCount(total, size int64) int64 {
 		return full + 1
 	}
 	return full
+}
+
+func PageAndOffset(r *http.Request, pageSize int64) (int64, int64, error) {
+	var page int64 = 1
+	{
+		rawPage := r.FormValue("page")
+		if rawPage == "" {
+			return page, 0, nil
+		}
+		parsedPage, err := strconv.ParseInt(rawPage, 10, 0)
+		if err != nil {
+			return page, 0, errors.E(err, errors.InvalidForm)
+		}
+		page = parsedPage
+	}
+	var offset = (page - 1) * pageSize
+	if offset < 0 {
+		offset = 0
+	}
+	return page, offset, nil
 }
 
 func NewPagination(currentPage, totalPages int64, uri *url.URL) *Pagination {

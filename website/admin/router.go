@@ -20,6 +20,7 @@ func NewState(
 	cfg config.Config,
 	dp *daypass.Daypass,
 	storage radio.StorageService,
+	search radio.SearchService,
 	siteTmpl *templates.Site,
 	exec templates.Executor,
 	sessionManager *scs.SessionManager,
@@ -30,6 +31,7 @@ func NewState(
 		Config:           cfg,
 		Daypass:          dp,
 		Storage:          storage,
+		Search:           search,
 		Templates:        siteTmpl,
 		TemplateExecutor: exec,
 		SessionManager:   sessionManager,
@@ -43,6 +45,7 @@ type State struct {
 
 	Daypass          *daypass.Daypass
 	Storage          radio.StorageService
+	Search           radio.SearchService
 	Templates        *templates.Site
 	TemplateExecutor templates.Executor
 	SessionManager   *scs.SessionManager
@@ -52,13 +55,24 @@ type State struct {
 
 func Route(ctx context.Context, s State) func(chi.Router) {
 	return func(r chi.Router) {
+		// the login middleware will require atleast the active permission
 		r = r.With(s.Authentication.LoginMiddleware)
 		r.HandleFunc("/", s.GetHome)
 		r.Get("/profile", s.GetProfile)
 		r.Post("/profile", s.PostProfile)
-		r.Get("/pending", vmiddleware.RequirePermission(radio.PermPendingView, s.GetPending))
-		r.Post("/pending", vmiddleware.RequirePermission(radio.PermPendingEdit, s.PostPending))
-		r.Get("/pending-song/{SubmissionID:[0-9]+}", vmiddleware.RequirePermission(radio.PermPendingView, s.GetPendingSong))
+		r.Get("/pending",
+			vmiddleware.RequirePermission(radio.PermPendingView, s.GetPending))
+		r.Post("/pending",
+			vmiddleware.RequirePermission(radio.PermPendingEdit, s.PostPending))
+		r.Get("/pending-song/{SubmissionID:[0-9]+}",
+			vmiddleware.RequirePermission(radio.PermPendingView, s.GetPendingSong))
+		r.Get("/songs",
+			vmiddleware.RequirePermission(radio.PermDatabaseView, s.GetSongs))
+		r.Post("/songs",
+			vmiddleware.RequirePermission(radio.PermDatabaseEdit, s.PostSongs))
+		r.Delete("/songs",
+			vmiddleware.RequirePermission(radio.PermDatabaseDelete, s.DeleteSongs))
+
 		// debug handlers, might not be needed later
 		r.HandleFunc("/streamer/start", vmiddleware.RequirePermission(radio.PermAdmin, s.StartStreamer))
 		r.HandleFunc("/streamer/stop", vmiddleware.RequirePermission(radio.PermAdmin, s.StopStreamer))
