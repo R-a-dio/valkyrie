@@ -12,7 +12,6 @@ import (
 type HomeInput struct {
 	middleware.Input
 
-	Status     radio.Status
 	Queue      []radio.QueueEntry
 	LastPlayed []radio.Song
 	News       []radio.NewsPost
@@ -41,8 +40,6 @@ func (s State) getHome(w http.ResponseWriter, r *http.Request) error {
 
 	input := NewHomeInput(r)
 	ctx := r.Context()
-
-	input.Status = s.StatusValue.Latest()
 
 	queue, err := s.Streamer.Queue(ctx)
 	if err != nil {

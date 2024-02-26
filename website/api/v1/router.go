@@ -32,7 +32,8 @@ func NewAPI(ctx context.Context, cfg config.Config, templates templates.Executor
 		song:      song,
 	}
 
-	go api.runSSE(ctx)
+	// start up status updates
+	api.runStatusUpdates(ctx)
 
 	return api, nil
 }

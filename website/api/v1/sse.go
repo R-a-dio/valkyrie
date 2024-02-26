@@ -11,7 +11,6 @@ import (
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
-	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/util/sse"
@@ -19,40 +18,8 @@ import (
 	"github.com/rs/zerolog/hlog"
 )
 
-func prepareStream[T any](ctx context.Context, fn func(context.Context) (T, error)) (T, error) {
-	for {
-		s, err := fn(ctx)
-		if err == nil {
-			return s, nil
-		}
-		zerolog.Ctx(ctx).Error().Err(err).Msg("failed to prepare stream")
-
-		select {
-		case <-ctx.Done():
-			return s, ctx.Err()
-		case <-time.After(time.Second * 3):
-		}
-	}
-}
-
-func (a *API) runSSE(ctx context.Context) {
-	for {
-		err := a.runStatusUpdates(ctx)
-		if errors.IsE(err, context.Canceled) {
-			return
-		}
-	}
-}
-
-func (a *API) runStatusUpdates(ctx context.Context) error {
-	const op errors.Op = "website/api/v1/API.runSongUpdates"
-
-	log := zerolog.Ctx(ctx).With().Str("sse", "song").Logger()
-
-	statusStream, err := prepareStream(ctx, a.manager.CurrentStatus)
-	if err != nil {
-		return errors.E(op, err)
-	}
+func (a *API) runStatusUpdates(ctx context.Context) {
+	log := zerolog.Ctx(ctx).With().Str("sse", "updates").Logger()
 
 	var previous radio.Status
 
@@ -64,20 +31,15 @@ func (a *API) runStatusUpdates(ctx context.Context) error {
 		a.sse.SendListeners(i)
 	})
 
-	for {
-		status, err := statusStream.Next()
-		if err != nil {
-			log.Error().Err(err).Msg("source failure")
-			break
-		}
-
+	_ = util.StreamValue(ctx, a.manager.CurrentStatus, func(ctx context.Context, status radio.Status) {
+		// if status is zero it probably means it was an initial value or there is no stream
+		// either way skip the propagation to the sse stream
 		if status.IsZero() {
 			log.Debug().Msg("zero value")
-			continue
+			return
 		}
 
-		// only send events if the relevant data to said event has changed
-		// since our previous status
+		// only pass an update through if the song is different from the previous one
 		if !status.Song.EqualTo(previous.Song) {
 			log.Debug().Str("event", EventMetadata).Any("value", status).Msg("sending")
 			a.sse.SendNowPlaying(status)
@@ -85,6 +47,7 @@ func (a *API) runStatusUpdates(ctx context.Context) error {
 			go a.sendLastPlayed(ctx)
 		}
 
+		// same goes for the user one, only pass it through if the user actually changed
 		if status.User.ID != previous.User.ID {
 			log.Debug().Str("event", EventStreamer).Any("value", status.User).Msg("sending")
 			a.sse.SendStreamer(status.User)
@@ -93,9 +56,7 @@ func (a *API) runStatusUpdates(ctx context.Context) error {
 		}
 
 		previous = status
-	}
-
-	return nil
+	})
 }
 
 func (a *API) sendQueue(ctx context.Context) {

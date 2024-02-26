@@ -11,6 +11,7 @@ import (
 	"github.com/R-a-dio/valkyrie/search"
 	"github.com/R-a-dio/valkyrie/storage"
 	"github.com/R-a-dio/valkyrie/templates"
+	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/util/daypass"
 	"github.com/R-a-dio/valkyrie/website/admin"
 	phpapi "github.com/R-a-dio/valkyrie/website/api/php"
@@ -52,6 +53,9 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	// RPC clients
 	streamer := cfg.Conf().Streamer.Client()
 	manager := cfg.Conf().Manager.Client()
+
+	// RPC values
+	statusValue := util.StreamValue(ctx, manager.CurrentStatus)
 	// templates
 	siteTemplates, err := templates.FromDirectory(cfg.Conf().TemplatePath)
 	if err != nil {
@@ -93,7 +97,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	authentication := vmiddleware.NewAuthentication(storage, executor, sessionManager)
 	r.Use(authentication.UserMiddleware)
 	// shared input handling, stuff the base template needs
-	r.Use(vmiddleware.InputMiddleware(cfg))
+	r.Use(vmiddleware.InputMiddleware(cfg, statusValue))
 	// theme state management
 	r.Use(templates.ThemeCtx(storage))
 
@@ -112,7 +116,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	// it's mostly self-contained to the /api/* route, except for /request that
 	// leaked out at some point
 	logger.Info().Str("event", "init").Str("part", "api_v0").Msg("")
-	v0, err := phpapi.NewAPI(ctx, cfg, storage, streamer, manager)
+	v0, err := phpapi.NewAPI(ctx, cfg, storage, streamer, statusValue)
 	if err != nil {
 		return errors.E(op, err)
 	}

@@ -14,7 +14,7 @@ type inputKey struct{}
 
 // InputMiddleware generates an Input for each request and makes it available
 // through InputFromRequest
-func InputMiddleware(cfg config.Config) func(http.Handler) http.Handler {
+func InputMiddleware(cfg config.Config, status *util.Value[radio.Status]) func(http.Handler) http.Handler {
 	PublicStreamURL := template.URL(cfg.Conf().Website.PublicStreamURL)
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -26,6 +26,7 @@ func InputMiddleware(cfg config.Config) func(http.Handler) http.Handler {
 				IsUser:    user != nil,
 				User:      user,
 				StreamURL: PublicStreamURL,
+				Status:    status.Latest(),
 			}
 
 			ctx = context.WithValue(ctx, inputKey{}, input)
@@ -37,7 +38,11 @@ func InputMiddleware(cfg config.Config) func(http.Handler) http.Handler {
 
 // InputFromRequest returns the Input associated with the request
 func InputFromRequest(r *http.Request) Input {
-	v := r.Context().Value(inputKey{})
+	return InputFromContext(r.Context())
+}
+
+func InputFromContext(ctx context.Context) Input {
+	v := ctx.Value(inputKey{})
 	if v == nil {
 		return Input{}
 	}
@@ -49,6 +54,7 @@ type Input struct {
 	IsUser    bool
 	IsHTMX    bool
 	User      *radio.User
+	Status    radio.Status
 	StreamURL template.URL
 }
 

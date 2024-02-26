@@ -26,9 +26,7 @@ import (
 )
 
 func NewAPI(ctx context.Context, cfg config.Config, storage radio.StorageService,
-	streamer radio.StreamerService, manager radio.ManagerService) (*API, error) {
-
-	statusValue := util.StreamValue(ctx, manager.CurrentStatus)
+	streamer radio.StreamerService, statusValue *util.Value[radio.Status]) (*API, error) {
 
 	status, err := newV0Status(ctx, storage, streamer, statusValue)
 	if err != nil {

@@ -7,7 +7,6 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/templates"
-	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/util/daypass"
 	"github.com/rs/zerolog/hlog"
 
@@ -25,27 +24,25 @@ func NewState(
 	search radio.SearchService) State {
 
 	return State{
-		Config:      cfg,
-		Daypass:     dp,
-		Templates:   exec,
-		Manager:     manager,
-		Streamer:    streamer,
-		Storage:     storage,
-		Search:      search,
-		StatusValue: util.StreamValue(ctx, manager.CurrentStatus),
+		Config:    cfg,
+		Daypass:   dp,
+		Templates: exec,
+		Manager:   manager,
+		Streamer:  streamer,
+		Storage:   storage,
+		Search:    search,
 	}
 }
 
 type State struct {
 	config.Config
 
-	Daypass     *daypass.Daypass
-	Templates   templates.Executor
-	Manager     radio.ManagerService
-	Streamer    radio.StreamerService
-	Storage     radio.StorageService
-	Search      radio.SearchService
-	StatusValue *util.Value[radio.Status]
+	Daypass   *daypass.Daypass
+	Templates templates.Executor
+	Manager   radio.ManagerService
+	Streamer  radio.StreamerService
+	Storage   radio.StorageService
+	Search    radio.SearchService
 }
 
 func (s *State) errorHandler(w http.ResponseWriter, r *http.Request, err error) {
