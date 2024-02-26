@@ -42,6 +42,10 @@ htmx.on('htmx:load', (event) => {
     document.querySelectorAll(".is-hidden-without-js").forEach((elt) => {
         elt.classList.remove("is-hidden-without-js");
     });
+    // hide any elements that want to be hidden if there is javascript
+    document.querySelectorAll(".is-hidden-with-js").forEach((elt) => {
+        elt.classList.add("is-hidden")
+    });
     // update any progress or times
     updateTimes();
     updateProgress();
