@@ -50,7 +50,7 @@ func (ns NewsStorage) Get(id radio.NewsPostID) (*radio.NewsPost, error) {
 	if err != nil {
 		return &post, nil
 	}
-	post.User = user
+	post.User = *user
 
 	return &post, nil
 }
