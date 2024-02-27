@@ -251,8 +251,78 @@ func (ns NewsStorage) ListPublic(limit int, offset int) (radio.NewsList, error) 
 }
 
 // Comments implements radio.NewsStorage
-func (ns NewsStorage) Comments(radio.NewsPostID) ([]radio.NewsComment, error) {
+func (ns NewsStorage) Comments(postid radio.NewsPostID) ([]radio.NewsComment, error) {
 	const op errors.Op = "mariadb/NewsStorage.Comments"
-	_ = op
-	return nil, nil
+
+	var query = `
+	SELECT
+		radio_comments.id AS id,
+		radio_comments.news_id AS postid,
+		radio_comments.comment AS body,
+		radio_comments.ip AS identifier,
+		radio_comments.user_id AS userid,
+		radio_comments.created_at AS created_at,
+		radio_comments.deleted_at AS deleted_at,
+		radio_comments.updated_at AS updated_at
+	FROM
+		radio_comments
+	WHERE
+		radio_comments.news_id = ?
+	ORDER BY
+		radio_comments.created_at DESC;
+	`
+
+	var comments = []radio.NewsComment{}
+
+	err := sqlx.Select(ns.handle, &comments, query, postid)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	for _, comm := range comments {
+		if comm.UserID == nil {
+			continue
+		}
+
+		comm.User, err = UserStorage(ns).GetByID(*comm.UserID)
+		// if the user doesn't exist just omit the data
+		if err != nil && !errors.Is(errors.UserUnknown, err) {
+			return nil, errors.E(op, err)
+		}
+	}
+
+	return comments, nil
+}
+
+// CommentsPublic implements radio.NewsStorage
+func (ns NewsStorage) CommentsPublic(postid radio.NewsPostID) ([]radio.NewsComment, error) {
+	const op errors.Op = "mariadb/NewsStorage.Comments"
+
+	var query = `
+	SELECT
+		radio_comments.id AS id,
+		radio_comments.news_id AS postid,
+		radio_comments.comment AS body,
+		radio_comments.ip AS identifier,
+		radio_comments.user_id AS userid,
+		radio_comments.created_at AS created_at,
+		radio_comments.deleted_at AS deleted_at,
+		radio_comments.updated_at AS updated_at
+	FROM
+		radio_comments
+	WHERE
+		radio_comments.news_id = ? AND
+		radio_comments.deleted_at IS NULL
+	ORDER BY
+		radio_comments.created_at DESC;
+	`
+
+	var comments = []radio.NewsComment{}
+
+	err := sqlx.Select(ns.handle, &comments, query, postid)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	return comments, nil
 }

@@ -18,6 +18,7 @@ import (
 	v1 "github.com/R-a-dio/valkyrie/website/api/v1"
 	vmiddleware "github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/R-a-dio/valkyrie/website/public"
+	"github.com/R-a-dio/valkyrie/website/shared"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
 	"github.com/spf13/afero"
@@ -69,6 +70,8 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	if err != nil {
 		return errors.E(op, err)
 	}
+	// cache for news posts
+	newsCache := shared.NewNewsCache()
 
 	r := NewRouter()
 
@@ -136,6 +139,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		ctx,
 		cfg,
 		dpass,
+		newsCache,
 		storage,
 		searchService,
 		siteTemplates,
@@ -150,6 +154,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		ctx,
 		cfg,
 		dpass,
+		newsCache,
 		executor,
 		manager,
 		streamer,

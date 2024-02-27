@@ -8,6 +8,7 @@ import (
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/R-a-dio/valkyrie/util/daypass"
+	"github.com/R-a-dio/valkyrie/website/shared"
 	"github.com/rs/zerolog/hlog"
 
 	"github.com/go-chi/chi/v5"
@@ -17,6 +18,7 @@ func NewState(
 	ctx context.Context,
 	cfg config.Config,
 	dp *daypass.Daypass,
+	newsCache *shared.NewsCache,
 	exec templates.Executor,
 	manager radio.ManagerService,
 	streamer radio.StreamerService,
@@ -26,6 +28,7 @@ func NewState(
 	return State{
 		Config:    cfg,
 		Daypass:   dp,
+		News:      newsCache,
 		Templates: exec,
 		Manager:   manager,
 		Streamer:  streamer,
@@ -38,6 +41,7 @@ type State struct {
 	config.Config
 
 	Daypass   *daypass.Daypass
+	News      *shared.NewsCache
 	Templates templates.Executor
 	Manager   radio.ManagerService
 	Streamer  radio.StreamerService

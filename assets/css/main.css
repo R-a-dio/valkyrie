@@ -195,3 +195,7 @@ span {
     background-color: hsl(0, 0%, 96%);
     border-top: 2px solid hsl(0, 0%, 90%);
 }
+
+.green-text {
+    color: #789922;
+}

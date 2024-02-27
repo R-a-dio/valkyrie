@@ -864,6 +864,7 @@ type NewsComment struct {
 	Identifier string
 
 	// Optional, only filled if an account-holder comments
+	UserID    *UserID
 	User      *User
 	DeletedAt *time.Time
 	CreatedAt time.Time

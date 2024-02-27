@@ -9,6 +9,7 @@ import (
 	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/R-a-dio/valkyrie/util/daypass"
 	vmiddleware "github.com/R-a-dio/valkyrie/website/middleware"
+	"github.com/R-a-dio/valkyrie/website/shared"
 	"github.com/spf13/afero"
 
 	"github.com/alexedwards/scs/v2"
@@ -19,6 +20,7 @@ func NewState(
 	_ context.Context,
 	cfg config.Config,
 	dp *daypass.Daypass,
+	newsCache *shared.NewsCache,
 	storage radio.StorageService,
 	search radio.SearchService,
 	siteTmpl *templates.Site,
@@ -30,6 +32,7 @@ func NewState(
 	return State{
 		Config:           cfg,
 		Daypass:          dp,
+		News:             newsCache,
 		Storage:          storage,
 		Search:           search,
 		Templates:        siteTmpl,
@@ -44,6 +47,7 @@ type State struct {
 	config.Config
 
 	Daypass          *daypass.Daypass
+	News             *shared.NewsCache
 	Storage          radio.StorageService
 	Search           radio.SearchService
 	Templates        *templates.Site

@@ -256,6 +256,9 @@ func (us UserStorage) GetByID(id radio.UserID) (*radio.User, error) {
 
 	err := sqlx.Get(us.handle, &user, query, id)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, errors.E(op, errors.UserUnknown)
+		}
 		return nil, errors.E(op, err)
 	}
 	return &user, nil
