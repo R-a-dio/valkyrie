@@ -10,34 +10,21 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/util/pool"
+	"github.com/R-a-dio/valkyrie/website/shared/markdown"
 	"github.com/yuin/goldmark"
-	"github.com/yuin/goldmark/parser"
-	goldutil "github.com/yuin/goldmark/util"
 )
 
 func NewNewsCache() *NewsCache {
 	return &NewsCache{
 		trusted: goldmark.New(
-			goldmark.WithParser(NoBlockQuoteParser()),
-			goldmark.WithParserOptions(
-				parser.WithInlineParsers(
-					goldutil.Prioritized(&MemeQuoteParser{}, 1),
-				),
-			),
-			goldmark.WithRendererOptions(
-			//html.WithUnsafe(), // TODO: see if we want to enable this
-			),
+			markdown.RadioMarkdownOptions()...,
+		//goldmark.WithRendererOptions(
+		//html.WithUnsafe(), // TODO: see if we want to enable this
+		//),
 		),
-		untrusted: goldmark.New(
-			goldmark.WithParser(NoBlockQuoteParser()),
-			goldmark.WithParserOptions(
-				parser.WithInlineParsers(
-					goldutil.Prioritized(&MemeQuoteParser{}, 1),
-				),
-			),
-		),
-		pool:  pool.NewResetPool(func() *bytes.Buffer { return new(bytes.Buffer) }),
-		cache: new(util.Map[newsCacheKey, NewsMarkdown]),
+		untrusted: goldmark.New(markdown.RadioMarkdownOptions()...),
+		pool:      pool.NewResetPool(func() *bytes.Buffer { return new(bytes.Buffer) }),
+		cache:     new(util.Map[newsCacheKey, NewsMarkdown]),
 	}
 }
 

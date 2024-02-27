@@ -9,35 +9,78 @@ import (
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/R-a-dio/valkyrie/website/shared"
 	"github.com/go-chi/chi/v5"
 )
 
+const newsPageSize = 20
+
 type NewsInput struct {
 	middleware.Input
 
-	News radio.NewsList
+	News      []NewsInputPost
+	NewsTotal int
+	Page      *shared.Pagination
+}
+
+type NewsInputPost struct {
+	ID     radio.NewsPostID
+	Title  string
+	Header template.HTML
+	User   radio.User
+
+	CreatedAt time.Time
+	UpdatedAt *time.Time
 }
 
 func (NewsInput) TemplateBundle() string {
 	return "news"
 }
 
-func NewNewsInput(s radio.NewsStorageService, r *http.Request) (*NewsInput, error) {
-	entries, err := s.News(r.Context()).ListPublic(20, 0)
+func NewNewsInput(cache *shared.NewsCache, ns radio.NewsStorageService, r *http.Request) (*NewsInput, error) {
+	const op errors.Op = "website/public.NewNewsInput"
+
+	page, offset, err := shared.PageAndOffset(r, newsPageSize)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	entries, err := ns.News(r.Context()).ListPublic(newsPageSize, offset)
 	if err != nil {
 		return nil, err
 	}
 
+	posts := make([]NewsInputPost, 0, len(entries.Entries))
+	for _, post := range entries.Entries {
+		md, err := cache.RenderHeader(post)
+		if err != nil {
+			return nil, err
+		}
+
+		posts = append(posts, NewsInputPost{
+			ID:        post.ID,
+			Title:     post.Title,
+			Header:    md.Output,
+			User:      post.User,
+			CreatedAt: post.CreatedAt,
+			UpdatedAt: post.UpdatedAt,
+		})
+	}
+
 	return &NewsInput{
-		Input: middleware.InputFromRequest(r),
-		News:  entries,
+		Input:     middleware.InputFromRequest(r),
+		News:      posts,
+		NewsTotal: entries.Total,
+		Page: shared.NewPagination(page, shared.PageCount(int64(entries.Total), newsPageSize),
+			r.URL,
+		),
 	}, nil
 }
 
 func (s State) GetNews(w http.ResponseWriter, r *http.Request) {
-	input, err := NewNewsInput(s.Storage, r)
+	input, err := NewNewsInput(s.News, s.Storage, r)
 	if err != nil {
 		s.errorHandler(w, r, err)
 		return

@@ -4,10 +4,22 @@
         <div class="title has-text-centered mb-6 is-hidden-mobile">
             <h3>News Archive</h3>
         </div>
-        <div class="columns is-multiline">
-            {{range $news := $.News.Entries}}
+        <div id="news-content" hx-boost="true" hx-push-url="true" hx-target="#content" class="columns is-multiline">
+            {{range $news := $.News}}
                 {{template "news-post" $news}}
             {{end}}
+            {{with .Page.Next 1}}
+            <div id="news-scroll"
+                hx-push-url="false"
+                hx-trigger="intersect once"
+                hx-get="{{.URL}}"
+                hx-select="#news-content>div"
+                hx-target="#news-content"
+                hx-swap="beforeend"></div>
+            {{end}}
+        </div>
+        <div class="is-hidden-with-js">
+            {{template "pagination" .Page}}
         </div>
     </div>
 </section>
@@ -25,7 +37,7 @@
                 <span class="has-text-left"></span>
                 <time datetime="{{.CreatedAt.Unix}}" data-type="absolute">{{.CreatedAt | AbsoluteDate}}</time>
             </div>
-            <div class="message-body pt-0 disable-message-border">{{.HeaderParsed}}</div>
+            <div class="message-body pt-0 disable-message-border">{{.Header}}</div>
         </article>
     </a>
 </div>

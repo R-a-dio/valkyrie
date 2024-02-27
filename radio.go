@@ -786,10 +786,10 @@ type NewsStorage interface {
 	Delete(NewsPostID) error
 	// List returns a list of news post starting at offset and returning up to
 	// limit amount of posts, chronologically sorted by creation date
-	List(limit int, offset int) (NewsList, error)
+	List(limit int64, offset int64) (NewsList, error)
 	// ListPublic returns the same thing as List but with deleted and private
 	// posts filtered out
-	ListPublic(limit int, offset int) (NewsList, error)
+	ListPublic(limit int64, offset int64) (NewsList, error)
 	// Comments returns all comments associated with the news post given
 	Comments(NewsPostID) ([]NewsComment, error)
 }

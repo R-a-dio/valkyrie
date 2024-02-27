@@ -162,7 +162,7 @@ func (ns NewsStorage) Delete(id radio.NewsPostID) error {
 }
 
 // List implements radio.NewsStorage
-func (ns NewsStorage) List(limit int, offset int) (radio.NewsList, error) {
+func (ns NewsStorage) List(limit int64, offset int64) (radio.NewsList, error) {
 	const op errors.Op = "mariadb/NewsStorage.List"
 
 	var query = `
@@ -205,7 +205,7 @@ func (ns NewsStorage) List(limit int, offset int) (radio.NewsList, error) {
 }
 
 // ListPublic implements radio.NewsStorage
-func (ns NewsStorage) ListPublic(limit int, offset int) (radio.NewsList, error) {
+func (ns NewsStorage) ListPublic(limit int64, offset int64) (radio.NewsList, error) {
 	const op errors.Op = "mariadb/NewsStorage.ListPublic"
 
 	var query = `
