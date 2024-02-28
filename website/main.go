@@ -2,8 +2,11 @@ package website
 
 import (
 	"context"
+	"io/fs"
 	"net"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/R-a-dio/valkyrie/config"
@@ -112,8 +115,9 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	r.Get("/R-a-dio", RedirectLegacyStream)
 
 	// serve assets from the assets directory
-	fs := http.FileServer(http.Dir(cfg.Conf().AssetsPath))
-	r.Handle("/assets/*", http.StripPrefix("/assets/", fs))
+	r.Handle("/assets/*", http.StripPrefix("/assets/",
+		AssetsHandler(cfg.Conf().AssetsPath, siteTemplates)),
+	)
 
 	// version 0 of the api (the legacy PHP version)
 	// it's mostly self-contained to the /api/* route, except for /request that
@@ -221,4 +225,43 @@ func removePortFromAddress(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func AssetsHandler(assetsPath string, site *templates.Site) http.Handler {
+	base := os.DirFS(assetsPath)
+
+	return http.FileServer(http.FS(assetsFS{base, site}))
+}
+
+type assetsFS struct {
+	base fs.FS
+	site interface {
+		Theme(name string) templates.ThemeBundle
+	}
+}
+
+func (fsys assetsFS) Open(name string) (fs.File, error) {
+	// try our valkyrie assets first
+	f, err := fsys.base.Open(name)
+	if err == nil {
+		return f, nil
+	}
+
+	// if it errored but wasn't a file not existing error we just
+	// return the error as is
+	if !errors.IsE(err, fs.ErrNotExist) {
+		return nil, err
+	}
+
+	// otherwise, no file exists in the base assets, so try and find it
+	// in theme specific assets
+	theme, rest, found := strings.Cut(name, "/")
+	if !found {
+		// if there was no cut it means we don't have anything behind the separator so
+		// there is no name to even try, just NotExist.
+		return nil, fs.ErrNotExist
+	}
+
+	// find theme and pass through the assets fs
+	return fsys.site.Theme(theme).Assets().Open(rest)
 }

@@ -22,6 +22,8 @@ import (
 const (
 	// the extension used for template files
 	TEMPLATE_EXT = ".tmpl"
+	// the directory for static assets
+	ASSETS_DIR = "assets"
 	// the directory name used for partial templates, these are under <theme>/partials
 	PARTIAL_DIR = "partials"
 	// the directory name for form templates, these are under <theme>/forms
@@ -200,8 +202,10 @@ type TemplateBundle struct {
 
 // Files returns all the files in this bundle sorted in load-order
 func (tb *TemplateBundle) Files() []string {
-	s := make([]string, 0, len(tb.base)+len(tb.defaultPartials)+len(tb.partials)+2)
+	s := make([]string, 0, len(tb.base)+len(tb.defaultForms)+len(tb.forms)+len(tb.defaultPartials)+len(tb.partials)+2)
 	s = append(s, tb.base...)
+	s = append(s, tb.defaultForms...)
+	s = append(s, tb.forms...)
 	s = append(s, tb.defaultPartials...)
 	s = append(s, tb.partials...)
 	if tb.defaultPage != "" {
@@ -234,8 +238,9 @@ type Themes map[string]ThemeBundle
 
 // ThemeBundle
 type ThemeBundle struct {
-	name  string
-	pages map[string]*TemplateBundle
+	name   string
+	pages  map[string]*TemplateBundle
+	assets fs.FS
 }
 
 func (tb ThemeBundle) Page(name string) (*TemplateBundle, error) {
@@ -247,6 +252,19 @@ func (tb ThemeBundle) Page(name string) (*TemplateBundle, error) {
 	}
 
 	return tlb, nil
+}
+
+type noopFS struct{}
+
+func (noopFS) Open(string) (fs.File, error) {
+	return nil, fs.ErrNotExist
+}
+
+func (tb ThemeBundle) Assets() fs.FS {
+	if tb.assets == nil {
+		return noopFS{}
+	}
+	return tb.assets
 }
 
 type loadState struct {
@@ -287,6 +305,12 @@ func LoadThemes(fsys fs.FS) (Themes, error) {
 		break
 	}
 
+	// get the assets directory fs
+	assets, err := fs.Sub(fsys, path.Join(DEFAULT_DIR, ASSETS_DIR))
+	if err != nil && !errors.IsE(err, os.ErrNotExist) {
+		return nil, errors.E(op, err)
+	}
+
 	// read the rest of the directories
 	subdirs, err := readDirFilterString(fsys, ".", func(e fs.DirEntry) bool {
 		isExcluded := strings.HasPrefix(e.Name(), ".")
@@ -296,9 +320,11 @@ func LoadThemes(fsys fs.FS) (Themes, error) {
 		return nil, errors.E(op, err)
 	}
 
+	// add our default directory that we loaded above as a ThemeBundle
 	themes := Themes{
-		DEFAULT_DIR: ThemeBundle{DEFAULT_DIR, state.defaultBundle},
+		DEFAULT_DIR: ThemeBundle{DEFAULT_DIR, state.defaultBundle, assets},
 	}
+	// then read the rest of the themes
 	for _, subdir := range subdirs {
 		if subdir == DEFAULT_DIR { // skip the default dir since we already loaded it earlier
 			continue
@@ -308,9 +334,15 @@ func LoadThemes(fsys fs.FS) (Themes, error) {
 			return nil, errors.E(op, err)
 		}
 
+		assets, err := fs.Sub(fsys, path.Join(subdir, ASSETS_DIR))
+		if err != nil && !errors.IsE(err, os.ErrNotExist) {
+			return nil, errors.E(op, err)
+		}
+
 		themes[subdir] = ThemeBundle{
-			name:  subdir,
-			pages: bundles,
+			name:   subdir,
+			pages:  bundles,
+			assets: assets,
 		}
 	}
 
