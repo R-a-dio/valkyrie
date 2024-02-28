@@ -22,10 +22,14 @@ import (
 const (
 	// the extension used for template files
 	TEMPLATE_EXT = ".tmpl"
-	// the directory name used for shared templates inside of a subdirectory
+	// the directory name used for partial templates, these are under <theme>/partials
 	PARTIAL_DIR = "partials"
+	// the directory name for form templates, these are under <theme>/forms
+	FORMS_DIR = "forms"
 	// directory name of the default templates
-	DEFAULT_DIR = "default"
+	DEFAULT_DIR = "default-light"
+	// the prefix used on themes that are for the admin panel
+	ADMIN_PREFIX = "admin-"
 )
 
 // Site is an overarching struct containing all the themes of the website.
@@ -166,8 +170,7 @@ func FromFS(fsys fs.FS) (*Site, error) {
 
 	var err error
 	tmpl := Site{
-		fs: fsys,
-		//bufferPool: NewPool(func() *bytes.Buffer { return new(bytes.Buffer) }),
+		fs:    fsys,
 		cache: make(map[string]*template.Template),
 	}
 
@@ -187,6 +190,8 @@ type TemplateBundle struct {
 	// the following fields contain all the filenames of the templates we're parsing
 	// into a html/template.Template. They're listed in load-order, last one wins.
 	base            []string
+	defaultForms    []string
+	forms           []string
 	defaultPartials []string
 	partials        []string
 	defaultPage     string
@@ -249,6 +254,7 @@ type loadState struct {
 
 	baseTemplates   []string
 	defaultPartials []string
+	defaultForms    []string
 	defaultBundle   map[string]*TemplateBundle
 }
 
@@ -277,11 +283,15 @@ func LoadThemes(fsys fs.FS) (Themes, error) {
 	// grab the partials from any template bundle
 	for _, v := range state.defaultBundle {
 		state.defaultPartials = v.partials
+		state.defaultForms = v.forms
 		break
 	}
 
 	// read the rest of the directories
-	subdirs, err := readDirFilterString(fsys, ".", func(e fs.DirEntry) bool { return e.IsDir() })
+	subdirs, err := readDirFilterString(fsys, ".", func(e fs.DirEntry) bool {
+		isExcluded := strings.HasPrefix(e.Name(), ".")
+		return !isExcluded && e.IsDir()
+	})
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
@@ -324,12 +334,28 @@ func (ls loadState) loadSubDir(dir string) (map[string]*TemplateBundle, error) {
 		fs:              ls.fs,
 		base:            ls.baseTemplates,
 		defaultPartials: ls.defaultPartials,
+		defaultForms:    ls.defaultForms,
 	}
+
+	// read the forms subdirectory
+	formDir := path.Join(dir, FORMS_DIR)
+
+	entries, err := readDirFilter(ls.fs, formDir, isTemplate)
+	if err != nil && !errors.IsE(err, fs.ErrNotExist) {
+		return nil, errors.E(op, err)
+	}
+
+	var forms = make([]string, 0, len(entries))
+	for _, entry := range entries {
+		forms = append(forms, path.Join(formDir, entry.Name()))
+	}
+
+	bundle.forms = forms
 
 	// read the partials subdirectory
 	partialDir := path.Join(dir, PARTIAL_DIR)
 
-	entries, err := readDirFilter(ls.fs, partialDir, isTemplate)
+	entries, err = readDirFilter(ls.fs, partialDir, isTemplate)
 	if err != nil && !errors.IsE(err, fs.ErrNotExist) {
 		return nil, errors.E(op, err)
 	}

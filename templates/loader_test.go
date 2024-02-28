@@ -129,10 +129,10 @@ base
 {{ template "empty" }}
 {{ template "empty_part" }}
 {{ end }}
--- default/default.tmpl --
+-- default-light/default.tmpl --
 {{ define "empty" }}
 {{ end }}
--- default/partials/empty.tmpl --
+-- default-light/partials/empty.tmpl --
 {{ define "empty_part" }}
 empty
 {{ end }}`))}, false, true},
