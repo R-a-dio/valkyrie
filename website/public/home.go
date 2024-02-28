@@ -14,7 +14,7 @@ type HomeInput struct {
 
 	Queue      []radio.QueueEntry
 	LastPlayed []radio.Song
-	News       []radio.NewsPost
+	News       []NewsInputPost
 }
 
 func NewHomeInput(r *http.Request) HomeInput {
@@ -57,7 +57,11 @@ func (s State) getHome(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return errors.E(op, errors.InternalServer, err)
 	}
-	input.News = news.Entries
+
+	input.News, err = AsNewsInputPost(ctx, s.News, news.Entries)
+	if err != nil {
+		return errors.E(op, errors.InternalServer)
+	}
 
 	return s.Templates.Execute(w, r, input)
 }

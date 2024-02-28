@@ -1,6 +1,7 @@
 package public
 
 import (
+	"context"
 	"crypto/sha1"
 	"fmt"
 	"html/template"
@@ -13,6 +14,7 @@ import (
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/R-a-dio/valkyrie/website/shared"
 	"github.com/go-chi/chi/v5"
+	"go.opentelemetry.io/otel/trace"
 )
 
 const newsPageSize = 20
@@ -39,21 +41,12 @@ func (NewsInput) TemplateBundle() string {
 	return "news"
 }
 
-func NewNewsInput(cache *shared.NewsCache, ns radio.NewsStorageService, r *http.Request) (*NewsInput, error) {
-	const op errors.Op = "website/public.NewNewsInput"
+func AsNewsInputPost(ctx context.Context, cache *shared.NewsCache, entries []radio.NewsPost) ([]NewsInputPost, error) {
+	ctx, span := trace.SpanFromContext(ctx).TracerProvider().Tracer("markdown").Start(ctx, "markdown")
+	defer span.End()
 
-	page, offset, err := shared.PageAndOffset(r, newsPageSize)
-	if err != nil {
-		return nil, errors.E(op, err)
-	}
-
-	entries, err := ns.News(r.Context()).ListPublic(newsPageSize, offset)
-	if err != nil {
-		return nil, err
-	}
-
-	posts := make([]NewsInputPost, 0, len(entries.Entries))
-	for _, post := range entries.Entries {
+	posts := make([]NewsInputPost, 0, len(entries))
+	for _, post := range entries {
 		md, err := cache.RenderHeader(post)
 		if err != nil {
 			return nil, err
@@ -68,9 +61,30 @@ func NewNewsInput(cache *shared.NewsCache, ns radio.NewsStorageService, r *http.
 			UpdatedAt: post.UpdatedAt,
 		})
 	}
+	return posts, nil
+}
+
+func NewNewsInput(cache *shared.NewsCache, ns radio.NewsStorageService, r *http.Request) (*NewsInput, error) {
+	const op errors.Op = "website/public.NewNewsInput"
+	ctx := r.Context()
+
+	page, offset, err := shared.PageAndOffset(r, newsPageSize)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	entries, err := ns.News(r.Context()).ListPublic(newsPageSize, offset)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	posts, err := AsNewsInputPost(ctx, cache, entries.Entries)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
 
 	return &NewsInput{
-		Input:     middleware.InputFromRequest(r),
+		Input:     middleware.InputFromContext(ctx),
 		News:      posts,
 		NewsTotal: entries.Total,
 		Page: shared.NewPagination(page, shared.PageCount(int64(entries.Total), newsPageSize),
@@ -142,16 +156,20 @@ func NewNewsEntryInput(cache *shared.NewsCache, ns radio.NewsStorage, r *http.Re
 		return nil, err
 	}
 
+	ctx, span := trace.SpanFromContext(ctx).TracerProvider().Tracer("markdown").Start(ctx, "markdown")
 	nm, err := cache.RenderBody(*post)
 	if err != nil {
+		span.End()
 		return nil, err
 	}
+	span.End()
 
 	raw, err := ns.Comments(post.ID)
 	if err != nil {
 		return nil, err
 	}
 
+	ctx, span = trace.SpanFromContext(ctx).TracerProvider().Tracer("markdown").Start(ctx, "markdown")
 	comments := make([]NewsEntryComment, 0, len(raw))
 	for _, comm := range raw {
 		if comm.DeletedAt != nil {
@@ -160,6 +178,7 @@ func NewNewsEntryInput(cache *shared.NewsCache, ns radio.NewsStorage, r *http.Re
 
 		nm, err := cache.RenderComment(comm)
 		if err != nil {
+			span.End()
 			return nil, err
 		}
 		comments = append(comments, NewsEntryComment{
@@ -173,6 +192,7 @@ func NewNewsEntryInput(cache *shared.NewsCache, ns radio.NewsStorage, r *http.Re
 			UpdatedAt:  comm.UpdatedAt,
 		})
 	}
+	span.End()
 
 	return &NewsEntryInput{
 		Input: middleware.InputFromContext(ctx),
