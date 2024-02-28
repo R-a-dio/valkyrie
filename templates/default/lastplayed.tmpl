@@ -17,13 +17,18 @@
 
 {{define "song"}}
 <div class="block has-background-white-ter song-info disable-pointer">
-    <a href="/search?q={{.Title}}" style="color: initial;">
+    <a href="/search?q={{.Title}}" style="color: unset;">
         <div class="columns is-vcentered has-text-centered">
             <div class="column is-hidden-mobile is-narrow py-0 my-0">
                 <div class="image is-64x64">
+                    {{if .LastPlayedBy}}
                     {{with .LastPlayedBy}}
                     <img class="dj-image" src="/api/dj-image/{{.DJ.Image}}" />
                     <div class="dj-image-name-64">{{.DJ.Name}}</div>
+                    {{end}}
+                    {{else}}
+                    <img class="dj-image" src="/assets/images/mystery-dj.png" />
+                    <div class="dj-image-name-64">Unknown</div>
                     {{end}}
                 </div>
             </div>
