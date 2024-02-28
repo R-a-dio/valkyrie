@@ -120,25 +120,18 @@ span {
 }
 
 .dj-image-name-64 {
-    position: relative;
+    position: absolute;
     top: 0px;
+    left: 50%;
+    transform: translateX(-50%);
     opacity: 0;
     transition: all 0.1s ease-out 0.1s;
     pointer-events: none;
     background-color: rgba(0, 0, 0, 0.8);
     color: #FFF;
     border-radius: 6px;
-}
-
-.dj-image-name-128 {
-    position: relative;
-    top: 0px;
-    opacity: 0;
-    transition: all 0.1s ease-out 0.1s;
-    pointer-events: none;
-    background-color: rgba(0, 0, 0, 0.8);
-    color: #FFF;
-    border-radius: 6px;
+    padding: 4px;
+    overflow: visible;
 }
 
 .dj-image {
@@ -146,12 +139,7 @@ span {
 }
 
 .dj-image:hover + .dj-image-name-64 {
-    top: -84px;
-    opacity: 1;
-}
-
-.dj-image:hover + .dj-image-name-128 {
-    top: -142px;
+    top: -16px;
     opacity: 1;
 }
 
