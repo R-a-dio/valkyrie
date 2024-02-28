@@ -121,9 +121,8 @@ span {
 
 .dj-image-name-64 {
     position: absolute;
-    top: 0px;
-    left: 50%;
-    transform: translateX(-50%);
+    top: calc(50% - 1rem);
+    left: 0px;
     opacity: 0;
     transition: all 0.1s ease-out 0.1s;
     pointer-events: none;
@@ -139,7 +138,7 @@ span {
 }
 
 .dj-image:hover + .dj-image-name-64 {
-    top: -16px;
+    left: calc(100% + 4px);
     opacity: 1;
 }
 
