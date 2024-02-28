@@ -17,8 +17,15 @@ var Errorf = fmt.Errorf
 // New is equavalent to errors.New
 var New = errors.New
 
-// IsE is equavalent to errors.Is
-var IsE = errors.Is
+// IsE is equavalent to errors.Is, except it allows multiple targets
+func IsE(err error, targets ...error) bool {
+	for _, target := range targets {
+		if errors.Is(err, target) {
+			return true
+		}
+	}
+	return false
+}
 
 // As is equavalent to errors.As
 var As = errors.As

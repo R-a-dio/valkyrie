@@ -72,6 +72,9 @@ func streamToProtobuf[T any, P any](s pbSender[P], streamFn func(context.Context
 
 	stream, err := streamFn(ctx)
 	if err != nil {
+		if errors.IsE(err, context.Canceled) {
+			return nil
+		}
 		return err
 	}
 	defer stream.Close()
@@ -79,14 +82,14 @@ func streamToProtobuf[T any, P any](s pbSender[P], streamFn func(context.Context
 	for {
 		recv, err := stream.Next()
 		if err != nil {
-			if errors.IsE(err, io.EOF) {
+			if errors.IsE(err, io.EOF, context.Canceled) {
 				return nil
 			}
 			return err
 		}
 		err = s.Send(conv(recv))
 		if err != nil {
-			if errors.IsE(err, io.EOF) {
+			if errors.IsE(err, io.EOF, context.Canceled) {
 				return nil
 			}
 			return err
