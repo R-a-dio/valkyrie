@@ -19,3 +19,6 @@ cmd/hanyuu/hanyuu
 
 # vscode settings, ignore these
 .vscode/
+
+# bulma stuff
+assets/css/bulma.min.css

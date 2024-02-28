@@ -1,7 +1,7 @@
 {{define "content"}}
 <section class="section" hx-ext="sse" sse-connect="/v1/sse">
     <div class="container">
-        <div class="columns">
+        <div class="columns is-vcentered">
             <div class="column is-3 is-hidden-mobile">
                 <img src="/assets/images/logo_image_small.png" alt="R/a/dio">
             </div>
@@ -46,27 +46,33 @@
         </div>
         <div class="columns">
             {{range .News}}
-            <article class="column message is-small m-3 p-0">
-                <div class="message-header">
-                    <p>{{.Title}}</p>
-                </div>
-                <div class="message-body">
-                    {{.HeaderParsed}}
-                </div>
-            </article>
+            <div class="column">
+                <article class="message">
+                    <div class="message-header">
+                        <a href="/news/{{.ID}}">
+                            <span>{{.Title}}</span>
+                        </a>
+                            <span>~{{.User.Username}}</span>
+                        </div>
+                        <div class="message-header has-background-white-ter has-text-grey-dark m-1 p-1">
+                            <span class="has-text-left"></span>
+                            <time datetime="{{.CreatedAt.Unix}}" data-type="absolute">{{.CreatedAt | AbsoluteDate}}</time>
+                        </div>
+                        <div class="message-body pt-0 disable-message-border">{{.Header}}</div>
+                </article>
+            </div>
             {{end}}
         </div>
     </div>
 </section>
-Home {{printjson .}}
 {{end}}
 {{define "nowplaying"}}
 <h2 id="current-song">
-    <p id="metadata" class="title is-2 has-text-centered" style="cursor: pointer;">{{.Song.Metadata}}</p>
-    <p class="subtitle is-4 has-text-centered" style="font-size: 14px;">{{if .Song.DatabaseTrack}}{{.Song.Tags}}{{end}}</p>
+    <p id="metadata" class="title is-2 has-text-centered" style="cursor: pointer;" onclick=toggleSongInfoDropdown(this)>{{.Song.Metadata}}</p>
+    <p class="subtitle is-4 has-text-centered is-hidden" style="font-size: 14px;">{{if .Song.DatabaseTrack}}{{.Song.Tags}}{{end}}</p>
 </h2>
 <progress id="current-song-progress" class="progress is-large mb-0" value="0" max="{{.Song.Length.Seconds}}"></progress>
-<div class="columns">
+<div class="columns mt-2">
     <div class="column is-6">
         <p class="has-text-centered" sse-swap="listeners">{{template "listeners" .Listeners}}</p>
     </div>
@@ -83,7 +89,7 @@ Home {{printjson .}}
 <div class="notification">
     <ul id="lastplayed">
         {{range $song := .}}
-        <li class="lp-item columns is-mobile">
+        <li class="lp-item columns is-mobile is-vcentered">
             <time datetime="{{$song.LastPlayed.Unix}}" class="lp-time column is-4 has-text-left">{{Until $song.LastPlayed | PrettyDuration}}</time>
             <span class="lp-meta column is-8 has-text-centered">{{$song.Metadata}}</span>
         </li>
@@ -96,7 +102,7 @@ Home {{printjson .}}
 <div class="notification">
     <ul>
         {{range $song := .}}
-        <li class="columns is-mobile">
+        <li class="columns is-mobile is-vcentered">
             <span class="column is-8 has-text-centered">{{$song.Metadata}}</span>
             <time datetime="{{$song.ExpectedStartTime.Unix}}" class="column is-4 has-text-right">{{Until $song.ExpectedStartTime | PrettyDuration}}</time>
         </li>
@@ -105,7 +111,7 @@ Home {{printjson .}}
 </div>
 {{end}}
 {{define "streamer"}}
-<div class="card has-background-white-bis p-4 m-2">
+<div class="p-4 m-2">
     <div class="card-image">
         <figure class="image is-square ml-0 mr-0">
             <img src="/api/dj-image/{{.DJ.Image}}"/>
