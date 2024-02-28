@@ -60,7 +60,10 @@ type State struct {
 func Route(ctx context.Context, s State) func(chi.Router) {
 	return func(r chi.Router) {
 		// the login middleware will require atleast the active permission
-		r = r.With(s.Authentication.LoginMiddleware)
+		r = r.With(
+			templates.AdminThemeCtx(),
+			s.Authentication.LoginMiddleware,
+		)
 		r.HandleFunc("/", s.GetHome)
 		r.Get("/profile", s.GetProfile)
 		r.Post("/profile", s.PostProfile)

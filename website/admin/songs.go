@@ -21,7 +21,7 @@ type SongsInput struct {
 }
 
 func (SongsInput) TemplateBundle() string {
-	return "admin-songs"
+	return "database"
 }
 
 type SongsForm struct {
@@ -35,7 +35,7 @@ func (SongsForm) TemplateName() string {
 }
 
 func (SongsForm) TemplateBundle() string {
-	return "admin-songs"
+	return "database"
 }
 
 func NewSongsInput(s radio.SearchService, r *http.Request) (*SongsInput, error) {

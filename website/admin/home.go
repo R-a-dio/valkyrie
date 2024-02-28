@@ -20,7 +20,7 @@ func NewHomeInput(r *http.Request, dp *daypass.Daypass) HomeInput {
 }
 
 func (HomeInput) TemplateBundle() string {
-	return "admin-home"
+	return "home"
 }
 
 func (s *State) GetHome(w http.ResponseWriter, r *http.Request) {

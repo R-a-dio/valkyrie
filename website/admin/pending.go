@@ -32,7 +32,7 @@ func NewPendingInput(r *http.Request) PendingInput {
 }
 
 func (PendingInput) TemplateBundle() string {
-	return "admin-pending"
+	return "pending"
 }
 
 type PendingForm struct {
@@ -42,7 +42,7 @@ type PendingForm struct {
 }
 
 func (PendingForm) TemplateBundle() string {
-	return "admin-pending"
+	return "pending"
 }
 
 func (PendingForm) TemplateName() string {

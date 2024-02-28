@@ -82,7 +82,7 @@ type profileInput struct {
 }
 
 func (profileInput) TemplateBundle() string {
-	return "admin-profile"
+	return "profile"
 }
 
 func (s *State) getProfile(w http.ResponseWriter, r *http.Request, form *ProfileForm) error {

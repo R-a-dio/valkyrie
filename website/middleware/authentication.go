@@ -188,7 +188,7 @@ type LoginInput struct {
 }
 
 func (LoginInput) TemplateBundle() string {
-	return "admin-login"
+	return "login"
 }
 
 func (a *authentication) PostLogin(w http.ResponseWriter, r *http.Request) {

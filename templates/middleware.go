@@ -13,7 +13,16 @@ func ThemeCtx(storage radio.StorageService) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
-			ctx = SetTheme(ctx, "default")
+			ctx = SetTheme(ctx, "default-light")
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+func AdminThemeCtx() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := SetTheme(r.Context(), "admin-light")
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
