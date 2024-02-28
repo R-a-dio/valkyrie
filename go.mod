@@ -16,7 +16,7 @@ require (
 	github.com/gorilla/schema v1.2.1
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/leanovate/gopter v0.2.9
-	github.com/lrstanley/girc v0.0.0-20230911164840-f47717952bf9
+	github.com/lrstanley/girc v0.0.0-20240130161140-6cf311abc7b0
 	github.com/rs/xid v1.5.0
 	github.com/rs/zerolog v1.31.0
 	github.com/spf13/afero v1.11.0
