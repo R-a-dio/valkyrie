@@ -21,27 +21,19 @@ type TemplateSelectable interface {
 }
 
 type Executor interface {
-	With(context.Context) Executor
 	Execute(w io.Writer, r *http.Request, input TemplateSelectable) error
-	ExecuteTemplate(theme, page, template string, output io.Writer, input any) error
+	//ExecuteTemplate(theme, page, template string, output io.Writer, input any) error
 	ExecuteAll(input TemplateSelectable) (map[string][]byte, error)
 }
 
 type executor struct {
 	site *Site
-	ctx  context.Context
 }
 
 func newExecutor(site *Site) Executor {
 	return &executor{
 		site: site,
-		ctx:  context.Background(),
 	}
-}
-
-func (e executor) With(ctx context.Context) Executor {
-	e.ctx = ctx
-	return &e
 }
 
 func (e *executor) Execute(w io.Writer, r *http.Request, input TemplateSelectable) error {
@@ -54,16 +46,16 @@ func (e *executor) Execute(w io.Writer, r *http.Request, input TemplateSelectabl
 		templateName = "partial-page"
 	}
 
-	return e.With(ctx).ExecuteTemplate(theme, input.TemplateBundle(), templateName, w, input)
+	return e.ExecuteTemplate(ctx, theme, input.TemplateBundle(), templateName, w, input)
 }
 
 // ExecuteTemplate selects a theme, page and template and feeds it the input given and writing the template output
 // to the output writer. Output is buffered until template execution is done before writing to output.
-func (e *executor) ExecuteTemplate(theme, page string, template string, output io.Writer, input any) error {
+func (e *executor) ExecuteTemplate(ctx context.Context, theme, page string, template string, output io.Writer, input any) error {
 	const op errors.Op = "templates/Executor.ExecuteTemplate"
 
 	// tracing support
-	ctx, span := otel.Tracer("templates").Start(e.ctx, "template")
+	ctx, span := otel.Tracer("templates").Start(ctx, "template")
 	defer span.End()
 
 	_, span = otel.Tracer("templates").Start(ctx, "template_load")
