@@ -200,6 +200,37 @@ type TemplateBundle struct {
 	page            string
 }
 
+func (tb *TemplateBundle) Dump() string {
+	var res strings.Builder
+
+	res.WriteString("===================================\n")
+	res.WriteString("base templates:\n")
+	for i, filename := range tb.base {
+		fmt.Fprintf(&res, "	%d: %s\n", i, filename)
+	}
+	res.WriteString("default forms:\n")
+	for i, filename := range tb.defaultForms {
+		fmt.Fprintf(&res, "	%d: %s\n", i, filename)
+	}
+	res.WriteString("forms:\n")
+	for i, filename := range tb.forms {
+		fmt.Fprintf(&res, "	%d: %s\n", i, filename)
+	}
+	res.WriteString("default partials:\n")
+	for i, filename := range tb.defaultPartials {
+		fmt.Fprintf(&res, "	%d: %s\n", i, filename)
+	}
+	res.WriteString("partials:\n")
+	for i, filename := range tb.partials {
+		fmt.Fprintf(&res, "	%d: %s\n", i, filename)
+	}
+	res.WriteString("default page:\n")
+	fmt.Fprintf(&res, "	%s\n", tb.defaultPage)
+	res.WriteString("page:\n")
+	fmt.Fprintf(&res, "	%s\n", tb.page)
+	return res.String()
+}
+
 // Files returns all the files in this bundle sorted in load-order
 func (tb *TemplateBundle) Files() []string {
 	s := make([]string, 0, len(tb.base)+len(tb.defaultForms)+len(tb.forms)+len(tb.defaultPartials)+len(tb.partials)+2)
@@ -409,14 +440,15 @@ func (ls loadState) loadSubDir(dir string) (map[string]*TemplateBundle, error) {
 	for _, entry := range entries {
 		name := entry.Name()
 		// create a bundle for each page in this directory
-		bundle := bundle
+		pageBundle := bundle
+
 		defaultPage := ls.defaultBundle[noExt(name)]
 		if defaultPage != nil {
-			bundle.defaultPage = defaultPage.page
+			pageBundle.defaultPage = defaultPage.page
 		}
-		bundle.page = path.Join(dir, name)
+		pageBundle.page = path.Join(dir, name)
 
-		bundles[noExt(name)] = &bundle
+		bundles[noExt(name)] = &pageBundle
 	}
 
 	// if there are no defaults to handle, we're done
@@ -431,7 +463,10 @@ func (ls loadState) loadSubDir(dir string) (map[string]*TemplateBundle, error) {
 		if _, ok := bundles[name]; ok {
 			continue
 		}
-		bundles[name] = page
+
+		pageBundle := bundle
+		pageBundle.defaultPage = page.page
+		bundles[name] = &pageBundle
 	}
 
 	return bundles, nil

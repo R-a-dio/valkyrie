@@ -12,8 +12,12 @@ type themeKey struct{}
 func ThemeCtx(storage radio.StorageService) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ctx := r.Context()
-			ctx = SetTheme(ctx, "default-light")
+			theme := DEFAULT_DIR
+			if tmp := r.URL.Query().Get("theme"); tmp != "" {
+				theme = tmp
+			}
+
+			ctx := SetTheme(r.Context(), theme)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
