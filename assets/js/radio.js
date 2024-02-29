@@ -346,14 +346,13 @@ class Stream {
     }
 
     setVolume = (newVol, storeVol) => {
-        this.volume = newVol;
-
         let calculatedVol = Math.pow(newVol, 2.0);
         if (this.audio) {
             this.audio.volume = calculatedVol;
         }
 
         if (storeVol) {
+            this.volume = newVol;
             try {
                 localStorage.setItem('volume', Math.floor(newVol * 100));
             } catch (err) { }
