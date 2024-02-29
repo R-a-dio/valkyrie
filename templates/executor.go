@@ -57,26 +57,6 @@ func (e *executor) Execute(w io.Writer, r *http.Request, input TemplateSelectabl
 	return e.With(ctx).ExecuteTemplate(theme, input.TemplateBundle(), templateName, w, input)
 }
 
-func (e *executor) ExecuteFull(theme, page string, output io.Writer, input any) error {
-	const op errors.Op = "templates/Executor.ExecuteFull"
-
-	err := e.ExecuteTemplate(theme, page, "full-page", output, input)
-	if err != nil {
-		return errors.E(op, err)
-	}
-	return nil
-}
-
-func (e *executor) ExecutePartial(theme, page string, output io.Writer, input any) error {
-	const op errors.Op = "templates/Executor.ExecutePartial"
-
-	err := e.ExecuteTemplate(theme, page, "partial-page", output, input)
-	if err != nil {
-		return errors.E(op, err)
-	}
-	return nil
-}
-
 // ExecuteTemplate selects a theme, page and template and feeds it the input given and writing the template output
 // to the output writer. Output is buffered until template execution is done before writing to output.
 func (e *executor) ExecuteTemplate(theme, page string, template string, output io.Writer, input any) error {
