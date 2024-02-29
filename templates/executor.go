@@ -22,7 +22,7 @@ type TemplateSelectable interface {
 
 type Executor interface {
 	Execute(w io.Writer, r *http.Request, input TemplateSelectable) error
-	//ExecuteTemplate(theme, page, template string, output io.Writer, input any) error
+	ExecuteTemplate(ctx context.Context, theme, page, template string, output io.Writer, input any) error
 	ExecuteAll(input TemplateSelectable) (map[string][]byte, error)
 }
 

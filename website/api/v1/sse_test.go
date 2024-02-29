@@ -42,7 +42,7 @@ func TestStream(t *testing.T) {
 	stream := NewStream(exec)
 	server := httptest.NewUnstartedServer(stream)
 	server.Config.ConnContext = func(ctx context.Context, c net.Conn) context.Context {
-		return templates.SetTheme(ctx, "json")
+		return templates.SetTheme(ctx, "json", true)
 	}
 	server.Start()
 
@@ -141,7 +141,7 @@ func TestStreamSlowSub(t *testing.T) {
 
 	stream := NewStream(exec)
 
-	ctx := templates.SetTheme(context.Background(), "default")
+	ctx := templates.SetTheme(context.Background(), "default", true)
 	req := httptest.NewRequest("GET", "/", nil)
 	req = req.WithContext(ctx)
 	w := httptest.NewRecorder()

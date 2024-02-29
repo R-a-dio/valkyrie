@@ -118,6 +118,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	r.Handle("/assets/*", http.StripPrefix("/assets/",
 		AssetsHandler(cfg.Conf().AssetsPath, siteTemplates)),
 	)
+	r.Handle("/set-theme", templates.SetThemeHandler("theme", siteTemplates.ResolveThemeName))
 
 	// version 0 of the api (the legacy PHP version)
 	// it's mostly self-contained to the /api/* route, except for /request that

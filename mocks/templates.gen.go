@@ -27,11 +27,8 @@ var _ templates.Executor = &ExecutorMock{}
 //			ExecuteAllFunc: func(input templates.TemplateSelectable) (map[string][]byte, error) {
 //				panic("mock out the ExecuteAll method")
 //			},
-//			ExecuteTemplateFunc: func(theme string, page string, template string, output io.Writer, input any) error {
+//			ExecuteTemplateFunc: func(ctx context.Context, theme string, page string, template string, output io.Writer, input any) error {
 //				panic("mock out the ExecuteTemplate method")
-//			},
-//			WithFunc: func(contextMoqParam context.Context) templates.Executor {
-//				panic("mock out the With method")
 //			},
 //		}
 //
@@ -47,10 +44,7 @@ type ExecutorMock struct {
 	ExecuteAllFunc func(input templates.TemplateSelectable) (map[string][]byte, error)
 
 	// ExecuteTemplateFunc mocks the ExecuteTemplate method.
-	ExecuteTemplateFunc func(theme string, page string, template string, output io.Writer, input any) error
-
-	// WithFunc mocks the With method.
-	WithFunc func(contextMoqParam context.Context) templates.Executor
+	ExecuteTemplateFunc func(ctx context.Context, theme string, page string, template string, output io.Writer, input any) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -70,6 +64,8 @@ type ExecutorMock struct {
 		}
 		// ExecuteTemplate holds details about calls to the ExecuteTemplate method.
 		ExecuteTemplate []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
 			// Theme is the theme argument value.
 			Theme string
 			// Page is the page argument value.
@@ -81,16 +77,10 @@ type ExecutorMock struct {
 			// Input is the input argument value.
 			Input any
 		}
-		// With holds details about calls to the With method.
-		With []struct {
-			// ContextMoqParam is the contextMoqParam argument value.
-			ContextMoqParam context.Context
-		}
 	}
 	lockExecute         sync.RWMutex
 	lockExecuteAll      sync.RWMutex
 	lockExecuteTemplate sync.RWMutex
-	lockWith            sync.RWMutex
 }
 
 // Execute calls ExecuteFunc.
@@ -166,17 +156,19 @@ func (mock *ExecutorMock) ExecuteAllCalls() []struct {
 }
 
 // ExecuteTemplate calls ExecuteTemplateFunc.
-func (mock *ExecutorMock) ExecuteTemplate(theme string, page string, template string, output io.Writer, input any) error {
+func (mock *ExecutorMock) ExecuteTemplate(ctx context.Context, theme string, page string, template string, output io.Writer, input any) error {
 	if mock.ExecuteTemplateFunc == nil {
 		panic("ExecutorMock.ExecuteTemplateFunc: method is nil but Executor.ExecuteTemplate was just called")
 	}
 	callInfo := struct {
+		Ctx      context.Context
 		Theme    string
 		Page     string
 		Template string
 		Output   io.Writer
 		Input    any
 	}{
+		Ctx:      ctx,
 		Theme:    theme,
 		Page:     page,
 		Template: template,
@@ -186,7 +178,7 @@ func (mock *ExecutorMock) ExecuteTemplate(theme string, page string, template st
 	mock.lockExecuteTemplate.Lock()
 	mock.calls.ExecuteTemplate = append(mock.calls.ExecuteTemplate, callInfo)
 	mock.lockExecuteTemplate.Unlock()
-	return mock.ExecuteTemplateFunc(theme, page, template, output, input)
+	return mock.ExecuteTemplateFunc(ctx, theme, page, template, output, input)
 }
 
 // ExecuteTemplateCalls gets all the calls that were made to ExecuteTemplate.
@@ -194,6 +186,7 @@ func (mock *ExecutorMock) ExecuteTemplate(theme string, page string, template st
 //
 //	len(mockedExecutor.ExecuteTemplateCalls())
 func (mock *ExecutorMock) ExecuteTemplateCalls() []struct {
+	Ctx      context.Context
 	Theme    string
 	Page     string
 	Template string
@@ -201,6 +194,7 @@ func (mock *ExecutorMock) ExecuteTemplateCalls() []struct {
 	Input    any
 } {
 	var calls []struct {
+		Ctx      context.Context
 		Theme    string
 		Page     string
 		Template string
@@ -210,38 +204,6 @@ func (mock *ExecutorMock) ExecuteTemplateCalls() []struct {
 	mock.lockExecuteTemplate.RLock()
 	calls = mock.calls.ExecuteTemplate
 	mock.lockExecuteTemplate.RUnlock()
-	return calls
-}
-
-// With calls WithFunc.
-func (mock *ExecutorMock) With(contextMoqParam context.Context) templates.Executor {
-	if mock.WithFunc == nil {
-		panic("ExecutorMock.WithFunc: method is nil but Executor.With was just called")
-	}
-	callInfo := struct {
-		ContextMoqParam context.Context
-	}{
-		ContextMoqParam: contextMoqParam,
-	}
-	mock.lockWith.Lock()
-	mock.calls.With = append(mock.calls.With, callInfo)
-	mock.lockWith.Unlock()
-	return mock.WithFunc(contextMoqParam)
-}
-
-// WithCalls gets all the calls that were made to With.
-// Check the length with:
-//
-//	len(mockedExecutor.WithCalls())
-func (mock *ExecutorMock) WithCalls() []struct {
-	ContextMoqParam context.Context
-} {
-	var calls []struct {
-		ContextMoqParam context.Context
-	}
-	mock.lockWith.RLock()
-	calls = mock.calls.With
-	mock.lockWith.RUnlock()
 	return calls
 }
 

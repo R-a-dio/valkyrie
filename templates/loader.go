@@ -30,6 +30,8 @@ const (
 	FORMS_DIR = "forms"
 	// directory name of the default templates
 	DEFAULT_DIR = "default-light"
+	// directory name of the default admin templates
+	DEFAULT_ADMIN_DIR = "admin-light"
 	// the prefix used on themes that are for the admin panel
 	ADMIN_PREFIX = "admin-"
 )
