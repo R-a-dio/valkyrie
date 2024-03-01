@@ -1,6 +1,7 @@
 package templates_test
 
 import (
+	"context"
 	"errors"
 	"io"
 	"io/fs"
@@ -146,7 +147,7 @@ empty
 			}
 			if tt.shouldExec {
 				exec := got.Executor()
-				err = exec.ExecuteTemplate("default", "default", "base", io.Discard, nil)
+				err = exec.ExecuteTemplate(context.Background(), "default", "default", "base", io.Discard, nil)
 				if err != nil {
 					t.Errorf("template did not execute: %v", err)
 					return
