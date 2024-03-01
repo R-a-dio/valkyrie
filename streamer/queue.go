@@ -13,6 +13,7 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/streamer/audio"
 	"github.com/rs/zerolog"
+	"go.opentelemetry.io/otel"
 )
 
 // queueMinimumLength is the minimum amount of songs required to be
@@ -228,6 +229,8 @@ func (qs *QueueService) Entries(ctx context.Context) ([]radio.QueueEntry, error)
 
 func (qs *QueueService) populate(ctx context.Context) error {
 	const op errors.Op = "streamer/QueueService.populate"
+	ctx, span := otel.Tracer("queue").Start(ctx, string(op))
+	defer span.End()
 
 	ts, tx, err := qs.Storage.TrackTx(ctx, nil)
 	if err != nil {

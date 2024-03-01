@@ -16,6 +16,8 @@ type NewsStorage struct {
 // Get implements radio.NewsStorage
 func (ns NewsStorage) Get(id radio.NewsPostID) (*radio.NewsPost, error) {
 	const op errors.Op = "mariadb/NewsStorage.Get"
+	handle, deferFn := ns.handle.span(op)
+	defer deferFn()
 
 	var query = `
 	SELECT
@@ -36,7 +38,7 @@ func (ns NewsStorage) Get(id radio.NewsPostID) (*radio.NewsPost, error) {
 
 	var post radio.NewsPost
 
-	err := sqlx.Get(ns.handle, &post, query, id)
+	err := sqlx.Get(handle, &post, query, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, errors.E(op, errors.NewsUnknown)
@@ -46,7 +48,7 @@ func (ns NewsStorage) Get(id radio.NewsPostID) (*radio.NewsPost, error) {
 
 	// try to grab the user, but it might not exist in which case
 	// we just return the ID that was stored in our table
-	user, err := UserStorage(ns).GetByID(post.User.ID)
+	user, err := UserStorage{handle}.GetByID(post.User.ID)
 	if err != nil {
 		return &post, nil
 	}
@@ -81,6 +83,8 @@ INSERT INTO
 // Create implements radio.NewsStorage
 func (ns NewsStorage) Create(post radio.NewsPost) (radio.NewsPostID, error) {
 	const op errors.Op = "mariadb/NewsStorage.Create"
+	handle, deferFn := ns.handle.span(op)
+	defer deferFn()
 
 	// check for required fields
 	field, ok := post.HasRequired()
@@ -88,7 +92,7 @@ func (ns NewsStorage) Create(post radio.NewsPost) (radio.NewsPostID, error) {
 		return 0, errors.E(op, errors.InvalidArgument, errors.Info(field))
 	}
 
-	new, err := namedExecLastInsertId(ns.handle, newsCreateQuery, post)
+	new, err := namedExecLastInsertId(handle, newsCreateQuery, post)
 	if err != nil {
 		return 0, errors.E(op, err)
 	}
@@ -115,6 +119,8 @@ WHERE
 // Update implements radio.NewsStorage
 func (ns NewsStorage) Update(post radio.NewsPost) error {
 	const op errors.Op = "mariadb/NewsStorage.Update"
+	handle, deferFn := ns.handle.span(op)
+	defer deferFn()
 
 	// check for required fields
 	field, ok := post.HasRequired()
@@ -123,7 +129,7 @@ func (ns NewsStorage) Update(post radio.NewsPost) error {
 	}
 
 	// execute
-	_, err := sqlx.NamedExec(ns.handle, newsUpdateQuery, post)
+	_, err := sqlx.NamedExec(handle, newsUpdateQuery, post)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -134,6 +140,8 @@ func (ns NewsStorage) Update(post radio.NewsPost) error {
 // Delete implements radio.NewsStorage
 func (ns NewsStorage) Delete(id radio.NewsPostID) error {
 	const op errors.Op = "mariadb/NewsStorage.Delete"
+	handle, deferFn := ns.handle.span(op)
+	defer deferFn()
 
 	var query = `
 	UPDATE 
@@ -144,7 +152,7 @@ func (ns NewsStorage) Delete(id radio.NewsPostID) error {
 		id=?;
 	`
 
-	res, err := ns.handle.Exec(query, id)
+	res, err := handle.Exec(query, id)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -164,6 +172,8 @@ func (ns NewsStorage) Delete(id radio.NewsPostID) error {
 // List implements radio.NewsStorage
 func (ns NewsStorage) List(limit int64, offset int64) (radio.NewsList, error) {
 	const op errors.Op = "mariadb/NewsStorage.List"
+	handle, deferFn := ns.handle.span(op)
+	defer deferFn()
 
 	var query = `
 	SELECT
@@ -190,14 +200,14 @@ func (ns NewsStorage) List(limit int64, offset int64) (radio.NewsList, error) {
 		Entries: make([]radio.NewsPost, 0, limit),
 	}
 
-	err := sqlx.Select(ns.handle, &news.Entries, query, limit, offset)
+	err := sqlx.Select(handle, &news.Entries, query, limit, offset)
 	if err != nil {
 		return radio.NewsList{}, errors.E(op, err)
 	}
 
 	query = `SELECT COUNT(*) AS total FROM radio_news;`
 
-	err = sqlx.Get(ns.handle, &news.Total, query)
+	err = sqlx.Get(handle, &news.Total, query)
 	if err != nil {
 		return radio.NewsList{}, errors.E(op, err)
 	}
@@ -207,6 +217,8 @@ func (ns NewsStorage) List(limit int64, offset int64) (radio.NewsList, error) {
 // ListPublic implements radio.NewsStorage
 func (ns NewsStorage) ListPublic(limit int64, offset int64) (radio.NewsList, error) {
 	const op errors.Op = "mariadb/NewsStorage.ListPublic"
+	handle, deferFn := ns.handle.span(op)
+	defer deferFn()
 
 	var query = `
 	SELECT
@@ -236,14 +248,14 @@ func (ns NewsStorage) ListPublic(limit int64, offset int64) (radio.NewsList, err
 		Entries: make([]radio.NewsPost, 0, limit),
 	}
 
-	err := sqlx.Select(ns.handle, &news.Entries, query, limit, offset)
+	err := sqlx.Select(handle, &news.Entries, query, limit, offset)
 	if err != nil {
 		return radio.NewsList{}, errors.E(op, err)
 	}
 
 	query = `SELECT COUNT(*) AS total FROM radio_news WHERE private = 0 AND deleted_at IS NULL;`
 
-	err = sqlx.Get(ns.handle, &news.Total, query)
+	err = sqlx.Get(handle, &news.Total, query)
 	if err != nil {
 		return radio.NewsList{}, errors.E(op, err)
 	}
@@ -253,6 +265,8 @@ func (ns NewsStorage) ListPublic(limit int64, offset int64) (radio.NewsList, err
 // Comments implements radio.NewsStorage
 func (ns NewsStorage) Comments(postid radio.NewsPostID) ([]radio.NewsComment, error) {
 	const op errors.Op = "mariadb/NewsStorage.Comments"
+	handle, deferFn := ns.handle.span(op)
+	defer deferFn()
 
 	var query = `
 	SELECT
@@ -274,7 +288,7 @@ func (ns NewsStorage) Comments(postid radio.NewsPostID) ([]radio.NewsComment, er
 
 	var comments = []radio.NewsComment{}
 
-	err := sqlx.Select(ns.handle, &comments, query, postid)
+	err := sqlx.Select(handle, &comments, query, postid)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
@@ -284,7 +298,7 @@ func (ns NewsStorage) Comments(postid radio.NewsPostID) ([]radio.NewsComment, er
 			continue
 		}
 
-		comm.User, err = UserStorage(ns).GetByID(*comm.UserID)
+		comm.User, err = UserStorage{handle}.GetByID(*comm.UserID)
 		// if the user doesn't exist just omit the data
 		if err != nil && !errors.Is(errors.UserUnknown, err) {
 			return nil, errors.E(op, err)
@@ -297,6 +311,8 @@ func (ns NewsStorage) Comments(postid radio.NewsPostID) ([]radio.NewsComment, er
 // CommentsPublic implements radio.NewsStorage
 func (ns NewsStorage) CommentsPublic(postid radio.NewsPostID) ([]radio.NewsComment, error) {
 	const op errors.Op = "mariadb/NewsStorage.Comments"
+	handle, deferFn := ns.handle.span(op)
+	defer deferFn()
 
 	var query = `
 	SELECT
@@ -319,7 +335,7 @@ func (ns NewsStorage) CommentsPublic(postid radio.NewsPostID) ([]radio.NewsComme
 
 	var comments = []radio.NewsComment{}
 
-	err := sqlx.Select(ns.handle, &comments, query, postid)
+	err := sqlx.Select(handle, &comments, query, postid)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}

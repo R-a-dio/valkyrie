@@ -7,6 +7,7 @@ import (
 	"unicode"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -44,21 +45,24 @@ SELECT COUNT(*) FROM
 `
 
 func (ss SearchService) Search(ctx context.Context, search_query string, limit int64, offset int64) (*radio.SearchResult, error) {
-	h := handle{ss.db, ctx, "search"}
+	const op errors.Op = "mariadb/SearchService.Search"
+	handle := handle{ss.db, ctx, "search"}
+	handle, deferFn := handle.span(op)
+	defer deferFn()
 
 	search_query = ProcessQuery(search_query)
 
 	var total int
 	var result []searchTrack
 
-	err := sqlx.Select(h, &result, searchSearchQuery, search_query, limit, offset)
+	err := sqlx.Select(handle, &result, searchSearchQuery, search_query, limit, offset)
 	if err != nil {
-		return nil, err
+		return nil, errors.E(op, err)
 	}
 
-	err = sqlx.Get(h, &total, searchTotalQuery, search_query)
+	err = sqlx.Get(handle, &total, searchTotalQuery, search_query)
 	if err != nil {
-		return nil, err
+		return nil, errors.E(op, err)
 	}
 
 	var songs = make([]radio.Song, len(result))

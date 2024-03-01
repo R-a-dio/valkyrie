@@ -25,8 +25,10 @@ type queueSong struct {
 // Implements radio.QueueStorage
 func (qs QueueStorage) Store(name string, queue []radio.QueueEntry) error {
 	const op errors.Op = "mariadb/QueueStorage.Store"
+	handle, deferFn := qs.handle.span(op)
+	defer deferFn()
 
-	handle, tx, err := requireTx(qs.handle)
+	handle, tx, err := requireTx(handle)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -97,10 +99,12 @@ ORDER BY
 // Implements radio.QueueStorage
 func (qs QueueStorage) Load(name string) ([]radio.QueueEntry, error) {
 	const op errors.Op = "mariadb/QueueStorage.Load"
+	handle, deferFn := qs.handle.span(op)
+	defer deferFn()
 
 	var queue []queueSong
 
-	err := sqlx.Select(qs.handle, &queue, queueLoadQuery)
+	err := sqlx.Select(handle, &queue, queueLoadQuery)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}

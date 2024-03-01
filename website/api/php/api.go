@@ -20,6 +20,8 @@ import (
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/go-chi/chi/v5"
 	chiware "github.com/go-chi/chi/v5/middleware"
@@ -520,6 +522,10 @@ const timeagoFormat = `<time class="timeago" datetime="2006-01-02T15:04:05-0700"
 // Additionally, the Queue and LastPlayed fields are only updated if a period of length
 // LongUpdatePeriod has passed, otherwise uses the contents of the previous status
 func (s *v0Status) createStatusJSON(ctx context.Context) (v0StatusJSON, error) {
+	const op errors.Op = "website/api/php.v0Status.createStatusJSON"
+	ctx, span := otel.Tracer("api/v0").Start(ctx, string(op), trace.WithNewRoot())
+	defer span.End()
+
 	var now = time.Now()
 	var status v0StatusJSON
 

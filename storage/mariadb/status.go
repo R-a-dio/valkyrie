@@ -15,6 +15,8 @@ type StatusStorage struct {
 // Store implements radio.StatusStorage
 func (ss StatusStorage) Store(status radio.Status) error {
 	const op errors.Op = "mariadb/StatusStorage.Store"
+	handle, deferFn := ss.handle.span(op)
+	defer deferFn()
 
 	var query = `
 	INSERT INTO
@@ -57,7 +59,7 @@ func (ss StatusStorage) Store(status radio.Status) error {
 				lastset=NOW();
 	`
 
-	_, err := sqlx.NamedExec(ss.handle, query, status)
+	_, err := sqlx.NamedExec(handle, query, status)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -67,6 +69,8 @@ func (ss StatusStorage) Store(status radio.Status) error {
 // Load implements radio.StatusStorage
 func (ss StatusStorage) Load() (*radio.Status, error) {
 	const op errors.Op = "mariadb/StatusStorage.Load"
+	handle, deferFn := ss.handle.span(op)
+	defer deferFn()
 
 	var query = `
 		SELECT
@@ -88,7 +92,7 @@ func (ss StatusStorage) Load() (*radio.Status, error) {
 
 	var status radio.Status
 
-	err := sqlx.Get(ss.handle, &status, query)
+	err := sqlx.Get(handle, &status, query)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, errors.E(op, err)
 	}

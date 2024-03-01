@@ -18,11 +18,13 @@ type UserStorage struct {
 // UpdateUser implements radio.UserStorage
 func (us UserStorage) UpdateUser(user radio.User) (radio.User, error) {
 	const op errors.Op = "mariadb/UserStorage.UpdateUser"
+	handle, deferFn := us.handle.span(op)
+	defer deferFn()
 
 	var query string
 
 	// start trans
-	handle, tx, err := requireTx(us.handle)
+	handle, tx, err := requireTx(handle)
 	if err != nil {
 		return user, errors.E(op, err)
 	}
@@ -231,12 +233,14 @@ GROUP BY
 // Get implements radio.UserStorage
 func (us UserStorage) Get(name string) (*radio.User, error) {
 	const op errors.Op = "mariadb/UserStorage.Get"
+	handle, deferFn := us.handle.span(op)
+	defer deferFn()
 
 	var query = fmt.Sprintf(getUserQuery, "users.user=?")
 
 	var user radio.User
 
-	err := sqlx.Get(us.handle, &user, query, name)
+	err := sqlx.Get(handle, &user, query, name)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, errors.E(op, errors.UserUnknown, errors.Info(name))
@@ -249,12 +253,14 @@ func (us UserStorage) Get(name string) (*radio.User, error) {
 
 func (us UserStorage) GetByID(id radio.UserID) (*radio.User, error) {
 	const op errors.Op = "mariadb/UserStorage.GetByID"
+	handle, deferFn := us.handle.span(op)
+	defer deferFn()
 
 	var user radio.User
 
 	var query = fmt.Sprintf(getUserQuery, "users.id=?")
 
-	err := sqlx.Get(us.handle, &user, query, id)
+	err := sqlx.Get(handle, &user, query, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, errors.E(op, errors.UserUnknown)
@@ -267,12 +273,14 @@ func (us UserStorage) GetByID(id radio.UserID) (*radio.User, error) {
 // GetByDJID implements radio.UserStorage
 func (us UserStorage) GetByDJID(id radio.DJID) (*radio.User, error) {
 	const op errors.Op = "mariadb/UserStorage.GetByDJID"
+	handle, deferFn := us.handle.span(op)
+	defer deferFn()
 
 	var query = fmt.Sprintf(getUserQuery, "djs.id=?")
 
 	var user radio.User
 
-	err := sqlx.Get(us.handle, &user, query, id)
+	err := sqlx.Get(handle, &user, query, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, errors.E(op, errors.UserUnknown)
@@ -286,8 +294,10 @@ func (us UserStorage) GetByDJID(id radio.DJID) (*radio.User, error) {
 // LookupName implements radio.UserStorage
 func (us UserStorage) LookupName(name string) (*radio.User, error) {
 	const op errors.Op = "mariadb/UserStorage.LookupName"
+	handle, deferFn := us.handle.span(op)
+	defer deferFn()
 
-	users, err := us.All()
+	users, err := UserStorage{handle}.All()
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
@@ -317,6 +327,8 @@ func MatchName(regex, name string) bool {
 
 func (us UserStorage) All() ([]radio.User, error) {
 	const op errors.Op = "mariadb/UserStorage.All"
+	handle, deferFn := us.handle.span(op)
+	defer deferFn()
 
 	var query = `
 	SELECT
@@ -356,7 +368,7 @@ func (us UserStorage) All() ([]radio.User, error) {
 	`
 	var users []radio.User
 
-	err := sqlx.Select(us.handle, &users, query)
+	err := sqlx.Select(handle, &users, query)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
@@ -374,6 +386,8 @@ func (us UserStorage) ByNick(nick string) (*radio.User, error) {
 // Permissions implements radio.UserStorage
 func (us UserStorage) Permissions() ([]radio.UserPermission, error) {
 	const op errors.Op = "mariadb/UserStorage.Permissions"
+	handle, deferFn := us.handle.span(op)
+	defer deferFn()
 
 	var query = `
 	SELECT permission FROM permission_kinds;
@@ -381,7 +395,7 @@ func (us UserStorage) Permissions() ([]radio.UserPermission, error) {
 
 	var perms []radio.UserPermission
 
-	err := sqlx.Select(us.handle, &perms, query)
+	err := sqlx.Select(handle, &perms, query)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
@@ -392,10 +406,12 @@ func (us UserStorage) Permissions() ([]radio.UserPermission, error) {
 // RecordListeners implements radio.UserStorage
 func (us UserStorage) RecordListeners(listeners radio.Listeners, user radio.User) error {
 	const op errors.Op = "mariadb/UserStorage.RecordListeners"
+	handle, deferFn := us.handle.span(op)
+	defer deferFn()
 
 	var query = `INSERT INTO listenlog (listeners, dj) VALUES (?, ?);`
 
-	_, err := us.handle.Exec(query, listeners, user.DJ.ID)
+	_, err := handle.Exec(query, listeners, user.DJ.ID)
 	if err != nil {
 		return errors.E(op, err)
 	}

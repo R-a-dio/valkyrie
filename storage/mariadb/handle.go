@@ -4,13 +4,16 @@ import (
 	"context"
 	"database/sql"
 	"strings"
+	"sync"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
+	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/go-sql-driver/mysql" // mariadb
 	"github.com/jmoiron/sqlx"
 	"github.com/rs/zerolog"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -112,13 +115,31 @@ func (fakeTx) Rollback() error {
 	return nil
 }
 
+type spanTx struct {
+	*sqlx.Tx
+	end func()
+}
+
+func (tx spanTx) Commit() error {
+	defer tx.end()
+	return tx.Tx.Commit()
+}
+
+func (tx spanTx) Rollback() error {
+	defer tx.end()
+	return tx.Tx.Rollback()
+}
+
 // tx either unwraps the tx given to a *sqlx.Tx, or creates a new transaction if tx is
 // nil. Passing in a StorageTx not returned by this package will panic
-func (s *StorageService) tx(ctx context.Context, tx radio.StorageTx) (*sqlx.Tx, radio.StorageTx, error) {
+func (s *StorageService) tx(ctx context.Context, tx radio.StorageTx) (context.Context, *sqlx.Tx, radio.StorageTx, error) {
 	if tx == nil {
+		// only create a new span if it's actually a new transaction
+		ctx, span := otel.Tracer("mariadb").Start(ctx, "transaction")
+		end := sync.OnceFunc(func() { span.End() })
 		// new transaction
 		tx, err := s.db.BeginTxx(ctx, nil)
-		return tx, tx, err
+		return ctx, tx, spanTx{tx, end}, err
 	}
 
 	// existing transaction, make sure it's one of ours and then use it
@@ -126,9 +147,11 @@ func (s *StorageService) tx(ctx context.Context, tx radio.StorageTx) (*sqlx.Tx, 
 	case *sqlx.Tx:
 		// if this is a real tx, we disable the commit so that the transaction can't
 		// be committed earlier than expected by the creator
-		return txx, fakeTx{txx}, nil
+		return ctx, txx, fakeTx{txx}, nil
+	case spanTx:
+		return ctx, txx.Tx, txx, nil
 	case fakeTx:
-		return txx.Tx, txx, nil
+		return ctx, txx.Tx, txx, nil
 	default:
 		panic("mariadb: invalid tx passed to StorageService")
 	}
@@ -141,7 +164,7 @@ func (s *StorageService) Sessions(ctx context.Context) radio.SessionStorage {
 }
 
 func (s *StorageService) SessionsTx(ctx context.Context, tx radio.StorageTx) (radio.SessionStorage, radio.StorageTx, error) {
-	db, tx, err := s.tx(ctx, tx)
+	ctx, db, tx, err := s.tx(ctx, tx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -159,7 +182,7 @@ func (s *StorageService) Queue(ctx context.Context) radio.QueueStorage {
 }
 
 func (s *StorageService) QueueTx(ctx context.Context, tx radio.StorageTx) (radio.QueueStorage, radio.StorageTx, error) {
-	db, tx, err := s.tx(ctx, tx)
+	ctx, db, tx, err := s.tx(ctx, tx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -177,7 +200,7 @@ func (s *StorageService) Song(ctx context.Context) radio.SongStorage {
 }
 
 func (s *StorageService) SongTx(ctx context.Context, tx radio.StorageTx) (radio.SongStorage, radio.StorageTx, error) {
-	db, tx, err := s.tx(ctx, tx)
+	ctx, db, tx, err := s.tx(ctx, tx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -195,7 +218,7 @@ func (s *StorageService) Track(ctx context.Context) radio.TrackStorage {
 }
 
 func (s *StorageService) TrackTx(ctx context.Context, tx radio.StorageTx) (radio.TrackStorage, radio.StorageTx, error) {
-	db, tx, err := s.tx(ctx, tx)
+	ctx, db, tx, err := s.tx(ctx, tx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -212,7 +235,7 @@ func (s *StorageService) Request(ctx context.Context) radio.RequestStorage {
 	}
 }
 func (s *StorageService) RequestTx(ctx context.Context, tx radio.StorageTx) (radio.RequestStorage, radio.StorageTx, error) {
-	db, tx, err := s.tx(ctx, tx)
+	ctx, db, tx, err := s.tx(ctx, tx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -230,7 +253,7 @@ func (s *StorageService) User(ctx context.Context) radio.UserStorage {
 }
 
 func (s *StorageService) UserTx(ctx context.Context, tx radio.StorageTx) (radio.UserStorage, radio.StorageTx, error) {
-	db, tx, err := s.tx(ctx, tx)
+	ctx, db, tx, err := s.tx(ctx, tx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -248,7 +271,7 @@ func (s *StorageService) Submissions(ctx context.Context) radio.SubmissionStorag
 }
 
 func (s *StorageService) SubmissionsTx(ctx context.Context, tx radio.StorageTx) (radio.SubmissionStorage, radio.StorageTx, error) {
-	db, tx, err := s.tx(ctx, tx)
+	ctx, db, tx, err := s.tx(ctx, tx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -266,7 +289,7 @@ func (s *StorageService) News(ctx context.Context) radio.NewsStorage {
 }
 
 func (s *StorageService) NewsTx(ctx context.Context, tx radio.StorageTx) (radio.NewsStorage, radio.StorageTx, error) {
-	db, tx, err := s.tx(ctx, tx)
+	ctx, db, tx, err := s.tx(ctx, tx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -290,7 +313,7 @@ func (s *StorageService) Relay(ctx context.Context) radio.RelayStorage {
 }
 
 func (s *StorageService) RelayTx(ctx context.Context, tx radio.StorageTx) (radio.RelayStorage, radio.StorageTx, error) {
-	db, tx, err := s.tx(ctx, tx)
+	ctx, db, tx, err := s.tx(ctx, tx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -359,12 +382,11 @@ type handle struct {
 	service string
 }
 
-func (h handle) telemetry() (context.Context, func()) {
-	span := trace.SpanFromContext(h.ctx)
-	ctx, span := span.TracerProvider().Tracer(h.service).Start(h.ctx, h.service)
-	return ctx, func() {
-		span.End()
-	}
+func (h handle) span(op errors.Op) (handle, func(...trace.SpanEndOption)) {
+	var span trace.Span
+	h.ctx, span = otel.Tracer("mariadb").Start(h.ctx, string(op))
+
+	return h, span.End
 }
 
 func (h handle) Exec(query string, args ...interface{}) (sql.Result, error) {
@@ -377,10 +399,7 @@ func (h handle) Exec(query string, args ...interface{}) (sql.Result, error) {
 			Msg("exec")
 	}(time.Now())
 
-	ctx, deferFn := h.telemetry()
-	defer deferFn()
-
-	return h.ext.ExecContext(ctx, query, args...)
+	return h.ext.ExecContext(h.ctx, query, args...)
 }
 
 func (h handle) Query(query string, args ...interface{}) (*sql.Rows, error) {
@@ -393,10 +412,7 @@ func (h handle) Query(query string, args ...interface{}) (*sql.Rows, error) {
 			Msg("query")
 	}(time.Now())
 
-	ctx, deferFn := h.telemetry()
-	defer deferFn()
-
-	return h.ext.QueryContext(ctx, query, args...)
+	return h.ext.QueryContext(h.ctx, query, args...)
 }
 
 func (h handle) Queryx(query string, args ...interface{}) (*sqlx.Rows, error) {
@@ -409,10 +425,7 @@ func (h handle) Queryx(query string, args ...interface{}) (*sqlx.Rows, error) {
 			Msg("queryx")
 	}(time.Now())
 
-	ctx, deferFn := h.telemetry()
-	defer deferFn()
-
-	return h.ext.QueryxContext(ctx, query, args...)
+	return h.ext.QueryxContext(h.ctx, query, args...)
 }
 
 func (h handle) QueryRowx(query string, args ...interface{}) *sqlx.Row {
@@ -425,10 +438,7 @@ func (h handle) QueryRowx(query string, args ...interface{}) *sqlx.Row {
 			Msg("query_rowx")
 	}(time.Now())
 
-	ctx, deferFn := h.telemetry()
-	defer deferFn()
-
-	return h.ext.QueryRowxContext(ctx, query, args...)
+	return h.ext.QueryRowxContext(h.ctx, query, args...)
 }
 
 func (h handle) BindNamed(query string, arg interface{}) (string, []interface{}, error) {

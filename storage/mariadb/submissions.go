@@ -45,6 +45,8 @@ INSERT INTO
 
 func (ss SubmissionStorage) InsertPostPending(pend radio.PendingSong) error {
 	const op errors.Op = "mariadb/SubmissionStorage.InsertPostPending"
+	handle, deferFn := ss.handle.span(op)
+	defer deferFn()
 
 	adjusted := adjustedPendingSong{
 		Metadata:    pend.Metadata(),
@@ -58,7 +60,7 @@ func (ss SubmissionStorage) InsertPostPending(pend radio.PendingSong) error {
 		adjusted.NullTrackID = &pend.AcceptedSong.TrackID
 	}
 
-	_, err := sqlx.NamedExec(ss.handle, submissionInsertPostPendingQuery, adjusted)
+	_, err := sqlx.NamedExec(handle, submissionInsertPostPendingQuery, adjusted)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -68,10 +70,12 @@ func (ss SubmissionStorage) InsertPostPending(pend radio.PendingSong) error {
 
 func (ss SubmissionStorage) RemoveSubmission(id radio.SubmissionID) error {
 	const op errors.Op = "mariadb/SubmissionStorage.RemoveSubmission"
+	handle, deferFn := ss.handle.span(op)
+	defer deferFn()
 
 	var query = `DELETE FROM pending WHERE id=?;`
 
-	_, err := ss.handle.Exec(query, id)
+	_, err := handle.Exec(query, id)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -81,12 +85,14 @@ func (ss SubmissionStorage) RemoveSubmission(id radio.SubmissionID) error {
 // LastSubmissionTime implements radio.SubmissionStorage
 func (ss SubmissionStorage) LastSubmissionTime(identifier string) (time.Time, error) {
 	const op errors.Op = "mariadb/SubmissionStorage.LastSubmissionTime"
+	handle, deferFn := ss.handle.span(op)
+	defer deferFn()
 
 	var t time.Time
 
 	query := "SELECT time FROM uploadtime WHERE ip=? ORDER BY time DESC LIMIT 1;"
 
-	err := sqlx.Get(ss.handle, &t, query, identifier)
+	err := sqlx.Get(handle, &t, query, identifier)
 	if err == sql.ErrNoRows { // no rows means never uploaded, so it's OK
 		err = nil
 	}
@@ -100,6 +106,8 @@ func (ss SubmissionStorage) LastSubmissionTime(identifier string) (time.Time, er
 // UpdateSubmissionTime implements radio.SubmissionStorage
 func (ss SubmissionStorage) UpdateSubmissionTime(identifier string) error {
 	const op errors.Op = "mariadb/SubmissionStorage.UpdateSubmissionTime"
+	handle, deferFn := ss.handle.span(op)
+	defer deferFn()
 
 	//query := "INSERT INTO uploadtime (ip, time) VALUES (?, NOW());"
 	query := `
@@ -111,7 +119,7 @@ func (ss SubmissionStorage) UpdateSubmissionTime(identifier string) error {
 		time = NOW();
 	`
 
-	_, err := ss.handle.Exec(query, identifier)
+	_, err := handle.Exec(query, identifier)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -120,6 +128,8 @@ func (ss SubmissionStorage) UpdateSubmissionTime(identifier string) error {
 
 func (ss SubmissionStorage) SubmissionStats(identifier string) (radio.SubmissionStats, error) {
 	const op errors.Op = "mariadb/SubmissionStorage.SubmissionStats"
+	handle, deferFn := ss.handle.span(op)
+	defer deferFn()
 
 	var stats radio.SubmissionStats
 
@@ -143,7 +153,7 @@ func (ss SubmissionStorage) SubmissionStats(identifier string) (radio.Submission
 	FROM postpending;
 	`
 
-	rows, err := sqlx.NamedQuery(ss.handle, query, input)
+	rows, err := sqlx.NamedQuery(handle, query, input)
 	if err != nil {
 		return stats, errors.E(op, err)
 	}
@@ -170,13 +180,13 @@ func (ss SubmissionStorage) SubmissionStats(identifier string) (radio.Submission
 	`
 
 	stats.RecentDeclines = make([]radio.PostPendingSong, 0, 20)
-	err = sqlx.Select(ss.handle, &stats.RecentDeclines, query, radio.SubmissionDeclined)
+	err = sqlx.Select(handle, &stats.RecentDeclines, query, radio.SubmissionDeclined)
 	if err != nil {
 		return stats, errors.E(op, err)
 	}
 
 	stats.RecentAccepts = make([]radio.PostPendingSong, 0, 20)
-	err = sqlx.Select(ss.handle, &stats.RecentAccepts, query, radio.SubmissionAccepted)
+	err = sqlx.Select(handle, &stats.RecentAccepts, query, radio.SubmissionAccepted)
 	if err != nil {
 		return stats, errors.E(op, err)
 	}
@@ -186,6 +196,8 @@ func (ss SubmissionStorage) SubmissionStats(identifier string) (radio.Submission
 
 func (ss SubmissionStorage) InsertSubmission(song radio.PendingSong) error {
 	const op errors.Op = "mariadb/SubmissionStorage.InsertSubmission"
+	handle, deferFn := ss.handle.span(op)
+	defer deferFn()
 
 	query := `
 	INSERT INTO
@@ -220,7 +232,7 @@ func (ss SubmissionStorage) InsertSubmission(song radio.PendingSong) error {
 		);
 	`
 
-	_, err := sqlx.NamedExec(ss.handle, query, song)
+	_, err := sqlx.NamedExec(handle, query, song)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -230,6 +242,8 @@ func (ss SubmissionStorage) InsertSubmission(song radio.PendingSong) error {
 
 func (ss SubmissionStorage) All() ([]radio.PendingSong, error) {
 	const op errors.Op = "mariadb/SubmissionStorage.All"
+	handle, deferFn := ss.handle.span(op)
+	defer deferFn()
 
 	query := `
 	SELECT
@@ -251,7 +265,7 @@ func (ss SubmissionStorage) All() ([]radio.PendingSong, error) {
 
 	var res []radio.PendingSong
 
-	err := sqlx.Select(ss.handle, &res, query)
+	err := sqlx.Select(handle, &res, query)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
@@ -265,6 +279,8 @@ func (ss SubmissionStorage) All() ([]radio.PendingSong, error) {
 
 func (ss SubmissionStorage) GetSubmission(id radio.SubmissionID) (*radio.PendingSong, error) {
 	const op errors.Op = "mariadb/SubmissionStorage.GetSubmission"
+	handle, deferFn := ss.handle.span(op)
+	defer deferFn()
 
 	query := `
 	SELECT
@@ -285,7 +301,7 @@ func (ss SubmissionStorage) GetSubmission(id radio.SubmissionID) (*radio.Pending
 	FROM pending WHERE id=?;`
 
 	var song radio.PendingSong
-	err := sqlx.Get(ss.handle, &song, query, id)
+	err := sqlx.Get(handle, &song, query, id)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}

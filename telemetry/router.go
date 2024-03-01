@@ -32,13 +32,22 @@ func getFunctionName(temp interface{}) string {
 
 type spanKey struct{}
 
-func getSpan(ctx context.Context) *trace.Span {
+type middlewareSpan struct {
+	current   trace.Span
+	parent    trace.Span
+	parentCtx context.Context
+}
+
+func getSpan(ctx context.Context) *middlewareSpan {
 	if v := ctx.Value(spanKey{}); v != nil {
-		return v.(*trace.Span)
+		return v.(*middlewareSpan)
 	}
 
-	s := trace.Span(noop.Span{})
-	return &s
+	return &middlewareSpan{
+		current:   trace.Span(noop.Span{}),
+		parent:    trace.Span(noop.Span{}),
+		parentCtx: context.Background(),
+	}
 }
 
 func middlewareRecord(nextMiddleware func(http.Handler) http.Handler) func(http.Handler) http.Handler {
@@ -46,17 +55,16 @@ func middlewareRecord(nextMiddleware func(http.Handler) http.Handler) func(http.
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ctx := r.Context()
+			ms := getSpan(r.Context())
+			// end the span of the previous middleware
+			ms.current.End()
 
-			spanPtr := getSpan(ctx)
-			span := *spanPtr
+			// start our next span
+			_, ms.current = ms.parent.TracerProvider().Tracer(name).Start(ms.parentCtx, name)
 
-			span.End()
-
-			ctx, span = span.TracerProvider().Tracer(name).Start(ctx, name)
-			*spanPtr = span
-
-			next.ServeHTTP(w, r.WithContext(ctx))
+			// we're passing this span ourselves through ms.current so we don't modify the
+			// requests context, otherwise we get all the middleware spans as childs of each other
+			next.ServeHTTP(w, r)
 		})
 	}
 }
@@ -67,11 +75,15 @@ func middlewareRecordInit(nextMiddleware func(http.Handler) http.Handler) func(h
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
-			span := trace.SpanFromContext(ctx)
+			parentSpan := trace.SpanFromContext(ctx)
 
-			ctx, span = span.TracerProvider().Tracer(name).Start(ctx, name)
+			_, span := parentSpan.TracerProvider().Tracer(name).Start(ctx, name)
 
-			ctx = context.WithValue(ctx, spanKey{}, &span)
+			ctx = context.WithValue(ctx, spanKey{}, &middlewareSpan{
+				current:   span,
+				parent:    parentSpan,
+				parentCtx: ctx,
+			})
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -80,11 +92,10 @@ func middlewareRecordInit(nextMiddleware func(http.Handler) http.Handler) func(h
 func middlewareRecordFinish(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		span := *getSpan(ctx)
-		span.End()
+		ms := getSpan(ctx)
+		ms.current.End()
 
-		span = trace.SpanFromContext(ctx)
-		span.AddEvent("middleware_finished")
+		ms.parent.AddEvent("middleware_finished")
 
 		next.ServeHTTP(w, r)
 	})

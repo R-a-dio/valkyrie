@@ -14,6 +14,8 @@ type RelayStorage struct {
 // Update implements radio.RelayStorage
 func (rs RelayStorage) Update(r radio.Relay) error {
 	const op errors.Op = "mariadb/RelayStorage.Update"
+	handle, deferFn := rs.handle.span(op)
+	defer deferFn()
 
 	var query = `UPDATE relays SET 
 	status = :status,
@@ -26,7 +28,7 @@ func (rs RelayStorage) Update(r radio.Relay) error {
 	max = :max
 	WHERE name = :name;`
 
-	_, err := sqlx.NamedExec(rs.handle, query, r)
+	_, err := sqlx.NamedExec(handle, query, r)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -37,12 +39,14 @@ func (rs RelayStorage) Update(r radio.Relay) error {
 // All implements radio.SessionStorage
 func (rs RelayStorage) All() ([]radio.Relay, error) {
 	const op errors.Op = "mariadb/RelayStorage.All"
+	handle, deferFn := rs.handle.span(op)
+	defer deferFn()
 
 	var query = "SELECT * FROM relays;"
 
 	relays := []radio.Relay{}
 
-	err := sqlx.Select(rs.handle, &relays, query)
+	err := sqlx.Select(handle, &relays, query)
 	if err != nil {
 		return relays, errors.E(op, err)
 	}

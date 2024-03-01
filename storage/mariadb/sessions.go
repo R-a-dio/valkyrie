@@ -16,6 +16,8 @@ type SessionStorage struct {
 // Delete implements radio.SessionStorage
 func (ss SessionStorage) Delete(token radio.SessionToken) error {
 	const op errors.Op = "mariadb/SessionStorage.Delete"
+	handle, deferFn := ss.handle.span(op)
+	defer deferFn()
 
 	var query = `
 	DELETE FROM 
@@ -24,7 +26,7 @@ func (ss SessionStorage) Delete(token radio.SessionToken) error {
 		token=?;
 	`
 
-	_, err := ss.handle.Exec(query, token)
+	_, err := handle.Exec(query, token)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -35,6 +37,8 @@ func (ss SessionStorage) Delete(token radio.SessionToken) error {
 // Save implements radio.SessionStorage
 func (ss SessionStorage) Save(session radio.Session) error {
 	const op errors.Op = "mariadb/SessionStorage.Save"
+	handle, deferFn := ss.handle.span(op)
+	defer deferFn()
 
 	var query = `
 	INSERT INTO
@@ -50,7 +54,7 @@ func (ss SessionStorage) Save(session radio.Session) error {
 			expiry=:expiry, data=:data;
 	`
 
-	_, err := sqlx.NamedExec(ss.handle, query, session)
+	_, err := sqlx.NamedExec(handle, query, session)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -60,6 +64,8 @@ func (ss SessionStorage) Save(session radio.Session) error {
 // Get implements radio.SessionStorage
 func (ss SessionStorage) Get(token radio.SessionToken) (radio.Session, error) {
 	const op errors.Op = "mariadb/SessionStorage.Get"
+	handle, deferFn := ss.handle.span(op)
+	defer deferFn()
 
 	var query = `
 	SELECT
@@ -74,7 +80,7 @@ func (ss SessionStorage) Get(token radio.SessionToken) (radio.Session, error) {
 
 	var session radio.Session
 
-	err := sqlx.Get(ss.handle, &session, query, token)
+	err := sqlx.Get(handle, &session, query, token)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return session, errors.E(op, errors.SessionUnknown)

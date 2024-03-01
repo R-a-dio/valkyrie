@@ -16,13 +16,15 @@ type RequestStorage struct {
 // LastRequest implements radio.RequestStorage
 func (rs RequestStorage) LastRequest(identifier string) (time.Time, error) {
 	const op errors.Op = "mariadb/RequestStorage.LastRequest"
+	handle, deferFn := rs.handle.span(op)
+	defer deferFn()
 
 	var t time.Time
 
 	query := "SELECT time FROM requesttime WHERE ip=? ORDER BY time DESC LIMIT 1;"
 	//query := "SELECT time FROM requesttime WHERE identifier=? ORDER BY time DESC LIMIT 1;"
 
-	err := sqlx.Get(rs.handle, &t, query, identifier)
+	err := sqlx.Get(handle, &t, query, identifier)
 	if err == sql.ErrNoRows {
 		err = nil
 	}
@@ -36,11 +38,13 @@ func (rs RequestStorage) LastRequest(identifier string) (time.Time, error) {
 // UpdateLastRequest implements radio.RequestStorage
 func (rs RequestStorage) UpdateLastRequest(identifier string) error {
 	const op errors.Op = "mariadb/RequestStorage.UpdateLastRequest"
+	handle, deferFn := rs.handle.span(op)
+	defer deferFn()
 
 	query := "INSERT INTO requesttime (ip, time) VALUES (?, NOW());"
 	//query := "INSERT INTO requesttime (identifier, time) VALUES (?, NOW())";
 
-	_, err := rs.handle.Exec(query, identifier)
+	_, err := handle.Exec(query, identifier)
 	if err != nil {
 		return errors.E(op, err)
 	}

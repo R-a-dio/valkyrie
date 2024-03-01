@@ -9,6 +9,7 @@ import (
 	"github.com/R-a-dio/valkyrie/rpc"
 	"github.com/R-a-dio/valkyrie/util/eventstream"
 	"github.com/rs/zerolog"
+	"go.opentelemetry.io/otel"
 	"google.golang.org/grpc"
 )
 
@@ -50,6 +51,10 @@ func (m *Manager) Status(ctx context.Context) (*radio.Status, error) {
 
 // UpdateUser sets information about the current streamer
 func (m *Manager) UpdateUser(ctx context.Context, u radio.User) error {
+	const op errors.Op = "manager/Manager.UpdateUser"
+	ctx, span := otel.Tracer("").Start(ctx, string(op))
+	defer span.End()
+
 	defer m.updateStreamStatus(true)
 	m.userStream.Send(u)
 
@@ -76,6 +81,8 @@ func (m *Manager) UpdateUser(ctx context.Context, u radio.User) error {
 // UpdateSong sets information about the currently playing song
 func (m *Manager) UpdateSong(ctx context.Context, update *radio.SongUpdate) error {
 	const op errors.Op = "manager/Manager.UpdateSong"
+	ctx, span := otel.Tracer("").Start(ctx, string(op))
+	defer span.End()
 
 	new := update
 	info := update.Info
@@ -224,6 +231,10 @@ func (m *Manager) UpdateSong(ctx context.Context, update *radio.SongUpdate) erro
 
 // UpdateThread sets the current thread information on the front page and chats
 func (m *Manager) UpdateThread(ctx context.Context, thread radio.Thread) error {
+	const op errors.Op = "manager/Manager.UpdateThread"
+	ctx, span := otel.Tracer("").Start(ctx, string(op))
+	defer span.End()
+
 	defer m.updateStreamStatus(true)
 	m.threadStream.Send(thread)
 
@@ -235,6 +246,10 @@ func (m *Manager) UpdateThread(ctx context.Context, thread radio.Thread) error {
 
 // UpdateListeners sets the listener count
 func (m *Manager) UpdateListeners(ctx context.Context, listeners radio.Listeners) error {
+	const op errors.Op = "manager/Manager.UpdateListeners"
+	ctx, span := otel.Tracer("").Start(ctx, string(op))
+	defer span.End()
+
 	defer m.updateStreamStatus(false)
 	m.listenerStream.Send(listeners)
 
