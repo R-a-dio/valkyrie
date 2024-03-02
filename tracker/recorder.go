@@ -30,10 +30,7 @@ type Recorder struct {
 	ListenerAmount atomic.Int64
 }
 
-func (r *Recorder) ListenerAdd(ctx context.Context, req *http.Request) {
-	defer r.ListenerAmount.Add(1)
-	id := req.FormValue("client")
-
+func (r *Recorder) ListenerAdd(ctx context.Context, id string, req *http.Request) {
 	_, span := otel.Tracer("listener-tracker").Start(ctx, "listener",
 		trace.WithNewRoot(),
 		trace.WithAttributes(requestToOtelAttributes(req)...),
@@ -47,12 +44,11 @@ func (r *Recorder) ListenerAdd(ctx context.Context, req *http.Request) {
 	r.mu.Lock()
 	r.Listeners[listener.id] = listener
 	r.mu.Unlock()
+
+	r.ListenerAmount.Add(1)
 }
 
-func (r *Recorder) ListenerRemove(ctx context.Context, req *http.Request) {
-	defer r.ListenerAmount.Add(-1)
-	id := req.FormValue("client")
-
+func (r *Recorder) ListenerRemove(ctx context.Context, id string, req *http.Request) {
 	r.mu.Lock()
 	listener, ok := r.Listeners[id]
 	delete(r.Listeners, id)
@@ -60,6 +56,7 @@ func (r *Recorder) ListenerRemove(ctx context.Context, req *http.Request) {
 
 	if ok {
 		listener.span.End()
+		r.ListenerAmount.Add(-1)
 	}
 }
 
