@@ -18,6 +18,7 @@ import (
 	_ "github.com/R-a-dio/valkyrie/search/storage"  // storage search interface
 	_ "github.com/R-a-dio/valkyrie/storage/mariadb" // mariadb storage interface
 	"github.com/R-a-dio/valkyrie/telemetry"
+	"github.com/R-a-dio/valkyrie/tracker"
 	"github.com/R-a-dio/valkyrie/website"
 	"github.com/google/subcommands"
 	"github.com/rs/zerolog"
@@ -206,6 +207,15 @@ var proxyCmd = cmd{
 	execute: withConfig(proxy.Execute),
 }
 
+var listenerTrackerCmd = cmd{
+	name:     "listener-tracker",
+	synopsis: "runs the icecast listener tracker",
+	usage: `listener-tracker:
+	run the icecast listener tracker
+	`,
+	execute: withConfig(tracker.Execute),
+}
+
 func main() {
 	// setup configuration file as top-level flag
 	flag.StringVar(&configFile, "config", "hanyuu.toml", "filepath to configuration file")
@@ -229,6 +239,7 @@ func main() {
 	subcommands.Register(websiteCmd, "")
 	subcommands.Register(balancerCmd, "")
 	subcommands.Register(proxyCmd, "")
+	subcommands.Register(listenerTrackerCmd, "")
 
 	subcommands.Register(listenerLogCmd, "jobs")
 	subcommands.Register(requestCountCmd, "jobs")
@@ -278,7 +289,7 @@ func main() {
 		// normal non-nil error, we exit with the default failure exit code
 		code = 1
 		// print the error if it's a non-ExitError since it's probably important
-		logger.Fatal().Err(err).Msg("")
+		logger.Fatal().Err(err).Msg("exit")
 	}
 
 	os.Exit(code)
