@@ -294,7 +294,8 @@ class Stream {
         if (deleteAudio) {
             // due to eager buffering by browsers they will keep the stream 'playing'
             // in the background if we don't do the below things.
-            this.audio.src = null;
+            this.audio.src = "";
+            this.audio.removeAttribute("src");
             this.audio.load();
             this.audio = null;
         }
