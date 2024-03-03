@@ -43,7 +43,9 @@ func (s State) getHome(w http.ResponseWriter, r *http.Request) error {
 
 	queue, err := s.Streamer.Queue(ctx)
 	if err != nil {
-		return errors.E(op, errors.InternalServer, err)
+		hlog.FromRequest(r).Error().Err(err).Msg("streamer queue unavailable")
+		// continue with an empty queue instead
+		queue = []radio.QueueEntry{}
 	}
 	input.Queue = queue
 
