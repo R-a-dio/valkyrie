@@ -70,8 +70,9 @@ var defaultConfig = config{
 		Addr: ":1337",
 	},
 	Telemetry: telemetry{
-		Use:      false,
-		Endpoint: ":5081",
+		Use:                false,
+		Endpoint:           ":4317",
+		PrometheusEndpoint: "localhost:9091",
 	},
 }
 
@@ -112,9 +113,10 @@ type proxy struct {
 }
 
 type telemetry struct {
-	Use      bool
-	Endpoint string
-	Auth     string
+	Use                bool
+	Endpoint           string
+	Auth               string
+	PrometheusEndpoint string
 }
 
 type providers struct {

@@ -2,6 +2,7 @@ package telemetry
 
 import (
 	"context"
+	"time"
 
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/rpc"
@@ -9,6 +10,9 @@ import (
 	"github.com/R-a-dio/valkyrie/website"
 	"github.com/XSAM/otelsql"
 	"github.com/jmoiron/sqlx"
+	"github.com/prometheus/client_golang/prometheus/collectors"
+	"github.com/prometheus/client_golang/prometheus/push"
+	"github.com/rs/zerolog"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
@@ -40,6 +44,33 @@ func Init(ctx context.Context, cfg config.Config, service string) (func(), error
 	website.NewRouter = NewRouter
 	rpc.NewGrpcServer = NewGrpcServer
 	rpc.GrpcDial = GrpcDial
+
+	// we want runtime statistics, but the current opentelemetry one is kinda garbage.
+	// So use the prometheus library to collect them instead
+	/*runtime.Start(
+		runtime.WithMeterProvider(mp),
+		runtime.WithMinimumReadMemStatsInterval(time.Second*30),
+	)*/
+	rc := collectors.NewGoCollector(
+		collectors.WithGoCollectorRuntimeMetrics(collectors.MetricsAll),
+	)
+
+	pusher := push.New(cfg.Conf().Telemetry.PrometheusEndpoint, "radio:"+service).
+		Collector(rc)
+	go func() {
+		ticker := time.NewTicker(time.Second * 15)
+		for {
+			select {
+			case <-ticker.C:
+				err := pusher.AddContext(ctx)
+				if err != nil {
+					zerolog.Ctx(ctx).Error().Err(err).Msg("failed to prometheus push")
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 
 	closeFn := func() {
 		tp.Shutdown(context.Background())
