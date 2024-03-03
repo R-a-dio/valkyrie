@@ -4,6 +4,7 @@ import (
 	"context"
 	"html/template"
 	"net/http"
+	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
@@ -22,6 +23,7 @@ func InputMiddleware(cfg config.Config, status *util.Value[radio.Status]) func(h
 
 			user := UserFromContext(ctx)
 			input := Input{
+				Now:       time.Now(),
 				IsHTMX:    util.IsHTMX(r),
 				IsUser:    user != nil,
 				User:      user,
@@ -51,6 +53,7 @@ func InputFromContext(ctx context.Context) Input {
 
 // Input is a bunch of data that should be accessable to the base template
 type Input struct {
+	Now       time.Time
 	IsUser    bool
 	IsHTMX    bool
 	User      *radio.User

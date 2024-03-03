@@ -3,9 +3,11 @@ package tracker
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/R-a-dio/valkyrie/telemetry"
 	"go.opentelemetry.io/otel"
@@ -14,19 +16,25 @@ import (
 )
 
 type Listener struct {
-	id   string
 	span trace.Span
+
+	// ID is the identifier icecast is using for this client
+	ID string
+	// Start is the time this listener started listening
+	Start time.Time
+	// Info is the information icecast sends us through the POST form values
+	Info url.Values
 }
 
 func NewRecorder() *Recorder {
 	return &Recorder{
-		Listeners: make(map[string]Listener),
+		Listeners: make(map[string]*Listener),
 	}
 }
 
 type Recorder struct {
 	mu             sync.Mutex
-	Listeners      map[string]Listener
+	Listeners      map[string]*Listener
 	ListenerAmount atomic.Int64
 }
 
@@ -37,12 +45,14 @@ func (r *Recorder) ListenerAdd(ctx context.Context, id string, req *http.Request
 	)
 
 	listener := Listener{
-		id:   id,
-		span: span,
+		ID:    id,
+		span:  span,
+		Start: time.Now(),
+		Info:  req.PostForm,
 	}
 
 	r.mu.Lock()
-	r.Listeners[listener.id] = listener
+	r.Listeners[listener.ID] = &listener
 	r.mu.Unlock()
 
 	r.ListenerAmount.Add(1)

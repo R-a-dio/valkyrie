@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/R-a-dio/valkyrie/website"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
 )
 
@@ -56,6 +57,12 @@ func ListenerAdd(ctx context.Context, delayer *Delayer, recorder *Recorder) http
 		_ = r.ParseForm()
 
 		id := r.FormValue("client")
+		if id == "" {
+			// icecast send us no client id somehow, this is broken and
+			// we can't record this listener
+			hlog.FromRequest(r).WithLevel(zerolog.PanicLevel).Msg("received icecast client with no id")
+			return
+		}
 		delayer.Delay(ctx, id, func() {
 			recorder.ListenerAdd(ctx, id, r)
 		})
@@ -81,6 +88,13 @@ func NewServer(ctx context.Context, addr string, recorder *Recorder) *http.Serve
 	delayi := NewDelayer(ADD_DELAY)
 
 	r.Use(
+		hlog.NewHandler(*zerolog.Ctx(ctx)),
+		hlog.RemoteAddrHandler("ip"),
+		hlog.UserAgentHandler("user_agent"),
+		hlog.RequestIDHandler("req_id", "Request-Id"),
+		hlog.URLHandler("url"),
+		hlog.MethodHandler("method"),
+		hlog.ProtoHandler("protocol"),
 		hlog.AccessHandler(zerologLoggerFunc),
 	)
 	r.Post("/listener_joined", ListenerAdd(ctx, delayi, recorder))
