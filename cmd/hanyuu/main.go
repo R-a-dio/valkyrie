@@ -73,7 +73,7 @@ func (c cmd) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{}) 
 		}
 
 		// yes telemetry
-		telemetryShutdown, err = telemetry.Init(ctx, cfg, os.Args[1])
+		telemetryShutdown, err = telemetry.Init(ctx, cfg, flag.CommandLine.Arg(0))
 		if err != nil {
 			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to initialize telemetry")
 		}
