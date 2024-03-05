@@ -3,6 +3,8 @@ package admin
 import (
 	"context"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
@@ -61,7 +63,6 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 	return func(r chi.Router) {
 		// the login middleware will require atleast the active permission
 		r = r.With(
-			templates.AdminThemeCtx(),
 			s.Authentication.LoginMiddleware,
 		)
 		r.Handle("/set-theme", templates.SetThemeHandler("admin-theme", s.Templates.ResolveThemeName))
@@ -80,6 +81,11 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 			vmiddleware.RequirePermission(radio.PermDatabaseEdit, s.PostSongs))
 		r.Delete("/songs",
 			vmiddleware.RequirePermission(radio.PermDatabaseDelete, s.DeleteSongs))
+
+		// proxy to the grafana host
+		grafana, _ := url.Parse("http://localhost:3000")
+		proxy := httputil.NewSingleHostReverseProxy(grafana)
+		r.Handle("/grafana", vmiddleware.RequirePermission(radio.PermDev, proxy.ServeHTTP))
 
 		// debug handlers, might not be needed later
 		r.HandleFunc("/streamer/start", vmiddleware.RequirePermission(radio.PermAdmin, s.StartStreamer))

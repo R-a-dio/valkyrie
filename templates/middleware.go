@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -17,24 +18,13 @@ func ThemeCtx(storage radio.StorageService) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			theme := DEFAULT_DIR
-			if cookie, err := r.Cookie("theme"); err == nil {
-				theme = cookie.Value
-			}
-			if tmp := r.URL.Query().Get("theme"); tmp != "" {
-				theme = tmp
+			cookieName := theme
+			if strings.HasPrefix(r.URL.Path, "/admin") {
+				theme = DEFAULT_ADMIN_DIR
+				cookieName = "admin-theme"
 			}
 
-			ctx := SetTheme(r.Context(), theme, false)
-			next.ServeHTTP(w, r.WithContext(ctx))
-		})
-	}
-}
-
-func AdminThemeCtx() func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			theme := DEFAULT_ADMIN_DIR
-			if cookie, err := r.Cookie("admin-theme"); err == nil {
+			if cookie, err := r.Cookie(cookieName); err == nil {
 				theme = cookie.Value
 			}
 			if tmp := r.URL.Query().Get("theme"); tmp != "" {
