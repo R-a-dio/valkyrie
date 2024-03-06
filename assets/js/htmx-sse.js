@@ -269,7 +269,23 @@ This extension adds support for Server Sent Events to htmx.  See /www/extensions
 
         var swapSpec = api.getSwapSpecification(elt)
         var target = api.getTarget(elt)
-        api.swap(target, content, swapSpec)
+        var settleInfo = api.makeSettleInfo(elt)
+
+        api.selectAndSwap(swapSpec.swapStyle, target, elt, content, settleInfo)
+
+        settleInfo.elts.forEach(function (elt) {
+            if (elt.classList) {
+                elt.classList.add(htmx.config.settlingClass)
+            }
+            api.triggerEvent(elt, 'htmx:beforeSettle')
+        })
+
+        // Handle settle tasks (with delay if requested)
+        if (swapSpec.settleDelay > 0) {
+            setTimeout(doSettle(settleInfo), swapSpec.settleDelay)
+        } else {
+            doSettle(settleInfo)()
+        }
     }
 
     /**
