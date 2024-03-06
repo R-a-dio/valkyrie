@@ -85,7 +85,7 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 		// proxy to the grafana host
 		grafana, _ := url.Parse("http://localhost:3000")
 		proxy := httputil.NewSingleHostReverseProxy(grafana)
-		r.Handle("/grafana", vmiddleware.RequirePermission(radio.PermDev, proxy.ServeHTTP))
+		r.Handle("/grafana/*", vmiddleware.RequirePermission(radio.PermDev, proxy.ServeHTTP))
 
 		// debug handlers, might not be needed later
 		r.HandleFunc("/streamer/start", vmiddleware.RequirePermission(radio.PermAdmin, s.StartStreamer))

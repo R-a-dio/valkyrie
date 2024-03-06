@@ -4,6 +4,8 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
+	"log"
 	"os"
 	"os/signal"
 	"runtime/debug"
@@ -22,6 +24,7 @@ import (
 	"github.com/R-a-dio/valkyrie/website"
 	"github.com/google/subcommands"
 	"github.com/rs/zerolog"
+	"golang.org/x/term"
 )
 
 type executeFn func(context.Context, config.Loader) error
@@ -53,6 +56,7 @@ func (c cmd) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{}) 
 	zerolog.Ctx(ctx).UpdateContext(func(zc zerolog.Context) zerolog.Context {
 		return zc.Str("service", c.name)
 	})
+
 	// setup telemetry if wanted
 
 	var telemetryShutdown func()
@@ -77,6 +81,7 @@ func (c cmd) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{}) 
 		if err != nil {
 			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to initialize telemetry")
 		}
+
 		return cfg, err
 	}
 
@@ -255,14 +260,20 @@ func main() {
 	// exit code passed to os.Exit
 	var code int
 	// setup logger
-	logger := zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout}).With().Timestamp().Logger()
+
+	// discard logs unless we are connected to a terminal
+	lo := io.Discard
+	if term.IsTerminal(int(os.Stdout.Fd())) {
+		lo = zerolog.ConsoleWriter{Out: os.Stdout}
+	}
+	logger := zerolog.New(lo).With().Timestamp().Logger()
 	// change the level to what the flag told us
 	level, err := zerolog.ParseLevel(logLevel)
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to parse loglevel flag")
 		os.Exit(1)
 	}
-	logger = logger.Level(level)
+	logger = logger.Level(level).Hook(telemetry.Hook)
 
 	// setup root context
 	ctx := context.Background()
@@ -289,6 +300,7 @@ func main() {
 		// normal non-nil error, we exit with the default failure exit code
 		code = 1
 		// print the error if it's a non-ExitError since it's probably important
+		log.Println("exit error:", err)
 		logger.Fatal().Err(err).Msg("exit")
 	}
 

@@ -9,6 +9,10 @@ import (
 	"github.com/R-a-dio/valkyrie/storage/mariadb"
 	"github.com/R-a-dio/valkyrie/website"
 	"github.com/XSAM/otelsql"
+	"github.com/agoda-com/opentelemetry-go/otelzerolog"
+	"github.com/agoda-com/opentelemetry-logs-go/exporters/otlp/otlplogs"
+	"github.com/agoda-com/opentelemetry-logs-go/exporters/otlp/otlplogs/otlplogsgrpc"
+	logsSDK "github.com/agoda-com/opentelemetry-logs-go/sdk/logs"
 	"github.com/jmoiron/sqlx"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/push"
@@ -25,6 +29,18 @@ import (
 	"google.golang.org/grpc"
 )
 
+// temporary until otel gets log handling
+var LogProvider *logsSDK.LoggerProvider
+var logHook *otelzerolog.Hook
+
+var Hook = zerolog.HookFunc(func(e *zerolog.Event, level zerolog.Level, message string) {
+	if logHook == nil {
+		return
+	}
+
+	logHook.Run(e, level, message)
+})
+
 func Init(ctx context.Context, cfg config.Config, service string) (func(), error) {
 	tp, err := InitTracer(ctx, cfg, service)
 	if err != nil {
@@ -37,6 +53,14 @@ func Init(ctx context.Context, cfg config.Config, service string) (func(), error
 		return nil, err
 	}
 	otel.SetMeterProvider(mp)
+
+	lp, err := InitLogs(ctx, cfg, service)
+	if err != nil {
+		return nil, err
+	}
+	// otel.SetLogProvider(lp)
+	LogProvider = lp
+	logHook = otelzerolog.NewHook(lp)
 
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
 	// done setting up, swap global functions to inject telemetry
@@ -75,6 +99,7 @@ func Init(ctx context.Context, cfg config.Config, service string) (func(), error
 	closeFn := func() {
 		tp.Shutdown(context.Background())
 		mp.Shutdown(context.Background())
+		lp.Shutdown(context.Background())
 	}
 
 	return closeFn, err
@@ -145,6 +170,37 @@ func InitMetric(ctx context.Context, cfg config.Config, service string) (*metric
 
 	otel.SetMeterProvider(mp)
 	return mp, nil
+}
+
+func InitLogs(ctx context.Context, cfg config.Config, service string) (*logsSDK.LoggerProvider, error) {
+	conf := cfg.Conf().Telemetry
+
+	logs_exporter, err := otlplogs.NewExporter(ctx,
+		otlplogs.WithClient(
+			otlplogsgrpc.NewClient(otlplogsgrpc.WithInsecure(),
+				otlplogsgrpc.WithEndpoint(conf.Endpoint),
+			),
+		),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := resource.Merge(resource.Default(), resource.Environment())
+	if err != nil {
+		return nil, err
+	}
+	res, err = resource.Merge(res, resource.NewWithAttributes(semconv.SchemaURL, semconv.ServiceName("radio:"+service)))
+	if err != nil {
+		return nil, err
+	}
+
+	lp := logsSDK.NewLoggerProvider(
+		logsSDK.WithBatcher(logs_exporter),
+		logsSDK.WithResource(res),
+	)
+
+	return lp, nil
 }
 
 // DatabaseConnect applies telemetry to a database/sql driver
