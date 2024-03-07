@@ -579,6 +579,7 @@ type StorageService interface {
 	StatusStorageService
 	SubmissionStorageService
 	NewsStorageService
+	ScheduleStorageService
 }
 
 // SessionStorageService is a service that supplies a SessionStorage
@@ -1011,4 +1012,69 @@ func (r Relay) Score() float64 {
 		return 0
 	}
 	return 1.0 - float64(2.0*r.Listeners)/float64(r.Listeners+r.Max)
+}
+
+type ScheduleStorageService interface {
+	Schedule(context.Context) ScheduleStorage
+	ScheduleTx(context.Context, StorageTx) (ScheduleStorage, StorageTx, error)
+}
+
+type ScheduleStorage interface {
+	// Latest returns the latest version of the schedule, where "the schedule"
+	// refers to all 7 days of the week having ScheduleEntry
+	Latest() ([]ScheduleEntry, error)
+	// Update updates the schedule with the entry given
+	Update(ScheduleEntry) error
+	// History returns the previous versions of ScheduleEntry
+	History(day ScheduleDay, limit, offset int64) ([]ScheduleEntry, error)
+}
+
+type ScheduleID uint64
+
+type ScheduleDay uint8
+
+const (
+	Monday ScheduleDay = iota
+	Tuesday
+	Wednesday
+	Thursday
+	Friday
+	Saturday
+	Sunday
+)
+
+func (day ScheduleDay) String() string {
+	switch day {
+	case Monday:
+		return "Monday"
+	case Tuesday:
+		return "Tuesday"
+	case Wednesday:
+		return "Wednesday"
+	case Thursday:
+		return "Thursday"
+	case Friday:
+		return "Friday"
+	case Saturday:
+		return "Saturday"
+	case Sunday:
+		return "Sunday"
+	}
+	return "Unknown"
+}
+
+type ScheduleEntry struct {
+	ID ScheduleID
+	// Weekday is the day this entry is for
+	Weekday ScheduleDay
+	// Text is the actual body of the entry
+	Text string
+	// Owner is who "owns" this day for streaming rights
+	Owner *User
+	// UpdatedAt is when this was updated
+	UpdatedAt time.Time
+	// UpdatedBy is who updated this
+	UpdatedBy User
+	// Notification indicates if we should notify users of this entry
+	Notification bool
 }

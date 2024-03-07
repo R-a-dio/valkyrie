@@ -330,6 +330,24 @@ func (s *StorageService) Search() radio.SearchService {
 	}
 }
 
+func (s *StorageService) Schedule(ctx context.Context) radio.ScheduleStorage {
+	return ScheduleStorage{
+		handle: handle{s.db, ctx, "schedule"},
+	}
+}
+
+func (s *StorageService) ScheduleTx(ctx context.Context, tx radio.StorageTx) (radio.ScheduleStorage, radio.StorageTx, error) {
+	ctx, db, tx, err := s.tx(ctx, tx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	storage := ScheduleStorage{
+		handle: handle{db, ctx, "schedule"},
+	}
+	return storage, tx, nil
+}
+
 type extContext interface {
 	sqlx.ExecerContext
 	sqlx.QueryerContext

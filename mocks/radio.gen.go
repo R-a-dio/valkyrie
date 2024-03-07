@@ -44,6 +44,12 @@ var _ radio.StorageService = &StorageServiceMock{}
 //			RequestTxFunc: func(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.RequestStorage, radio.StorageTx, error) {
 //				panic("mock out the RequestTx method")
 //			},
+//			ScheduleFunc: func(contextMoqParam context.Context) radio.ScheduleStorage {
+//				panic("mock out the Schedule method")
+//			},
+//			ScheduleTxFunc: func(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.ScheduleStorage, radio.StorageTx, error) {
+//				panic("mock out the ScheduleTx method")
+//			},
 //			SessionsFunc: func(contextMoqParam context.Context) radio.SessionStorage {
 //				panic("mock out the Sessions method")
 //			},
@@ -107,6 +113,12 @@ type StorageServiceMock struct {
 
 	// RequestTxFunc mocks the RequestTx method.
 	RequestTxFunc func(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.RequestStorage, radio.StorageTx, error)
+
+	// ScheduleFunc mocks the Schedule method.
+	ScheduleFunc func(contextMoqParam context.Context) radio.ScheduleStorage
+
+	// ScheduleTxFunc mocks the ScheduleTx method.
+	ScheduleTxFunc func(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.ScheduleStorage, radio.StorageTx, error)
 
 	// SessionsFunc mocks the Sessions method.
 	SessionsFunc func(contextMoqParam context.Context) radio.SessionStorage
@@ -191,6 +203,18 @@ type StorageServiceMock struct {
 			// StorageTx is the storageTx argument value.
 			StorageTx radio.StorageTx
 		}
+		// Schedule holds details about calls to the Schedule method.
+		Schedule []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+		}
+		// ScheduleTx holds details about calls to the ScheduleTx method.
+		ScheduleTx []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+			// StorageTx is the storageTx argument value.
+			StorageTx radio.StorageTx
+		}
 		// Sessions holds details about calls to the Sessions method.
 		Sessions []struct {
 			// ContextMoqParam is the contextMoqParam argument value.
@@ -265,6 +289,8 @@ type StorageServiceMock struct {
 	lockRelayTx       sync.RWMutex
 	lockRequest       sync.RWMutex
 	lockRequestTx     sync.RWMutex
+	lockSchedule      sync.RWMutex
+	lockScheduleTx    sync.RWMutex
 	lockSessions      sync.RWMutex
 	lockSessionsTx    sync.RWMutex
 	lockSong          sync.RWMutex
@@ -547,6 +573,74 @@ func (mock *StorageServiceMock) RequestTxCalls() []struct {
 	mock.lockRequestTx.RLock()
 	calls = mock.calls.RequestTx
 	mock.lockRequestTx.RUnlock()
+	return calls
+}
+
+// Schedule calls ScheduleFunc.
+func (mock *StorageServiceMock) Schedule(contextMoqParam context.Context) radio.ScheduleStorage {
+	if mock.ScheduleFunc == nil {
+		panic("StorageServiceMock.ScheduleFunc: method is nil but StorageService.Schedule was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+	}{
+		ContextMoqParam: contextMoqParam,
+	}
+	mock.lockSchedule.Lock()
+	mock.calls.Schedule = append(mock.calls.Schedule, callInfo)
+	mock.lockSchedule.Unlock()
+	return mock.ScheduleFunc(contextMoqParam)
+}
+
+// ScheduleCalls gets all the calls that were made to Schedule.
+// Check the length with:
+//
+//	len(mockedStorageService.ScheduleCalls())
+func (mock *StorageServiceMock) ScheduleCalls() []struct {
+	ContextMoqParam context.Context
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+	}
+	mock.lockSchedule.RLock()
+	calls = mock.calls.Schedule
+	mock.lockSchedule.RUnlock()
+	return calls
+}
+
+// ScheduleTx calls ScheduleTxFunc.
+func (mock *StorageServiceMock) ScheduleTx(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.ScheduleStorage, radio.StorageTx, error) {
+	if mock.ScheduleTxFunc == nil {
+		panic("StorageServiceMock.ScheduleTxFunc: method is nil but StorageService.ScheduleTx was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+		StorageTx       radio.StorageTx
+	}{
+		ContextMoqParam: contextMoqParam,
+		StorageTx:       storageTx,
+	}
+	mock.lockScheduleTx.Lock()
+	mock.calls.ScheduleTx = append(mock.calls.ScheduleTx, callInfo)
+	mock.lockScheduleTx.Unlock()
+	return mock.ScheduleTxFunc(contextMoqParam, storageTx)
+}
+
+// ScheduleTxCalls gets all the calls that were made to ScheduleTx.
+// Check the length with:
+//
+//	len(mockedStorageService.ScheduleTxCalls())
+func (mock *StorageServiceMock) ScheduleTxCalls() []struct {
+	ContextMoqParam context.Context
+	StorageTx       radio.StorageTx
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+		StorageTx       radio.StorageTx
+	}
+	mock.lockScheduleTx.RLock()
+	calls = mock.calls.ScheduleTx
+	mock.lockScheduleTx.RUnlock()
 	return calls
 }
 
