@@ -88,7 +88,7 @@ func (m ManagerClientRPC) CurrentStatus(ctx context.Context) (eventstream.Stream
 	return streamFromProtobuf(ctx, c, fromProtoStatus)
 }
 
-func (m ManagerClientRPC) CurrentUser(ctx context.Context) (eventstream.Stream[radio.User], error) {
+func (m ManagerClientRPC) CurrentUser(ctx context.Context) (eventstream.Stream[*radio.User], error) {
 	c := func(ctx context.Context, e *emptypb.Empty, opts ...grpc.CallOption) (pbReceiver[*User], error) {
 		return m.rpc.CurrentUser(ctx, e, opts...)
 	}
@@ -96,7 +96,7 @@ func (m ManagerClientRPC) CurrentUser(ctx context.Context) (eventstream.Stream[r
 }
 
 // UpdateUser implements radio.ManagerService
-func (m ManagerClientRPC) UpdateUser(ctx context.Context, u radio.User) error {
+func (m ManagerClientRPC) UpdateUser(ctx context.Context, u *radio.User) error {
 	_, err := m.rpc.UpdateUser(ctx, toProtoUser(u))
 	return err
 }

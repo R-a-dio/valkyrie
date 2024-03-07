@@ -219,10 +219,9 @@ func StreamerUserInfo(e Event) error {
 		}
 	} else {
 		topicStatus = "DOWN"
-		user = &radio.User{}
 	}
 
-	err = e.Bot.Manager.UpdateUser(e.Ctx, *user)
+	err = e.Bot.Manager.UpdateUser(e.Ctx, user)
 	if err != nil {
 		return errors.E(op, err)
 	}

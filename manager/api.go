@@ -21,7 +21,7 @@ func NewHTTPServer(m *Manager) (*grpc.Server, error) {
 	return gs, nil
 }
 
-func (m *Manager) CurrentUser(ctx context.Context) (eventstream.Stream[radio.User], error) {
+func (m *Manager) CurrentUser(ctx context.Context) (eventstream.Stream[*radio.User], error) {
 	return m.userStream.SubStream(ctx), nil
 }
 
@@ -50,7 +50,7 @@ func (m *Manager) Status(ctx context.Context) (*radio.Status, error) {
 }
 
 // UpdateUser sets information about the current streamer
-func (m *Manager) UpdateUser(ctx context.Context, u radio.User) error {
+func (m *Manager) UpdateUser(ctx context.Context, u *radio.User) error {
 	const op errors.Op = "manager/Manager.UpdateUser"
 	ctx, span := otel.Tracer("").Start(ctx, string(op))
 	defer span.End()
@@ -60,21 +60,17 @@ func (m *Manager) UpdateUser(ctx context.Context, u radio.User) error {
 
 	m.mu.Lock()
 
-	m.status.StreamerName = u.DJ.Name
-	m.status.User = u
-
-	isRobot := u.Username == "AFK"
-	if isRobot && m.status.SongInfo.IsFallback {
-		// since we're setting the DJ and are already on a fallback with our listener, we
-		// try and just start the streamer straight away
-		m.tryStartStreamer(time.Second * 0)
-	}
-	if !isRobot {
-		m.stopStartStreamer()
+	if u != nil {
+		m.status.StreamerName = u.DJ.Name
+		m.status.User = *u
 	}
 
 	m.mu.Unlock()
-	zerolog.Ctx(ctx).Info().Str("username", u.Username).Msg("updating stream user")
+	if u != nil {
+		zerolog.Ctx(ctx).Info().Str("username", u.Username).Msg("updating stream user")
+	} else {
+		zerolog.Ctx(ctx).Info().Str("username", "Fallback").Msg("updating stream user")
+	}
 	return nil
 }
 

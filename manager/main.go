@@ -72,7 +72,11 @@ func NewManager(ctx context.Context, cfg config.Config) (*Manager, error) {
 	}
 	m.status = *old
 
-	m.userStream = eventstream.NewEventStream(old.User)
+	if old.User.ID != 0 {
+		m.userStream = eventstream.NewEventStream(&old.User)
+	} else {
+		m.userStream = eventstream.NewEventStream[*radio.User](nil)
+	}
 	m.threadStream = eventstream.NewEventStream(old.Thread)
 	m.songStream = eventstream.NewEventStream(&radio.SongUpdate{Song: old.Song, Info: old.SongInfo})
 	m.listenerStream = eventstream.NewEventStream(radio.Listeners(old.Listeners))
@@ -101,7 +105,7 @@ type Manager struct {
 	songStartListenerCount radio.Listeners
 
 	// streaming support
-	userStream     *eventstream.EventStream[radio.User]
+	userStream     *eventstream.EventStream[*radio.User]
 	threadStream   *eventstream.EventStream[radio.Thread]
 	songStream     *eventstream.EventStream[*radio.SongUpdate]
 	listenerStream *eventstream.EventStream[radio.Listeners]

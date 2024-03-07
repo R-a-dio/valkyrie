@@ -48,8 +48,12 @@ func dp(x time.Duration) *durationpb.Duration {
 }
 
 func fromProtoStatus(s *StatusResponse) radio.Status {
+	var user radio.User
+	if s.User != nil {
+		user = *fromProtoUser(s.User)
+	}
 	return radio.Status{
-		User:            fromProtoUser(s.User),
+		User:            user,
 		Song:            fromProtoSong(s.Song),
 		SongInfo:        fromProtoSongInfo(s.Info),
 		Listeners:       s.ListenerInfo.Listeners,
@@ -61,7 +65,7 @@ func fromProtoStatus(s *StatusResponse) radio.Status {
 
 func toProtoStatus(s radio.Status) *StatusResponse {
 	return &StatusResponse{
-		User: toProtoUser(s.User),
+		User: toProtoUser(&s.User),
 		Song: toProtoSong(s.Song),
 		Info: toProtoSongInfo(s.SongInfo),
 		ListenerInfo: &ListenerInfo{
@@ -210,7 +214,10 @@ func fromProtoQueueID(id *QueueID) radio.QueueID {
 	return radio.QueueID{rid}
 }
 
-func toProtoUser(u radio.User) *User {
+func toProtoUser(u *radio.User) *User {
+	if u == nil {
+		return nil
+	}
 	return &User{
 		Id:        int32(u.ID),
 		Username:  u.Username,
@@ -227,11 +234,11 @@ func toProtoUser(u radio.User) *User {
 	}
 }
 
-func fromProtoUser(u *User) radio.User {
+func fromProtoUser(u *User) *radio.User {
 	if u == nil {
-		return radio.User{}
+		return nil
 	}
-	return radio.User{
+	return &radio.User{
 		ID:        radio.UserID(u.Id),
 		Username:  u.Username,
 		IP:        u.Ip,

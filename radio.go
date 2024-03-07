@@ -275,8 +275,8 @@ type Thread = string
 type Listeners = int64
 
 type ManagerService interface {
-	CurrentUser(context.Context) (eventstream.Stream[User], error)
-	UpdateUser(context.Context, User) error
+	CurrentUser(context.Context) (eventstream.Stream[*User], error)
+	UpdateUser(context.Context, *User) error
 	CurrentSong(context.Context) (eventstream.Stream[*SongUpdate], error)
 	UpdateSong(context.Context, *SongUpdate) error
 	CurrentThread(context.Context) (eventstream.Stream[Thread], error)
