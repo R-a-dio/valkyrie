@@ -88,14 +88,14 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 		r.Handle("/grafana/*", vmiddleware.RequirePermission(radio.PermDev, proxy.ServeHTTP))
 
 		// debug handlers, might not be needed later
-		r.Post("/api/streamer/stop", vmiddleware.RequirePermission(radio.PermAdmin, s.StopStreamer))
+		r.Post("/api/streamer/stop", vmiddleware.RequirePermission(radio.PermAdmin, s.PostStreamerStop))
 	}
 }
 
-func (s *State) StartStreamer(w http.ResponseWriter, r *http.Request) {
-	s.Conf().Streamer.Client().Start(r.Context())
+func (s *State) PostStreamerStop(w http.ResponseWriter, r *http.Request) {
+	s.Conf().Streamer.Client().Stop(r.Context(), false)
 }
 
-func (s *State) StopStreamer(w http.ResponseWriter, r *http.Request) {
-	s.Conf().Streamer.Client().Stop(r.Context(), false)
+func (s *State) errorHandler(w http.ResponseWriter, r *http.Request, err error) {
+	http.Error(w, err.Error(), http.StatusInternalServerError)
 }

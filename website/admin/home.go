@@ -26,5 +26,8 @@ func (HomeInput) TemplateBundle() string {
 func (s *State) GetHome(w http.ResponseWriter, r *http.Request) {
 	input := NewHomeInput(r, s.Daypass)
 
-	s.TemplateExecutor.Execute(w, r, input)
+	err := s.TemplateExecutor.Execute(w, r, input)
+	if err != nil {
+		s.errorHandler(w, r, err)
+	}
 }

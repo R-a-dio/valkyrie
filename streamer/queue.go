@@ -91,7 +91,7 @@ func (qs *QueueService) append(ctx context.Context, entry radio.QueueEntry) {
 	path := filepath.Join(qs.Conf().MusicPath, entry.FilePath)
 	length, err := audio.ProbeDuration(ctx, path)
 	if err == nil {
-		// only use the probe value if it didn't error
+		qs.logger.Error().Err(err).Ctx(ctx).Msg("duration probe failure")
 		entry.Length = length
 	}
 
