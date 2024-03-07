@@ -175,8 +175,12 @@ message StreamerResponse {
 service Queue {
     rpc AddRequest(QueueEntry) returns (google.protobuf.Empty);
     rpc ReserveNext(google.protobuf.Empty) returns (QueueEntry);
-    rpc Remove(QueueEntry) returns (google.protobuf.BoolValue);
+    rpc Remove(QueueID) returns (google.protobuf.BoolValue);
     rpc Entries(google.protobuf.Empty) returns (QueueInfo);
+}
+
+message QueueID {
+    string ID = 1;
 }
 
 message QueueEntry {
@@ -188,6 +192,8 @@ message QueueEntry {
     string user_identifier = 3;
     // expected_start_time is the expected time this song will start playing
     google.protobuf.Timestamp expected_start_time = 4;
+    // unique id of the entry
+    radio.QueueID queue_id = 5;
 }
 
 message QueueInfo {

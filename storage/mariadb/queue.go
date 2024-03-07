@@ -1,8 +1,6 @@
 package mariadb
 
 import (
-	"time"
-
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/jmoiron/sqlx"
@@ -14,10 +12,12 @@ type QueueStorage struct {
 }
 
 type queueSong struct {
-	ExpectedStartTime time.Time
-	UserIdentifier    string
-	IsRequest         int
-	radio.Song
+	radio.QueueEntry
+
+	// indicates what kind of entry this was
+	IsRequest int
+	// absolute position in the queue
+	Position int
 }
 
 // Store stores the queue given under name in the database configured
@@ -28,6 +28,27 @@ func (qs QueueStorage) Store(name string, queue []radio.QueueEntry) error {
 	handle, deferFn := qs.handle.span(op)
 	defer deferFn()
 
+	// prep the data before we even ask for a transaction
+	var entries []queueSong
+
+	for i, entry := range queue {
+		if !entry.HasTrack() {
+			return errors.E(op, errors.SongWithoutTrack, entry)
+		}
+
+		var isRequest = 0
+		if entry.IsUserRequest {
+			isRequest = 1
+		}
+
+		entries = append(entries, queueSong{
+			QueueEntry: entry,
+			Position:   1 + i,
+			IsRequest:  isRequest,
+		})
+	}
+
+	// then try and add all the songs to the queue
 	handle, tx, err := requireTx(handle)
 	if err != nil {
 		return errors.E(op, err)
@@ -42,32 +63,21 @@ func (qs QueueStorage) Store(name string, queue []radio.QueueEntry) error {
 
 	var query = `
 	INSERT INTO
-		queue (trackid, time, ip, type, meta, length, id)
-	VALUES
-		(?, ?, ?, ?, ?, from_go_duration(?), ?);
+		queue (trackid, time, ip, type, meta, length, id, queue_id)
+	VALUES (
+		:trackid,
+		:expectedstarttime,
+		:useridentifier,
+		:isrequest,
+		:metadata,
+		from_go_duration(:length),
+		:position,
+		:queueid
+	);
 	`
-	for i, entry := range queue {
-		if !entry.HasTrack() {
-			return errors.E(op, errors.SongWithoutTrack, entry)
-		}
-
-		var isRequest = 0
-		if entry.IsUserRequest {
-			isRequest = 1
-		}
-
-		_, err = handle.Exec(query,
-			entry.TrackID,
-			entry.ExpectedStartTime,
-			entry.UserIdentifier,
-			isRequest,
-			entry.Metadata,
-			entry.Length,
-			i+1, // ordering id
-		)
-		if err != nil {
-			return errors.E(op, err)
-		}
+	_, err = sqlx.NamedExec(handle, query, entries)
+	if err != nil {
+		return errors.E(op, err)
 	}
 
 	return tx.Commit()
@@ -75,6 +85,7 @@ func (qs QueueStorage) Store(name string, queue []radio.QueueEntry) error {
 
 var queueLoadQuery = expand(`
 SELECT
+	queue.queue_id AS queueid,
 	queue.trackid,
 	queue.time AS expectedstarttime,
 	queue.ip AS useridentifier,
@@ -111,12 +122,8 @@ func (qs QueueStorage) Load(name string) ([]radio.QueueEntry, error) {
 
 	songs := make([]radio.QueueEntry, len(queue))
 	for i, qSong := range queue {
-		songs[i] = radio.QueueEntry{
-			Song:              qSong.Song,
-			IsUserRequest:     qSong.IsRequest == 1,
-			UserIdentifier:    qSong.UserIdentifier,
-			ExpectedStartTime: qSong.ExpectedStartTime,
-		}
+		qSong.IsUserRequest = qSong.IsRequest == 1
+		songs[i] = qSong.QueueEntry
 	}
 
 	return songs, nil

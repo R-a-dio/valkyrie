@@ -241,7 +241,7 @@ func (s *Streamer) errored(task streamerTask, track streamerTrack) {
 
 	track.once.Do(func() {
 		s.logger.Error().Str("metadata", track.track.Metadata).Msg("error in pipeline")
-		_, err := s.queue.Remove(task.Context, track.track)
+		_, err := s.queue.Remove(task.Context, track.track.QueueID)
 		if err != nil {
 			s.logger.Error().Err(err).Msg("queue removal")
 		}
@@ -287,7 +287,7 @@ func (s *Streamer) tailTask(task streamerTask) error {
 
 		track.once.Do(func() {
 			s.logger.Info().Str("metadata", track.track.Metadata).Msg("working")
-			_, err := s.queue.Remove(task.Context, track.track)
+			_, err := s.queue.Remove(task.Context, track.track.QueueID)
 			if err != nil {
 				s.logger.Error().Err(err).Msg("queue removal")
 			}

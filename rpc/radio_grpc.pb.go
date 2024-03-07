@@ -932,7 +932,7 @@ const (
 type QueueClient interface {
 	AddRequest(ctx context.Context, in *QueueEntry, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ReserveNext(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*QueueEntry, error)
-	Remove(ctx context.Context, in *QueueEntry, opts ...grpc.CallOption) (*wrapperspb.BoolValue, error)
+	Remove(ctx context.Context, in *QueueID, opts ...grpc.CallOption) (*wrapperspb.BoolValue, error)
 	Entries(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*QueueInfo, error)
 }
 
@@ -962,7 +962,7 @@ func (c *queueClient) ReserveNext(ctx context.Context, in *emptypb.Empty, opts .
 	return out, nil
 }
 
-func (c *queueClient) Remove(ctx context.Context, in *QueueEntry, opts ...grpc.CallOption) (*wrapperspb.BoolValue, error) {
+func (c *queueClient) Remove(ctx context.Context, in *QueueID, opts ...grpc.CallOption) (*wrapperspb.BoolValue, error) {
 	out := new(wrapperspb.BoolValue)
 	err := c.cc.Invoke(ctx, Queue_Remove_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -986,7 +986,7 @@ func (c *queueClient) Entries(ctx context.Context, in *emptypb.Empty, opts ...gr
 type QueueServer interface {
 	AddRequest(context.Context, *QueueEntry) (*emptypb.Empty, error)
 	ReserveNext(context.Context, *emptypb.Empty) (*QueueEntry, error)
-	Remove(context.Context, *QueueEntry) (*wrapperspb.BoolValue, error)
+	Remove(context.Context, *QueueID) (*wrapperspb.BoolValue, error)
 	Entries(context.Context, *emptypb.Empty) (*QueueInfo, error)
 	mustEmbedUnimplementedQueueServer()
 }
@@ -1001,7 +1001,7 @@ func (UnimplementedQueueServer) AddRequest(context.Context, *QueueEntry) (*empty
 func (UnimplementedQueueServer) ReserveNext(context.Context, *emptypb.Empty) (*QueueEntry, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReserveNext not implemented")
 }
-func (UnimplementedQueueServer) Remove(context.Context, *QueueEntry) (*wrapperspb.BoolValue, error) {
+func (UnimplementedQueueServer) Remove(context.Context, *QueueID) (*wrapperspb.BoolValue, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Remove not implemented")
 }
 func (UnimplementedQueueServer) Entries(context.Context, *emptypb.Empty) (*QueueInfo, error) {
@@ -1057,7 +1057,7 @@ func _Queue_ReserveNext_Handler(srv interface{}, ctx context.Context, dec func(i
 }
 
 func _Queue_Remove_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(QueueEntry)
+	in := new(QueueID)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -1069,7 +1069,7 @@ func _Queue_Remove_Handler(srv interface{}, ctx context.Context, dec func(interf
 		FullMethod: Queue_Remove_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(QueueServer).Remove(ctx, req.(*QueueEntry))
+		return srv.(QueueServer).Remove(ctx, req.(*QueueID))
 	}
 	return interceptor(ctx, in, info, handler)
 }

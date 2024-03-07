@@ -244,8 +244,8 @@ func (q QueueClientRPC) ResetReserved(ctx context.Context) error {
 }
 
 // Remove implements radio.QueueService
-func (q QueueClientRPC) Remove(ctx context.Context, entry radio.QueueEntry) (bool, error) {
-	resp, err := q.rpc.Remove(ctx, toProtoQueueEntry(entry))
+func (q QueueClientRPC) Remove(ctx context.Context, id radio.QueueID) (bool, error) {
+	resp, err := q.rpc.Remove(ctx, toProtoQueueID(id))
 	if err != nil {
 		return false, err
 	}

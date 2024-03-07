@@ -6,6 +6,7 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/rs/xid"
 	durationpb "google.golang.org/protobuf/types/known/durationpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -168,6 +169,7 @@ func fromProtoSongUpdate(s *SongUpdate) *radio.SongUpdate {
 
 func toProtoQueueEntry(entry radio.QueueEntry) *QueueEntry {
 	return &QueueEntry{
+		QueueId:           toProtoQueueID(entry.QueueID),
 		Song:              toProtoSong(entry.Song),
 		IsUserRequest:     entry.IsUserRequest,
 		UserIdentifier:    entry.UserIdentifier,
@@ -181,11 +183,31 @@ func fromProtoQueueEntry(entry *QueueEntry) *radio.QueueEntry {
 	}
 
 	return &radio.QueueEntry{
+		QueueID:           fromProtoQueueID(entry.QueueId),
 		Song:              fromProtoSong(entry.Song),
 		IsUserRequest:     entry.IsUserRequest,
 		UserIdentifier:    entry.UserIdentifier,
 		ExpectedStartTime: t(entry.ExpectedStartTime),
 	}
+}
+
+func toProtoQueueID(rid radio.QueueID) *QueueID {
+	return &QueueID{
+		ID: rid.String(),
+	}
+}
+
+func fromProtoQueueID(id *QueueID) radio.QueueID {
+	if id == nil {
+		return radio.QueueID{}
+	}
+
+	rid, err := xid.FromString(id.ID)
+	if err != nil {
+		return radio.QueueID{}
+	}
+
+	return radio.QueueID{rid}
 }
 
 func toProtoUser(u radio.User) *User {

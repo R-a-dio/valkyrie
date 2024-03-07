@@ -226,8 +226,8 @@ func (q QueueShim) ReserveNext(ctx context.Context, _ *emptypb.Empty) (*QueueEnt
 }
 
 // Remove implements Queue
-func (q QueueShim) Remove(ctx context.Context, e *QueueEntry) (*wrapperspb.BoolValue, error) {
-	ok, err := q.queue.Remove(ctx, *fromProtoQueueEntry(e))
+func (q QueueShim) Remove(ctx context.Context, id *QueueID) (*wrapperspb.BoolValue, error) {
+	ok, err := q.queue.Remove(ctx, fromProtoQueueID(id))
 	if err != nil {
 		return nil, err
 	}

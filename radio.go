@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/R-a-dio/valkyrie/util/eventstream"
+	"github.com/rs/xid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -294,8 +295,19 @@ type StreamerService interface {
 	Queue(context.Context) ([]QueueEntry, error)
 }
 
+func NewQueueID() QueueID {
+	return QueueID{xid.New()}
+}
+
+type QueueID struct {
+	xid.ID
+}
+
 // QueueEntry is a Song used in the QueueService
 type QueueEntry struct {
+	// QueueID is a unique identifier for this queue entry
+	QueueID QueueID
+	// Song that is queued
 	Song
 	// IsUserRequest should be true if this song was added to the queue
 	// by a third-party user
@@ -316,9 +328,7 @@ func (qe QueueEntry) String() string {
 }
 
 func (qe *QueueEntry) EqualTo(qe2 QueueEntry) bool {
-	return qe != nil &&
-		qe.Song.EqualTo(qe2.Song) &&
-		qe.UserIdentifier == qe2.UserIdentifier
+	return qe.QueueID == qe2.QueueID
 }
 
 type QueueService interface {
@@ -331,7 +341,7 @@ type QueueService interface {
 	// but not yet removed by Remove
 	ResetReserved(context.Context) error
 	// Remove removes the first occurence of the given entry from the queue
-	Remove(context.Context, QueueEntry) (bool, error)
+	Remove(context.Context, QueueID) (bool, error)
 	// Entries returns all entries in the queue
 	Entries(context.Context) ([]QueueEntry, error)
 }

@@ -39,6 +39,13 @@ func NewQueueService(ctx context.Context, cfg config.Config, storage radio.Stora
 		return nil, errors.E(op, err)
 	}
 
+	// quickly make sure all entries have an QueueID associated with them
+	for i, e := range queue {
+		if e.QueueID.IsZero() {
+			queue[i].QueueID = radio.NewQueueID()
+		}
+	}
+
 	qs := &QueueService{
 		Config:  cfg,
 		logger:  zerolog.Ctx(ctx),
@@ -94,6 +101,7 @@ func (qs *QueueService) append(ctx context.Context, entry radio.QueueEntry) {
 		last := qs.queue[len(qs.queue)-1]
 		entry.ExpectedStartTime = last.ExpectedStartTime.Add(last.Length)
 	}
+	entry.QueueID = radio.NewQueueID()
 
 	qs.logger.Info().Str("entry", entry.String()).Msg("appending to queue")
 	qs.queue = append(qs.queue, entry)
@@ -162,7 +170,7 @@ func (qs *QueueService) ResetReserved(ctx context.Context) error {
 }
 
 // Remove removes the song given from the queue
-func (qs *QueueService) Remove(ctx context.Context, entry radio.QueueEntry) (bool, error) {
+func (qs *QueueService) Remove(ctx context.Context, id radio.QueueID) (bool, error) {
 	const op errors.Op = "streamer/QueueService.Remove"
 
 	qs.mu.Lock()
@@ -170,7 +178,7 @@ func (qs *QueueService) Remove(ctx context.Context, entry radio.QueueEntry) (boo
 
 	size := len(qs.queue)
 	for i, e := range qs.queue {
-		if !e.EqualTo(entry) {
+		if e.QueueID != id {
 			continue
 		}
 
