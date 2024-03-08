@@ -10,6 +10,7 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/website/middleware"
+	"github.com/rs/xid"
 	"github.com/rs/zerolog/hlog"
 )
 
@@ -51,7 +52,7 @@ func (s *Server) PutSource(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// hijack the connection since we're now gonna be reading directly from conn
-	conn, bufrw, err := http.NewResponseController(w).Hijack()
+	conn, bufrw, err := rc.Hijack()
 	if err != nil {
 		hlog.FromRequest(r).Error().Err(err).Msg("failed to hijack source request")
 		return
@@ -63,14 +64,21 @@ func (s *Server) PutSource(w http.ResponseWriter, r *http.Request) {
 		hlog.FromRequest(r).Error().Err(err).Msg("failed to set deadline")
 		return
 	}
+	// and close the write side since we're not gonna send anything else
+	if tcp, ok := conn.(*net.TCPConn); ok {
+		tcp.CloseWrite()
+	}
 
 	client := SourceClient{
-		conn:       conn,
-		bufrw:      bufrw,
-		MountName:  mountName,
-		User:       *user,
-		Identifier: identifier,
-		Metadata:   new(atomic.Pointer[Metadata]),
+		ID:          NewSourceID(r),
+		UserAgent:   r.Header.Get("User-Agent"),
+		ContentType: r.Header.Get("Content-Type"),
+		conn:        conn,
+		bufrw:       bufrw,
+		MountName:   mountName,
+		User:        *user,
+		Identifier:  identifier,
+		Metadata:    new(atomic.Pointer[Metadata]),
 	}
 
 	err = s.proxy.AddSourceClient(ctx, &client)
@@ -80,7 +88,23 @@ func (s *Server) PutSource(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func NewSourceID(r *http.Request) SourceID {
+	if id, ok := hlog.IDFromRequest(r); ok {
+		return SourceID{id}
+	}
+	panic("NewSourceID called without hlog.RequestIDHandler middleware")
+}
+
+type SourceID struct {
+	xid.ID
+}
+
 type SourceClient struct {
+	ID SourceID
+	// UserAgent is the User-Agent HTTP header passed by the client
+	UserAgent string
+	// ContentType is the Content-Type HTTP header passed by the client
+	ContentType string
 	// conn is the connection for this client, it can be a *compat.Conn
 	conn net.Conn
 	// bufrw is the bufio buffer we got back from net/http
@@ -97,6 +121,8 @@ type SourceClient struct {
 	Metadata *atomic.Pointer[Metadata]
 }
 
+// StripBuffer returns an io.Reader that returns io.EOF after all buffered
+// content in r is read.
 func StripBuffer(r *bufio.Reader) io.Reader {
 	return &stripper{r}
 }

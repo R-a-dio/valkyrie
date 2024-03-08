@@ -504,6 +504,7 @@ func (s *Streamer) streamToIcecast(task streamerTask) error {
 	var newConn = func() error {
 		c, err := s.newIcecastConn(s.Conf().Streamer.StreamURL)
 		if err != nil {
+			s.logger.Error().Err(err).Msg("newconn failure")
 			return err
 		}
 		conn = c // move c to method scope if no error occured
@@ -531,7 +532,9 @@ func (s *Streamer) streamToIcecast(task streamerTask) error {
 
 		for atomic.LoadInt32(&s.forceDone) == 0 {
 			if conn == nil {
-				err = backoff.Retry(newConn, backOff)
+				err = backoff.RetryNotify(newConn, backOff, func(err error, d time.Duration) {
+					s.logger.Error().Err(err).Dur("backoff", d).Msg("icecast connection failure")
+				})
 				if err != nil {
 					return err
 				}
@@ -559,8 +562,10 @@ func (s *Streamer) streamToIcecast(task streamerTask) error {
 
 			_, err = conn.Write(buf[:n])
 			if err != nil {
+				conn.Close()
 				conn = nil
-				break
+				s.logger.Error().Err(err).Msg("icecast connection failure")
+				continue
 			}
 
 			// sleep while the audio data we've already send is above

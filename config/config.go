@@ -67,7 +67,8 @@ var defaultConfig = config{
 		Fallback: "https://relay0.r-a-d.io/main.mp3",
 	},
 	Proxy: proxy{
-		Addr: ":1337",
+		Addr:         ":1337",
+		MasterServer: "http://source:hackme@127.0.0.1:8000",
 	},
 	Telemetry: telemetry{
 		Use:                false,
@@ -109,7 +110,8 @@ type config struct {
 }
 
 type proxy struct {
-	Addr string
+	Addr         string
+	MasterServer string
 }
 
 type telemetry struct {

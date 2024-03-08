@@ -430,7 +430,7 @@ func BasicAuth(uss radio.UserStorageService) func(http.Handler) http.Handler {
 			}
 
 			// before we pass it back to the handlers we reset the deadlines because the
-			// comparison above is long under some conditions
+			// comparison above is long with the race detector enabled
 			v := r.Context().Value(http.ServerContextKey)
 			if v != nil {
 				srv := v.(*http.Server)

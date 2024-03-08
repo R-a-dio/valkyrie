@@ -2,11 +2,21 @@ package proxy
 
 import (
 	"context"
+	"net/url"
 
+	"github.com/R-a-dio/valkyrie/config"
+	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/rs/zerolog"
 )
 
+func createMountURL(master url.URL, mount string) *url.URL {
+	master.Path = mount
+	return &master
+}
+
 type ProxyManager struct {
+	masterServerURL *url.URL
+
 	newSource   chan *SourceClient
 	newMetadata chan *Metadata
 
@@ -15,14 +25,21 @@ type ProxyManager struct {
 	Mounts map[string]*Mount
 }
 
-func NewProxyManager() *ProxyManager {
-	m := &ProxyManager{
-		newSource:   make(chan *SourceClient),
-		newMetadata: make(chan *Metadata),
-		metaStore:   make(map[Identifier]*Metadata),
-		Mounts:      make(map[string]*Mount),
+func NewProxyManager(cfg config.Config) (*ProxyManager, error) {
+	const op errors.Op = "proxy.NewProxyManager"
+
+	uri, err := url.Parse(cfg.Conf().Proxy.MasterServer)
+	if err != nil {
+		return nil, errors.E(op, err)
 	}
-	return m
+	m := &ProxyManager{
+		masterServerURL: uri,
+		newSource:       make(chan *SourceClient),
+		newMetadata:     make(chan *Metadata),
+		metaStore:       make(map[Identifier]*Metadata),
+		Mounts:          make(map[string]*Mount),
+	}
+	return m, nil
 }
 
 func (pm *ProxyManager) Run(ctx context.Context) {
@@ -31,11 +48,12 @@ func (pm *ProxyManager) Run(ctx context.Context) {
 	for {
 		select {
 		case source := <-pm.newSource:
+			// TODO: check if all source clients have the same content-type
 			m, ok := pm.Mounts[source.MountName]
 			if !ok {
 				// no mount exists yet, create one
 				logger.Info().Str("mount", source.MountName).Msg("create mount")
-				m = NewMount(ctx, nil)
+				m = NewMount(ctx, createMountURL(*pm.masterServerURL, source.MountName), source.ContentType)
 				pm.Mounts[source.MountName] = m
 			}
 

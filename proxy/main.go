@@ -24,7 +24,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	// get our configuration
 	addr := cfg.Conf().Proxy.Addr
 
-	srv, err := NewServer(ctx, m, storage)
+	srv, err := NewServer(ctx, cfg, m, storage)
 	if err != nil {
 		return errors.E(op, err)
 	}

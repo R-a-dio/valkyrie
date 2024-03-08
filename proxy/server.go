@@ -8,8 +8,11 @@ import (
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/config"
+	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/website"
 	"github.com/R-a-dio/valkyrie/website/middleware"
+	"github.com/go-chi/chi/v5"
 	chiware "github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
@@ -30,12 +33,21 @@ func zerologLoggerFunc(r *http.Request, status, size int, duration time.Duration
 		Msg("http request")
 }
 
-func NewServer(ctx context.Context, manager radio.ManagerService, storage radio.UserStorageService) (*Server, error) {
+func NewServer(ctx context.Context, cfg config.Config, manager radio.ManagerService, storage radio.UserStorageService) (*Server, error) {
+	const op errors.Op = "proxy.NewServer"
+
+	pm, err := NewProxyManager(cfg)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
 	var srv = &Server{
-		proxy:   NewProxyManager(),
+		proxy:   pm,
 		manager: manager,
 		storage: storage,
 	}
+
+	// older icecast source clients still use the SOURCE method instead of PUT
+	chi.RegisterMethod("SOURCE")
 
 	logger := zerolog.Ctx(ctx)
 	// setup our routes
@@ -64,7 +76,7 @@ func NewServer(ctx context.Context, manager radio.ManagerService, storage radio.
 	// some streaming software assumes this endpoint exists to display a listener
 	// count, so we just return a static 0;
 	r.Get("/admin/listclients", srv.GetListClients)
-	r.HandleFunc("/", middleware.RequirePermission(radio.PermDJ, srv.PutSource))
+	r.HandleFunc("/*", middleware.RequirePermission(radio.PermDJ, srv.PutSource))
 
 	srv.http = &http.Server{
 		Handler:      r,
