@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/textproto"
 	"net/url"
+	"strings"
 )
 
 var Dialer net.Dialer
@@ -141,14 +143,25 @@ func dial(ctx context.Context, u *url.URL, opts ...Option) (net.Conn, error) {
 	}
 
 	rdr := bufio.NewReader(conn)
-	resp, err := http.ReadResponse(rdr, req)
+	line, err := textproto.NewReader(rdr).ReadLine()
 	if err != nil {
-		return conn, fmt.Errorf("failed to read request: %w", err)
+		return conn, fmt.Errorf("failed to read response: %w", err)
 	}
-	resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return conn, fmt.Errorf("status not ok: %w", errors.New(resp.Status))
+	_, status, ok := strings.Cut(line, " ")
+	if !ok {
+		return conn, fmt.Errorf("malformed HTTP response: %s", line)
+	}
+
+	status = strings.TrimLeft(status, " ")
+
+	statusCode, _, _ := strings.Cut(status, " ")
+	if len(statusCode) != 3 {
+		return conn, fmt.Errorf("malformed HTTP status code: %s", statusCode)
+	}
+
+	if statusCode != "200" {
+		return conn, fmt.Errorf("status not ok: %w", errors.New(status))
 	}
 
 	return conn, nil
