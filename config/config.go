@@ -310,6 +310,16 @@ func Load(r io.Reader) (Config, error) {
 	return newConfig(c), nil
 }
 
+func (c Config) LoadAndUpdate(filenames ...string) error {
+	conf, err := LoadFile(filenames...)
+	if err != nil {
+		return err
+	}
+
+	c.StoreConf(conf.Conf())
+	return nil
+}
+
 // Conf returns the configuration stored inside
 //
 // NOTE: Conf returns a shallow-copy of the config value stored inside; so do not edit
