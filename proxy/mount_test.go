@@ -11,7 +11,7 @@ func TestLeastPriority(t *testing.T) {
 	// helper functions to create MountSourceClient in the test cases
 	prio := func(p uint) *MountSourceClient {
 		return &MountSourceClient{
-			priority: p,
+			Priority: p,
 		}
 	}
 	prioSlice := func(ps ...uint) []*MountSourceClient {
@@ -71,10 +71,10 @@ func TestMostPriority(t *testing.T) {
 	// helper functions to create MountSourceClient in the test cases
 	prio := func(p uint) *MountSourceClient {
 		return &MountSourceClient{
-			source: &SourceClient{
+			Source: &SourceClient{
 				ID: SourceID{xid.New()},
 			},
-			priority: p,
+			Priority: p,
 		}
 	}
 	prioSlice := func(ps ...uint) []*MountSourceClient {
@@ -107,7 +107,7 @@ func TestMostPriority(t *testing.T) {
 			if c.expected == nil {
 				assert.Nil(t, m)
 			} else {
-				assert.Equal(t, c.expected.source.ID, m.source.ID)
+				assert.Equal(t, c.expected.Source.ID, m.Source.ID)
 			}
 		})
 	}

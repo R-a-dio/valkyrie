@@ -12,6 +12,7 @@ import (
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/streamer/icecast"
+	"github.com/R-a-dio/valkyrie/util"
 	"github.com/cenkalti/backoff"
 	"github.com/rs/zerolog"
 )
@@ -21,16 +22,17 @@ type Mount struct {
 	// ContentType of this mount, this can only be set during creation and all
 	// future clients afterwards will use the same content type
 	ContentType string
-	// ConnFn is a function we can call to get a new conn to
-	// the icecast target server
-	ConnFn func() (net.Conn, error)
 	// MetadataFn is a function we can call to send metadata to
 	// the icecast target server
 	MetadataFn func(context.Context, string) error
 	// Name of the mountpoint
 	Name string
+
+	// ConnFn is a function we can call to get a new conn to
+	// the icecast target server
+	ConnFn func() (net.Conn, error)
 	// Conn is the conn to the icecast server
-	Conn net.Conn
+	Conn util.TypedValue[net.Conn]
 
 	// Sources is the different sources of audio data, the mount
 	// broadcasts the data of the first entry and voids the others
@@ -82,28 +84,31 @@ func NewMount(ctx context.Context, name string, urlFn MountURLFn, ct string) *Mo
 }
 
 func (m *Mount) Write(b []byte) (n int, err error) {
+	conn := m.Conn.Load()
 retry:
-	if m.Conn == nil {
-		m.Conn, err = m.ConnFn()
+	if conn == nil {
+		conn, err = m.ConnFn()
 		if err != nil {
 			return 0, err
 		}
+		m.Conn.Store(conn)
 	}
 
-	n, err = m.Conn.Write(b)
+	n, err = conn.Write(b)
 	if err != nil {
 		m.logger.Error().Err(err).Msg("failed to write to master")
 		// reset our connection
-		m.Conn.Close()
-		m.Conn = nil
+		conn.Close()
+		conn = nil
 		goto retry
 	}
 	return n, err
 }
 
 func (m *Mount) Close() error {
-	if m.Conn != nil {
-		return m.Conn.Close()
+	conn := m.Conn.Load()
+	if conn != nil {
+		return conn.Close()
 	}
 	return nil
 }
@@ -116,10 +121,10 @@ func leastPriority(sources []*MountSourceClient) uint {
 	}
 
 	least := slices.MaxFunc(sources, func(a, b *MountSourceClient) int {
-		return cmp.Compare(a.priority, b.priority)
+		return cmp.Compare(a.Priority, b.Priority)
 	})
 
-	return least.priority + 1
+	return least.Priority + 1
 }
 
 // mostPriority returns the source with the most priority
@@ -130,31 +135,31 @@ func mostPriority(sources []*MountSourceClient) *MountSourceClient {
 		return nil
 	}
 	return slices.MinFunc(sources, func(a, b *MountSourceClient) int {
-		return cmp.Compare(a.priority, b.priority)
+		return cmp.Compare(a.Priority, b.Priority)
 	})
 }
 
 // MountSourceClient is a SourceClient with extra fields for mount-specific
 // bookkeeping
 type MountSourceClient struct {
-	// source is the SourceClient we're handling, should not be mutated by
+	// Source is the SourceClient we're handling, should not be mutated by
 	// anything once the MountSourceClient is made
-	source *SourceClient
-	// priority is the priority for live-ness determination
-	// lower is higher priority
-	priority uint
-	// live is an indicator of this being the currently live source
-	live bool
-	// mw is the writer this source is writing to
-	mw *MountMetadataWriter
+	Source *SourceClient
+	// Priority is the Priority for live-ness determination
+	// lower is higher Priority
+	Priority uint
+	// Live is an indicator of this being the currently Live source
+	Live bool
+	// MW is the writer this source is writing to
+	MW *MountMetadataWriter
 
 	logger zerolog.Logger
 }
 
 func (msc *MountSourceClient) GoLive(ctx context.Context, out MetadataWriter) {
-	msc.live = true
-	msc.mw.SetWriter(out)
-	msc.mw.SetLive(ctx, true)
+	msc.Live = true
+	msc.MW.SetWriter(out)
+	msc.MW.SetLive(ctx, true)
 	msc.logger.Info().Msg("switching to live")
 }
 
@@ -165,11 +170,11 @@ func (m *Mount) SendMetadata(ctx context.Context, meta *Metadata) {
 	m.SourcesMu.RLock()
 	// see if we have a source associated with this metadata
 	for _, msc := range m.Sources {
-		if msc.source.Identifier != meta.Identifier {
+		if msc.Source.Identifier != meta.Identifier {
 			continue
 		}
 
-		msc.source.Metadata.Store(meta)
+		msc.Source.Metadata.Store(meta)
 	}
 	m.SourcesMu.RUnlock()
 }
@@ -180,10 +185,10 @@ func (m *Mount) AddSource(ctx context.Context, source *SourceClient) {
 	}
 
 	msc := &MountSourceClient{
-		source:   source,
-		priority: 0,
-		live:     false,
-		mw:       mw,
+		Source:   source,
+		Priority: 0,
+		Live:     false,
+		MW:       mw,
 		logger: zerolog.Ctx(ctx).With().
 			Str("address", source.conn.RemoteAddr().String()).
 			Str("mount", source.MountName).
@@ -194,7 +199,7 @@ func (m *Mount) AddSource(ctx context.Context, source *SourceClient) {
 	defer m.SourcesMu.Unlock()
 
 	// new sources always get assigned the least priority
-	msc.priority = leastPriority(m.Sources)
+	msc.Priority = leastPriority(m.Sources)
 	m.Sources = append(m.Sources, msc)
 	go m.RunMountSourceClient(ctx, msc)
 	if len(m.Sources) == 1 {
@@ -209,7 +214,7 @@ func (m *Mount) RemoveSource(ctx context.Context, id SourceID) {
 	var removed *MountSourceClient
 
 	m.Sources = slices.DeleteFunc(m.Sources, func(msc *MountSourceClient) bool {
-		if msc.source.ID != id {
+		if msc.Source.ID != id {
 			return false
 		}
 		removed = msc
@@ -224,7 +229,7 @@ func (m *Mount) RemoveSource(ctx context.Context, id SourceID) {
 	removed.logger.Info().Msg("removing source client")
 
 	// see if the source we removed is the live source
-	if removed.live {
+	if removed.Live {
 		// and swap to another source if possible
 		m.liveSourceSwap(ctx)
 	}
@@ -248,9 +253,9 @@ type MetadataWriter interface {
 func (m *Mount) RunMountSourceClient(ctx context.Context, msc *MountSourceClient) {
 	const BUFFER_SIZE = 4096
 	// remove ourselves from the mount if we exit
-	defer m.RemoveSource(ctx, msc.source.ID)
+	defer m.RemoveSource(ctx, msc.Source.ID)
 	// and close our connection
-	defer msc.source.conn.Close()
+	defer msc.Source.conn.Close()
 
 	buf := make([]byte, BUFFER_SIZE)
 	// timeout before we cancel reading from the source
@@ -261,13 +266,13 @@ func (m *Mount) RunMountSourceClient(ctx context.Context, msc *MountSourceClient
 
 	for {
 		// set a deadline so we don't keep bad clients around
-		err := msc.source.conn.SetReadDeadline(time.Now().Add(timeout))
+		err := msc.Source.conn.SetReadDeadline(time.Now().Add(timeout))
 		if err != nil {
 			// deadline failed to be set, not much we can do but log it and continue
 			msc.logger.Info().Msg("failed to set deadline")
 		}
 		// read some data from the source
-		readn, err := msc.source.bufrw.Read(buf)
+		readn, err := msc.Source.bufrw.Read(buf)
 		if err != nil {
 			if errors.IsE(err, io.EOF) {
 				// client left us, exit cleanly
@@ -277,7 +282,7 @@ func (m *Mount) RunMountSourceClient(ctx context.Context, msc *MountSourceClient
 			return
 		}
 
-		writen, err := msc.mw.Write(buf[:readn])
+		writen, err := msc.MW.Write(buf[:readn])
 		if err != nil {
 			msc.logger.Error().Err(err).Msg("failed to write data")
 			return
@@ -289,9 +294,9 @@ func (m *Mount) RunMountSourceClient(ctx context.Context, msc *MountSourceClient
 		}
 
 		// then see if we have new metadata to send
-		meta := msc.source.Metadata.Load()
+		meta := msc.Source.Metadata.Load()
 		if meta != nil && meta.Time.After(lastMetadata) {
-			msc.mw.SendMetadata(ctx, meta)
+			msc.MW.SendMetadata(ctx, meta)
 			lastMetadata = time.Now()
 		}
 	}
@@ -299,19 +304,19 @@ func (m *Mount) RunMountSourceClient(ctx context.Context, msc *MountSourceClient
 
 type MountMetadataWriter struct {
 	mu sync.RWMutex
-	// meta is the last metadata we send (or tried to send)
-	meta string
+	// metadata is the last metadata we send (or tried to send)
+	Metadata string
 	// mount is the Mount that we are associated with
 	mount *Mount
 	// live indicates if we are the live writer, actually writing to the master
-	live bool
+	Live bool
 	// out is the writer we write into
-	out io.Writer
+	Out io.Writer
 }
 
 func (mmw *MountMetadataWriter) SendMetadata(ctx context.Context, meta *Metadata) {
 	mmw.mu.Lock()
-	mmw.meta = meta.Value
+	mmw.Metadata = meta.Value
 	mmw.mu.Unlock()
 
 	mmw.sendMetadata(ctx)
@@ -322,15 +327,15 @@ func (mmw *MountMetadataWriter) sendMetadata(ctx context.Context) {
 	defer mmw.mu.RUnlock()
 
 	// check if we're live
-	if !mmw.live {
-		zerolog.Ctx(ctx).Info().Str("metadata", mmw.meta).Msg("skipping metadata, we're not live")
+	if !mmw.Live {
+		zerolog.Ctx(ctx).Info().Str("metadata", mmw.Metadata).Msg("skipping metadata, we're not live")
 		return
 	}
 
-	zerolog.Ctx(ctx).Info().Str("metadata", mmw.meta).Msg("sending metadata")
-	err := mmw.mount.MetadataFn(ctx, mmw.meta)
+	zerolog.Ctx(ctx).Info().Str("metadata", mmw.Metadata).Msg("sending metadata")
+	err := mmw.mount.MetadataFn(ctx, mmw.Metadata)
 	if err != nil {
-		zerolog.Ctx(ctx).Error().Err(err).Str("metadata", mmw.meta).Msg("failed sending metadata")
+		zerolog.Ctx(ctx).Error().Err(err).Str("metadata", mmw.Metadata).Msg("failed sending metadata")
 	}
 }
 
@@ -338,23 +343,23 @@ func (mmw *MountMetadataWriter) Write(p []byte) (n int, err error) {
 	mmw.mu.RLock()
 	defer mmw.mu.RUnlock()
 
-	if mmw.out == nil {
+	if mmw.Out == nil {
 		// nowhere to go with this data, just silently eat it
 		return len(p), nil
 	}
 
-	return mmw.out.Write(p)
+	return mmw.Out.Write(p)
 }
 
 func (mmw *MountMetadataWriter) SetWriter(new io.Writer) {
 	mmw.mu.Lock()
-	mmw.out = new
+	mmw.Out = new
 	mmw.mu.Unlock()
 }
 
 func (mmw *MountMetadataWriter) SetLive(ctx context.Context, live bool) {
 	mmw.mu.Lock()
-	mmw.live = live
+	mmw.Live = live
 	mmw.mu.Unlock()
 	if live {
 		mmw.sendMetadata(ctx)

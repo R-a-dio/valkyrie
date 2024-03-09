@@ -1,6 +1,9 @@
 package util
 
-import "sync"
+import (
+	"sync"
+	"sync/atomic"
+)
 
 type Map[K, V any] struct {
 	m sync.Map
@@ -58,4 +61,32 @@ func (m *Map[K, V]) Swap(key K, value V) (previous V, loaded bool) {
 		return *new(V), loaded
 	}
 	return p.(V), loaded
+}
+
+type TypedValue[T any] struct {
+	v atomic.Value
+}
+
+func (tv *TypedValue[T]) Store(new T) {
+	tv.v.Store(new)
+}
+
+func (tv *TypedValue[T]) Load() T {
+	lv := tv.v.Load()
+	if lv == nil {
+		return *new(T)
+	}
+	return lv.(T)
+}
+
+func (tv *TypedValue[T]) Swap(newv T) (old T) {
+	sv := tv.v.Swap(newv)
+	if sv == nil {
+		return *new(T)
+	}
+	return sv.(T)
+}
+
+func (tv *TypedValue[T]) CompareAndSwap(old, new T) (swapped bool) {
+	return tv.v.CompareAndSwap(old, new)
 }

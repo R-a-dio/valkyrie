@@ -620,7 +620,7 @@ func (s *Streamer) metadataToIcecast(task streamerTask) error {
 		}
 
 		// use a timeout so we don't hang on a request for ages
-		ctx, cancel := context.WithTimeout(task.Context, time.Second*5)
+		ctx, cancel := context.WithTimeout(task.Context, time.Second*30)
 		err = metaFn(ctx, track.track.Metadata)
 		cancel()
 		if err != nil {
