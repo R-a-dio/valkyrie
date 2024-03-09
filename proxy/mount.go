@@ -5,7 +5,6 @@ import (
 	"context"
 	"io"
 	"net"
-	"net/url"
 	"slices"
 	"sync"
 	"time"
@@ -18,6 +17,7 @@ import (
 )
 
 type Mount struct {
+	logger zerolog.Logger
 	// ContentType of this mount, this can only be set during creation and all
 	// future clients afterwards will use the same content type
 	ContentType string
@@ -38,33 +38,51 @@ type Mount struct {
 	SourcesMu *sync.RWMutex
 }
 
-func NewMount(ctx context.Context, uri *url.URL, ct string) *Mount {
+func NewMount(ctx context.Context, name string, urlFn MountURLFn, ct string) *Mount {
 	var bo backoff.BackOff = config.NewConnectionBackoff()
 	bo = backoff.WithContext(bo, ctx)
+	logger := zerolog.Ctx(ctx).With().Str("mount", name).Logger()
 
 	return &Mount{
+		logger: logger,
 		ConnFn: func() (net.Conn, error) {
 			var err error
 			var conn net.Conn
-			err = backoff.RetryNotify(func() error {
+			err = backoff.Retry(func() error {
+				uri, err := urlFn()
+				if err != nil {
+					logger.Error().Err(err).Msg("failed to parse master server url")
+					return err
+				}
+
+				logger.Info().Msg("dialing icecast")
 				conn, err = icecast.DialURL(ctx, uri, icecast.ContentType(ct))
-				return err
-			}, bo, func(err error, d time.Duration) {
-				zerolog.Ctx(ctx).Error().Err(err).Dur("backoff", d).Msg("failed connecting to master server")
-			})
+				if err != nil {
+					logger.Error().Err(err).Msg("failed connected to master server")
+					return err
+				}
+				return nil
+			}, bo)
 			if err != nil {
 				return nil, err
 			}
 
 			return conn, nil
 		},
-		MetadataFn: icecast.MetadataURL(uri),
-		Name:       uri.Path,
-		SourcesMu:  new(sync.RWMutex),
+		MetadataFn: func(ctx context.Context, s string) error {
+			uri, err := urlFn()
+			if err != nil {
+				return err
+			}
+			return icecast.MetadataURL(uri)(ctx, s)
+		},
+		Name:      name,
+		SourcesMu: new(sync.RWMutex),
 	}
 }
 
 func (m *Mount) Write(b []byte) (n int, err error) {
+retry:
 	if m.Conn == nil {
 		m.Conn, err = m.ConnFn()
 		if err != nil {
@@ -72,7 +90,15 @@ func (m *Mount) Write(b []byte) (n int, err error) {
 		}
 	}
 
-	return m.Conn.Write(b)
+	n, err = m.Conn.Write(b)
+	if err != nil {
+		m.logger.Error().Err(err).Msg("failed to write to master")
+		// reset our connection
+		m.Conn.Close()
+		m.Conn = nil
+		goto retry
+	}
+	return n, err
 }
 
 func (m *Mount) Close() error {
@@ -128,7 +154,7 @@ type MountSourceClient struct {
 func (msc *MountSourceClient) GoLive(ctx context.Context, out MetadataWriter) {
 	msc.live = true
 	msc.mw.SetWriter(out)
-	msc.mw.SetLive(true)
+	msc.mw.SetLive(ctx, true)
 	msc.logger.Info().Msg("switching to live")
 }
 
@@ -272,26 +298,39 @@ func (m *Mount) RunMountSourceClient(ctx context.Context, msc *MountSourceClient
 }
 
 type MountMetadataWriter struct {
-	mu    sync.RWMutex
+	mu sync.RWMutex
+	// meta is the last metadata we send (or tried to send)
+	meta string
+	// mount is the Mount that we are associated with
 	mount *Mount
-	live  bool
-	out   io.Writer
+	// live indicates if we are the live writer, actually writing to the master
+	live bool
+	// out is the writer we write into
+	out io.Writer
 }
 
 func (mmw *MountMetadataWriter) SendMetadata(ctx context.Context, meta *Metadata) {
+	mmw.mu.Lock()
+	mmw.meta = meta.Value
+	mmw.mu.Unlock()
+
+	mmw.sendMetadata(ctx)
+}
+
+func (mmw *MountMetadataWriter) sendMetadata(ctx context.Context) {
 	mmw.mu.RLock()
 	defer mmw.mu.RUnlock()
 
 	// check if we're live
 	if !mmw.live {
-		zerolog.Ctx(ctx).Info().Str("metadata", meta.Value).Msg("skipping metadata, we're not live")
+		zerolog.Ctx(ctx).Info().Str("metadata", mmw.meta).Msg("skipping metadata, we're not live")
 		return
 	}
 
-	zerolog.Ctx(ctx).Info().Str("metadata", meta.Value).Msg("sending metadata")
-	err := mmw.mount.MetadataFn(ctx, meta.Value)
+	zerolog.Ctx(ctx).Info().Str("metadata", mmw.meta).Msg("sending metadata")
+	err := mmw.mount.MetadataFn(ctx, mmw.meta)
 	if err != nil {
-		zerolog.Ctx(ctx).Error().Err(err).Str("metadata", meta.Value).Msg("failed sending metadata")
+		zerolog.Ctx(ctx).Error().Err(err).Str("metadata", mmw.meta).Msg("failed sending metadata")
 	}
 }
 
@@ -313,8 +352,11 @@ func (mmw *MountMetadataWriter) SetWriter(new io.Writer) {
 	mmw.mu.Unlock()
 }
 
-func (mmw *MountMetadataWriter) SetLive(live bool) {
+func (mmw *MountMetadataWriter) SetLive(ctx context.Context, live bool) {
 	mmw.mu.Lock()
 	mmw.live = live
 	mmw.mu.Unlock()
+	if live {
+		mmw.sendMetadata(ctx)
+	}
 }
