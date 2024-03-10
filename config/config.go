@@ -251,10 +251,20 @@ func (e errors) Error() string {
 // Config is a type-safe wrapper around the config type
 type Config struct {
 	config *atomic.Value
+
+	reloader *reload
+}
+
+type reload struct {
+	sync.RWMutex
+	callbacks []func()
 }
 
 func newConfig(c config) Config {
-	ac := Config{new(atomic.Value)}
+	ac := Config{
+		config:   new(atomic.Value),
+		reloader: new(reload),
+	}
 	ac.StoreConf(c)
 	return ac
 }
@@ -318,6 +328,60 @@ func (c Config) LoadAndUpdate(filenames ...string) error {
 
 	c.StoreConf(conf.Conf())
 	return nil
+}
+
+func (c *Config) OnReload(cb func()) {
+	c.reloader.Lock()
+	c.reloader.callbacks = append(c.reloader.callbacks, cb)
+	c.reloader.Unlock()
+}
+
+func (c Config) TriggerReload() {
+	c.reloader.RLock()
+	defer c.reloader.RUnlock()
+	for _, fn := range c.reloader.callbacks {
+		fn()
+	}
+}
+
+func Value[T any](cfg Config, fn func(Config) T) func() T {
+	var store atomic.Pointer[func() T]
+
+	cfg.OnReload(func() {
+		store.Store(nil)
+	})
+
+	return func() T {
+		gp := store.Load()
+		if gp == nil || *gp == nil {
+			g := sync.OnceValue(func() T {
+				return fn(cfg)
+			})
+			gp = &g
+			store.Store(gp)
+		}
+		return (*gp)()
+	}
+}
+
+func Values[T1, T2 any](cfg Config, fn func(Config) (T1, T2)) func() (T1, T2) {
+	var store atomic.Pointer[func() (T1, T2)]
+
+	cfg.OnReload(func() {
+		store.Store(nil)
+	})
+
+	return func() (T1, T2) {
+		gp := store.Load()
+		if gp == nil || *gp == nil {
+			g := sync.OnceValues(func() (T1, T2) {
+				return fn(cfg)
+			})
+			gp = &g
+			store.Store(gp)
+		}
+		return (*gp)()
+	}
 }
 
 // Conf returns the configuration stored inside
