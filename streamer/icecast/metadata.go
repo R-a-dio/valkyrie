@@ -41,6 +41,7 @@ func MetadataURL(u *url.URL, opts ...Option) MetadataFunc {
 		if err != nil {
 			return fmt.Errorf("MetadataFunc: failed Do: %w", err)
 		}
+		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
 			return fmt.Errorf("MetadataFunc: status not ok: %w", errors.New(resp.Status))

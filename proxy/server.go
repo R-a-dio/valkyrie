@@ -4,7 +4,6 @@ import (
 	"context"
 	"net"
 	"net/http"
-	"net/url"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -94,8 +93,4 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 
 func (s *Server) Close() error {
 	return s.http.Close()
-}
-
-func NewSourceConn(ctx context.Context, uri *url.URL) (net.Conn, error) {
-	return nil, nil
 }
