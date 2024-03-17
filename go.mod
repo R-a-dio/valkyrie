@@ -18,7 +18,7 @@ require (
 	github.com/gorilla/schema v1.2.1
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/leanovate/gopter v0.2.9
-	github.com/lrstanley/girc v0.0.0-20240130161140-6cf311abc7b0
+	github.com/lrstanley/girc v0.0.0-20240317214256-a4a3d96369cb
 	github.com/prometheus/client_golang v1.19.0
 	github.com/rs/xid v1.5.0
 	github.com/rs/zerolog v1.31.0
@@ -36,7 +36,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.23.0
 	go.opentelemetry.io/otel/sdk/metric v1.23.0
 	go.opentelemetry.io/otel/trace v1.24.0
-	golang.org/x/crypto v0.18.0
+	golang.org/x/crypto v0.21.0
 	golang.org/x/exp v0.0.0-20240119083558-1b970713d09a
 	golang.org/x/term v0.18.0
 	golang.org/x/text v0.14.0
@@ -95,7 +95,7 @@ require (
 	go.opentelemetry.io/otel/metric v1.24.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.1.0 // indirect
 	golang.org/x/mod v0.14.0 // indirect
-	golang.org/x/net v0.20.0 // indirect
+	golang.org/x/net v0.21.0 // indirect
 	golang.org/x/sys v0.18.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240102182953-50ed04b92917 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240102182953-50ed04b92917 // indirect
@@ -107,5 +107,5 @@ require (
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
-	google.golang.org/protobuf v1.32.0
+	google.golang.org/protobuf v1.33.0
 )
