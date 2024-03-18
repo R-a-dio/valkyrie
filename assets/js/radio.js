@@ -79,6 +79,18 @@ htmx.on('htmx:load', (event) => {
             stream.setButton("Stop Stream");
         }
     }
+    // register volume slider
+    let volume = document.getElementById("stream-volume");
+    if (volume && !volume.dataset.haslistener) {
+        volume.dataset.haslistener = true;
+        volume.value = localStorage.getItem("volume");
+        volume.addEventListener("input", (ev) => {
+            vol = parseFloat(ev.target.value) / 100.0;
+            if (stream) {
+                stream.setVolume(vol, true);
+            }
+        });
+    }
 });
 
 htmx.on('htmx:afterSettle', (event) => {
