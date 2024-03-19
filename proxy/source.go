@@ -1,7 +1,8 @@
 package proxy
 
 import (
-	"bufio"
+	"context"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -9,8 +10,12 @@ import (
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/config"
+	"github.com/R-a-dio/valkyrie/proxy/compat"
+	"github.com/R-a-dio/valkyrie/util/graceful"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/rs/xid"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
 )
 
@@ -73,19 +78,21 @@ func (s *Server) PutSource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := SourceClient{
-		ID:          NewSourceID(r),
-		UserAgent:   r.Header.Get("User-Agent"),
-		ContentType: r.Header.Get("Content-Type"),
-		conn:        conn,
-		bufrw:       bufrw,
-		MountName:   mountName,
-		User:        *user,
-		Identifier:  identifier,
-		Metadata:    new(atomic.Pointer[Metadata]),
-	}
+	// TODO: clean this up
+	conn = compat.DrainBuffer(bufrw, conn)
 
-	err = s.proxy.AddSourceClient(ctx, &client)
+	client := NewSourceClient(
+		NewSourceID(r),
+		r.Header.Get("User-Agent"),
+		r.Header.Get("Content-Type"),
+		mountName,
+		conn,
+		*user,
+		identifier,
+		nil,
+	)
+
+	err = s.proxy.AddSourceClient(client)
 	if err != nil {
 		hlog.FromRequest(r).Error().Err(err).Msg("failed to add source client to proxy")
 		return
@@ -103,6 +110,24 @@ type SourceID struct {
 	xid.ID
 }
 
+func NewSourceClient(id SourceID, ua, ct, mount string, conn net.Conn, user radio.User, identifier Identifier, metadata *Metadata) *SourceClient {
+	meta := new(atomic.Pointer[Metadata])
+	if metadata != nil {
+		meta.Store(metadata)
+	}
+
+	return &SourceClient{
+		ID:          id,
+		UserAgent:   ua,
+		ContentType: ct,
+		MountName:   mount,
+		User:        user,
+		Identifier:  identifier,
+		conn:        conn,
+		Metadata:    meta,
+	}
+}
+
 type SourceClient struct {
 	ID SourceID
 	// UserAgent is the User-Agent HTTP header passed by the client
@@ -111,8 +136,6 @@ type SourceClient struct {
 	ContentType string
 	// conn is the connection for this client, it can be a *compat.Conn
 	conn net.Conn
-	// bufrw is the bufio buffer we got back from net/http
-	bufrw *bufio.ReadWriter
 	// MountName is the mount this client is trying to stream to
 	MountName string
 	// User is the user that is trying to stream
@@ -125,24 +148,72 @@ type SourceClient struct {
 	Metadata *atomic.Pointer[Metadata]
 }
 
-// StripBuffer returns an io.Reader that returns io.EOF after all buffered
-// content in r is read.
-func StripBuffer(r *bufio.Reader) io.Reader {
-	return &stripper{r}
+type wireSource struct {
+	ID          SourceID
+	UserAgent   string
+	ContentType string
+	MountName   string
+	UserID      radio.UserID
+	Identifier  Identifier
+	Metadata    *Metadata
 }
 
-type stripper struct {
-	r *bufio.Reader
+func (sc *SourceClient) writeSelf(dst *net.UnixConn) error {
+	ws := wireSource{
+		ID:          sc.ID,
+		UserAgent:   sc.UserAgent,
+		ContentType: sc.ContentType,
+		MountName:   sc.MountName,
+		UserID:      sc.User.ID,
+		Identifier:  sc.Identifier,
+		Metadata:    sc.Metadata.Load(),
+	}
+
+	fd, err := getFile(sc.conn)
+	if err != nil {
+		return fmt.Errorf("fd failure in source client: %w", err)
+	}
+	defer fd.Close()
+
+	err = graceful.WriteJSONFile(dst, ws, fd)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func (s *stripper) Read(p []byte) (n int, err error) {
-	bufN := s.r.Buffered()
-	if bufN == 0 {
-		return 0, io.EOF
+func (sc *SourceClient) readSelf(ctx context.Context, cfg config.Config, src *net.UnixConn) error {
+	var ws wireSource
+
+	zerolog.Ctx(ctx).Info().Msg("resume: reading source client")
+	file, err := graceful.ReadJSONFile(src, &ws)
+	if err != nil {
+		return err
 	}
-	if bufN < len(p) {
-		p = p[:bufN]
+	defer file.Close()
+
+	zerolog.Ctx(ctx).Info().Any("ws", ws).Msg("resume")
+
+	conn, err := net.FileConn(file)
+	if err != nil {
+		return err
 	}
 
-	return s.r.Read(p)
+	// TODO: implement this
+	var user radio.User
+	_ = user
+
+	new := NewSourceClient(
+		ws.ID,
+		ws.UserAgent,
+		ws.ContentType,
+		ws.MountName,
+		conn,
+		user,
+		ws.Identifier,
+		ws.Metadata,
+	)
+	*sc = *new
+	return nil
 }

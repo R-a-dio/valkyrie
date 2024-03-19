@@ -4,11 +4,13 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/R-a-dio/valkyrie/proxy/compat"
 	"github.com/R-a-dio/valkyrie/website"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/go-chi/chi/v5"
@@ -18,10 +20,13 @@ import (
 )
 
 type Server struct {
-	proxy   *ProxyManager
-	storage radio.UserStorageService
-	manager radio.ManagerService
-	http    *http.Server
+	cfg        config.Config
+	listenerMu sync.Mutex
+	listener   net.Listener
+	proxy      *ProxyManager
+	storage    radio.UserStorageService
+	manager    radio.ManagerService
+	http       *http.Server
 }
 
 func zerologLoggerFunc(r *http.Request, status, size int, duration time.Duration) {
@@ -35,11 +40,12 @@ func zerologLoggerFunc(r *http.Request, status, size int, duration time.Duration
 func NewServer(ctx context.Context, cfg config.Config, manager radio.ManagerService, storage radio.UserStorageService) (*Server, error) {
 	const op errors.Op = "proxy.NewServer"
 
-	pm, err := NewProxyManager(cfg)
+	pm, err := NewProxyManager(ctx, cfg)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
 	var srv = &Server{
+		cfg:     cfg,
 		proxy:   pm,
 		manager: manager,
 		storage: storage,
@@ -86,11 +92,26 @@ func NewServer(ctx context.Context, cfg config.Config, manager radio.ManagerServ
 	return srv, nil
 }
 
-func (s *Server) Serve(ctx context.Context, l net.Listener) error {
-	go s.proxy.Run(ctx)
-	return s.http.Serve(l)
-}
-
 func (s *Server) Close() error {
 	return s.http.Close()
+}
+
+func (s *Server) Start(ctx context.Context) error {
+	logger := zerolog.Ctx(ctx)
+
+	s.listenerMu.Lock()
+	if s.listener == nil {
+		ln, err := compat.Listen(logger, "tcp", s.cfg.Conf().Proxy.Addr)
+		if err != nil {
+			s.listenerMu.Unlock()
+			return err
+		}
+
+		s.listener = ln
+	}
+	ln := s.listener
+	s.listenerMu.Unlock()
+
+	logger.Info().Str("address", ln.Addr().String()).Msg("proxy started listening")
+	return s.http.Serve(ln)
 }

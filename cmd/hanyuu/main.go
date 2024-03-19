@@ -21,6 +21,7 @@ import (
 	_ "github.com/R-a-dio/valkyrie/storage/mariadb" // mariadb storage interface
 	"github.com/R-a-dio/valkyrie/telemetry"
 	"github.com/R-a-dio/valkyrie/tracker"
+	"github.com/R-a-dio/valkyrie/util/graceful"
 	"github.com/R-a-dio/valkyrie/website"
 	"github.com/google/subcommands"
 	"github.com/rs/zerolog"
@@ -316,6 +317,9 @@ func executeCommand(ctx context.Context, errCh chan error) error {
 	// setup context that is passed to the command
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+
+	// enable graceful package support, this will handle SIGUSR2 for us
+	go graceful.Setup(ctx)
 
 	signalCh := make(chan os.Signal, 2)
 	signal.Notify(signalCh, os.Interrupt, syscall.SIGHUP)

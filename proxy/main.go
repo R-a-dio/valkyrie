@@ -2,17 +2,23 @@ package proxy
 
 import (
 	"context"
+	"fmt"
+	"net"
+	"os"
 
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/proxy/compat"
 	"github.com/R-a-dio/valkyrie/storage"
+	"github.com/R-a-dio/valkyrie/util"
+	"github.com/R-a-dio/valkyrie/util/graceful"
 	"github.com/rs/zerolog"
 )
 
 func Execute(ctx context.Context, cfg config.Config) error {
 	const op errors.Op = "proxy/Execute"
-	logger := zerolog.Ctx(ctx)
+
+	util.PProfServer(ctx, 56565)
 
 	// setup dependencies
 	storage, err := storage.Open(ctx, cfg)
@@ -21,29 +27,121 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	}
 	m := cfg.Conf().Manager.Client()
 
-	// get our configuration
-	addr := cfg.Conf().Proxy.Addr
-
 	srv, err := NewServer(ctx, cfg, m, storage)
 	if err != nil {
 		return errors.E(op, err)
 	}
 
-	ln, err := compat.Listen(logger, "tcp", addr)
-	if err != nil {
-		return errors.E(op, err)
+	// check if we're a child of an existing process
+	if graceful.IsChild() {
+		var done func()
+		ctx, done = graceful.WithSync(ctx)
+
+		err := srv.handleResume(ctx, cfg)
+		if err != nil {
+			// resuming failed, just exit and hope someone in charge restarts us
+			return err
+		}
+		done()
 	}
-	logger.Info().Str("address", ln.Addr().String()).Msg("proxy started listening")
 
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- srv.Serve(ctx, ln)
+		errCh <- srv.Start(ctx)
 	}()
 
 	select {
 	case <-ctx.Done():
 		return srv.Close()
+	case <-graceful.Signal:
+		return srv.handleRestart(ctx, cfg)
 	case err = <-errCh:
 		return err
+	}
+}
+
+func (srv *Server) handleResume(ctx context.Context, cfg config.Config) error {
+	parent, err := graceful.FD2Unix(3)
+	if err != nil {
+		return err
+	}
+	defer parent.Close()
+
+	return srv.readSelf(ctx, cfg, parent)
+}
+
+func (srv *Server) handleRestart(ctx context.Context, cfg config.Config) error {
+	dst, err := graceful.StartChild()
+	if err != nil {
+		return err
+	}
+	defer dst.Close()
+
+	return srv.writeSelf(dst)
+}
+
+type wireGlobal struct {
+	MasterServer string
+}
+
+func (srv *Server) writeSelf(dst *net.UnixConn) error {
+	var ws wireGlobal
+	ws.MasterServer = srv.cfg.Conf().Proxy.MasterServer
+
+	srv.listenerMu.Lock()
+	fd, err := getFile(srv.listener)
+	srv.listenerMu.Unlock()
+	if err != nil {
+		return fmt.Errorf("fd failure in server: %w", err)
+	}
+	defer fd.Close()
+
+	err = graceful.WriteJSONFile(dst, ws, fd)
+	if err != nil {
+		return err
+	}
+
+	return srv.proxy.writeSelf(dst)
+}
+
+func (srv *Server) readSelf(ctx context.Context, cfg config.Config, src *net.UnixConn) error {
+	var ws wireGlobal
+
+	zerolog.Ctx(ctx).Info().Msg("resume: reading server data")
+	file, err := graceful.ReadJSONFile(src, &ws)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	zerolog.Ctx(ctx).Info().Any("ws", ws).Msg("resume")
+
+	srv.listenerMu.Lock()
+	srv.listener, err = net.FileListener(file)
+	srv.listenerMu.Unlock()
+	if err != nil {
+		return err
+	}
+
+	return srv.proxy.readSelf(ctx, cfg, src)
+}
+
+func getFile(un any) (*os.File, error) {
+	if un == nil {
+		return nil, errors.New("nil passed to getFile")
+	}
+
+	if f, ok := un.(interface{ File() (*os.File, error) }); ok {
+		return f.File()
+	}
+
+	switch v := un.(type) {
+	case *compat.Listener:
+		return getFile(v.Listener)
+	case *compat.Conn:
+		return getFile(v.Conn)
+	default:
+		fmt.Printf("unknown type in getFile: %#v", un)
+		panic("unknown type")
 	}
 }

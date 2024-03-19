@@ -1,10 +1,17 @@
 package proxy
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"sync"
 	"testing"
 
+	"github.com/R-a-dio/valkyrie/config"
+	"github.com/R-a-dio/valkyrie/util/graceful"
 	"github.com/rs/xid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLeastPriority(t *testing.T) {

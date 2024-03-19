@@ -3,6 +3,7 @@ package proxy
 import (
 	"cmp"
 	"context"
+	"fmt"
 	"io"
 	"net"
 	"slices"
@@ -13,6 +14,7 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/streamer/icecast"
 	"github.com/R-a-dio/valkyrie/util"
+	"github.com/R-a-dio/valkyrie/util/graceful"
 	"github.com/cenkalti/backoff"
 	"github.com/rs/zerolog"
 )
@@ -40,13 +42,15 @@ type Mount struct {
 	SourcesMu *sync.RWMutex
 }
 
-func NewMount(ctx context.Context, name string, urlFn MountURLFn, ct string) *Mount {
+func NewMount(ctx context.Context, cfg config.Config, name string, ct string, conn net.Conn) *Mount {
 	var bo backoff.BackOff = config.NewConnectionBackoff()
 	bo = backoff.WithContext(bo, ctx)
 	logger := zerolog.Ctx(ctx).With().Str("mount", name).Logger()
+	urlFn := createMountURLFn(cfg, name)
 
-	return &Mount{
-		logger: logger,
+	mount := &Mount{
+		logger:      logger,
+		ContentType: ct,
 		ConnFn: func() (net.Conn, error) {
 			var err error
 			var conn net.Conn
@@ -81,6 +85,12 @@ func NewMount(ctx context.Context, name string, urlFn MountURLFn, ct string) *Mo
 		Name:      name,
 		SourcesMu: new(sync.RWMutex),
 	}
+
+	if conn != nil {
+		mount.Conn.Store(conn)
+	}
+
+	return mount
 }
 
 func (m *Mount) Write(b []byte) (n int, err error) {
@@ -110,6 +120,79 @@ func (m *Mount) Close() error {
 	if conn != nil {
 		return conn.Close()
 	}
+	return nil
+}
+
+type wireMount struct {
+	ContentType string
+	Name        string
+	SourceCount int
+}
+
+func (m *Mount) writeSelf(dst *net.UnixConn) error {
+	m.SourcesMu.RLock()
+	defer m.SourcesMu.RUnlock()
+
+	count := len(m.Sources)
+
+	wm := wireMount{
+		Name:        m.Name,
+		ContentType: m.ContentType,
+		SourceCount: count,
+	}
+
+	fd, err := getFile(m.Conn.Load())
+	if err != nil {
+		return fmt.Errorf("fd failure in mountpoint: %w", err)
+	}
+	defer fd.Close()
+
+	err = graceful.WriteJSONFile(dst, wm, fd)
+	if err != nil {
+		return err
+	}
+
+	for _, msc := range m.Sources {
+		err = msc.Source.writeSelf(dst)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (m *Mount) readSelf(ctx context.Context, cfg config.Config, src *net.UnixConn) error {
+	var wm wireMount
+
+	zerolog.Ctx(ctx).Debug().Msg("resume: reading mount")
+
+	file, err := graceful.ReadJSONFile(src, &wm)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	zerolog.Ctx(ctx).Debug().Any("wireMount", wm).Msg("resume")
+
+	conn, err := net.FileConn(file)
+	if err != nil {
+		return err
+	}
+
+	newmount := NewMount(ctx, cfg, wm.Name, wm.ContentType, conn)
+	*m = *newmount
+
+	for i := 0; i < wm.SourceCount; i++ {
+		source := new(SourceClient)
+
+		err = source.readSelf(ctx, cfg, src)
+		if err != nil {
+			return err
+		}
+
+		m.AddSource(ctx, source)
+	}
+
 	return nil
 }
 
@@ -148,8 +231,6 @@ type MountSourceClient struct {
 	// Priority is the Priority for live-ness determination
 	// lower is higher Priority
 	Priority uint
-	// Live is an indicator of this being the currently Live source
-	Live bool
 	// MW is the writer this source is writing to
 	MW *MountMetadataWriter
 
@@ -157,7 +238,6 @@ type MountSourceClient struct {
 }
 
 func (msc *MountSourceClient) GoLive(ctx context.Context, out MetadataWriter) {
-	msc.Live = true
 	msc.MW.SetWriter(out)
 	msc.MW.SetLive(ctx, true)
 	msc.logger.Info().Msg("switching to live")
@@ -187,7 +267,6 @@ func (m *Mount) AddSource(ctx context.Context, source *SourceClient) {
 	msc := &MountSourceClient{
 		Source:   source,
 		Priority: 0,
-		Live:     false,
 		MW:       mw,
 		logger: zerolog.Ctx(ctx).With().
 			Str("address", source.conn.RemoteAddr().String()).
@@ -229,7 +308,7 @@ func (m *Mount) RemoveSource(ctx context.Context, id SourceID) {
 	removed.logger.Info().Msg("removing source client")
 
 	// see if the source we removed is the live source
-	if removed.Live {
+	if removed.MW.Live {
 		// and swap to another source if possible
 		m.liveSourceSwap(ctx)
 	}
@@ -264,6 +343,8 @@ func (m *Mount) RunMountSourceClient(ctx context.Context, msc *MountSourceClient
 	// the last time we send metadata
 	lastMetadata := time.Time{}
 
+	<-graceful.Sync(ctx)
+
 	for {
 		// set a deadline so we don't keep bad clients around
 		err := msc.Source.conn.SetReadDeadline(time.Now().Add(timeout))
@@ -272,7 +353,7 @@ func (m *Mount) RunMountSourceClient(ctx context.Context, msc *MountSourceClient
 			msc.logger.Info().Msg("failed to set deadline")
 		}
 		// read some data from the source
-		readn, err := msc.Source.bufrw.Read(buf)
+		readn, err := msc.Source.conn.Read(buf)
 		if err != nil {
 			if errors.IsE(err, io.EOF) {
 				// client left us, exit cleanly

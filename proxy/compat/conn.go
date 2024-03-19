@@ -1,9 +1,11 @@
 package compat
 
 import (
+	"bufio"
 	"bytes"
 	"io"
 	"net"
+	"os"
 	"reflect"
 
 	"github.com/rs/zerolog"
@@ -43,6 +45,17 @@ func (l *Listener) Accept() (net.Conn, error) {
 	}
 
 	return &Conn{Conn: conn, logger: l.logger}, nil
+}
+
+func (l *Listener) File() (*os.File, error) {
+	switch ln := l.Listener.(type) {
+	case *net.TCPListener:
+		return ln.File()
+	case *net.UnixListener:
+		return ln.File()
+	default:
+		panic("unsupported listener")
+	}
 }
 
 type Conn struct {
@@ -152,4 +165,33 @@ func UnwrapReader(r io.Reader) io.Reader {
 
 		r = mr.second
 	}
+}
+
+func DrainBuffer(rw *bufio.ReadWriter, conn net.Conn) net.Conn {
+	return &Conn{
+		Conn:  conn,
+		multi: MultiReader(StripBuffer(rw.Reader), conn),
+	}
+}
+
+// StripBuffer returns an io.Reader that returns io.EOF after all buffered
+// content in r is read.
+func StripBuffer(r *bufio.Reader) io.Reader {
+	return &stripper{r}
+}
+
+type stripper struct {
+	r *bufio.Reader
+}
+
+func (s *stripper) Read(p []byte) (n int, err error) {
+	bufN := s.r.Buffered()
+	if bufN == 0 {
+		return 0, io.EOF
+	}
+	if bufN < len(p) {
+		p = p[:bufN]
+	}
+
+	return s.r.Read(p)
 }

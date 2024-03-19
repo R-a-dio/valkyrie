@@ -2,11 +2,16 @@ package proxy
 
 import (
 	"context"
+	"maps"
+	"net"
 	"net/url"
+	"sync"
 
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/R-a-dio/valkyrie/util/graceful"
 	"github.com/rs/zerolog"
+	xmaps "golang.org/x/exp/maps"
 )
 
 type MountURLFn func() (*url.URL, error)
@@ -24,104 +29,168 @@ func createMountURLFn(cfg config.Config, mount string) MountURLFn {
 }
 
 type ProxyManager struct {
+	ctx          context.Context
 	cfg          config.Config
 	reloadConfig chan config.Config
 
-	newSource   chan *SourceClient
-	newMetadata chan *Metadata
-
+	metaMu    sync.Mutex
 	metaStore map[Identifier]*Metadata
-
-	Mounts map[string]*Mount
+	mountsMu  sync.RWMutex
+	mounts    map[string]*Mount
 }
 
-func NewProxyManager(cfg config.Config) (*ProxyManager, error) {
+func NewProxyManager(ctx context.Context, cfg config.Config) (*ProxyManager, error) {
 	const op errors.Op = "proxy.NewProxyManager"
 
 	m := &ProxyManager{
+		ctx:          ctx,
 		cfg:          cfg,
 		reloadConfig: make(chan config.Config),
-		newSource:    make(chan *SourceClient),
-		newMetadata:  make(chan *Metadata),
 		metaStore:    make(map[Identifier]*Metadata),
-		Mounts:       make(map[string]*Mount),
+		mounts:       make(map[string]*Mount),
 	}
 	return m, nil
 }
 
-func (pm *ProxyManager) Run(ctx context.Context) {
-	logger := zerolog.Ctx(ctx)
-
-	for {
-		select {
-		case source := <-pm.newSource:
-			// TODO: check if all source clients have the same content-type
-			m, ok := pm.Mounts[source.MountName]
-			if !ok {
-				// no mount exists yet, create one
-				logger.Info().Str("mount", source.MountName).Msg("create mount")
-				m = NewMount(ctx,
-					source.MountName,
-					createMountURLFn(pm.cfg, source.MountName),
-					source.ContentType,
-				)
-				pm.Mounts[source.MountName] = m
-			}
-
-			logger.Info().
-				Str("mount", source.MountName).
-				Str("username", source.User.Username).
-				Str("address", source.conn.RemoteAddr().String()).
-				Msg("adding source client")
-
-			// see if we have any metadata from before this source connected as
-			// a source client, storing a nil here is fine
-			source.Metadata.Store(pm.metaStore[source.Identifier])
-			delete(pm.metaStore, source.Identifier)
-
-			// add the source to the mount list
-			m.AddSource(ctx, source)
-		case metadata := <-pm.newMetadata:
-			m, ok := pm.Mounts[metadata.MountName]
-			if !ok {
-				// metadata for a mount that doesn't exist, we store it temporarily
-				// to see if a new source client will appear soon
-				logger.Info().
-					Str("mount", metadata.MountName).
-					Str("username", metadata.User.Username).
-					Str("address", metadata.Addr).
-					Msg("storing metadata because mount does not exist")
-				pm.metaStore[metadata.Identifier] = metadata
-				continue
-			}
-
-			m.SendMetadata(ctx, metadata)
-		case <-ctx.Done():
-			return
-		}
-	}
-}
-
-func (pm *ProxyManager) AddSourceClient(ctx context.Context, c *SourceClient) error {
-	if c == nil {
+func (pm *ProxyManager) AddSourceClient(source *SourceClient) error {
+	if source == nil {
 		panic("nil source client in AddSourceClient")
 	}
-	select {
-	case pm.newSource <- c:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
+
+	logger := zerolog.Ctx(pm.ctx)
+
+	// TODO: check if all source clients have the same content-type
+	mount, ok := pm.Mount(source.MountName)
+	if !ok {
+		// no mount exists yet, create one
+		logger.Info().Str("mount", source.MountName).Msg("create mount")
+		mount = NewMount(pm.ctx, pm.cfg,
+			source.MountName,
+			source.ContentType,
+			nil,
+		)
+
+		pm.mountsMu.Lock()
+		pm.mounts[source.MountName] = mount
+		pm.mountsMu.Unlock()
 	}
+
+	logger.Info().
+		Str("mount", source.MountName).
+		Str("username", source.User.Username).
+		Str("address", source.conn.RemoteAddr().String()).
+		Msg("adding source client")
+
+	// see if we have any metadata from before this source connected as
+	// a source client, storing a nil here is fine
+	source.Metadata.Store(pm.Metadata(source.Identifier))
+
+	// add the source to the mount list
+	mount.AddSource(pm.ctx, source)
+	return nil
 }
 
-func (pm *ProxyManager) SendMetadata(ctx context.Context, m *Metadata) error {
-	if m == nil {
+func (pm *ProxyManager) SendMetadata(ctx context.Context, metadata *Metadata) error {
+	if metadata == nil {
 		panic("nil metadata in SendMetadata")
 	}
-	select {
-	case pm.newMetadata <- m:
+
+	mount, ok := pm.Mount(metadata.MountName)
+	if !ok {
+		// metadata for a mount that doesn't exist, we store it temporarily
+		// to see if a new source client will appear soon
+		zerolog.Ctx(ctx).Info().
+			Str("mount", metadata.MountName).
+			Str("username", metadata.User.Username).
+			Str("address", metadata.Addr).
+			Msg("storing metadata because mount does not exist")
+		pm.metaMu.Lock()
+		pm.metaStore[metadata.Identifier] = metadata
+		pm.metaMu.Unlock()
 		return nil
-	case <-ctx.Done():
-		return ctx.Err()
 	}
+
+	mount.SendMetadata(ctx, metadata)
+	return nil
+}
+
+func (pm *ProxyManager) Mount(name string) (*Mount, bool) {
+	pm.mountsMu.RLock()
+	defer pm.mountsMu.RUnlock()
+	m, ok := pm.mounts[name]
+	return m, ok
+}
+
+func (pm *ProxyManager) Metadata(identifier Identifier) *Metadata {
+	pm.metaMu.Lock()
+	defer pm.metaMu.Unlock()
+	defer delete(pm.metaStore, identifier)
+	return pm.metaStore[identifier]
+}
+
+type wireProxy struct {
+	Mounts   []string
+	Metadata map[Identifier]*Metadata
+}
+
+func (pm *ProxyManager) writeSelf(dst *net.UnixConn) error {
+	pm.mountsMu.RLock()
+	mounts := maps.Clone(pm.mounts)
+	pm.mountsMu.RUnlock()
+
+	pm.metaMu.Lock()
+	metadata := maps.Clone(pm.metaStore)
+	pm.metaMu.Unlock()
+
+	wp := wireProxy{
+		Mounts:   xmaps.Keys(mounts),
+		Metadata: metadata,
+	}
+
+	err := graceful.WriteJSON(dst, wp)
+	if err != nil {
+		return err
+	}
+
+	for _, mount := range mounts {
+		err := mount.writeSelf(dst)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (pm *ProxyManager) readSelf(ctx context.Context, cfg config.Config, src *net.UnixConn) error {
+	var wp wireProxy
+
+	zerolog.Ctx(ctx).Info().Msg("resume: reading proxy manager data")
+	err := graceful.ReadJSON(src, &wp)
+	if err != nil {
+		return err
+	}
+
+	zerolog.Ctx(ctx).Info().Any("wire", wp).Msg("resume")
+
+	pm.metaMu.Lock()
+	xmaps.Copy(pm.metaStore, wp.Metadata)
+	pm.metaMu.Unlock()
+
+	mounts := make(map[string]*Mount)
+	for range wp.Mounts {
+		mount := new(Mount)
+
+		err = mount.readSelf(ctx, cfg, src)
+		if err != nil {
+			return err
+		}
+
+		mounts[mount.Name] = mount
+	}
+
+	pm.mountsMu.Lock()
+	xmaps.Copy(pm.mounts, mounts)
+	pm.mountsMu.Unlock()
+
+	return nil
 }
