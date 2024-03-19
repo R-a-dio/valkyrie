@@ -80,12 +80,12 @@ func (srv *Server) handleRestart(ctx context.Context, cfg config.Config) error {
 	return srv.writeSelf(dst)
 }
 
-type wireGlobal struct {
+type wireServer struct {
 	MasterServer string
 }
 
 func (srv *Server) writeSelf(dst *net.UnixConn) error {
-	var ws wireGlobal
+	var ws wireServer
 	ws.MasterServer = srv.cfg.Conf().Proxy.MasterServer
 
 	srv.listenerMu.Lock()
@@ -105,7 +105,7 @@ func (srv *Server) writeSelf(dst *net.UnixConn) error {
 }
 
 func (srv *Server) readSelf(ctx context.Context, cfg config.Config, src *net.UnixConn) error {
-	var ws wireGlobal
+	var ws wireServer
 
 	zerolog.Ctx(ctx).Info().Msg("resume: reading server data")
 	file, err := graceful.ReadJSONFile(src, &ws)
