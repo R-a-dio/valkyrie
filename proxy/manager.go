@@ -4,29 +4,13 @@ import (
 	"context"
 	"maps"
 	"net"
-	"net/url"
 	"sync"
 
 	"github.com/R-a-dio/valkyrie/config"
-	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/util/graceful"
 	"github.com/rs/zerolog"
 	xmaps "golang.org/x/exp/maps"
 )
-
-type MountURLFn func() (*url.URL, error)
-
-func createMountURLFn(cfg config.Config, mount string) MountURLFn {
-	return func() (*url.URL, error) {
-		master, err := url.Parse(cfg.Conf().Proxy.MasterServer)
-		if err != nil {
-			return nil, err
-		}
-
-		master.Path = mount
-		return master, nil
-	}
-}
 
 type ProxyManager struct {
 	ctx          context.Context
@@ -40,8 +24,6 @@ type ProxyManager struct {
 }
 
 func NewProxyManager(ctx context.Context, cfg config.Config) (*ProxyManager, error) {
-	const op errors.Op = "proxy.NewProxyManager"
-
 	m := &ProxyManager{
 		ctx:          ctx,
 		cfg:          cfg,

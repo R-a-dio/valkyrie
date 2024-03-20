@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/url"
 	"slices"
 	"sync"
 	"time"
@@ -21,20 +22,17 @@ import (
 
 type Mount struct {
 	logger zerolog.Logger
+	cfg    config.Config
+
+	backOff backoff.BackOff
 	// ContentType of this mount, this can only be set during creation and all
 	// future clients afterwards will use the same content type
 	ContentType string
-	// MetadataFn is a function we can call to send metadata to
-	// the icecast target server
-	MetadataFn func(context.Context, string) error
 	// Name of the mountpoint
 	Name string
 
-	// ConnFn is a function we can call to get a new conn to
-	// the icecast target server
-	ConnFn func() (net.Conn, error)
 	// Conn is the conn to the icecast server
-	Conn util.TypedValue[net.Conn]
+	Conn *util.TypedValue[net.Conn]
 
 	// Sources is the different sources of audio data, the mount
 	// broadcasts the data of the first entry and voids the others
@@ -43,61 +41,73 @@ type Mount struct {
 }
 
 func NewMount(ctx context.Context, cfg config.Config, name string, ct string, conn net.Conn) *Mount {
+	logger := zerolog.Ctx(ctx).With().Str("mount", name).Logger()
+
 	var bo backoff.BackOff = config.NewConnectionBackoff()
 	bo = backoff.WithContext(bo, ctx)
-	logger := zerolog.Ctx(ctx).With().Str("mount", name).Logger()
-	urlFn := createMountURLFn(cfg, name)
 
 	mount := &Mount{
 		logger:      logger,
+		cfg:         cfg,
+		backOff:     bo,
 		ContentType: ct,
-		ConnFn: func() (net.Conn, error) {
-			var err error
-			var conn net.Conn
-			err = backoff.Retry(func() error {
-				uri, err := urlFn()
-				if err != nil {
-					logger.Error().Err(err).Msg("failed to parse master server url")
-					return err
-				}
-
-				logger.Info().Msg("dialing icecast")
-				conn, err = icecast.DialURL(ctx, uri, icecast.ContentType(ct))
-				if err != nil {
-					logger.Error().Err(err).Msg("failed connected to master server")
-					return err
-				}
-				return nil
-			}, bo)
-			if err != nil {
-				return nil, err
-			}
-
-			return conn, nil
-		},
-		MetadataFn: func(ctx context.Context, s string) error {
-			uri, err := urlFn()
-			if err != nil {
-				return err
-			}
-			return icecast.MetadataURL(uri)(ctx, s)
-		},
-		Name:      name,
-		SourcesMu: new(sync.RWMutex),
-	}
-
-	if conn != nil {
-		mount.Conn.Store(conn)
+		Name:        name,
+		Conn:        util.NewTypedValue(conn),
+		SourcesMu:   new(sync.RWMutex),
 	}
 
 	return mount
+}
+
+func (m *Mount) newConn() (net.Conn, error) {
+	var err error
+	var conn net.Conn
+	err = backoff.Retry(func() error {
+		uri, err := m.masterURL()
+		if err != nil {
+			m.logger.Error().Err(err).Msg("failed to parse master server url")
+			return err
+		}
+
+		m.logger.Info().Msg("dialing icecast")
+		conn, err = icecast.DialURL(context.TODO(), uri, icecast.ContentType(m.ContentType))
+		if err != nil {
+			m.logger.Error().Err(err).Msg("failed connected to master server")
+			return err
+		}
+		return nil
+	}, m.backOff)
+	if err != nil {
+		return nil, err
+	}
+
+	return conn, nil
+}
+
+func (m *Mount) masterURL() (*url.URL, error) {
+	master, err := url.Parse(m.cfg.Conf().Proxy.MasterServer)
+	if err != nil {
+		return nil, err
+	}
+
+	master.Path = m.Name
+	return master, nil
+}
+
+func (m *Mount) sendMetadata(ctx context.Context, meta string) error {
+	uri, err := m.masterURL()
+	if err != nil {
+		return err
+	}
+
+	return icecast.MetadataURL(uri)(ctx, meta)
 }
 
 func (m *Mount) Write(b []byte) (n int, err error) {
 	conn := m.Conn.Load()
 retry:
 	if conn == nil {
-		conn, err = m.ConnFn()
+		conn, err = m.newConn()
 		if err != nil {
 			return 0, err
 		}
@@ -116,7 +126,7 @@ retry:
 }
 
 func (m *Mount) Close() error {
-	conn := m.Conn.Load()
+	conn := m.Conn.Swap(nil)
 	if conn != nil {
 		return conn.Close()
 	}
@@ -320,7 +330,15 @@ func (m *Mount) RemoveSource(ctx context.Context, id SourceID) {
 func (m *Mount) liveSourceSwap(ctx context.Context) {
 	next := mostPriority(m.Sources)
 	if next != nil {
+		// let the next client go live
 		next.GoLive(ctx, m)
+		return
+	}
+
+	// nobody here, close up our connection to the master server
+	err := m.Close()
+	if err != nil {
+		m.logger.Error().Err(err).Msg("closing master server connection")
 	}
 }
 
@@ -414,7 +432,7 @@ func (mmw *MountMetadataWriter) sendMetadata(ctx context.Context) {
 	}
 
 	zerolog.Ctx(ctx).Info().Str("metadata", mmw.Metadata).Msg("sending metadata")
-	err := mmw.mount.MetadataFn(ctx, mmw.Metadata)
+	err := mmw.mount.sendMetadata(ctx, mmw.Metadata)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Str("metadata", mmw.Metadata).Msg("failed sending metadata")
 	}

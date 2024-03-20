@@ -63,12 +63,18 @@ func (m *Map[K, V]) Swap(key K, value V) (previous V, loaded bool) {
 	return p.(V), loaded
 }
 
+func NewTypedValue[T any](initial T) *TypedValue[T] {
+	t := new(TypedValue[T])
+	t.Store(initial)
+	return t
+}
+
 type TypedValue[T any] struct {
-	v atomic.Value
+	v atomic.Pointer[T]
 }
 
 func (tv *TypedValue[T]) Store(new T) {
-	tv.v.Store(new)
+	tv.v.Store(&new)
 }
 
 func (tv *TypedValue[T]) Load() T {
@@ -76,17 +82,13 @@ func (tv *TypedValue[T]) Load() T {
 	if lv == nil {
 		return *new(T)
 	}
-	return lv.(T)
+	return *lv
 }
 
 func (tv *TypedValue[T]) Swap(newv T) (old T) {
-	sv := tv.v.Swap(newv)
+	sv := tv.v.Swap(&newv)
 	if sv == nil {
 		return *new(T)
 	}
-	return sv.(T)
-}
-
-func (tv *TypedValue[T]) CompareAndSwap(old, new T) (swapped bool) {
-	return tv.v.CompareAndSwap(old, new)
+	return *sv
 }
