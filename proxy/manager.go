@@ -34,6 +34,21 @@ func NewProxyManager(ctx context.Context, cfg config.Config) (*ProxyManager, err
 	return m, nil
 }
 
+func (pm *ProxyManager) CreateMount(name, contentType string, conn net.Conn) *Mount {
+	pm.mountsMu.Lock()
+	defer pm.mountsMu.Unlock()
+	// someone else might've created the mount while we were waiting on the
+	// lock, so see if we now exist
+	if mount, ok := pm.mounts[name]; ok {
+		return mount
+	}
+
+	// otherwise we're responsible for creating it
+	mount := NewMount(pm.ctx, pm.cfg, name, contentType, conn)
+	pm.mounts[name] = mount
+	return mount
+}
+
 func (pm *ProxyManager) AddSourceClient(source *SourceClient) error {
 	if source == nil {
 		panic("nil source client in AddSourceClient")
@@ -45,16 +60,7 @@ func (pm *ProxyManager) AddSourceClient(source *SourceClient) error {
 	mount, ok := pm.Mount(source.MountName)
 	if !ok {
 		// no mount exists yet, create one
-		logger.Info().Str("mount", source.MountName).Msg("create mount")
-		mount = NewMount(pm.ctx, pm.cfg,
-			source.MountName,
-			source.ContentType,
-			nil,
-		)
-
-		pm.mountsMu.Lock()
-		pm.mounts[source.MountName] = mount
-		pm.mountsMu.Unlock()
+		mount = pm.CreateMount(source.MountName, source.ContentType, nil)
 	}
 
 	logger.Info().
