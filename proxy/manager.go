@@ -44,9 +44,26 @@ func (pm *ProxyManager) CreateMount(name, contentType string, conn net.Conn) *Mo
 	}
 
 	// otherwise we're responsible for creating it
-	mount := NewMount(pm.ctx, pm.cfg, name, contentType, conn)
+	mount := NewMount(pm.ctx, pm.cfg, pm, name, contentType, conn)
 	pm.mounts[name] = mount
 	return mount
+}
+
+func (pm *ProxyManager) RemoveMount(name string) {
+	pm.mountsMu.Lock()
+	defer pm.mountsMu.Unlock()
+
+	mount, ok := pm.mounts[name]
+	if !ok {
+		// mount is already gone?
+		return
+	}
+	delete(pm.mounts, name)
+	err := mount.Close()
+	if err != nil {
+		mount.logger.Error().Err(err).Msg("closing mount master connection")
+		return
+	}
 }
 
 func (pm *ProxyManager) AddSourceClient(source *SourceClient) error {
@@ -56,11 +73,19 @@ func (pm *ProxyManager) AddSourceClient(source *SourceClient) error {
 
 	logger := zerolog.Ctx(pm.ctx)
 
-	// TODO: check if all source clients have the same content-type
 	mount, ok := pm.Mount(source.MountName)
 	if !ok {
 		// no mount exists yet, create one
 		mount = pm.CreateMount(source.MountName, source.ContentType, nil)
+	}
+
+	if mount.ContentType != source.ContentType {
+		// log content-type mismatches, but keep going as if it didn't happen.
+		// This shouldn't really occur unless someone is being silly
+		logger.Warn().
+			Str("mount-content-type", mount.ContentType).
+			Str("source-content-type", source.ContentType).
+			Msg("mismatching content-type")
 	}
 
 	logger.Info().

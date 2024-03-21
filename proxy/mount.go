@@ -20,9 +20,12 @@ import (
 	"github.com/rs/zerolog"
 )
 
+const mountTimeout = time.Second * 5
+
 type Mount struct {
 	logger zerolog.Logger
 	cfg    config.Config
+	pm     *ProxyManager
 
 	backOff backoff.BackOff
 	// ContentType of this mount, this can only be set during creation and all
@@ -36,11 +39,12 @@ type Mount struct {
 
 	// Sources is the different sources of audio data, the mount
 	// broadcasts the data of the first entry and voids the others
-	Sources   []*MountSourceClient
 	SourcesMu *sync.RWMutex
+	Sources   []*MountSourceClient
+	cleanup   *time.Timer
 }
 
-func NewMount(ctx context.Context, cfg config.Config, name string, ct string, conn net.Conn) *Mount {
+func NewMount(ctx context.Context, cfg config.Config, pm *ProxyManager, name string, ct string, conn net.Conn) *Mount {
 	logger := zerolog.Ctx(ctx).With().Str("mount", name).Logger()
 
 	var bo backoff.BackOff = config.NewConnectionBackoff()
@@ -49,6 +53,7 @@ func NewMount(ctx context.Context, cfg config.Config, name string, ct string, co
 	mount := &Mount{
 		logger:      logger,
 		cfg:         cfg,
+		pm:          pm,
 		backOff:     bo,
 		ContentType: ct,
 		Name:        name,
@@ -130,6 +135,7 @@ func (m *Mount) Close() error {
 	if conn != nil {
 		return conn.Close()
 	}
+
 	return nil
 }
 
@@ -189,8 +195,14 @@ func (m *Mount) readSelf(ctx context.Context, cfg config.Config, src *net.UnixCo
 		return err
 	}
 
-	newmount := NewMount(ctx, cfg, wm.Name, wm.ContentType, conn)
+	newmount := NewMount(ctx, cfg, m.pm, wm.Name, wm.ContentType, conn)
 	*m = *newmount
+
+	if wm.SourceCount == 0 {
+		// this indicates the mount was probably in cleanup state and was gonna
+		// close connections soon, we do the same
+		m.setupCleanup()
+	}
 
 	for i := 0; i < wm.SourceCount; i++ {
 		source := new(SourceClient)
@@ -204,6 +216,12 @@ func (m *Mount) readSelf(ctx context.Context, cfg config.Config, src *net.UnixCo
 	}
 
 	return nil
+}
+
+func (m *Mount) setupCleanup() {
+	m.cleanup = time.AfterFunc(mountTimeout, func() {
+		m.pm.RemoveMount(m.Name)
+	})
 }
 
 // leastPriority returns the priority index that would put
@@ -335,11 +353,8 @@ func (m *Mount) liveSourceSwap(ctx context.Context) {
 		return
 	}
 
-	// nobody here, close up our connection to the master server
-	err := m.Close()
-	if err != nil {
-		m.logger.Error().Err(err).Msg("closing master server connection")
-	}
+	// nobody here, clean ourselves up after some set amount of time
+	m.setupCleanup()
 }
 
 type MetadataWriter interface {

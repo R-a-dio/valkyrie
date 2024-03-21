@@ -10,15 +10,12 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/proxy/compat"
 	"github.com/R-a-dio/valkyrie/storage"
-	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/util/graceful"
 	"github.com/rs/zerolog"
 )
 
 func Execute(ctx context.Context, cfg config.Config) error {
 	const op errors.Op = "proxy/Execute"
-
-	util.PProfServer(ctx, 56565)
 
 	// setup dependencies
 	storage, err := storage.Open(ctx, cfg)
