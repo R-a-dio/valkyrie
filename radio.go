@@ -1076,15 +1076,16 @@ func (day ScheduleDay) String() string {
 type ScheduleEntry struct {
 	ID ScheduleID
 	// Weekday is the day this entry is for
-	Weekday ScheduleDay
+	//Weekday ScheduleDay
+	Weekday int
 	// Text is the actual body of the entry
 	Text string
 	// Owner is who "owns" this day for streaming rights
-	Owner *User
+	User *User
 	// UpdatedAt is when this was updated
 	UpdatedAt time.Time
 	// UpdatedBy is who updated this
-	UpdatedBy User
+	// UpdatedBy User
 	// Notification indicates if we should notify users of this entry
 	Notification bool
 }
