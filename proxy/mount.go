@@ -41,7 +41,6 @@ type Mount struct {
 	// broadcasts the data of the first entry and voids the others
 	SourcesMu *sync.RWMutex
 	Sources   []*MountSourceClient
-	cleanup   *time.Timer
 }
 
 func NewMount(ctx context.Context, cfg config.Config, pm *ProxyManager, name string, ct string, conn net.Conn) *Mount {
@@ -201,7 +200,7 @@ func (m *Mount) readSelf(ctx context.Context, cfg config.Config, src *net.UnixCo
 	if wm.SourceCount == 0 {
 		// this indicates the mount was probably in cleanup state and was gonna
 		// close connections soon, we do the same
-		m.setupCleanup()
+		m.pm.RemoveMount(newmount)
 	}
 
 	for i := 0; i < wm.SourceCount; i++ {
@@ -216,12 +215,6 @@ func (m *Mount) readSelf(ctx context.Context, cfg config.Config, src *net.UnixCo
 	}
 
 	return nil
-}
-
-func (m *Mount) setupCleanup() {
-	m.cleanup = time.AfterFunc(mountTimeout, func() {
-		m.pm.RemoveMount(m.Name)
-	})
 }
 
 // leastPriority returns the priority index that would put
@@ -353,8 +346,8 @@ func (m *Mount) liveSourceSwap(ctx context.Context) {
 		return
 	}
 
-	// nobody here, clean ourselves up after some set amount of time
-	m.setupCleanup()
+	// nobody here, clean ourselves up
+	m.pm.RemoveMount(m)
 }
 
 type MetadataWriter interface {

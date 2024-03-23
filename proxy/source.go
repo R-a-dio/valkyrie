@@ -24,6 +24,7 @@ func (s *Server) PutSource(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
 		return
 	}
+
 	ctx := r.Context()
 
 	identifier := IdentFromRequest(r)
@@ -58,16 +59,26 @@ func (s *Server) PutSource(w http.ResponseWriter, r *http.Request) {
 		hlog.FromRequest(r).Error().Err(err).Msg("failed to hijack source request")
 		return
 	}
+	if err := bufrw.Flush(); err != nil {
+		hlog.FromRequest(r).Error().Err(err).Msg("failed to flush bufrw")
+		return
+	}
 
 	// now depending on what protocol the request was made with, it expects some extra
 	// data to tell the client we're "done" sending anything
 	if r.ProtoMajor == 1 && r.ProtoMinor == 0 {
 		// HTTP/1.0 some clients expect an extra newline
-		io.WriteString(conn, "\r\n")
+		_, err = io.WriteString(conn, "\r\n")
+		if err != nil {
+			hlog.FromRequest(r).Error().Err(err).Msg("failed writing end of http request")
+		}
 	}
 	if r.ProtoMajor == 1 && r.ProtoMinor == 1 {
 		// HTTP/1.1 is chunked encoding and we need to send the end stream chunked chunk
-		io.WriteString(conn, "0\r\n\r\n")
+		_, err = io.WriteString(conn, "0\r\n\r\n")
+		if err != nil {
+			hlog.FromRequest(r).Error().Err(err).Msg("failed writing end of http request")
+		}
 	}
 
 	// reset any deadlines that were on the net.Conn, these will be reapplied later

@@ -148,7 +148,11 @@ type identifierKey struct{}
 type Identifier uint64
 
 func IdentFromRequest(r *http.Request) Identifier {
-	return r.Context().Value(identifierKey{}).(Identifier)
+	v := r.Context().Value(identifierKey{})
+	if v == nil {
+		return 0
+	}
+	return v.(Identifier)
 }
 
 func IdentifierMiddleware(next http.Handler) http.Handler {

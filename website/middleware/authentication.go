@@ -435,8 +435,12 @@ func BasicAuth(uss radio.UserStorageService) func(http.Handler) http.Handler {
 			if v != nil {
 				srv := v.(*http.Server)
 				rc := http.NewResponseController(w)
-				_ = rc.SetWriteDeadline(time.Now().Add(srv.WriteTimeout))
-				_ = rc.SetReadDeadline(time.Now().Add(srv.ReadTimeout))
+				if srv.WriteTimeout > 0 {
+					_ = rc.SetWriteDeadline(time.Now().Add(srv.WriteTimeout))
+				}
+				if srv.ReadTimeout > 0 {
+					_ = rc.SetReadDeadline(time.Now().Add(srv.ReadTimeout))
+				}
 			}
 
 			next.ServeHTTP(w, RequestWithUser(r, user))

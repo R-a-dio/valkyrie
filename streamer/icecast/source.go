@@ -145,6 +145,7 @@ func dial(ctx context.Context, u *url.URL, opts ...Option) (net.Conn, error) {
 	if err != nil {
 		return conn, fmt.Errorf("failed to read response: %w", err)
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return conn, fmt.Errorf("status not ok: %w", errors.New(resp.Status))

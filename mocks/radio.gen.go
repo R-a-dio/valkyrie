@@ -6,6 +6,7 @@ package mocks
 import (
 	"context"
 	"github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/util/eventstream"
 	"sync"
 	"time"
 )
@@ -2373,6 +2374,448 @@ func (mock *UserStorageMock) UpdateUserCalls() []struct {
 } {
 	var calls []struct {
 		User radio.User
+	}
+	mock.lockUpdateUser.RLock()
+	calls = mock.calls.UpdateUser
+	mock.lockUpdateUser.RUnlock()
+	return calls
+}
+
+// Ensure, that ManagerServiceMock does implement radio.ManagerService.
+// If this is not the case, regenerate this file with moq.
+var _ radio.ManagerService = &ManagerServiceMock{}
+
+// ManagerServiceMock is a mock implementation of radio.ManagerService.
+//
+//	func TestSomethingThatUsesManagerService(t *testing.T) {
+//
+//		// make and configure a mocked radio.ManagerService
+//		mockedManagerService := &ManagerServiceMock{
+//			CurrentListenersFunc: func(contextMoqParam context.Context) (eventstream.Stream[int64], error) {
+//				panic("mock out the CurrentListeners method")
+//			},
+//			CurrentSongFunc: func(contextMoqParam context.Context) (eventstream.Stream[*radio.SongUpdate], error) {
+//				panic("mock out the CurrentSong method")
+//			},
+//			CurrentStatusFunc: func(contextMoqParam context.Context) (eventstream.Stream[radio.Status], error) {
+//				panic("mock out the CurrentStatus method")
+//			},
+//			CurrentThreadFunc: func(contextMoqParam context.Context) (eventstream.Stream[string], error) {
+//				panic("mock out the CurrentThread method")
+//			},
+//			CurrentUserFunc: func(contextMoqParam context.Context) (eventstream.Stream[*radio.User], error) {
+//				panic("mock out the CurrentUser method")
+//			},
+//			UpdateListenersFunc: func(contextMoqParam context.Context, n int64) error {
+//				panic("mock out the UpdateListeners method")
+//			},
+//			UpdateSongFunc: func(contextMoqParam context.Context, songUpdate *radio.SongUpdate) error {
+//				panic("mock out the UpdateSong method")
+//			},
+//			UpdateThreadFunc: func(contextMoqParam context.Context, s string) error {
+//				panic("mock out the UpdateThread method")
+//			},
+//			UpdateUserFunc: func(contextMoqParam context.Context, user *radio.User) error {
+//				panic("mock out the UpdateUser method")
+//			},
+//		}
+//
+//		// use mockedManagerService in code that requires radio.ManagerService
+//		// and then make assertions.
+//
+//	}
+type ManagerServiceMock struct {
+	// CurrentListenersFunc mocks the CurrentListeners method.
+	CurrentListenersFunc func(contextMoqParam context.Context) (eventstream.Stream[int64], error)
+
+	// CurrentSongFunc mocks the CurrentSong method.
+	CurrentSongFunc func(contextMoqParam context.Context) (eventstream.Stream[*radio.SongUpdate], error)
+
+	// CurrentStatusFunc mocks the CurrentStatus method.
+	CurrentStatusFunc func(contextMoqParam context.Context) (eventstream.Stream[radio.Status], error)
+
+	// CurrentThreadFunc mocks the CurrentThread method.
+	CurrentThreadFunc func(contextMoqParam context.Context) (eventstream.Stream[string], error)
+
+	// CurrentUserFunc mocks the CurrentUser method.
+	CurrentUserFunc func(contextMoqParam context.Context) (eventstream.Stream[*radio.User], error)
+
+	// UpdateListenersFunc mocks the UpdateListeners method.
+	UpdateListenersFunc func(contextMoqParam context.Context, n int64) error
+
+	// UpdateSongFunc mocks the UpdateSong method.
+	UpdateSongFunc func(contextMoqParam context.Context, songUpdate *radio.SongUpdate) error
+
+	// UpdateThreadFunc mocks the UpdateThread method.
+	UpdateThreadFunc func(contextMoqParam context.Context, s string) error
+
+	// UpdateUserFunc mocks the UpdateUser method.
+	UpdateUserFunc func(contextMoqParam context.Context, user *radio.User) error
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// CurrentListeners holds details about calls to the CurrentListeners method.
+		CurrentListeners []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+		}
+		// CurrentSong holds details about calls to the CurrentSong method.
+		CurrentSong []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+		}
+		// CurrentStatus holds details about calls to the CurrentStatus method.
+		CurrentStatus []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+		}
+		// CurrentThread holds details about calls to the CurrentThread method.
+		CurrentThread []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+		}
+		// CurrentUser holds details about calls to the CurrentUser method.
+		CurrentUser []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+		}
+		// UpdateListeners holds details about calls to the UpdateListeners method.
+		UpdateListeners []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+			// N is the n argument value.
+			N int64
+		}
+		// UpdateSong holds details about calls to the UpdateSong method.
+		UpdateSong []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+			// SongUpdate is the songUpdate argument value.
+			SongUpdate *radio.SongUpdate
+		}
+		// UpdateThread holds details about calls to the UpdateThread method.
+		UpdateThread []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+			// S is the s argument value.
+			S string
+		}
+		// UpdateUser holds details about calls to the UpdateUser method.
+		UpdateUser []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+			// User is the user argument value.
+			User *radio.User
+		}
+	}
+	lockCurrentListeners sync.RWMutex
+	lockCurrentSong      sync.RWMutex
+	lockCurrentStatus    sync.RWMutex
+	lockCurrentThread    sync.RWMutex
+	lockCurrentUser      sync.RWMutex
+	lockUpdateListeners  sync.RWMutex
+	lockUpdateSong       sync.RWMutex
+	lockUpdateThread     sync.RWMutex
+	lockUpdateUser       sync.RWMutex
+}
+
+// CurrentListeners calls CurrentListenersFunc.
+func (mock *ManagerServiceMock) CurrentListeners(contextMoqParam context.Context) (eventstream.Stream[int64], error) {
+	if mock.CurrentListenersFunc == nil {
+		panic("ManagerServiceMock.CurrentListenersFunc: method is nil but ManagerService.CurrentListeners was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+	}{
+		ContextMoqParam: contextMoqParam,
+	}
+	mock.lockCurrentListeners.Lock()
+	mock.calls.CurrentListeners = append(mock.calls.CurrentListeners, callInfo)
+	mock.lockCurrentListeners.Unlock()
+	return mock.CurrentListenersFunc(contextMoqParam)
+}
+
+// CurrentListenersCalls gets all the calls that were made to CurrentListeners.
+// Check the length with:
+//
+//	len(mockedManagerService.CurrentListenersCalls())
+func (mock *ManagerServiceMock) CurrentListenersCalls() []struct {
+	ContextMoqParam context.Context
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+	}
+	mock.lockCurrentListeners.RLock()
+	calls = mock.calls.CurrentListeners
+	mock.lockCurrentListeners.RUnlock()
+	return calls
+}
+
+// CurrentSong calls CurrentSongFunc.
+func (mock *ManagerServiceMock) CurrentSong(contextMoqParam context.Context) (eventstream.Stream[*radio.SongUpdate], error) {
+	if mock.CurrentSongFunc == nil {
+		panic("ManagerServiceMock.CurrentSongFunc: method is nil but ManagerService.CurrentSong was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+	}{
+		ContextMoqParam: contextMoqParam,
+	}
+	mock.lockCurrentSong.Lock()
+	mock.calls.CurrentSong = append(mock.calls.CurrentSong, callInfo)
+	mock.lockCurrentSong.Unlock()
+	return mock.CurrentSongFunc(contextMoqParam)
+}
+
+// CurrentSongCalls gets all the calls that were made to CurrentSong.
+// Check the length with:
+//
+//	len(mockedManagerService.CurrentSongCalls())
+func (mock *ManagerServiceMock) CurrentSongCalls() []struct {
+	ContextMoqParam context.Context
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+	}
+	mock.lockCurrentSong.RLock()
+	calls = mock.calls.CurrentSong
+	mock.lockCurrentSong.RUnlock()
+	return calls
+}
+
+// CurrentStatus calls CurrentStatusFunc.
+func (mock *ManagerServiceMock) CurrentStatus(contextMoqParam context.Context) (eventstream.Stream[radio.Status], error) {
+	if mock.CurrentStatusFunc == nil {
+		panic("ManagerServiceMock.CurrentStatusFunc: method is nil but ManagerService.CurrentStatus was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+	}{
+		ContextMoqParam: contextMoqParam,
+	}
+	mock.lockCurrentStatus.Lock()
+	mock.calls.CurrentStatus = append(mock.calls.CurrentStatus, callInfo)
+	mock.lockCurrentStatus.Unlock()
+	return mock.CurrentStatusFunc(contextMoqParam)
+}
+
+// CurrentStatusCalls gets all the calls that were made to CurrentStatus.
+// Check the length with:
+//
+//	len(mockedManagerService.CurrentStatusCalls())
+func (mock *ManagerServiceMock) CurrentStatusCalls() []struct {
+	ContextMoqParam context.Context
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+	}
+	mock.lockCurrentStatus.RLock()
+	calls = mock.calls.CurrentStatus
+	mock.lockCurrentStatus.RUnlock()
+	return calls
+}
+
+// CurrentThread calls CurrentThreadFunc.
+func (mock *ManagerServiceMock) CurrentThread(contextMoqParam context.Context) (eventstream.Stream[string], error) {
+	if mock.CurrentThreadFunc == nil {
+		panic("ManagerServiceMock.CurrentThreadFunc: method is nil but ManagerService.CurrentThread was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+	}{
+		ContextMoqParam: contextMoqParam,
+	}
+	mock.lockCurrentThread.Lock()
+	mock.calls.CurrentThread = append(mock.calls.CurrentThread, callInfo)
+	mock.lockCurrentThread.Unlock()
+	return mock.CurrentThreadFunc(contextMoqParam)
+}
+
+// CurrentThreadCalls gets all the calls that were made to CurrentThread.
+// Check the length with:
+//
+//	len(mockedManagerService.CurrentThreadCalls())
+func (mock *ManagerServiceMock) CurrentThreadCalls() []struct {
+	ContextMoqParam context.Context
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+	}
+	mock.lockCurrentThread.RLock()
+	calls = mock.calls.CurrentThread
+	mock.lockCurrentThread.RUnlock()
+	return calls
+}
+
+// CurrentUser calls CurrentUserFunc.
+func (mock *ManagerServiceMock) CurrentUser(contextMoqParam context.Context) (eventstream.Stream[*radio.User], error) {
+	if mock.CurrentUserFunc == nil {
+		panic("ManagerServiceMock.CurrentUserFunc: method is nil but ManagerService.CurrentUser was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+	}{
+		ContextMoqParam: contextMoqParam,
+	}
+	mock.lockCurrentUser.Lock()
+	mock.calls.CurrentUser = append(mock.calls.CurrentUser, callInfo)
+	mock.lockCurrentUser.Unlock()
+	return mock.CurrentUserFunc(contextMoqParam)
+}
+
+// CurrentUserCalls gets all the calls that were made to CurrentUser.
+// Check the length with:
+//
+//	len(mockedManagerService.CurrentUserCalls())
+func (mock *ManagerServiceMock) CurrentUserCalls() []struct {
+	ContextMoqParam context.Context
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+	}
+	mock.lockCurrentUser.RLock()
+	calls = mock.calls.CurrentUser
+	mock.lockCurrentUser.RUnlock()
+	return calls
+}
+
+// UpdateListeners calls UpdateListenersFunc.
+func (mock *ManagerServiceMock) UpdateListeners(contextMoqParam context.Context, n int64) error {
+	if mock.UpdateListenersFunc == nil {
+		panic("ManagerServiceMock.UpdateListenersFunc: method is nil but ManagerService.UpdateListeners was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+		N               int64
+	}{
+		ContextMoqParam: contextMoqParam,
+		N:               n,
+	}
+	mock.lockUpdateListeners.Lock()
+	mock.calls.UpdateListeners = append(mock.calls.UpdateListeners, callInfo)
+	mock.lockUpdateListeners.Unlock()
+	return mock.UpdateListenersFunc(contextMoqParam, n)
+}
+
+// UpdateListenersCalls gets all the calls that were made to UpdateListeners.
+// Check the length with:
+//
+//	len(mockedManagerService.UpdateListenersCalls())
+func (mock *ManagerServiceMock) UpdateListenersCalls() []struct {
+	ContextMoqParam context.Context
+	N               int64
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+		N               int64
+	}
+	mock.lockUpdateListeners.RLock()
+	calls = mock.calls.UpdateListeners
+	mock.lockUpdateListeners.RUnlock()
+	return calls
+}
+
+// UpdateSong calls UpdateSongFunc.
+func (mock *ManagerServiceMock) UpdateSong(contextMoqParam context.Context, songUpdate *radio.SongUpdate) error {
+	if mock.UpdateSongFunc == nil {
+		panic("ManagerServiceMock.UpdateSongFunc: method is nil but ManagerService.UpdateSong was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+		SongUpdate      *radio.SongUpdate
+	}{
+		ContextMoqParam: contextMoqParam,
+		SongUpdate:      songUpdate,
+	}
+	mock.lockUpdateSong.Lock()
+	mock.calls.UpdateSong = append(mock.calls.UpdateSong, callInfo)
+	mock.lockUpdateSong.Unlock()
+	return mock.UpdateSongFunc(contextMoqParam, songUpdate)
+}
+
+// UpdateSongCalls gets all the calls that were made to UpdateSong.
+// Check the length with:
+//
+//	len(mockedManagerService.UpdateSongCalls())
+func (mock *ManagerServiceMock) UpdateSongCalls() []struct {
+	ContextMoqParam context.Context
+	SongUpdate      *radio.SongUpdate
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+		SongUpdate      *radio.SongUpdate
+	}
+	mock.lockUpdateSong.RLock()
+	calls = mock.calls.UpdateSong
+	mock.lockUpdateSong.RUnlock()
+	return calls
+}
+
+// UpdateThread calls UpdateThreadFunc.
+func (mock *ManagerServiceMock) UpdateThread(contextMoqParam context.Context, s string) error {
+	if mock.UpdateThreadFunc == nil {
+		panic("ManagerServiceMock.UpdateThreadFunc: method is nil but ManagerService.UpdateThread was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+		S               string
+	}{
+		ContextMoqParam: contextMoqParam,
+		S:               s,
+	}
+	mock.lockUpdateThread.Lock()
+	mock.calls.UpdateThread = append(mock.calls.UpdateThread, callInfo)
+	mock.lockUpdateThread.Unlock()
+	return mock.UpdateThreadFunc(contextMoqParam, s)
+}
+
+// UpdateThreadCalls gets all the calls that were made to UpdateThread.
+// Check the length with:
+//
+//	len(mockedManagerService.UpdateThreadCalls())
+func (mock *ManagerServiceMock) UpdateThreadCalls() []struct {
+	ContextMoqParam context.Context
+	S               string
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+		S               string
+	}
+	mock.lockUpdateThread.RLock()
+	calls = mock.calls.UpdateThread
+	mock.lockUpdateThread.RUnlock()
+	return calls
+}
+
+// UpdateUser calls UpdateUserFunc.
+func (mock *ManagerServiceMock) UpdateUser(contextMoqParam context.Context, user *radio.User) error {
+	if mock.UpdateUserFunc == nil {
+		panic("ManagerServiceMock.UpdateUserFunc: method is nil but ManagerService.UpdateUser was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+		User            *radio.User
+	}{
+		ContextMoqParam: contextMoqParam,
+		User:            user,
+	}
+	mock.lockUpdateUser.Lock()
+	mock.calls.UpdateUser = append(mock.calls.UpdateUser, callInfo)
+	mock.lockUpdateUser.Unlock()
+	return mock.UpdateUserFunc(contextMoqParam, user)
+}
+
+// UpdateUserCalls gets all the calls that were made to UpdateUser.
+// Check the length with:
+//
+//	len(mockedManagerService.UpdateUserCalls())
+func (mock *ManagerServiceMock) UpdateUserCalls() []struct {
+	ContextMoqParam context.Context
+	User            *radio.User
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+		User            *radio.User
 	}
 	mock.lockUpdateUser.RLock()
 	calls = mock.calls.UpdateUser

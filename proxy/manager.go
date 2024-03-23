@@ -5,6 +5,7 @@ import (
 	"maps"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/util/graceful"
@@ -21,6 +22,8 @@ type ProxyManager struct {
 	metaStore map[Identifier]*Metadata
 	mountsMu  sync.RWMutex
 	mounts    map[string]*Mount
+	cleanupMu sync.Mutex
+	cleanup   map[string]*time.Timer
 }
 
 func NewProxyManager(ctx context.Context, cfg config.Config) (*ProxyManager, error) {
@@ -30,6 +33,7 @@ func NewProxyManager(ctx context.Context, cfg config.Config) (*ProxyManager, err
 		reloadConfig: make(chan config.Config),
 		metaStore:    make(map[Identifier]*Metadata),
 		mounts:       make(map[string]*Mount),
+		cleanup:      make(map[string]*time.Timer),
 	}
 	return m, nil
 }
@@ -49,21 +53,20 @@ func (pm *ProxyManager) CreateMount(name, contentType string, conn net.Conn) *Mo
 	return mount
 }
 
-func (pm *ProxyManager) RemoveMount(name string) {
-	pm.mountsMu.Lock()
-	defer pm.mountsMu.Unlock()
+func (pm *ProxyManager) RemoveMount(mount *Mount) {
+	pm.cleanupMu.Lock()
+	defer pm.cleanupMu.Unlock()
 
-	mount, ok := pm.mounts[name]
-	if !ok {
-		// mount is already gone?
-		return
-	}
-	delete(pm.mounts, name)
-	err := mount.Close()
-	if err != nil {
-		mount.logger.Error().Err(err).Msg("closing mount master connection")
-		return
-	}
+	pm.cleanup[mount.Name] = time.AfterFunc(mountTimeout, func() {
+		err := mount.Close()
+		if err != nil {
+			mount.logger.Error().Err(err).Msg("closing mount master connection")
+		}
+		pm.mountsMu.Lock()
+		defer pm.mountsMu.Unlock()
+		mount.logger.Info().Msg("removing mount")
+		delete(pm.mounts, mount.Name)
+	})
 }
 
 func (pm *ProxyManager) AddSourceClient(source *SourceClient) error {
@@ -100,6 +103,14 @@ func (pm *ProxyManager) AddSourceClient(source *SourceClient) error {
 
 	// add the source to the mount list
 	mount.AddSource(pm.ctx, source)
+	// because of a race condition from us calling Mount above and us adding this new
+	// source, a RemoveMount could've triggered and deleted us from the mounts map.
+	// So after adding a source check to make sure the mount still exists
+	pm.mountsMu.Lock()
+	defer pm.mountsMu.Unlock()
+	if _, ok := pm.mounts[source.MountName]; !ok {
+		pm.mounts[source.MountName] = mount
+	}
 	return nil
 }
 
@@ -131,7 +142,17 @@ func (pm *ProxyManager) Mount(name string) (*Mount, bool) {
 	pm.mountsMu.RLock()
 	defer pm.mountsMu.RUnlock()
 	m, ok := pm.mounts[name]
-	return m, ok
+	if !ok {
+		return nil, false
+	}
+
+	// check if we were cleaning up and cancel it if so
+	pm.cleanupMu.Lock()
+	defer pm.cleanupMu.Unlock()
+	if t := pm.cleanup[name]; t != nil {
+		t.Stop()
+	}
+	return m, true
 }
 
 func (pm *ProxyManager) Metadata(identifier Identifier) *Metadata {
