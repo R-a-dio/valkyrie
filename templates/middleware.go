@@ -14,14 +14,17 @@ import (
 
 type themeKey struct{}
 
+const ThemeCookieName = "theme"
+const ThemeAdminCookieName = "admin-theme"
+
 func ThemeCtx(storage radio.StorageService) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			theme := DEFAULT_DIR
-			cookieName := theme
+			cookieName := ThemeCookieName
 			if strings.HasPrefix(r.URL.Path, "/admin") {
 				theme = DEFAULT_ADMIN_DIR
-				cookieName = "admin-theme"
+				cookieName = ThemeAdminCookieName
 			}
 
 			if cookie, err := r.Cookie(cookieName); err == nil {

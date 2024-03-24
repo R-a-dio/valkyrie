@@ -65,7 +65,10 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 		r = r.With(
 			s.Authentication.LoginMiddleware,
 		)
-		r.Handle("/set-theme", templates.SetThemeHandler("admin-theme", s.Templates.ResolveThemeName))
+		r.Handle("/set-theme", templates.SetThemeHandler(
+			templates.ThemeAdminCookieName,
+			s.Templates.ResolveThemeName,
+		))
 		r.HandleFunc("/", s.GetHome)
 		r.Get("/profile", s.GetProfile)
 		r.Post("/profile", s.PostProfile)
