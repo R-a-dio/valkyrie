@@ -3,18 +3,26 @@ package public
 import (
 	"net/http"
 
-	"github.com/R-a-dio/valkyrie/errors"
+	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 )
 
 type ScheduleInput struct {
 	middleware.Input
+
+	Schedule []radio.ScheduleEntry
 }
 
-func NewScheduleInput(r *http.Request) ScheduleInput {
-	return ScheduleInput{
-		Input: middleware.InputFromRequest(r),
+func NewScheduleInput(ss radio.ScheduleStorageService, r *http.Request) (*ScheduleInput, error) {
+	schedule, err := ss.Schedule(r.Context()).Latest()
+	if err != nil {
+		return nil, err
 	}
+
+	return &ScheduleInput{
+		Input:    middleware.InputFromRequest(r),
+		Schedule: schedule,
+	}, nil
 }
 
 func (ScheduleInput) TemplateBundle() string {
@@ -30,13 +38,11 @@ func (s State) GetSchedule(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s State) getSchedule(w http.ResponseWriter, r *http.Request) error {
-	const op errors.Op = "website/public.getSchedule"
-
-	input := NewScheduleInput(r)
-
-	err := s.Templates.Execute(w, r, input)
+	input, err := NewScheduleInput(s.Storage, r)
 	if err != nil {
-		return errors.E(op, err)
+		s.errorHandler(w, r, err)
+		return err
 	}
-	return nil
+
+	return s.Templates.Execute(w, r, input)
 }
