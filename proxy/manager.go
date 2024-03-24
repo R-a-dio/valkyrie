@@ -20,9 +20,8 @@ type ProxyManager struct {
 
 	metaMu    sync.Mutex
 	metaStore map[Identifier]*Metadata
-	mountsMu  sync.RWMutex
+	mountsMu  sync.Mutex
 	mounts    map[string]*Mount
-	cleanupMu sync.Mutex
 	cleanup   map[string]*time.Timer
 }
 
@@ -38,34 +37,42 @@ func NewProxyManager(ctx context.Context, cfg config.Config) (*ProxyManager, err
 	return m, nil
 }
 
-func (pm *ProxyManager) CreateMount(name, contentType string, conn net.Conn) *Mount {
+func (pm *ProxyManager) RemoveMount(mount *Mount) {
 	pm.mountsMu.Lock()
 	defer pm.mountsMu.Unlock()
-	// someone else might've created the mount while we were waiting on the
-	// lock, so see if we now exist
-	if mount, ok := pm.mounts[name]; ok {
-		return mount
+
+	t := pm.cleanup[mount.Name]
+	if t != nil {
+		// we're already trying to cleanup apparently, reset the timer
+		t.Reset(mountTimeout)
+		return
 	}
 
-	// otherwise we're responsible for creating it
-	mount := NewMount(pm.ctx, pm.cfg, pm, name, contentType, conn)
-	pm.mounts[name] = mount
-	return mount
-}
-
-func (pm *ProxyManager) RemoveMount(mount *Mount) {
-	pm.cleanupMu.Lock()
-	defer pm.cleanupMu.Unlock()
-
 	pm.cleanup[mount.Name] = time.AfterFunc(mountTimeout, func() {
+		pm.mountsMu.Lock()
+		defer pm.mountsMu.Unlock()
+
+		// first see if we're still ment to be cleaning up, the cleanup can
+		// be canceled by an AddSourceClient call between timer start and
+		// timer fire, and we keep track of this by the entry in cleanup
+		//
+		// note that there is an obvious logic race here where the call to
+		// AddSourceClient is waiting on mountsMu but we have already acquired
+		// it, this does mean we've already passed our mountTimeout so just
+		// proceed with cleaning up and the AddSourceClient can make a new mount
+		if pm.cleanup[mount.Name] == nil {
+			return
+		}
+
+		// otherwise we are still fine to cleanup and
+		// remove the mount from our internal state
+		delete(pm.mounts, mount.Name)
+
+		// then let the mount cleanup whatever it needs to cleanup
 		err := mount.Close()
 		if err != nil {
 			mount.logger.Error().Err(err).Msg("closing mount master connection")
 		}
-		pm.mountsMu.Lock()
-		defer pm.mountsMu.Unlock()
-		mount.logger.Info().Msg("removing mount")
-		delete(pm.mounts, mount.Name)
 	})
 }
 
@@ -76,10 +83,23 @@ func (pm *ProxyManager) AddSourceClient(source *SourceClient) error {
 
 	logger := zerolog.Ctx(pm.ctx)
 
-	mount, ok := pm.Mount(source.MountName)
-	if !ok {
-		// no mount exists yet, create one
-		mount = pm.CreateMount(source.MountName, source.ContentType, nil)
+	pm.mountsMu.Lock()
+	defer pm.mountsMu.Unlock()
+
+	mount, ok := pm.mounts[source.MountName]
+	if !ok { // if it didn't exist create one
+		mount = NewMount(pm.ctx, pm.cfg, pm, source.MountName, source.ContentType, nil)
+		pm.mounts[source.MountName] = mount
+	}
+
+	// check if our mount was empty and was waiting to clean itself up
+	if t := pm.cleanup[mount.Name]; t != nil {
+		// it's possible that we call Stop but the timer has already fired,
+		// but since we're holding onto mountsMu the removal function can't run
+		// yet and will cancel itself once it sees we've removed the entry in
+		// the cleanup map.
+		t.Stop()
+		delete(pm.cleanup, mount.Name)
 	}
 
 	if mount.ContentType != source.ContentType {
@@ -103,14 +123,6 @@ func (pm *ProxyManager) AddSourceClient(source *SourceClient) error {
 
 	// add the source to the mount list
 	mount.AddSource(pm.ctx, source)
-	// because of a race condition from us calling Mount above and us adding this new
-	// source, a RemoveMount could've triggered and deleted us from the mounts map.
-	// So after adding a source check to make sure the mount still exists
-	pm.mountsMu.Lock()
-	defer pm.mountsMu.Unlock()
-	if _, ok := pm.mounts[source.MountName]; !ok {
-		pm.mounts[source.MountName] = mount
-	}
 	return nil
 }
 
@@ -119,40 +131,27 @@ func (pm *ProxyManager) SendMetadata(ctx context.Context, metadata *Metadata) er
 		panic("nil metadata in SendMetadata")
 	}
 
-	mount, ok := pm.Mount(metadata.MountName)
-	if !ok {
-		// metadata for a mount that doesn't exist, we store it temporarily
-		// to see if a new source client will appear soon
-		zerolog.Ctx(ctx).Info().
-			Str("mount", metadata.MountName).
-			Str("username", metadata.User.Username).
-			Str("address", metadata.Addr).
-			Msg("storing metadata because mount does not exist")
-		pm.metaMu.Lock()
-		pm.metaStore[metadata.Identifier] = metadata
-		pm.metaMu.Unlock()
+	pm.mountsMu.Lock()
+	mount, ok := pm.mounts[metadata.MountName]
+	if ok {
+		pm.mountsMu.Unlock()
+		mount.SendMetadata(ctx, metadata)
 		return nil
 	}
+	defer pm.mountsMu.Unlock()
 
-	mount.SendMetadata(ctx, metadata)
+	// metadata for a mount that doesn't exist, we store it temporarily
+	// to see if a new source client will appear soon
+	zerolog.Ctx(ctx).Info().
+		Str("mount", metadata.MountName).
+		Str("username", metadata.User.Username).
+		Str("address", metadata.Addr).
+		Msg("storing metadata because mount does not exist")
+	pm.metaMu.Lock()
+	pm.metaStore[metadata.Identifier] = metadata
+	pm.metaMu.Unlock()
+
 	return nil
-}
-
-func (pm *ProxyManager) Mount(name string) (*Mount, bool) {
-	pm.mountsMu.RLock()
-	defer pm.mountsMu.RUnlock()
-	m, ok := pm.mounts[name]
-	if !ok {
-		return nil, false
-	}
-
-	// check if we were cleaning up and cancel it if so
-	pm.cleanupMu.Lock()
-	defer pm.cleanupMu.Unlock()
-	if t := pm.cleanup[name]; t != nil {
-		t.Stop()
-	}
-	return m, true
 }
 
 func (pm *ProxyManager) Metadata(identifier Identifier) *Metadata {
@@ -168,9 +167,9 @@ type wireProxy struct {
 }
 
 func (pm *ProxyManager) writeSelf(dst *net.UnixConn) error {
-	pm.mountsMu.RLock()
+	pm.mountsMu.Lock()
 	mounts := maps.Clone(pm.mounts)
-	pm.mountsMu.RUnlock()
+	pm.mountsMu.Unlock()
 
 	pm.metaMu.Lock()
 	metadata := maps.Clone(pm.metaStore)

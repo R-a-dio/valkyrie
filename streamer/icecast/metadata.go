@@ -51,10 +51,11 @@ func MetadataURL(u *url.URL, opts ...Option) MetadataFunc {
 	}
 }
 
+// Metadata is like MetadataURL but takes a string and parses it for you with url.Parse
 func Metadata(u string, opts ...Option) (MetadataFunc, error) {
 	uri, err := url.Parse(u)
 	if err != nil {
 		return nil, err
 	}
-	return MetadataURL(uri), nil
+	return MetadataURL(uri, opts...), nil
 }

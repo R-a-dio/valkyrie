@@ -73,10 +73,10 @@ func (m *Mount) newConn() (net.Conn, error) {
 			return err
 		}
 
-		m.logger.Info().Msg("dialing icecast")
+		m.logger.Info().Str("url", uri.Redacted()).Msg("dialing icecast")
 		conn, err = icecast.DialURL(context.TODO(), uri, icecast.ContentType(m.ContentType))
 		if err != nil {
-			m.logger.Error().Err(err).Msg("failed connected to master server")
+			m.logger.Error().Err(err).Msg("failed connecting to master server")
 			return err
 		}
 		return nil
@@ -261,7 +261,10 @@ type MountSourceClient struct {
 func (msc *MountSourceClient) GoLive(ctx context.Context, out MetadataWriter) {
 	msc.MW.SetWriter(out)
 	msc.MW.SetLive(ctx, true)
-	msc.logger.Info().Msg("switching to live")
+	msc.logger.Info().
+		Str("req_id", msc.Source.ID.String()).
+		Any("identifier", msc.Source.Identifier).
+		Msg("switching to live")
 }
 
 // SendMetadata finds the source associated with this metadata and updates
@@ -282,7 +285,7 @@ func (m *Mount) SendMetadata(ctx context.Context, meta *Metadata) {
 
 func (m *Mount) AddSource(ctx context.Context, source *SourceClient) {
 	mw := &MountMetadataWriter{
-		mount: m,
+		metadataFn: m.sendMetadata,
 	}
 
 	msc := &MountSourceClient{
@@ -326,7 +329,10 @@ func (m *Mount) RemoveSource(ctx context.Context, id SourceID) {
 		return
 	}
 
-	removed.logger.Info().Msg("removing source client")
+	removed.logger.Info().
+		Str("req_id", removed.Source.ID.String()).
+		Any("identifier", removed.Source.Identifier).
+		Msg("removing source client")
 
 	// see if the source we removed is the live source
 	if removed.MW.Live {
@@ -347,7 +353,9 @@ func (m *Mount) liveSourceSwap(ctx context.Context) {
 	}
 
 	// nobody here, clean ourselves up
-	m.pm.RemoveMount(m)
+	if m.pm != nil {
+		m.pm.RemoveMount(m)
+	}
 }
 
 type MetadataWriter interface {
@@ -413,8 +421,8 @@ type MountMetadataWriter struct {
 	mu sync.RWMutex
 	// metadata is the last metadata we send (or tried to send)
 	Metadata string
-	// mount is the Mount that we are associated with
-	mount *Mount
+	// metadataFn is the function to use for sending metadata
+	metadataFn func(context.Context, string) error
 	// live indicates if we are the live writer, actually writing to the master
 	Live bool
 	// out is the writer we write into
@@ -440,7 +448,7 @@ func (mmw *MountMetadataWriter) sendMetadata(ctx context.Context) {
 	}
 
 	zerolog.Ctx(ctx).Info().Str("metadata", mmw.Metadata).Msg("sending metadata")
-	err := mmw.mount.sendMetadata(ctx, mmw.Metadata)
+	err := mmw.metadataFn(ctx, mmw.Metadata)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Str("metadata", mmw.Metadata).Msg("failed sending metadata")
 	}
@@ -471,4 +479,10 @@ func (mmw *MountMetadataWriter) SetLive(ctx context.Context, live bool) {
 	if live {
 		mmw.sendMetadata(ctx)
 	}
+}
+
+func (mmw *MountMetadataWriter) GetLive() bool {
+	mmw.mu.RLock()
+	defer mmw.mu.RUnlock()
+	return mmw.Live
 }

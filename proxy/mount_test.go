@@ -1,14 +1,13 @@
 package proxy
 
 import (
+	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
-	"sync"
+	"net"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/R-a-dio/valkyrie/config"
-	"github.com/R-a-dio/valkyrie/util/graceful"
 	"github.com/rs/xid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -118,4 +117,143 @@ func TestMostPriority(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMountRemoveSource(t *testing.T) {
+	ctx := context.Background()
+	cfg, err := config.LoadFile()
+	require.NoError(t, err)
+
+	mountName := "/test.mp3"
+	contentType := "audio/mpeg"
+
+	conn1, conn2 := net.Pipe()
+
+	mount := NewMount(ctx, cfg, nil, mountName, contentType, nil)
+
+	user := newTestUser("test", "test")
+	req := httptest.NewRequest("PUT", mountName, conn2)
+	id := SourceID{xid.New()}
+	identifier := IdentFromRequest(req)
+	metadata := &Metadata{}
+	_ = conn1
+	source := NewSourceClient(id, "test", contentType, mountName, conn2, *user, identifier, metadata)
+
+	mount.AddSource(ctx, source)
+
+	assert.Equal(t, 1, getSourcesLength(mount), "should have one source")
+	assert.True(t, getSource(mount, 0).MW.GetLive(), "only source should be live")
+
+	mount.RemoveSource(ctx, SourceID{})
+	assert.Equal(t, 1, getSourcesLength(mount), "should still have one source")
+	mount.RemoveSource(ctx, source.ID)
+	assert.Equal(t, 0, getSourcesLength(mount), "should have no sources")
+}
+
+func getSourcesLength(mount *Mount) int {
+	mount.SourcesMu.RLock()
+	defer mount.SourcesMu.RUnlock()
+	return len(mount.Sources)
+}
+
+func getSource(mount *Mount, i int) *MountSourceClient {
+	mount.SourcesMu.RLock()
+	defer mount.SourcesMu.RUnlock()
+	return mount.Sources[i]
+}
+
+func TestMountMetadataWriterWrite(t *testing.T) {
+	// zero MountMetadataWriter has no output and should just be eating
+	// any data we send it
+	var mmw MountMetadataWriter
+
+	// test with absolutely nothing
+	var data []byte
+
+	n, err := mmw.Write(data)
+	if assert.NoError(t, err) {
+		assert.EqualValues(t, len(data), n)
+	}
+
+	// still no output so should just be silently eaten
+	data = []byte("but then with a bit of data")
+	n, err = mmw.Write(data)
+	if assert.NoError(t, err) {
+		assert.EqualValues(t, len(data), n)
+	}
+
+	// setup an output
+	var buf bytes.Buffer
+	mmw.SetWriter(&buf)
+
+	// we now have an output so the data should show up in the output
+	data = []byte("but then with a bit of data that should arrive")
+	n, err = mmw.Write(data)
+	if assert.NoError(t, err) {
+		assert.EqualValues(t, len(data), n)
+		assert.Equal(t, data, buf.Bytes())
+	}
+
+	lastData := data
+	// set it back to nothing
+	mmw.SetWriter(nil)
+	data = []byte("but then with a bit of data that should be eaten again")
+	n, err = mmw.Write(data)
+	if assert.NoError(t, err) {
+		assert.EqualValues(t, len(data), n)
+		assert.Equal(t, lastData, buf.Bytes(), "should have same value as before the Write call")
+	}
+}
+
+func TestMountMetadataWriterLive(t *testing.T) {
+	var mmw MountMetadataWriter
+	ctx := context.Background()
+
+	assert.False(t, mmw.GetLive(), "zero value should not be live")
+
+	var called bool
+	mmw.metadataFn = func(ctx context.Context, s string) error {
+		called = true
+		return nil
+	}
+
+	// we're not live so this should not call metadataFn
+	mmw.sendMetadata(ctx)
+	assert.False(t, called, "metadataFn should've not been called")
+
+	// now go live, this should call metadataFn
+	mmw.SetLive(ctx, true)
+	assert.True(t, mmw.GetLive(), "value should be true after SetLive(..., true)")
+	assert.True(t, called, "metadataFn should've been called after going live")
+
+	mmw.SetLive(ctx, false)
+	assert.False(t, mmw.GetLive(), "value should be false after SetLive(..., false)")
+}
+
+func TestMountMetadataWriterSendMetadata(t *testing.T) {
+	var mmw MountMetadataWriter
+	ctx := context.Background()
+
+	var called bool
+	var calledValue string
+
+	mmw.metadataFn = func(ctx context.Context, s string) error {
+		calledValue = s
+		called = true
+		return nil
+	}
+
+	meta := Metadata{
+		Value: "some testing data",
+	}
+
+	// we're not live so this should not call metadataFn
+	mmw.SendMetadata(ctx, &meta)
+	assert.False(t, called, "metadataFn should've not been called")
+	assert.Zero(t, calledValue)
+	assert.Equal(t, meta.Value, mmw.Metadata, "SendMetadata should've stored the metadata")
+
+	mmw.SetLive(ctx, true)
+	assert.True(t, called, "metadataFn should've been called after going live")
+	assert.Equal(t, meta.Value, calledValue)
 }
