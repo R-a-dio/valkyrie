@@ -82,8 +82,6 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 			vmiddleware.RequirePermission(radio.PermDatabaseView, s.GetSongs))
 		r.Post("/songs",
 			vmiddleware.RequirePermission(radio.PermDatabaseEdit, s.PostSongs))
-		r.Delete("/songs",
-			vmiddleware.RequirePermission(radio.PermDatabaseDelete, s.DeleteSongs))
 
 		// proxy to the grafana host
 		grafana, _ := url.Parse("http://localhost:3000")
@@ -100,5 +98,6 @@ func (s *State) PostStreamerStop(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *State) errorHandler(w http.ResponseWriter, r *http.Request, err error) {
+	// TODO: implement this better
 	http.Error(w, err.Error(), http.StatusInternalServerError)
 }

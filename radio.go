@@ -691,6 +691,8 @@ type TrackStorage interface {
 	Get(TrackID) (*Song, error)
 	// All returns all tracks in storage
 	All() ([]Song, error)
+	// Delete removes a track from storage
+	Delete(TrackID) error
 	// Unusable returns all tracks that are deemed unusable by the streamer
 	Unusable() ([]Song, error)
 	// Insert inserts a new track, errors if ID or TrackID is set

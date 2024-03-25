@@ -9,20 +9,37 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/mocks"
 	"github.com/R-a-dio/valkyrie/templates"
+	"github.com/stretchr/testify/require"
 )
 
-func TestGetSubmit(t *testing.T) {
+func TestPostSubmit(t *testing.T) {
+	ctx := context.Background()
+	cfg, err := config.LoadFile()
+	require.NoError(t, err)
+	_ = ctx
+
 	storage := &mocks.StorageServiceMock{}
 	storage.SubmissionsFunc = func(contextMoqParam context.Context) radio.SubmissionStorage {
 		return &mocks.SubmissionStorageMock{
 			SubmissionStatsFunc: func(identifier string) (radio.SubmissionStats, error) {
 				return radio.SubmissionStats{}, nil
 			},
+			LastSubmissionTimeFunc: func(identifier string) (time.Time, error) {
+				return time.Now().Add(-time.Hour * 24), nil
+			},
+			InsertSubmissionFunc: func(pendingSong radio.PendingSong) error {
+				return nil
+			},
 		}
+	}
+	storage.TrackFunc = func(contextMoqParam context.Context) radio.TrackStorage {
+		return &mocks.TrackStorageMock{}
 	}
 	executor := &mocks.ExecutorMock{}
 	executor.ExecuteFunc = func(w io.Writer, r *http.Request, input templates.TemplateSelectable) error {
@@ -30,29 +47,31 @@ func TestGetSubmit(t *testing.T) {
 	}
 
 	state := State{
+		Config:    cfg,
 		Storage:   storage,
 		Templates: executor,
 	}
-
-	req := httptest.NewRequest(http.MethodGet, "/submit", nil)
-	w := httptest.NewRecorder()
 
 	// make a multipart post body
 	body := new(bytes.Buffer)
 	writer := multipart.NewWriter(body)
 	part, err := writer.CreateFormFile("track", "we're testing a file upload here.flac")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	var file io.Reader = strings.NewReader("Hello world and some other garbage")
-	if _, err = io.Copy(part, file); err != nil {
-		t.Fatal(err)
-	}
+	_, err = io.Copy(part, file)
+	require.NoError(t, err)
+	require.NoError(t, writer.WriteField("daypass", ""))
+	require.NoError(t, writer.WriteField("comment", "hello"))
+	require.NoError(t, writer.Close())
 
-	writer.WriteField("daypass", "")
-	writer.WriteField("", "")
+	// setup request
+
+	req := httptest.NewRequest(http.MethodPost, "/submit", body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	w := httptest.NewRecorder()
 
 	// send request
-	state.GetSubmit(w, req)
+	_, err = state.postSubmit(w, req)
+	require.NoError(t, err)
 }

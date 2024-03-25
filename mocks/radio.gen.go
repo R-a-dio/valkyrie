@@ -1132,6 +1132,9 @@ var _ radio.TrackStorage = &TrackStorageMock{}
 //			DecrementRequestCountFunc: func(before time.Time) error {
 //				panic("mock out the DecrementRequestCount method")
 //			},
+//			DeleteFunc: func(trackID radio.TrackID) error {
+//				panic("mock out the Delete method")
+//			},
 //			GetFunc: func(trackID radio.TrackID) (*radio.Song, error) {
 //				panic("mock out the Get method")
 //			},
@@ -1175,6 +1178,9 @@ type TrackStorageMock struct {
 	// DecrementRequestCountFunc mocks the DecrementRequestCount method.
 	DecrementRequestCountFunc func(before time.Time) error
 
+	// DeleteFunc mocks the Delete method.
+	DeleteFunc func(trackID radio.TrackID) error
+
 	// GetFunc mocks the Get method.
 	GetFunc func(trackID radio.TrackID) (*radio.Song, error)
 
@@ -1216,6 +1222,11 @@ type TrackStorageMock struct {
 		DecrementRequestCount []struct {
 			// Before is the before argument value.
 			Before time.Time
+		}
+		// Delete holds details about calls to the Delete method.
+		Delete []struct {
+			// TrackID is the trackID argument value.
+			TrackID radio.TrackID
 		}
 		// Get holds details about calls to the Get method.
 		Get []struct {
@@ -1264,6 +1275,7 @@ type TrackStorageMock struct {
 	lockAll                   sync.RWMutex
 	lockBeforeLastRequested   sync.RWMutex
 	lockDecrementRequestCount sync.RWMutex
+	lockDelete                sync.RWMutex
 	lockGet                   sync.RWMutex
 	lockInsert                sync.RWMutex
 	lockQueueCandidates       sync.RWMutex
@@ -1363,6 +1375,38 @@ func (mock *TrackStorageMock) DecrementRequestCountCalls() []struct {
 	mock.lockDecrementRequestCount.RLock()
 	calls = mock.calls.DecrementRequestCount
 	mock.lockDecrementRequestCount.RUnlock()
+	return calls
+}
+
+// Delete calls DeleteFunc.
+func (mock *TrackStorageMock) Delete(trackID radio.TrackID) error {
+	if mock.DeleteFunc == nil {
+		panic("TrackStorageMock.DeleteFunc: method is nil but TrackStorage.Delete was just called")
+	}
+	callInfo := struct {
+		TrackID radio.TrackID
+	}{
+		TrackID: trackID,
+	}
+	mock.lockDelete.Lock()
+	mock.calls.Delete = append(mock.calls.Delete, callInfo)
+	mock.lockDelete.Unlock()
+	return mock.DeleteFunc(trackID)
+}
+
+// DeleteCalls gets all the calls that were made to Delete.
+// Check the length with:
+//
+//	len(mockedTrackStorage.DeleteCalls())
+func (mock *TrackStorageMock) DeleteCalls() []struct {
+	TrackID radio.TrackID
+} {
+	var calls []struct {
+		TrackID radio.TrackID
+	}
+	mock.lockDelete.RLock()
+	calls = mock.calls.Delete
+	mock.lockDelete.RUnlock()
 	return calls
 }
 
