@@ -11,11 +11,11 @@ type ScheduleStorage struct {
 }
 
 var latestScheduleQuery = `
-SELECT 
+SELECT
 	schedule.id AS id,
-	schedule.weekday AS weekday, 
-	schedule.text AS text, 
-	schedule.updated_at AS updated_at, 
+	schedule.weekday AS weekday,
+	schedule.text AS text,
+	schedule.updated_at AS updated_at,
 	schedule.notification AS notification,
 
 	ub.id AS 'updatedby.id',
@@ -65,7 +65,7 @@ SELECT
 	IFNULL(ow_themes.name, 'default') AS 'owner.dj.theme.name',
 	IFNULL(ow_themes.display_name, 'default') AS 'owner.dj.theme.displayname',
 	IFNULL(ow_themes.author, 'unknown') AS 'owner.dj.theme.author'
-FROM 
+FROM
 	schedule
 RIGHT JOIN
 	(SELECT weekday, max(updated_at) AS updated_at FROM schedule GROUP BY weekday) AS s2 USING (weekday, updated_at)
