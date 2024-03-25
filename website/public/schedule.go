@@ -10,7 +10,7 @@ import (
 type ScheduleInput struct {
 	middleware.Input
 
-	Schedule []radio.ScheduleEntry
+	Schedule []*radio.ScheduleEntry
 }
 
 func NewScheduleInput(ss radio.ScheduleStorageService, r *http.Request) (*ScheduleInput, error) {

@@ -1030,9 +1030,10 @@ type ScheduleStorageService interface {
 }
 
 type ScheduleStorage interface {
-	// Latest returns the latest version of the schedule, where "the schedule"
-	// refers to all 7 days of the week having ScheduleEntry
-	Latest() ([]ScheduleEntry, error)
+	// Latest returns the latest version of the schedule, one entry for
+	// each day in order from Monday to Sunday. entry is nil if there is
+	// no schedule for that day
+	Latest() ([]*ScheduleEntry, error)
 	// Update updates the schedule with the entry given
 	Update(ScheduleEntry) error
 	// History returns the previous versions of ScheduleEntry

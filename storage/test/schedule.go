@@ -20,6 +20,10 @@ func (suite *Suite) TestScheduleUpdate() {
 	user, err := suite.Storage.User(suite.ctx).UpdateUser(user)
 	require.NoError(t, err)
 
+	empty, err := ss.Latest()
+	require.NoError(t, err)
+	require.Equal(t, 7, len(empty), "latest should have 7 entries")
+
 	should := make(map[radio.ScheduleDay]radio.ScheduleEntry)
 
 	var entries []radio.ScheduleEntry
@@ -60,7 +64,7 @@ func (suite *Suite) TestScheduleUpdate() {
 
 	// theres only 7 days, so we should only get 7 entries back
 	require.Equal(t, 7, len(latest), "latest should have 7 entries")
-	require.True(t, slices.IsSortedFunc(latest, func(a, b radio.ScheduleEntry) int {
+	require.True(t, slices.IsSortedFunc(latest, func(a, b *radio.ScheduleEntry) int {
 		return cmp.Compare(a.Weekday, b.Weekday)
 	}), "latest should be sorted by weekday")
 
@@ -74,4 +78,10 @@ func (suite *Suite) TestScheduleUpdate() {
 			assert.Equal(t, s.Owner.ID, got.Owner.ID)
 		}
 	}
+
+	history, err := ss.History(radio.Friday, 10, 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(history), "history for friday should have two entries")
+	assert.Equal(t, updatedFriday.Text, history[0].Text)
+	assert.Equal(t, entries[radio.Friday].Text, history[1].Text)
 }
