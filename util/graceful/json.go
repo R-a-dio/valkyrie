@@ -37,6 +37,21 @@ func ReadJSONFile(src *net.UnixConn, msg any) (*os.File, error) {
 	return handle, json.Unmarshal(buf[:n], msg)
 }
 
+func ReadJSONConn(src *net.UnixConn, msg any) (net.Conn, error) {
+	file, err := ReadJSONFile(src, msg)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	conn, err := net.FileConn(file)
+	if err != nil {
+		return nil, err
+	}
+
+	return conn, nil
+}
+
 func ReadJSON(src *net.UnixConn, msg any) error {
 	buf := make([]byte, 32*1024)
 	tiny := make([]byte, 512)

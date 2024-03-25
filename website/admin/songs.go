@@ -101,12 +101,20 @@ func (s *State) PostSongs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if form == nil && util.IsHTMX(r) {
-		// delete operation that succeeded and htmx, return nothing
+	if util.IsHTMX(r) {
+		if form == nil {
+			return
+		}
+		err = s.TemplateExecutor.Execute(w, r, form)
+		if err != nil {
+			hlog.FromRequest(r).Error().Err(err).Msg("template failure")
+			return
+		}
 		return
 	}
 
-	// otherwise just return the new listing
+	// otherwise just return to the existing listing
+	r = util.RedirectBack(r)
 	s.GetSongs(w, r)
 }
 

@@ -3,7 +3,6 @@ package templates
 import (
 	"context"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -81,20 +80,12 @@ func SetThemeHandler(cookieName string, resolve func(string) string) http.Handle
 			HttpOnly: true,
 		})
 
-		current, err := url.Parse(r.Header.Get("Hx-Current-Url"))
-		if err != nil {
-			r.URL = current
-		} else {
-			current, err = url.Parse(r.Header.Get("Referer"))
-			if err == nil {
-				r.URL = current
-			}
-		}
+		r = util.RedirectBack(r)
 
 		if !util.IsHTMX(r) {
 			// not a htmx request so probably no-js, send a http redirect to refresh
 			// the page instead with the new cookie set
-			http.Redirect(w, r, current.String(), http.StatusFound)
+			http.Redirect(w, r, r.URL.String(), http.StatusFound)
 			w.WriteHeader(http.StatusOK)
 			return
 		}

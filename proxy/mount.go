@@ -181,18 +181,12 @@ func (m *Mount) readSelf(ctx context.Context, cfg config.Config, src *net.UnixCo
 
 	zerolog.Ctx(ctx).Debug().Msg("resume: reading mount")
 
-	file, err := graceful.ReadJSONFile(src, &wm)
+	conn, err := graceful.ReadJSONConn(src, &wm)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
 
 	zerolog.Ctx(ctx).Debug().Any("wireMount", wm).Msg("resume")
-
-	conn, err := net.FileConn(file)
-	if err != nil {
-		return err
-	}
 
 	newmount := NewMount(ctx, cfg, m.pm, wm.Name, wm.ContentType, conn)
 	*m = *newmount
@@ -201,6 +195,7 @@ func (m *Mount) readSelf(ctx context.Context, cfg config.Config, src *net.UnixCo
 		// this indicates the mount was probably in cleanup state and was gonna
 		// close connections soon, we do the same
 		m.pm.RemoveMount(newmount)
+		return nil
 	}
 
 	for i := 0; i < wm.SourceCount; i++ {

@@ -12,6 +12,7 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/proxy/compat"
+	"github.com/R-a-dio/valkyrie/storage"
 	"github.com/R-a-dio/valkyrie/util/graceful"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/rs/xid"
@@ -164,7 +165,7 @@ type wireSource struct {
 	UserAgent   string
 	ContentType string
 	MountName   string
-	UserID      radio.UserID
+	Username    string
 	Identifier  Identifier
 	Metadata    *Metadata
 }
@@ -175,7 +176,7 @@ func (sc *SourceClient) writeSelf(dst *net.UnixConn) error {
 		UserAgent:   sc.UserAgent,
 		ContentType: sc.ContentType,
 		MountName:   sc.MountName,
-		UserID:      sc.User.ID,
+		Username:    sc.User.Username,
 		Identifier:  sc.Identifier,
 		Metadata:    sc.Metadata.Load(),
 	}
@@ -198,30 +199,33 @@ func (sc *SourceClient) readSelf(ctx context.Context, cfg config.Config, src *ne
 	var ws wireSource
 
 	zerolog.Ctx(ctx).Info().Msg("resume: reading source client")
-	file, err := graceful.ReadJSONFile(src, &ws)
+	conn, err := graceful.ReadJSONConn(src, &ws)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
 
 	zerolog.Ctx(ctx).Info().Any("ws", ws).Msg("resume")
 
-	conn, err := net.FileConn(file)
+	// we only get the username over the wire, so we need to grab the real user struct
+	// from storage
+	ss, err := storage.Open(ctx, cfg)
 	if err != nil {
 		return err
 	}
 
-	// TODO: implement this
-	var user radio.User
-	_ = user
+	user, err := ss.User(ctx).Get(ws.Username)
+	if err != nil {
+		return err
+	}
 
+	// construct the source client with the passed data
 	new := NewSourceClient(
 		ws.ID,
 		ws.UserAgent,
 		ws.ContentType,
 		ws.MountName,
 		conn,
-		user,
+		*user,
 		ws.Identifier,
 		ws.Metadata,
 	)

@@ -3,6 +3,7 @@ package util
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"sync/atomic"
 	"time"
 
@@ -13,6 +14,19 @@ import (
 // IsHTMX checks if a request was made by HTMX through the Hx-Request header
 func IsHTMX(r *http.Request) bool {
 	return r.Header.Get("Hx-Request") == "true"
+}
+
+func RedirectBack(r *http.Request) *http.Request {
+	current, err := url.Parse(r.Header.Get("Hx-Current-Url"))
+	if err != nil {
+		r.URL = current
+	} else {
+		current, err = url.Parse(r.Header.Get("Referer"))
+		if err == nil {
+			r.URL = current
+		}
+	}
+	return r
 }
 
 type StreamFn[T any] func(context.Context) (eventstream.Stream[T], error)
