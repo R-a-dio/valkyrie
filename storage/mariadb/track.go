@@ -910,3 +910,17 @@ func (ts TrackStorage) QueueCandidates() ([]radio.TrackID, error) {
 
 	return candidates, nil
 }
+
+func (ts TrackStorage) Delete(id radio.TrackID) error {
+	const op errors.Op = "mariadb/TrackStorage.Delete"
+	handle, deferFn := ts.handle.span(op)
+	defer deferFn()
+
+	var query = `DELETE FROM tracks WHERE id=?`
+
+	_, err := handle.Exec(query, id)
+	if err != nil {
+		return errors.E(op, err)
+	}
+	return nil
+}
