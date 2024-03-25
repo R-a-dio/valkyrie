@@ -211,3 +211,18 @@ func (ts trackStorage) DecrementRequestCount(before time.Time) error {
 	}
 	return nil
 }
+
+func (ts trackStorage) Delete(id radio.TrackID) error {
+	const op errors.Op = "search/trackStorage.Delete"
+
+	err := ts.wrapped.Delete(id)
+	if err != nil {
+		return errors.E(op, err)
+	}
+
+	err = ts.search.Delete(ts.ctx, id)
+	if err != nil {
+		return errors.E(op, err)
+	}
+	return nil
+}

@@ -134,7 +134,7 @@ func (ss SearchService) Update(context.Context, ...radio.Song) error {
 	return nil
 }
 
-func (ss SearchService) Delete(context.Context, ...radio.Song) error {
+func (ss SearchService) Delete(context.Context, ...radio.TrackID) error {
 	// noop since we use the active storage as index
 	return nil
 }
