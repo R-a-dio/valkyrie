@@ -202,5 +202,7 @@ func NewSongsForm(ts radio.TrackStorage, user radio.User, values url.Values) (*S
 	song.LastEditor = user.Username
 
 	form.Song = *song
+	form.HasDelete = user.UserPermissions.Has(radio.PermDatabaseDelete)
+	form.HasEdit = user.UserPermissions.Has(radio.PermDatabaseEdit)
 	return &form, nil
 }
