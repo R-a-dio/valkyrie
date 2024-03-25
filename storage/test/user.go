@@ -36,11 +36,15 @@ func LimitString(size int) func(string) bool {
 	}
 }
 
+func Positive(id radio.UserID) bool {
+	return id > 0
+}
+
 func genUser() gopter.Gen {
 	arbitraries := arbitrary.DefaultArbitraries()
 
 	return gen.Struct(reflect.TypeOf(radio.User{}), map[string]gopter.Gen{
-		"ID":              arbitraries.GenForType(reflect.TypeOf(radio.UserID(0))),
+		"ID":              arbitraries.GenForType(reflect.TypeOf(radio.UserID(0))).SuchThat(Positive),
 		"Username":        gen.AlphaString().SuchThat(LimitString(50)),
 		"Password":        gen.AlphaString().SuchThat(LimitString(120)),
 		"Email":           gen.RegexMatch(`\w+@\w+\.\w{2,25}`).SuchThat(LimitString(255)),

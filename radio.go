@@ -92,7 +92,7 @@ func (s Status) Copy() Status {
 }
 
 // UserID is an identifier corresponding to an user
-type UserID uint64
+type UserID int32
 
 // UserPermission is a permission for user authorization
 type UserPermission string
@@ -1076,16 +1076,15 @@ func (day ScheduleDay) String() string {
 type ScheduleEntry struct {
 	ID ScheduleID
 	// Weekday is the day this entry is for
-	//Weekday ScheduleDay
-	Weekday int
+	Weekday ScheduleDay
 	// Text is the actual body of the entry
 	Text string
 	// Owner is who "owns" this day for streaming rights
-	User *User
+	Owner *User
 	// UpdatedAt is when this was updated
 	UpdatedAt time.Time
 	// UpdatedBy is who updated this
-	// UpdatedBy User
+	UpdatedBy User
 	// Notification indicates if we should notify users of this entry
 	Notification bool
 }
