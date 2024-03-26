@@ -10,7 +10,7 @@ import (
 
 func (suite *Suite) TestStatusStore() {
 	t := suite.T()
-	ss := suite.Storage.Status(suite.ctx)
+	ss := suite.Storage(t).Status(suite.ctx)
 
 	in := radio.Status{
 		User: radio.User{

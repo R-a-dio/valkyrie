@@ -20,7 +20,7 @@ var ourStartTime = time.Date(2009, 8, 20, 0, 0, 0, 0, time.UTC)
 // a randomly generated session.
 func (suite *Suite) TestGenSessionStorage() {
 	time.Local = time.UTC
-	ss := suite.Storage.Sessions(suite.ctx)
+	ss := suite.Storage(suite.T()).Sessions(suite.ctx)
 
 	parameters := gopter.DefaultTestParameters()
 	parameters.MaxSize = 1028 * 16

@@ -85,9 +85,12 @@ func FuzzProcessQuery(f *testing.F) {
 	defer cancel()
 
 	setup := new(MariaDBSetup)
-	s, err := setup.Setup(setupCtx)
+	err := setup.Setup(setupCtx)
 	require.NoError(f, err)
 	defer setup.TearDown(ctx)
+
+	s, err := setup.CreateStorage(ctx, "FuzzProcessQuery")
+	require.NoError(f, err)
 
 	ss := s.(interface {
 		Search() radio.SearchService

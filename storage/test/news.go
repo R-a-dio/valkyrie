@@ -29,7 +29,7 @@ func getNewsID() radio.NewsPostID {
 }
 
 func (suite *Suite) TestNewsStorageDeleteNoExist() {
-	ns := suite.Storage.News(suite.ctx)
+	ns := suite.Storage(suite.T()).News(suite.ctx)
 
 	// some random id that shouldn't exist
 	err := ns.Delete(getNewsID())
@@ -39,7 +39,7 @@ func (suite *Suite) TestNewsStorageDeleteNoExist() {
 }
 
 func (suite *Suite) TestNewsStorageDeleteExist() {
-	ns := suite.Storage.News(suite.ctx)
+	ns := suite.Storage(suite.T()).News(suite.ctx)
 
 	post := createDummyNewsPost("delete test")
 	id, err := ns.Create(post)
@@ -64,7 +64,7 @@ func (suite *Suite) TestNewsStorageDeleteExist() {
 }
 
 func (suite *Suite) TestNewsSimpleCreateAndGet() {
-	ns := suite.Storage.News(suite.ctx)
+	ns := suite.Storage(suite.T()).News(suite.ctx)
 
 	post := createDummyNewsPost("simple create test")
 
@@ -88,8 +88,9 @@ func (suite *Suite) TestNewsSimpleCreateAndGet() {
 }
 
 func (suite *Suite) TestNewsWithUser() {
-	ns := suite.Storage.News(suite.ctx)
-	us := suite.Storage.User(suite.ctx)
+	s := suite.Storage(suite.T())
+	ns := s.News(suite.ctx)
+	us := s.User(suite.ctx)
 
 	user := OneOff[radio.User](genUser())
 	// we want to make a new user so set the id to zero

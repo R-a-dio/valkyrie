@@ -12,7 +12,7 @@ import (
 
 func (suite *Suite) TestSongCreateAndRetrieve() {
 	t := suite.T()
-	ss := suite.Storage.Song(suite.ctx)
+	ss := suite.Storage(t).Song(suite.ctx)
 
 	song := radio.Song{
 		Metadata: "test-song-create-and-retrieve",
@@ -44,7 +44,7 @@ func (suite *Suite) TestSongCreateAndRetrieve() {
 
 func (suite *Suite) TestSongLastPlayed() {
 	t := suite.T()
-	ss := suite.Storage.Song(suite.ctx)
+	ss := suite.Storage(t).Song(suite.ctx)
 
 	base := radio.Song{
 		Metadata: "test-song-last-played-",

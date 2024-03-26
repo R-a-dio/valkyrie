@@ -8,7 +8,8 @@ import (
 )
 
 func (suite *Suite) TestTransactionCommit() {
-	ss, tx, err := suite.Storage.SessionsTx(suite.ctx, nil)
+	s := suite.Storage(suite.T())
+	ss, tx, err := s.SessionsTx(suite.ctx, nil)
 	suite.NoError(err)
 
 	session := radio.Session{
@@ -23,7 +24,7 @@ func (suite *Suite) TestTransactionCommit() {
 	err = tx.Commit()
 	suite.NoError(err)
 
-	got, err := suite.Storage.Sessions(suite.ctx).Get(session.Token)
+	got, err := s.Sessions(suite.ctx).Get(session.Token)
 	if suite.NoError(err) {
 		suite.Equal(session.Token, got.Token)
 		suite.WithinDuration(session.Expiry, got.Expiry, time.Second)
@@ -32,7 +33,8 @@ func (suite *Suite) TestTransactionCommit() {
 }
 
 func (suite *Suite) TestTransactionRollback() {
-	ss, tx, err := suite.Storage.SessionsTx(suite.ctx, nil)
+	s := suite.Storage(suite.T())
+	ss, tx, err := s.SessionsTx(suite.ctx, nil)
 	suite.NoError(err)
 
 	session := radio.Session{
@@ -47,6 +49,6 @@ func (suite *Suite) TestTransactionRollback() {
 	err = tx.Rollback()
 	suite.NoError(err)
 
-	_, err = suite.Storage.Sessions(suite.ctx).Get(session.Token)
+	_, err = s.Sessions(suite.ctx).Get(session.Token)
 	suite.True(errors.Is(errors.SessionUnknown, err))
 }

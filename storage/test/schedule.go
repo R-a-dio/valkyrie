@@ -12,12 +12,13 @@ import (
 
 func (suite *Suite) TestScheduleUpdate() {
 	t := suite.T()
-	ss := suite.Storage.Schedule(suite.ctx)
+	s := suite.Storage(t)
+	ss := s.Schedule(suite.ctx)
 
 	user := OneOff[radio.User](genUser())
 	user.ID = 0
 
-	user, err := suite.Storage.User(suite.ctx).UpdateUser(user)
+	user, err := s.User(suite.ctx).UpdateUser(user)
 	require.NoError(t, err)
 
 	empty, err := ss.Latest()
