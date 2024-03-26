@@ -421,6 +421,8 @@ type Song struct {
 	ID SongID
 	// Hash is a sha1 of the contents of Metadata
 	Hash SongHash
+	// HashLink is the same as Hash but points to another song that we share some data with
+	HashLink SongHash
 	// Metadata is simple metadata for this song in the format 'artist - title'
 	Metadata string
 	// Length is the length of the song
@@ -674,6 +676,8 @@ type SongStorage interface {
 
 	// UpdateLength updates the stored length of the song
 	UpdateLength(Song, time.Duration) error
+	// UpdateHashLink updates the HashLink of the song
+	UpdateHashLink(entry SongHash, hashLink SongHash) error
 }
 
 // TrackStorageService is a service able to supply a TrackStorage

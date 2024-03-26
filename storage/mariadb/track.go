@@ -64,6 +64,7 @@ const songColumns = `
 	esong.id AS id,
 	esong.meta AS metadata,
 	esong.hash AS hash,
+	esong.hash_link AS hashlink,
 	to_go_duration(esong.len) AS length
 `
 
@@ -71,6 +72,7 @@ const maybeSongColumns = `
 	IFNULL(esong.id, 0) AS id,
 	IFNULL(esong.meta, '') AS metadata,
 	IFNULL(esong.hash, '') AS hash,
+	IFNULL(esong.hash_link, '') AS hashlink,
 	IFNULL(to_go_duration(esong.len), 0) AS length
 `
 
@@ -93,7 +95,7 @@ INSERT INTO
 	) VALUES (
 		:metadata,
 		:hash,
-		:hash,
+		:hashlink,
 		from_go_duration(:length)
 	)
 `
@@ -317,6 +319,20 @@ func (ss SongStorage) Favorites(song radio.Song) ([]string, error) {
 	}
 
 	return users, nil
+}
+
+func (ss SongStorage) UpdateHashLink(entry radio.SongHash, newLink radio.SongHash) error {
+	const op errors.Op = "mariadb/SongStorage.UpdateHashLink"
+	handle, deferFn := ss.handle.span(op)
+	defer deferFn()
+
+	var query = `UPDATE esong SET hash_link=? WHERE hash=?;`
+
+	_, err := handle.Exec(query, newLink, entry)
+	if err != nil {
+		return errors.E(op, err)
+	}
+	return nil
 }
 
 var songFavoritesOfQuery = expand(`
@@ -721,6 +737,7 @@ UPDATE tracks SET
 	track=:title,
 	album=:album,
 	path=:filepath,
+	hash=:hash,
 	tags=:tags,
 	need_reupload=:needreplacement
 WHERE id=:trackid;
@@ -740,12 +757,49 @@ func (ts TrackStorage) UpdateMetadata(song radio.Song) error {
 		return errors.E(op, errors.InvalidArgument, "TrackID was zero", song)
 	}
 
-	// execute
-	_, err := sqlx.NamedExec(handle, trackUpdateMetadataQuery, song)
+	handle, tx, err := requireTx(handle)
+	if err != nil {
+		return errors.E(op, err, song)
+	}
+	defer tx.Rollback()
+
+	// we need to update the song hash, this might not have actually changed but
+	// we do this unconditionally since we don't know if they changed or not until
+	// we've recalculated the hash
+	oldHash := song.Hash
+	song.Metadata = radio.Metadata(song.Artist, song.Title)
+	song.Hash = radio.NewSongHash(song.Metadata)
+
+	if song.Hash != oldHash {
+		// hash has changed so we need to potentially create an song entry too if
+		// this is a non-existant hash
+		otherSong, err := SongStorage{handle}.Create(song)
+		if err != nil {
+			return errors.E(op, err, song)
+		}
+
+		// check if the song we got back has a hash_link set, if it does it means it was
+		// already renamed once and we don't touch it any further.
+		if otherSong.Hash == otherSong.HashLink {
+			// If they're still the same it means there are no other entries linked
+			// we can change it to our old hash so that favorites and plays transfer over
+			err := SongStorage{handle}.UpdateHashLink(otherSong.Hash, oldHash)
+			if err != nil {
+				return errors.E(op, err)
+			}
+		}
+	}
+
+	// after all of that we can now finally update our tracks entry
+	_, err = sqlx.NamedExec(handle, trackUpdateMetadataQuery, song)
 	if err != nil {
 		return errors.E(op, err, song)
 	}
 
+	err = tx.Commit()
+	if err != nil {
+		return errors.E(op, err, song)
+	}
 	return nil
 }
 
