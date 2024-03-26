@@ -7,6 +7,8 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -22,6 +24,11 @@ func TestPostSubmit(t *testing.T) {
 	ctx := context.Background()
 	cfg, err := config.LoadFile()
 	require.NoError(t, err)
+
+	c := cfg.Conf()
+	c.MusicPath = t.TempDir()
+	cfg.StoreConf(c)
+	require.NoError(t, os.MkdirAll(filepath.Join(c.MusicPath, "pending"), 0755))
 	_ = ctx
 
 	storage := &mocks.StorageServiceMock{}

@@ -342,18 +342,18 @@ func NewSubmissionForm(tempdir string, mr *multipart.Reader) (*SubmissionForm, e
 
 				f, err := os.CreateTemp(tempdir, "pending-*"+ext)
 				if err != nil {
-					return errors.E(op, err, "failed to create temp file")
+					return errors.E(op, err, errors.Info("failed to create temp file"))
 				}
 				defer f.Close()
 
 				n, err := io.CopyN(f, part, formMaxFileLength)
 				if err != nil && !errors.IsE(err, io.EOF) {
 					os.Remove(f.Name())
-					return errors.E(op, err, "copying to temp file failed")
+					return errors.E(op, err, errors.Info("copying to temp file failed"))
 				}
 				if n >= formMaxFileLength {
 					os.Remove(f.Name())
-					return errors.E(op, err, "form was too big")
+					return errors.E(op, err)
 				}
 				sf.OriginalFilename = part.FileName()
 				sf.File = f.Name()
