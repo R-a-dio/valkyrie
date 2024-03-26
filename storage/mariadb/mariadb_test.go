@@ -2,6 +2,7 @@ package mariadb_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -66,6 +67,7 @@ func (setup *MariaDBSetup) TearDown(ctx context.Context) error {
 
 func (setup *MariaDBSetup) CreateStorage(ctx context.Context, name string) (radio.StorageService, error) {
 	// create the database
+	name = strings.ReplaceAll(name, "/", "")
 	setup.db.MustExecContext(ctx, "CREATE DATABASE "+name+";")
 	// update our config to connect to the container
 	cfg, err := config.LoadFile()

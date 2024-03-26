@@ -3,6 +3,7 @@ package storagetest
 import (
 	"cmp"
 	"slices"
+	"testing"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -10,8 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func (suite *Suite) TestScheduleUpdate() {
-	t := suite.T()
+func (suite *Suite) TestScheduleUpdate(t *testing.T) {
 	s := suite.Storage(t)
 	ss := s.Schedule(suite.ctx)
 

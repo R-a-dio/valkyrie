@@ -3,6 +3,7 @@ package storagetest
 import (
 	"slices"
 	"strconv"
+	"testing"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -10,8 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func (suite *Suite) TestSongCreateAndRetrieve() {
-	t := suite.T()
+func (suite *Suite) TestSongCreateAndRetrieve(t *testing.T) {
 	ss := suite.Storage(t).Song(suite.ctx)
 
 	song := radio.Song{
@@ -42,8 +42,7 @@ func (suite *Suite) TestSongCreateAndRetrieve() {
 	}
 }
 
-func (suite *Suite) TestSongLastPlayed() {
-	t := suite.T()
+func (suite *Suite) TestSongLastPlayed(t *testing.T) {
 	ss := suite.Storage(t).Song(suite.ctx)
 
 	base := radio.Song{

@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"reflect"
+	"testing"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -18,17 +19,15 @@ var ourStartTime = time.Date(2009, 8, 20, 0, 0, 0, 0, time.UTC)
 
 // TestGenSessionStorage runs through all methods of the SessionStorage interface with
 // a randomly generated session.
-func (suite *Suite) TestGenSessionStorage() {
+func (suite *Suite) TestGenSessionStorage(t *testing.T) {
 	time.Local = time.UTC
-	ss := suite.Storage(suite.T()).Sessions(suite.ctx)
+	ss := suite.Storage(t).Sessions(suite.ctx)
 
 	parameters := gopter.DefaultTestParameters()
 	parameters.MaxSize = 1028 * 16
 	properties := gopter.NewProperties(parameters)
 	properties.Property("Save > Get > Delete > Get Unknown", prop.ForAll(
 		func(in radio.Session) bool {
-			t := suite.T()
-
 			err := ss.Save(in)
 			if err != nil {
 				t.Log("failed to save:", err)
@@ -60,9 +59,8 @@ func (suite *Suite) TestGenSessionStorage() {
 		},
 		genSession(),
 	))
-	suite.Run("gopter: Save > Get > Delete > Get Unknown", func() {
-		properties.TestingRun(suite.T(), gopter.ConsoleReporter(true))
-	})
+
+	properties.TestingRun(t, gopter.ConsoleReporter(true))
 }
 
 func genSessionJson() gopter.Gen {

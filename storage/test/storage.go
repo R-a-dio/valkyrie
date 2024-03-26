@@ -3,12 +3,12 @@ package storagetest
 import (
 	"context"
 	"os"
+	"reflect"
 	"sync"
 	"testing"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/rs/zerolog"
-	"github.com/stretchr/testify/suite"
 )
 
 type TestSetup interface {
@@ -18,19 +18,76 @@ type TestSetup interface {
 }
 
 func RunTests(t *testing.T, s TestSetup) {
-	suite.Run(t, NewSuite(s))
+	ctx := zerolog.New(os.Stdout).Level(zerolog.ErrorLevel).WithContext(context.Background())
+	ctx = PutT(ctx, t)
+	// do test setup
+	err := s.Setup(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer func() {
+		err := s.TearDown(ctx)
+		if err != nil {
+			t.Error("failed to teardown", err)
+		}
+	}()
+
+	suite := NewSuite(ctx, s)
+
+	tests := gatherAllTests(suite)
+
+	t.Run("Storage", func(t *testing.T) {
+		for name, fn := range tests {
+			fn := fn
+			t.Run(name, func(t *testing.T) {
+				t.Parallel()
+
+				err := suite.BeforeTest(t.Name())
+				if err != nil {
+					t.Error("failed test setup:", err)
+					return
+				}
+
+				fn(t)
+			})
+		}
+	})
 }
 
-func NewSuite(ts TestSetup) suite.TestingSuite {
+type testFn func(t *testing.T)
+
+func gatherAllTests(suite *Suite) map[string]testFn {
+	var tests = map[string]testFn{}
+	rv := reflect.ValueOf(suite)
+	for i := 0; i < rv.NumMethod(); i++ {
+		mv := rv.Method(i)
+		mt := mv.Type()
+
+		if mt.NumIn() != 1 && mt.NumOut() != 0 {
+			continue
+		}
+
+		if mt.In(0).String() != "*testing.T" {
+			continue
+		}
+
+		tests[rv.Type().Method(i).Name] = func(t *testing.T) {
+			mv.Call([]reflect.Value{reflect.ValueOf(t)})
+		}
+	}
+	return tests
+}
+
+func NewSuite(ctx context.Context, ts TestSetup) *Suite {
 	return &Suite{
+		ctx:        ctx,
 		ToBeTested: ts,
 		storageMap: make(map[string]radio.StorageService),
 	}
 }
 
 type Suite struct {
-	suite.Suite
-
 	ctx        context.Context
 	ToBeTested TestSetup
 
@@ -38,33 +95,16 @@ type Suite struct {
 	storageMap map[string]radio.StorageService
 }
 
-func (suite *Suite) SetupSuite() {
-	suite.ctx = zerolog.New(os.Stdout).Level(zerolog.ErrorLevel).WithContext(context.Background())
-	suite.ctx = PutT(suite.ctx, suite.T())
-
-	err := suite.ToBeTested.Setup(suite.ctx)
+func (suite *Suite) BeforeTest(testName string) error {
+	s, err := suite.ToBeTested.CreateStorage(suite.ctx, testName)
 	if err != nil {
-		suite.T().Fatal("failed to setup ToBeTested:", err)
-	}
-}
-
-func (suite *Suite) TearDownSuite() {
-	err := suite.ToBeTested.TearDown(suite.ctx)
-	if err != nil {
-		suite.T().Fatal("failed to teardown ToBeTested:", err)
-	}
-}
-
-func (suite *Suite) BeforeTest(suiteName, testName string) {
-	s, err := suite.ToBeTested.CreateStorage(suite.ctx, suiteName+testName)
-	if err != nil {
-		suite.T().Error("failed to setup test", err)
-		return
+		return err
 	}
 
 	suite.storageMu.Lock()
-	suite.storageMap[suite.T().Name()] = s
+	suite.storageMap[testName] = s
 	suite.storageMu.Unlock()
+	return nil
 }
 
 func (suite *Suite) Storage(t *testing.T) radio.StorageService {

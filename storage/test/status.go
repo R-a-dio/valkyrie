@@ -1,6 +1,7 @@
 package storagetest
 
 import (
+	"testing"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -8,8 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func (suite *Suite) TestStatusStore() {
-	t := suite.T()
+func (suite *Suite) TestStatusStore(t *testing.T) {
 	ss := suite.Storage(t).Status(suite.ctx)
 
 	in := radio.Status{
