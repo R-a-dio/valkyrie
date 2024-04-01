@@ -16,14 +16,13 @@ import (
 	"github.com/R-a-dio/valkyrie/mocks"
 	"github.com/R-a-dio/valkyrie/streamer/icecast"
 	"github.com/R-a-dio/valkyrie/util"
-	"github.com/R-a-dio/valkyrie/website/admin"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func newTestUser(username, passwd string) *radio.User {
-	bpasswd, _ := admin.GenerateHashFromPassword(passwd)
+	bpasswd, _ := radio.GenerateHashFromPassword(passwd)
 
 	return &radio.User{
 		Username: username,

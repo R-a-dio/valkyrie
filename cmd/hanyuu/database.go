@@ -16,7 +16,6 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/storage"
 	"github.com/R-a-dio/valkyrie/streamer/audio"
-	"github.com/R-a-dio/valkyrie/website/admin"
 	"github.com/google/subcommands"
 	"github.com/rs/zerolog"
 )
@@ -156,7 +155,7 @@ func (d databaseCmd) addUser(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 
-	hash, err := admin.GenerateHashFromPassword(passwd)
+	hash, err := radio.GenerateHashFromPassword(passwd)
 	if err != nil {
 		return err
 	}
