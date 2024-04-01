@@ -1,6 +1,7 @@
 package radio
 
 import (
+	"crypto/sha1"
 	"fmt"
 	"reflect"
 	"testing"
@@ -12,6 +13,7 @@ import (
 	"github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/constraints"
 )
 
@@ -401,4 +403,119 @@ func TestScheduleDayString(t *testing.T) {
 	assert.Equal(t, "Saturday", Saturday.String())
 	assert.Equal(t, "Sunday", Sunday.String())
 	assert.Equal(t, "Unknown", ScheduleDay(100).String())
+}
+
+func TestPasswordFunctions(t *testing.T) {
+	// change the cost to the minimum so tests run faster, we're not testing
+	// bcrypt itself here, just that our wrappers around whatever crypto lib
+	// we're using match up together
+	var oldCost = bcryptCost
+	bcryptCost = 0
+	defer func() {
+		bcryptCost = oldCost
+	}()
+
+	dtp := gopter.DefaultTestParameters()
+	dtp.MaxSize = 72            // max size of bcrypt passwords
+	dtp.MinSuccessfulTests = 50 // lower this so it runs a bit faster
+	p := gopter.NewProperties(dtp)
+	p.Property("should compare", prop.ForAll(func(in []byte) bool {
+		passwd := string(in)
+
+		hash, err := GenerateHashFromPassword(passwd)
+		if err != nil {
+			t.Log(len(passwd))
+			t.Log("generate failed:", err)
+			return false
+		}
+		if hash == "" {
+			t.Log("generate returned empty hash")
+			return false
+		}
+
+		user := User{
+			Password: hash,
+		}
+		err = user.ComparePassword(passwd)
+		if err != nil {
+			t.Log("compare failed:", err)
+			return false
+		}
+		return true
+	}, gen.SliceOf(gen.UInt8())))
+	p.TestingRun(t)
+
+}
+
+func TestSongHashValuer(t *testing.T) {
+	p := gopter.NewProperties(nil)
+	p.Property("roundtrip", prop.ForAll(func(data []byte) bool {
+		// gopter doesn't support arrays so we instead just take a fixed-length
+		// slice and copy it over to our type before we run the test
+		var in SongHash
+		copy(in[:], data)
+
+		value, err := in.Value()
+		if err != nil {
+			t.Log("value failed:", err)
+			return false
+		}
+
+		var out SongHash
+		err = out.Scan(value)
+		if err != nil {
+			t.Log("scan failed:", err)
+			return false
+		}
+		return out == in
+	}, gen.SliceOfN(sha1.Size, gen.UInt8())))
+	p.TestingRun(t)
+}
+
+func TestSongHashScan(t *testing.T) {
+	var hash SongHash
+	other := NewSongHash("testing song hash")
+
+	require.Error(t, hash.Scan(0), "unsupported type should error")
+	require.NoError(t, hash.Scan(nil), "nil should not error")
+
+	value, err := other.Value()
+	require.NoError(t, err, "value should not error")
+	require.NotNil(t, value, "value returned should not be nil")
+
+	sv, ok := value.(string)
+	require.True(t, ok, "value should be a string")
+
+	var fromValue SongHash
+	require.NoError(t, fromValue.Scan(sv), "scan of string should not error")
+	require.Equal(t, other, fromValue, "should be equal after value>scan sequence")
+
+	var fromByte SongHash
+	require.NoError(t, fromByte.Scan([]byte(sv)), "scan of []byte should not error")
+	require.Equal(t, other, fromByte, "should be equal after value>scan sequence")
+}
+
+func TestSongHashJSON(t *testing.T) {
+	p := gopter.NewProperties(nil)
+	p.Property("roundtrip", prop.ForAll(func(data []byte) bool {
+		// gopter doesn't support arrays so we instead just take a fixed-length
+		// slice and copy it over to our type before we run the test
+		var in SongHash
+		copy(in[:], data)
+
+		value, err := in.MarshalJSON()
+		if err != nil {
+			t.Log("marshal failed:", err)
+			return false
+		}
+
+		var out SongHash
+		err = out.UnmarshalJSON(value)
+		if err != nil {
+			t.Log("unmarshal failed:", err)
+			return false
+		}
+		return out == in
+	}, gen.SliceOfN(sha1.Size, gen.UInt8())))
+	p.TestingRun(t)
 }

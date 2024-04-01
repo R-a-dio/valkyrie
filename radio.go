@@ -219,7 +219,7 @@ func (u User) ComparePassword(passwd string) error {
 	return bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(passwd))
 }
 
-const bcryptCost = 14
+var bcryptCost = 14
 
 func GenerateHashFromPassword(passwd string) (string, error) {
 	h, err := bcrypt.GenerateFromPassword([]byte(passwd), bcryptCost)
@@ -400,7 +400,9 @@ func ParseSongID(s string) (SongID, error) {
 }
 
 // Scan implements sql.Scanner
-func (s *SongID) Scan(src interface{}) error {
+func (s *SongID) Scan(src any) error {
+	// Scanner is only implemented so that null values are supported
+	// without introducing an intermediate type
 	if src == nil {
 		return nil
 	}
@@ -412,7 +414,7 @@ func (s *SongID) Scan(src interface{}) error {
 }
 
 func (s SongID) String() string {
-	return strconv.Itoa(int(s))
+	return strconv.FormatUint(uint64(s), 10)
 }
 
 // SongHash is a sha1 hash
@@ -431,11 +433,19 @@ func (s SongHash) Value() (driver.Value, error) {
 
 // Scan implements sql.Scanner
 func (s *SongHash) Scan(src interface{}) error {
-	b, ok := src.([]byte)
-	if src == nil || !ok {
+	if src == nil {
 		return nil
 	}
-	_, err := hex.Decode((*s)[:], b)
+
+	var err error
+	switch v := src.(type) {
+	case []byte:
+		_, err = hex.Decode((*s)[:], v)
+	case string:
+		_, err = hex.Decode((*s)[:], []byte(v))
+	default:
+		err = fmt.Errorf("unsupported type in SongHash.Scan: %t", src)
+	}
 	return err
 }
 
