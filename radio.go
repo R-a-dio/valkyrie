@@ -537,20 +537,32 @@ func (s *Song) UntilRequestable() time.Duration {
 // Hydrate tries to fill Song with data from other fields, mostly useful
 // for if we have a DatabaseTrack but want to create the Song fields
 func (s *Song) Hydrate() {
+	// trim any whitespace from the metadata
 	s.Metadata = strings.TrimSpace(s.Metadata)
-	if !s.HasTrack() {
-		s.Hash = NewSongHash(s.Metadata)
-		return
-	}
-
-	if s.Metadata == "" {
+	// if our metadata is empty at this point, and we have a database track
+	// we lookup the artist and title of the track to create our metadata
+	if s.Metadata == "" && s.HasTrack() {
 		s.Metadata = Metadata(s.Artist, s.Title)
 	}
 
+	if s.Metadata == "" {
+		// no metadata to work with, to avoid a bogus hash creation down below
+		// we just exit early and don't update anything
+		return
+	}
+
+	// generate a hash from the metadata
 	s.Hash = NewSongHash(s.Metadata)
+	// and if our HashLink isn't set yet update that too
+	if s.HashLink.IsZero() {
+		s.HashLink = s.Hash
+	}
 }
 
 func Metadata(artist, title string) string {
+	artist = strings.TrimSpace(artist)
+	title = strings.TrimSpace(title)
+
 	if artist != "" {
 		return fmt.Sprintf("%s - %s", artist, title)
 	}

@@ -13,6 +13,116 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestSongHydrate(t *testing.T) {
+	t.Run("song with just metadata", func(t *testing.T) {
+		a := Song{
+			Metadata: "we test if this gets hydrated",
+		}
+		a.Hydrate()
+
+		assert.False(t, a.Hash.IsZero(), "Hash should not be zero after hydrate")
+		assert.False(t, a.HashLink.IsZero(), "HashLink should not be zero after hydrate")
+	})
+
+	t.Run("song with a HashLink already set", func(t *testing.T) {
+		a := Song{
+			Metadata: "we test if this gets hydrated",
+		}
+		a.Hydrate()
+
+		b := Song{
+			Metadata: "some other metadata",
+			HashLink: a.Hash, // set the HashLink to the other song
+		}
+		// hydrate should now not touch HashLink but still update Hash
+		b.Hydrate()
+		assert.False(t, b.Hash.IsZero(), "Hash should not be zero after hydrate")
+		assert.Equal(t, a.Hash, b.HashLink)
+	})
+
+	t.Run("song with no metadata, but does have DatabaseTrack", func(t *testing.T) {
+		c := Song{
+			DatabaseTrack: &DatabaseTrack{
+				Artist: "Hello",
+				Title:  "World",
+			},
+		}
+		c.Hydrate()
+		assert.NotEmpty(t, c.Metadata)
+		assert.False(t, c.Hash.IsZero())
+		assert.False(t, c.HashLink.IsZero())
+	})
+
+	t.Run("song with no metadata and no DatabaseTrack", func(t *testing.T) {
+		a := Song{}
+		a.Hydrate()
+
+		assert.Empty(t, a.Metadata, "hydrate should not update Metadata if there is nothing")
+		assert.True(t, a.Hash.IsZero(), "hydrate should not update Hash if there is nothing")
+		assert.True(t, a.HashLink.IsZero(), "hydrate shoudl not update HashLink if there is nothing")
+	})
+}
+
+func TestMetadata(t *testing.T) {
+	cases := []struct {
+		name     string
+		artist   string
+		title    string
+		expected string
+	}{
+		{
+			name:     "simple",
+			artist:   "hello",
+			title:    "world",
+			expected: "hello - world",
+		},
+		{
+			name:     "missing artist",
+			artist:   "",
+			title:    "hello world",
+			expected: "hello world",
+		},
+		{
+			name:     "whitespace at start of artist",
+			artist:   "	hello",
+			title:    "world",
+			expected: "hello - world",
+		},
+		{
+			name:     "whitespace at end of artist",
+			artist:   "hello	 ",
+			title:    "world",
+			expected: "hello - world",
+		},
+		{
+			name:     "whitespace at start of title",
+			artist:   "hello",
+			title:    "	  world",
+			expected: "hello - world",
+		},
+		{
+			name:     "whitespace at end of title",
+			artist:   "hello",
+			title:    "world	 ",
+			expected: "hello - world",
+		},
+		{
+			name:     "whitespace only artist",
+			artist:   "	  	",
+			title:    "hello world",
+			expected: "hello world",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			res := Metadata(c.artist, c.title)
+
+			assert.Equal(t, c.expected, res)
+		})
+	}
+}
+
 func TestSongEqualTo(t *testing.T) {
 	tp := gopter.DefaultTestParameters()
 	tp.MinSuccessfulTests = 500
