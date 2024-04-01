@@ -219,6 +219,16 @@ func (u User) ComparePassword(passwd string) error {
 	return bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(passwd))
 }
 
+const bcryptCost = 14
+
+func GenerateHashFromPassword(passwd string) (string, error) {
+	h, err := bcrypt.GenerateFromPassword([]byte(passwd), bcryptCost)
+	if err != nil {
+		return "", err
+	}
+	return string(h), nil
+}
+
 // DJID is an identifier corresponding to a dj
 type DJID uint64
 

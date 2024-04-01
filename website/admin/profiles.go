@@ -17,7 +17,6 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/rs/zerolog/hlog"
-	"golang.org/x/crypto/bcrypt"
 
 	"github.com/gorilla/schema"
 )
@@ -403,10 +402,7 @@ func postProfilePassword(new *radio.User, isAdmin bool, form ProfileFormChange) 
 	}
 
 	if !isAdmin { // only need to check it if we're not admin
-		err := bcrypt.CompareHashAndPassword(
-			[]byte(new.Password),
-			[]byte(form.Password),
-		)
+		err := new.ComparePassword(form.Password)
 		if err != nil {
 			// error, current password doesn't match actual password
 			return errors.E(op, errors.InvalidForm,
@@ -416,19 +412,15 @@ func postProfilePassword(new *radio.User, isAdmin bool, form ProfileFormChange) 
 		}
 	}
 
-	hashed, err := GenerateHashFromPassword(form.NewPassword)
+	hashed, err := radio.GenerateHashFromPassword(form.NewPassword)
 	if err != nil {
 		// error, failed to generate bcrypt from password
 		// no idea what could cause this to error, so we just throw up
 		return errors.E(op, errors.InternalServer, err)
 	}
 
-	new.Password = string(hashed)
+	new.Password = hashed
 	return nil
-}
-
-func GenerateHashFromPassword(passwd string) ([]byte, error) {
-	return bcrypt.GenerateFromPassword([]byte(passwd), bcryptCost)
 }
 
 func postProfileImage(cfg config.Config, new *radio.User, header *multipart.FileHeader) error {

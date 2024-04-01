@@ -14,7 +14,6 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/crypto/bcrypt"
 )
 
 type basicAuthTest struct {
@@ -28,7 +27,7 @@ type basicAuthTest struct {
 
 func TestBasicAuth(t *testing.T) {
 	passwd := "a very important password"
-	hash, err := bcrypt.GenerateFromPassword([]byte(passwd), 14)
+	hash, err := radio.GenerateHashFromPassword(passwd)
 	require.NoError(t, err)
 	require.NotEmpty(t, hash)
 
