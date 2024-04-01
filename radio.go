@@ -17,6 +17,13 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+const (
+	LimitArtistLength = 500
+	LimitAlbumLength  = 200
+	LimitTitleLength  = 200
+	LimitReasonLength = 120
+)
+
 // CalculateRequestDelay returns the delay between two requests of a song
 func CalculateRequestDelay(requestCount int) time.Duration {
 	if requestCount > 30 {
@@ -93,6 +100,18 @@ func (s Status) Copy() Status {
 
 // UserID is an identifier corresponding to an user
 type UserID int32
+
+func ParseUserID(s string) (UserID, error) {
+	id, err := strconv.ParseInt(s, 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return UserID(id), nil
+}
+
+func (id UserID) String() string {
+	return strconv.FormatInt(int64(id), 10)
+}
 
 // UserPermission is a permission for user authorization
 type UserPermission string
@@ -202,6 +221,14 @@ func (u User) ComparePassword(passwd string) error {
 
 // DJID is an identifier corresponding to a dj
 type DJID uint64
+
+func ParseDJID(s string) (DJID, error) {
+	id, err := strconv.ParseUint(s, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return DJID(id), nil
+}
 
 func (id DJID) String() string {
 	return strconv.FormatUint(uint64(id), 10)
@@ -354,6 +381,14 @@ type AnnounceService interface {
 // SongID is a songs identifier
 type SongID uint64
 
+func ParseSongID(s string) (SongID, error) {
+	id, err := strconv.ParseUint(s, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return SongID(id), nil
+}
+
 // Scan implements sql.Scanner
 func (s *SongID) Scan(src interface{}) error {
 	if src == nil {
@@ -451,6 +486,14 @@ func (s Song) EqualTo(d Song) bool {
 
 // TrackID is a database track identifier
 type TrackID uint64
+
+func ParseTrackID(s string) (TrackID, error) {
+	id, err := strconv.ParseUint(s, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return TrackID(id), nil
+}
 
 func (t TrackID) String() string {
 	return strconv.FormatUint(uint64(t), 10)
@@ -830,6 +873,18 @@ type NewsList struct {
 // NewsPostID is an identifier for a news post
 type NewsPostID uint64
 
+func (id NewsPostID) String() string {
+	return strconv.FormatUint(uint64(id), 10)
+}
+
+func ParseNewsPostID(s string) (NewsPostID, error) {
+	id, err := strconv.ParseUint(s, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return NewsPostID(id), nil
+}
+
 // NewsPost is a single news post created on the website
 type NewsPost struct {
 	ID     NewsPostID
@@ -864,6 +919,18 @@ func (np NewsPost) HasRequired() (string, bool) {
 
 // NewsCommentID is an identifier for a news comment
 type NewsCommentID uint64
+
+func (id NewsCommentID) String() string {
+	return strconv.FormatUint(uint64(id), 10)
+}
+
+func ParseNewsCommentID(s string) (NewsCommentID, error) {
+	id, err := strconv.ParseUint(s, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return NewsCommentID(id), nil
+}
 
 // NewsComment is a single comment under a news post on the website
 type NewsComment struct {
@@ -940,6 +1007,18 @@ type SubmissionStats struct {
 // SubmissionID is the ID of a pending song
 type SubmissionID uint
 
+func (id SubmissionID) String() string {
+	return strconv.FormatUint(uint64(id), 10)
+}
+
+func ParseSubmissionID(s string) (SubmissionID, error) {
+	id, err := strconv.ParseUint(s, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return SubmissionID(id), nil
+}
+
 // SubmissionStatus is the status of a submitted song
 type SubmissionStatus int
 
@@ -1003,6 +1082,18 @@ func (p PendingSong) Metadata() string {
 }
 
 type PostPendingID int64
+
+func (id PostPendingID) String() string {
+	return strconv.FormatInt(int64(id), 10)
+}
+
+func ParsePostPendingID(s string) (PostPendingID, error) {
+	id, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return PostPendingID(id), nil
+}
 
 type PostPendingSong struct {
 	ID             PostPendingID

@@ -3,7 +3,6 @@ package middleware
 import (
 	"context"
 	"net/http"
-	"strconv"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/go-chi/chi/v5"
@@ -21,7 +20,7 @@ func TrackCtx(storage radio.TrackStorageService) func(http.Handler) http.Handler
 			ctx := r.Context()
 
 			id := chi.URLParamFromCtx(ctx, "TrackID")
-			iid, err := strconv.Atoi(id)
+			trackid, err := radio.ParseTrackID(id)
 			if err != nil {
 				// TODO: update this to 1.13 error handling
 				/*if errors.Is(err, strconv.ErrRange) {
@@ -30,7 +29,6 @@ func TrackCtx(storage radio.TrackStorageService) func(http.Handler) http.Handler
 
 				panic("TrackCtx: non-number found: " + id)
 			}
-			trackid := radio.TrackID(iid)
 
 			song, err := storage.Track(ctx).Get(trackid)
 			if err != nil {
@@ -59,12 +57,11 @@ func UserByDJIDCtx(storage radio.UserStorageService) func(http.Handler) http.Han
 			ctx := r.Context()
 
 			tmp1 := chi.URLParamFromCtx(ctx, "DJID")
-			tmp2, err := strconv.Atoi(tmp1)
+			id, err := radio.ParseDJID(tmp1)
 			if err != nil {
 				http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 				return
 			}
-			id := radio.DJID(tmp2)
 
 			user, err := storage.User(ctx).GetByDJID(id)
 			if err != nil {

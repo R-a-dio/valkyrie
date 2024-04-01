@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
-	"strconv"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -145,11 +144,10 @@ func NewNewsEntryInput(cache *shared.NewsCache, ns radio.NewsStorage, r *http.Re
 	ctx := r.Context()
 
 	id := chi.URLParamFromCtx(ctx, "NewsID")
-	iid, err := strconv.Atoi(id)
+	newsid, err := radio.ParseNewsPostID(id)
 	if err != nil {
 		return nil, err
 	}
-	newsid := radio.NewsPostID(iid)
 
 	post, err := ns.Get(newsid)
 	if err != nil {

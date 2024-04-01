@@ -379,11 +379,10 @@ func NewSubmissionForm(tempdir string, mr *multipart.Reader) (*SubmissionForm, e
 			if err != nil {
 				return nil, errors.E(op, err)
 			}
-			id, err := strconv.Atoi(s)
+			tid, err := radio.ParseTrackID(s)
 			if err != nil {
 				return nil, errors.E(op, err)
 			}
-			tid := radio.TrackID(id)
 			sf.Replacement = &tid
 		default:
 			// unknown form field, we just cancel everything and return

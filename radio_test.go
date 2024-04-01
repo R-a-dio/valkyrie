@@ -1,6 +1,7 @@
 package radio
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/exp/constraints"
 )
 
 func TestSongHydrate(t *testing.T) {
@@ -61,6 +63,64 @@ func TestSongHydrate(t *testing.T) {
 		assert.True(t, a.Hash.IsZero(), "hydrate should not update Hash if there is nothing")
 		assert.True(t, a.HashLink.IsZero(), "hydrate shoudl not update HashLink if there is nothing")
 	})
+}
+
+func TestParseTrackID(t *testing.T) {
+	testParseAndString(t, ParseTrackID)
+}
+
+func TestParsePostPendingID(t *testing.T) {
+	testParseAndString(t, ParsePostPendingID)
+}
+
+func TestParseSongID(t *testing.T) {
+	testParseAndString(t, ParseSongID)
+}
+
+func TestParseSubmissionID(t *testing.T) {
+	testParseAndString(t, ParseSubmissionID)
+}
+
+func TestParseNewsPostID(t *testing.T) {
+	testParseAndString(t, ParseNewsPostID)
+}
+
+func TestParseNewsCommentID(t *testing.T) {
+	testParseAndString(t, ParseNewsCommentID)
+}
+
+func TestParseDJID(t *testing.T) {
+	testParseAndString(t, ParseDJID)
+}
+
+func TestParseUserID(t *testing.T) {
+	testParseAndString(t, ParseUserID)
+}
+
+type stringAndComparable interface {
+	fmt.Stringer
+	constraints.Integer
+	comparable
+}
+
+func testParseAndString[T stringAndComparable](t *testing.T, parseFn func(string) (T, error)) {
+	a := arbitrary.DefaultArbitraries()
+
+	p := gopter.NewProperties(nil)
+	// roundtrips should always succeed
+	p.Property("roundtrip", a.ForAll(func(in T) bool {
+		out, err := parseFn(in.String())
+		if err != nil {
+			return false
+		}
+		return in == out
+	}))
+	// alpha-only should always fail
+	p.Property("alpha-only", prop.ForAll(func(in string) bool {
+		out, err := parseFn(in)
+		return out == 0 && err != nil
+	}, gen.AlphaString()))
+	p.TestingRun(t)
 }
 
 func TestMetadata(t *testing.T) {

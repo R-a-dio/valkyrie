@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"net/url"
 	"path/filepath"
-	"strconv"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
@@ -29,9 +28,13 @@ func (SongsInput) TemplateBundle() string {
 }
 
 type SongsForm struct {
+	Errors map[string]string
+
+	// HasDelete indicates if we should show the delete button
 	HasDelete bool
-	HasEdit   bool
-	Song      radio.Song
+	// HasEdit indicates if we should allow editing of the form
+	HasEdit bool
+	Song    radio.Song
 }
 
 func (SongsForm) TemplateName() string {
@@ -180,11 +183,11 @@ func NewSongsForm(ts radio.TrackStorage, user radio.User, values url.Values) (*S
 
 	var form SongsForm
 
-	id, err := strconv.ParseUint(values.Get("id"), 10, 64)
+	tid, err := radio.ParseTrackID(values.Get("id"))
 	if err != nil {
-		return nil, errors.E(op, err, errors.InvalidForm, errors.Info("missing id in songs form"))
+		return nil, errors.E(op, err, errors.InvalidForm, errors.Info("missing or malformed id in form"))
 	}
-	tid := radio.TrackID(id)
+
 	song, err := ts.Get(tid)
 	if err != nil {
 		return nil, errors.E(op, err, errors.InvalidForm)
@@ -206,4 +209,20 @@ func NewSongsForm(ts radio.TrackStorage, user radio.User, values url.Values) (*S
 	form.HasDelete = user.UserPermissions.Has(radio.PermDatabaseDelete)
 	form.HasEdit = user.UserPermissions.Has(radio.PermDatabaseEdit)
 	return &form, nil
+}
+
+func (sf *SongsForm) Validate() bool {
+	sf.Errors = make(map[string]string)
+
+	if len(sf.Song.Artist) > radio.LimitArtistLength {
+		sf.Errors["artist"] = "artist name too long"
+	}
+	if len(sf.Song.Title) > radio.LimitTitleLength {
+		sf.Errors["title"] = "title too long"
+	}
+	if len(sf.Song.Album) > radio.LimitAlbumLength {
+		sf.Errors["album"] = "album name too long"
+	}
+
+	return len(sf.Errors) == 0
 }

@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -67,11 +66,11 @@ func (pi *PendingInput) Hydrate(s radio.SubmissionStorage) error {
 
 func (s *State) GetPendingSong(w http.ResponseWriter, r *http.Request) {
 	textID := chi.URLParam(r, "SubmissionID")
-	intID, err := strconv.Atoi(textID)
+	id, err := radio.ParseSubmissionID(textID)
 	if err != nil {
+		// panic because chi should be the one verifying we are getting a numeric parameter
 		panic("non-number found: " + textID)
 	}
-	id := radio.SubmissionID(intID)
 
 	song, err := s.Storage.Submissions(r.Context()).GetSubmission(id)
 	if err != nil {
@@ -177,13 +176,13 @@ func (s *State) postPending(w http.ResponseWriter, r *http.Request) (PendingForm
 		return PendingForm{}, errors.E(op, err, errors.InvalidForm)
 	}
 	// grab the pending id
-	id, err := strconv.Atoi(r.PostFormValue("id"))
+	id, err := radio.ParseSubmissionID(r.PostFormValue("id"))
 	if err != nil {
 		return PendingForm{}, errors.E(op, err, errors.InvalidForm)
 	}
 
 	// grab the pending data from the database
-	song, err := s.Storage.Submissions(r.Context()).GetSubmission(radio.SubmissionID(id))
+	song, err := s.Storage.Submissions(r.Context()).GetSubmission(id)
 	if err != nil {
 		return PendingForm{}, errors.E(op, err, errors.InternalServer)
 	}
@@ -417,15 +416,15 @@ func (pf *PendingForm) Update(form url.Values) {
 		pf.Status = radio.SubmissionInvalid
 	}
 
-	if id, err := strconv.ParseUint(form.Get("id"), 10, 0); err == nil {
-		pf.ID = radio.SubmissionID(id)
+	if id, err := radio.ParseSubmissionID(form.Get("id")); err == nil {
+		pf.ID = id
 	}
 	pf.Artist = form.Get("artist")
 	pf.Title = form.Get("title")
 	pf.Album = form.Get("album")
 	pf.Tags = form.Get("tags")
-	if id, err := strconv.ParseUint(form.Get("replacement"), 10, 64); err == nil {
-		pf.ReplacementID = radio.TrackID(id)
+	if id, err := radio.ParseTrackID(form.Get("replacement")); err == nil {
+		pf.ReplacementID = id
 	}
 	pf.Reason = form.Get("reason")
 	pf.ReviewedAt = time.Now()
@@ -437,16 +436,16 @@ func (pf *PendingForm) Validate() bool {
 	if pf.Status == radio.SubmissionInvalid {
 		pf.Errors["action"] = "invalid status"
 	}
-	if len(pf.Artist) > 500 {
+	if len(pf.Artist) > radio.LimitArtistLength {
 		pf.Errors["artist"] = "artist name too long"
 	}
-	if len(pf.Title) > 200 {
-		pf.Errors["title"] = "title name too long"
+	if len(pf.Title) > radio.LimitTitleLength {
+		pf.Errors["title"] = "title too long"
 	}
-	if len(pf.Album) > 200 {
+	if len(pf.Album) > radio.LimitAlbumLength {
 		pf.Errors["album"] = "album name too long"
 	}
-	if len(pf.Reason) > 120 {
+	if len(pf.Reason) > radio.LimitReasonLength {
 		pf.Errors["reason"] = "reason too long"
 	}
 
@@ -480,7 +479,7 @@ func (pf *PendingForm) ToSong(user radio.User) radio.Song {
 func (pf *PendingForm) ToValues() url.Values {
 	var v = make(url.Values)
 
-	v.Add("id", strconv.FormatUint(uint64(pf.ID), 10))
+	v.Add("id", pf.ID.String())
 	switch pf.Status {
 	case radio.SubmissionAccepted:
 		v.Add("action", "accept")

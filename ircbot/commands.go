@@ -3,7 +3,6 @@ package ircbot
 import (
 	"context"
 	"regexp"
-	"strconv"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -214,12 +213,12 @@ func (e Event) ArgumentTrack(key string) (*radio.Song, error) {
 		return nil, errors.E(op, errors.InvalidArgument, errors.Info(key))
 	}
 
-	id, err := strconv.Atoi(stringID)
+	id, err := radio.ParseTrackID(stringID)
 	if err != nil {
 		return nil, errors.E(op, errors.InvalidArgument, err, errors.Info(stringID))
 	}
 
-	track, err := e.Storage.Track(e.Ctx).Get(radio.TrackID(id))
+	track, err := e.Storage.Track(e.Ctx).Get(id)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
