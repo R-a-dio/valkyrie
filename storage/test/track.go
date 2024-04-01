@@ -118,3 +118,53 @@ func (suite *Suite) TestSongLastPlayed(t *testing.T) {
 		assert.True(t, original.EqualTo(lp[i]), "subset end: expected %s got %s", original.Metadata, lp[i].Metadata)
 	}
 }
+
+func (suite *Suite) TestTrackUpdateMetadata(t *testing.T) {
+	s := suite.Storage(t)
+	ts := s.Track(suite.ctx)
+	ss := s.Song(suite.ctx)
+
+	original := radio.Song{
+		DatabaseTrack: &radio.DatabaseTrack{
+			Artist:     "artist test",
+			Album:      "album test",
+			Title:      "title test",
+			Acceptor:   "test user",
+			LastEditor: "test user",
+		},
+	}
+	original.Hydrate()
+
+	new, err := ts.Insert(original)
+	require.NoError(t, err)
+	require.NotZero(t, new)
+
+	updated := original
+	updated.DatabaseTrack = &radio.DatabaseTrack{
+		TrackID:    new,
+		Artist:     "new artist",
+		Album:      original.Album,
+		Title:      original.Title,
+		Acceptor:   original.Acceptor,
+		LastEditor: "some other user",
+	}
+
+	err = ts.UpdateMetadata(updated)
+	require.NoError(t, err)
+
+	// we can now get an updated version with all fields we care about updated from the db
+	updatedSong, err := ts.Get(new)
+	require.NoError(t, err)
+	require.NotNil(t, updatedSong)
+
+	// and the old song entry from before we updated
+	originalSong, err := ss.FromHash(original.Hash)
+	require.NoError(t, err)
+	require.NotNil(t, originalSong)
+
+	assert.Equal(t, updatedSong.Hash.String(), originalSong.HashLink.String(),
+		"original song entry's hashlink should be pointing to the updated hash")
+	assert.Equal(t, updatedSong.Artist, updated.Artist)
+	assert.Equal(t, updatedSong.Album, updated.Album)
+	assert.Equal(t, updatedSong.Title, updated.Title)
+}

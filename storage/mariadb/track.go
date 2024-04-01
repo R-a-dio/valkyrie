@@ -739,7 +739,8 @@ UPDATE tracks SET
 	path=:filepath,
 	hash=:hash,
 	tags=:tags,
-	need_reupload=:needreplacement
+	need_reupload=:needreplacement,
+	lasteditor=:lasteditor
 WHERE id=:trackid;
 `
 
@@ -763,30 +764,28 @@ func (ts TrackStorage) UpdateMetadata(song radio.Song) error {
 	}
 	defer tx.Rollback()
 
-	// we need to update the song hash, this might not have actually changed but
-	// we do this unconditionally since we don't know if they changed or not until
-	// we've recalculated the hash
+	// since a metadata update means a hash update we recalculate the hash here
+	// to see if either Artist or Title has changed
 	oldHash := song.Hash
-	song.Metadata = radio.Metadata(song.Artist, song.Title)
-	song.Hash = radio.NewSongHash(song.Metadata)
+
+	// set the metadata to nothing so Hydrate will fill it in for us
+	song.Metadata = ""
+	song.Hydrate()
 
 	if song.Hash != oldHash {
-		// hash has changed so we need to potentially create an song entry too if
-		// this is a non-existant hash
+		// hash is different, so make sure we have a song entry for it
 		otherSong, err := SongStorage{handle}.Create(song)
 		if err != nil {
 			return errors.E(op, err, song)
 		}
+		// update the song entries ID since we might've just created a new one
+		song.ID = otherSong.ID
 
-		// check if the song we got back has a hash_link set, if it does it means it was
-		// already renamed once and we don't touch it any further.
-		if otherSong.Hash == otherSong.HashLink {
-			// If they're still the same it means there are no other entries linked
-			// we can change it to our old hash so that favorites and plays transfer over
-			err := SongStorage{handle}.UpdateHashLink(otherSong.Hash, oldHash)
-			if err != nil {
-				return errors.E(op, err)
-			}
+		// update the old song entry's hash link to point to our newly created song
+		// TODO: also update the whole graph
+		err = SongStorage{handle}.UpdateHashLink(oldHash, song.Hash)
+		if err != nil {
+			return errors.E(op, err)
 		}
 	}
 
