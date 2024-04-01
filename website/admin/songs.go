@@ -143,26 +143,27 @@ func (s *State) postSongs(w http.ResponseWriter, r *http.Request) (*SongsForm, e
 	if r.Form.Get("action") == "delete" {
 		// make sure the user has permission to do this, since the route
 		// only checks for PermDatabaseEdit
-		if user.UserPermissions.Has(radio.PermDatabaseDelete) {
-			err = ts.Delete(form.Song.TrackID)
-			if err != nil {
-				return nil, errors.E(op, err)
-			}
-
-			// successfully deleted the song from the database, now we just
-			// need to remove the file we have on-disk
-			toRemovePath := form.Song.FilePath
-			if !filepath.IsAbs(toRemovePath) {
-				toRemovePath = filepath.Join(s.Conf().MusicPath, toRemovePath)
-			}
-
-			err = s.FS.Remove(toRemovePath)
-			if err != nil {
-				return nil, errors.E(op, err, errors.InternalServer)
-			}
-			return nil, nil
+		if !user.UserPermissions.Has(radio.PermDatabaseDelete) {
+			return form, errors.E(op, errors.AccessDenied)
 		}
-		return form, errors.E(op, errors.AccessDenied)
+
+		err = ts.Delete(form.Song.TrackID)
+		if err != nil {
+			return nil, errors.E(op, err)
+		}
+
+		// successfully deleted the song from the database, now we just
+		// need to remove the file we have on-disk
+		toRemovePath := form.Song.FilePath
+		if !filepath.IsAbs(toRemovePath) {
+			toRemovePath = filepath.Join(s.Conf().MusicPath, toRemovePath)
+		}
+
+		err = s.FS.Remove(toRemovePath)
+		if err != nil {
+			return nil, errors.E(op, err, errors.InternalServer)
+		}
+		return nil, nil
 	}
 
 	// anything but delete is effectively an update

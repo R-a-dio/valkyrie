@@ -162,6 +162,7 @@ func TestPostSongs(t *testing.T) {
 		FS:      fs,
 	}
 
+	// prepReq prepares a http.Request for use in the tests
 	prepReq := func(user radio.User, values url.Values) *http.Request {
 		body := strings.NewReader(values.Encode())
 		req := httptest.NewRequest(http.MethodPost, "/admin/songs", body)
@@ -169,6 +170,8 @@ func TestPostSongs(t *testing.T) {
 		return middleware.RequestWithUser(req, &user)
 	}
 
+	// checkExist is a helper function that lets us test if a filepath exists or not
+	// based on its arguments
 	checkExist := func(t *testing.T, shouldExist bool, fp string) bool {
 		fi, err := state.FS.Stat(fp)
 
@@ -186,6 +189,10 @@ func TestPostSongs(t *testing.T) {
 
 		return false
 	}
+
+	// check if the file we created above is still there at the end, none of the tests
+	// should be deleting it
+	defer checkExist(t, true, filename)
 
 	t.Run("happy path", func(t *testing.T) {
 		getArg = testSong.TrackID

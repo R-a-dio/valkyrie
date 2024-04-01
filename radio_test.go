@@ -331,3 +331,14 @@ func TestUserPermissionsScan(t *testing.T) {
 		})
 	}
 }
+
+func TestScheduleDayString(t *testing.T) {
+	assert.Equal(t, "Monday", Monday.String())
+	assert.Equal(t, "Tuesday", Tuesday.String())
+	assert.Equal(t, "Wednesday", Wednesday.String())
+	assert.Equal(t, "Thursday", Thursday.String())
+	assert.Equal(t, "Friday", Friday.String())
+	assert.Equal(t, "Saturday", Saturday.String())
+	assert.Equal(t, "Sunday", Sunday.String())
+	assert.Equal(t, "Unknown", ScheduleDay(100).String())
+}
