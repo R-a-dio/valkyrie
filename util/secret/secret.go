@@ -10,7 +10,7 @@ import (
 const keySize = 256
 
 func NewSecretWithKey(length int, key []byte) Secret {
-	return secret{length, key}
+	return &secret{length, key, time.Now}
 }
 
 func NewSecret(length int) (Secret, error) {
@@ -33,10 +33,11 @@ type Secret interface {
 type secret struct {
 	maxLen int
 	key    []byte
+	now    func() time.Time
 }
 
 func (s secret) Get(salt []byte) (secret string) {
-	sc := append(date(), s.key...)
+	sc := append(s.date(), s.key...)
 	if salt != nil {
 		sc = append(sc, salt...)
 	}
@@ -49,11 +50,11 @@ func (s secret) Get(salt []byte) (secret string) {
 }
 
 func (s secret) Equal(secret string, salt []byte) bool {
+	// TODO: this should probably be a constant-time compare, but we are not
+	// that bothered by it for our current usecase
 	return secret == s.Get(salt)
 }
 
-var date = dateNow
-
-func dateNow() []byte {
-	return []byte(time.Now().Format(time.DateOnly))
+func (s secret) date() []byte {
+	return []byte(s.now().Format(time.DateOnly))
 }
