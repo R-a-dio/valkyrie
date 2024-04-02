@@ -23,7 +23,10 @@ func NewSecret(length int) (Secret, error) {
 	return NewSecretWithKey(length, key), nil
 }
 
-const DaypassLength = 16
+const (
+	DaypassLength = 16
+	SongLength    = 24
+)
 
 type Secret interface {
 	Equal(secret string, salt []byte) bool

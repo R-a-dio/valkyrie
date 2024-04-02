@@ -22,6 +22,7 @@ func NewState(
 	_ context.Context,
 	cfg config.Config,
 	dp secret.Secret,
+	songSecret secret.Secret,
 	newsCache *shared.NewsCache,
 	storage radio.StorageService,
 	search radio.SearchService,
@@ -34,6 +35,7 @@ func NewState(
 	return State{
 		Config:           cfg,
 		Daypass:          dp,
+		SongSecret:       songSecret,
 		News:             newsCache,
 		Storage:          storage,
 		Search:           search,
@@ -49,6 +51,7 @@ type State struct {
 	config.Config
 
 	Daypass          secret.Secret
+	SongSecret       secret.Secret
 	News             *shared.NewsCache
 	Storage          radio.StorageService
 	Search           radio.SearchService

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"path/filepath"
 	"runtime/debug"
 	"sync"
 	"sync/atomic"
@@ -16,6 +15,7 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/streamer/audio"
 	"github.com/R-a-dio/valkyrie/streamer/icecast"
+	"github.com/R-a-dio/valkyrie/util"
 	"github.com/cenkalti/backoff"
 	"github.com/rs/zerolog"
 )
@@ -320,10 +320,7 @@ func (s *Streamer) queueFiles(task streamerTask) error {
 		}
 		track.track = *entry
 
-		track.filepath = track.track.FilePath
-		if !filepath.IsAbs(track.filepath) {
-			track.filepath = filepath.Join(s.Conf().MusicPath, track.filepath)
-		}
+		track.filepath = util.AbsolutePath(s.Conf().MusicPath, track.track.FilePath)
 
 		select {
 		case task.out <- track:

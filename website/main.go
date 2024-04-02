@@ -71,6 +71,11 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	if err != nil {
 		return errors.E(op, err)
 	}
+	// song download key generation
+	songSecret, err := secret.NewSecret(secret.SongLength)
+	if err != nil {
+		return errors.E(op, err)
+	}
 	// search service
 	searchService, err := search.Open(ctx, cfg)
 	if err != nil {
@@ -135,7 +140,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	r.Route(`/request/{TrackID:[0-9]+}`, v0.RequestRoute)
 
 	logger.Info().Str("event", "init").Str("part", "api_v1").Msg("")
-	v1, err := v1.NewAPI(ctx, cfg, executor)
+	v1, err := v1.NewAPI(ctx, cfg, executor, songSecret)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -147,6 +152,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		ctx,
 		cfg,
 		dpass,
+		songSecret,
 		newsCache,
 		storage,
 		searchService,

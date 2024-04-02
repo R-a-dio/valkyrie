@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"sync/atomic"
 	"time"
 
@@ -27,6 +28,13 @@ func RedirectBack(r *http.Request) *http.Request {
 		}
 	}
 	return r
+}
+
+func AbsolutePath(dir string, path string) string {
+	if filepath.IsAbs(path) {
+		return path
+	}
+	return filepath.Join(dir, path)
 }
 
 type StreamFn[T any] func(context.Context) (eventstream.Stream[T], error)

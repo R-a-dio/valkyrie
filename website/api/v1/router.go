@@ -8,11 +8,12 @@ import (
 	"github.com/R-a-dio/valkyrie/search"
 	"github.com/R-a-dio/valkyrie/storage"
 	"github.com/R-a-dio/valkyrie/templates"
+	"github.com/R-a-dio/valkyrie/util/secret"
 	"github.com/go-chi/chi/v5"
 )
 
-func NewAPI(ctx context.Context, cfg config.Config, templates templates.Executor) (*API, error) {
-	song, err := storage.Open(ctx, cfg)
+func NewAPI(ctx context.Context, cfg config.Config, templates templates.Executor, songSecret secret.Secret) (*API, error) {
+	sg, err := storage.Open(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -22,14 +23,15 @@ func NewAPI(ctx context.Context, cfg config.Config, templates templates.Executor
 	}
 
 	api := &API{
-		Context:   ctx,
-		Config:    cfg,
-		Search:    se,
-		Templates: templates,
-		sse:       NewStream(templates),
-		manager:   cfg.Conf().Manager.Client(),
-		streamer:  cfg.Conf().Streamer.Client(),
-		song:      song,
+		Context:    ctx,
+		Config:     cfg,
+		Search:     se,
+		Templates:  templates,
+		sse:        NewStream(templates),
+		manager:    cfg.Conf().Manager.Client(),
+		streamer:   cfg.Conf().Streamer.Client(),
+		storage:    sg,
+		songSecret: songSecret,
 	}
 
 	// start up status updates
@@ -39,17 +41,19 @@ func NewAPI(ctx context.Context, cfg config.Config, templates templates.Executor
 }
 
 type API struct {
-	Context   context.Context
-	Config    config.Config
-	Search    radio.SearchService
-	Templates templates.Executor
-	sse       *Stream
-	manager   radio.ManagerService
-	streamer  radio.StreamerService
-	song      radio.SongStorageService
+	Context    context.Context
+	Config     config.Config
+	Search     radio.SearchService
+	Templates  templates.Executor
+	sse        *Stream
+	manager    radio.ManagerService
+	streamer   radio.StreamerService
+	storage    radio.StorageService
+	songSecret secret.Secret
 }
 
 func (a *API) Route(r chi.Router) {
 	r.Get("/sse", a.sse.ServeHTTP)
 	r.Get("/search", a.SearchHTML)
+	r.Get("/song", a.GetSong)
 }

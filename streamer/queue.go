@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/streamer/audio"
+	"github.com/R-a-dio/valkyrie/util"
 	"github.com/rs/zerolog"
 	"go.opentelemetry.io/otel"
 )
@@ -88,7 +88,7 @@ func (qs *QueueService) append(ctx context.Context, entry radio.QueueEntry) {
 	ctx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 
-	path := filepath.Join(qs.Conf().MusicPath, entry.FilePath)
+	path := util.AbsolutePath(qs.Conf().MusicPath, entry.FilePath)
 	length, err := audio.ProbeDuration(ctx, path)
 	if err == nil {
 		qs.logger.Error().Err(err).Ctx(ctx).Msg("duration probe failure")

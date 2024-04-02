@@ -310,7 +310,7 @@ func (SubmissionForm) TemplateName() string {
 //	"track":		audio file being submitted
 //	"comment":		comment to be shown on the pending admin panel
 //	"daypass":		daypass to bypass upload limits
-//	"replacement":	an ID (number) indicating what song to replace in the database with this
+//	"replacement":	an TrackID (number) indicating what song to replace in the database with this
 //
 // Any other fields cause an error to be returned and all form parsing to stop.
 func NewSubmissionForm(tempdir string, mr *multipart.Reader) (*SubmissionForm, error) {

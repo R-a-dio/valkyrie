@@ -6,7 +6,6 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -15,6 +14,7 @@ import (
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/mocks"
+	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -110,7 +110,7 @@ func TestPostSongs(t *testing.T) {
 	cfg, err := config.LoadFile()
 	require.NoError(t, err)
 
-	filename := filepath.Join(cfg.Conf().MusicPath, "testfile.mp3")
+	filename := util.AbsolutePath(cfg.Conf().MusicPath, "testfile.mp3")
 	var testSong = &radio.Song{DatabaseTrack: &radio.DatabaseTrack{
 		TrackID:    500,
 		Artist:     "You",
@@ -217,7 +217,7 @@ func TestPostSongs(t *testing.T) {
 		c := *testSong
 		dt := *c.DatabaseTrack
 		c.DatabaseTrack = &dt
-		c.FilePath = filepath.Join(cfg.Conf().MusicPath, "todeleteabsolute.mp3")
+		c.FilePath = util.AbsolutePath(cfg.Conf().MusicPath, "todeleteabsolute.mp3")
 		getRet = &c
 		deleteArg = testSong.TrackID
 
@@ -250,7 +250,7 @@ func TestPostSongs(t *testing.T) {
 		c := *testSong
 		dt := *c.DatabaseTrack
 		c.DatabaseTrack = &dt
-		fullPath := filepath.Join(cfg.Conf().MusicPath, "todeleterelative.mp3")
+		fullPath := util.AbsolutePath(cfg.Conf().MusicPath, "todeleterelative.mp3")
 		c.FilePath = "todeleterelative.mp3"
 		getRet = &c
 		deleteArg = testSong.TrackID

@@ -13,6 +13,7 @@ import (
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/mocks"
+	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/arbitrary"
@@ -209,7 +210,7 @@ func TestPostPending(t *testing.T) {
 			require.NoError(t, err)
 
 			// setup a fake filesystem
-			path := filepath.Join(cfg.Conf().MusicPath, "pending")
+			path := pendingPath(cfg)
 			fs := afero.NewMemMapFs()
 			// make our pending directory, this will also make the musicpath
 			require.NoError(t, fs.MkdirAll(path, 0775))
@@ -226,7 +227,7 @@ func TestPostPending(t *testing.T) {
 			getFileContents := []byte("these were already there")
 			if test.GetRet != nil {
 				require.NoError(t, afero.WriteFile(fs,
-					filepath.Join(cfg.Conf().MusicPath, test.GetRet.FilePath),
+					util.AbsolutePath(cfg.Conf().MusicPath, test.GetRet.FilePath),
 					getFileContents,
 					0775),
 				)
@@ -279,7 +280,7 @@ func TestPostPending(t *testing.T) {
 					// our returned form should have an accepted song after no rollback
 					assert.NotNil(t, form.AcceptedSong)
 					// and we should have a file at the filepath given to the database layer
-					contents, err := afero.ReadFile(fs, filepath.Join(cfg.Conf().MusicPath, newSong.FilePath))
+					contents, err := afero.ReadFile(fs, util.AbsolutePath(cfg.Conf().MusicPath, newSong.FilePath))
 					if assert.NoError(t, err) {
 						assert.Equal(t, testFileContents, contents)
 					}
@@ -289,13 +290,13 @@ func TestPostPending(t *testing.T) {
 					// a decline should not have an accepted song
 					assert.Nil(t, form.AcceptedSong)
 					// and the file should be gone
-					fullPath := filepath.Join(cfg.Conf().MusicPath, "pending", form.FilePath)
+					fullPath := util.AbsolutePath(pendingPath(cfg), form.FilePath)
 					ok, err := afero.Exists(fs, fullPath)
 					if assert.NoError(t, err) {
 						assert.False(t, ok, "file should no longer exist", fullPath)
 					}
 				case radio.SubmissionReplacement:
-					contents, err := afero.ReadFile(fs, filepath.Join(cfg.Conf().MusicPath, test.GetRet.FilePath))
+					contents, err := afero.ReadFile(fs, util.AbsolutePath(cfg.Conf().MusicPath, test.GetRet.FilePath))
 					if assert.NoError(t, err) {
 						assert.Equal(t, testFileContents, contents)
 					}

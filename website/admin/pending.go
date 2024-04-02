@@ -10,6 +10,7 @@ import (
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/streamer/audio"
 	"github.com/R-a-dio/valkyrie/util"
@@ -79,10 +80,7 @@ func (s *State) GetPendingSong(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// grab the path of the song and make it absolute
-	path := song.FilePath
-	if !filepath.IsAbs(path) {
-		path = filepath.Join(s.Conf().MusicPath, path)
-	}
+	path := util.AbsolutePath(s.Conf().MusicPath, song.FilePath)
 
 	// if we want the audio file, send that back
 	if r.FormValue("spectrum") == "" {
@@ -155,11 +153,13 @@ func (s *State) PostPending(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// find our original form in the new submission page
 	i := slices.IndexFunc(input.Submissions, func(p PendingForm) bool {
 		return p.ID == form.ID
 	})
 
 	if i != -1 { // if our ID doesn't exist some third-party might've removed it from pending
+		// and swap it out with the submitted form
 		input.Submissions[i] = form
 	}
 
@@ -244,16 +244,10 @@ func (s *State) postPendingDoReplace(w http.ResponseWriter, r *http.Request, for
 	}
 
 	// grab the path of the existing entry
-	existingPath := existing.FilePath
-	if !filepath.IsAbs(existingPath) {
-		existingPath = filepath.Join(s.Conf().MusicPath, existingPath)
-	}
+	existingPath := util.AbsolutePath(s.Conf().MusicPath, existing.FilePath)
 
 	// then the path of the new entry
-	pendingPath := form.FilePath
-	if !filepath.IsAbs(pendingPath) {
-		pendingPath = filepath.Join(s.Conf().MusicPath, "pending", pendingPath)
-	}
+	pendingPath := util.AbsolutePath(pendingPath(s.Config), form.FilePath)
 
 	// and move the new to the old path
 	err = s.FS.Rename(pendingPath, existingPath)
@@ -300,10 +294,7 @@ func (s *State) postPendingDoDecline(w http.ResponseWriter, r *http.Request, for
 	}
 
 	// make path absolute if it isn't
-	filePath := form.FilePath
-	if !filepath.IsAbs(filePath) {
-		filePath = filepath.Join(s.Conf().MusicPath, "pending", filePath)
-	}
+	filePath := util.AbsolutePath(pendingPath(s.Config), form.FilePath)
 
 	// remove the file
 	err = s.FS.Remove(filePath)
@@ -317,6 +308,10 @@ func (s *State) postPendingDoDecline(w http.ResponseWriter, r *http.Request, for
 	}
 
 	return form, nil
+}
+
+func pendingPath(cfg config.Config) string {
+	return filepath.Join(cfg.Conf().MusicPath, "pending")
 }
 
 func (s *State) postPendingDoAccept(w http.ResponseWriter, r *http.Request, form PendingForm) (PendingForm, error) {
@@ -366,9 +361,7 @@ func (s *State) postPendingDoAccept(w http.ResponseWriter, r *http.Request, form
 	newFilePath := filepath.Join(s.Conf().MusicPath, newFilename)
 
 	// make path absolute if it isn't
-	if !filepath.IsAbs(track.FilePath) {
-		track.FilePath = filepath.Join(s.Conf().MusicPath, "pending", track.FilePath)
-	}
+	track.FilePath = util.AbsolutePath(pendingPath(s.Config), track.FilePath)
 
 	// rename the file to the actual music directory
 	err = s.FS.Rename(track.FilePath, newFilePath)

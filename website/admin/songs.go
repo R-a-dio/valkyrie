@@ -1,13 +1,14 @@
 package admin
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
-	"path/filepath"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/util"
+	"github.com/R-a-dio/valkyrie/util/secret"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/R-a-dio/valkyrie/website/shared"
 	"github.com/rs/zerolog/hlog"
@@ -35,6 +36,7 @@ type SongsForm struct {
 	// HasEdit indicates if we should allow editing of the form
 	HasEdit bool
 	Song    radio.Song
+	SongURL string
 }
 
 func (SongsForm) TemplateName() string {
@@ -45,7 +47,7 @@ func (SongsForm) TemplateBundle() string {
 	return "database"
 }
 
-func NewSongsInput(s radio.SearchService, r *http.Request) (*SongsInput, error) {
+func NewSongsInput(s radio.SearchService, ss secret.Secret, r *http.Request) (*SongsInput, error) {
 	const op errors.Op = "website/admin.NewSongInput"
 	ctx := r.Context()
 
@@ -77,14 +79,20 @@ func NewSongsInput(s radio.SearchService, r *http.Request) (*SongsInput, error) 
 		forms[i].Song = searchResult.Songs[i]
 		forms[i].HasDelete = hasDelete
 		forms[i].HasEdit = hasEdit
+		forms[i].SongURL = GenerateSongURL(ss, searchResult.Songs[i])
 	}
 
 	input.Forms = forms
 	return input, nil
 }
 
+func GenerateSongURL(ss secret.Secret, song radio.Song) string {
+	key := ss.Get(song.Hash[:])
+	return fmt.Sprintf("/v1/song?key=%s&id=%d", key, song.TrackID)
+}
+
 func (s *State) GetSongs(w http.ResponseWriter, r *http.Request) {
-	input, err := NewSongsInput(s.Search, r)
+	input, err := NewSongsInput(s.Search, s.SongSecret, r)
 	if err != nil {
 		hlog.FromRequest(r).Error().Err(err).Msg("input creation failure")
 		return
@@ -157,10 +165,7 @@ func (s *State) postSongs(w http.ResponseWriter, r *http.Request) (*SongsForm, e
 
 		// successfully deleted the song from the database, now we just
 		// need to remove the file we have on-disk
-		toRemovePath := form.Song.FilePath
-		if !filepath.IsAbs(toRemovePath) {
-			toRemovePath = filepath.Join(s.Conf().MusicPath, toRemovePath)
-		}
+		toRemovePath := util.AbsolutePath(s.Conf().MusicPath, form.Song.FilePath)
 
 		err = s.FS.Remove(toRemovePath)
 		if err != nil {

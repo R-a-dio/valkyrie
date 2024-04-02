@@ -5,11 +5,11 @@ package jobs
 
 import (
 	"context"
-	"path/filepath"
 
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/storage"
 	"github.com/R-a-dio/valkyrie/streamer/audio"
+	"github.com/R-a-dio/valkyrie/util"
 	"github.com/rs/zerolog"
 )
 
@@ -30,7 +30,7 @@ func ExecuteVerifier(ctx context.Context, cfg config.Config) error {
 
 	root := cfg.Conf().MusicPath
 	for _, song := range songs {
-		filename := filepath.Join(root, song.FilePath)
+		filename := util.AbsolutePath(root, song.FilePath)
 		err := decodeFile(filename)
 		if err != nil {
 			l := logger.Error().
