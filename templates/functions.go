@@ -29,6 +29,7 @@ var fnMap = map[string]any{
 	"Div":                         func(a, b int) int { return a / b },
 	"Sub":                         func(a, b int64) int64 { return a - b },
 	"CalculateSubmissionCooldown": radio.CalculateSubmissionCooldown,
+	"AllUserPermissions":          radio.AllUserPermissions,
 }
 
 func PrintJSON(v any) (template.HTML, error) {

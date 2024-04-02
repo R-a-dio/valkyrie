@@ -122,7 +122,8 @@ func (u UserPermission) String() string {
 
 type UserPermissions map[UserPermission]struct{}
 
-// Has returns true if the permission given is in the UserPermissions
+// Has returns true if the permissions in UserPermission allow
+// access to the permission given
 func (up UserPermissions) Has(perm UserPermission) bool {
 	if up == nil { // nil map, has no permissions ever
 		return false
@@ -137,6 +138,15 @@ func (up UserPermissions) Has(perm UserPermission) bool {
 		_, ok = up[PermDev]
 		return ok
 	}
+	return ok
+}
+
+// HasExplicit returns true if the permission given is explicitly in the UserPermissions
+func (up UserPermissions) HasExplicit(perm UserPermission) bool {
+	if up == nil {
+		return false
+	}
+	_, ok := up[perm]
 	return ok
 }
 
