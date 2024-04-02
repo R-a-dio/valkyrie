@@ -9,7 +9,7 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/templates"
-	"github.com/R-a-dio/valkyrie/util/daypass"
+	"github.com/R-a-dio/valkyrie/util/secret"
 	vmiddleware "github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/R-a-dio/valkyrie/website/shared"
 	"github.com/spf13/afero"
@@ -21,7 +21,7 @@ import (
 func NewState(
 	_ context.Context,
 	cfg config.Config,
-	dp *daypass.Daypass,
+	dp secret.Secret,
 	newsCache *shared.NewsCache,
 	storage radio.StorageService,
 	search radio.SearchService,
@@ -48,7 +48,7 @@ func NewState(
 type State struct {
 	config.Config
 
-	Daypass          *daypass.Daypass
+	Daypass          secret.Secret
 	News             *shared.NewsCache
 	Storage          radio.StorageService
 	Search           radio.SearchService

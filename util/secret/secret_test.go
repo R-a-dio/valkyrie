@@ -5,17 +5,17 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/R-a-dio/valkyrie/util/daypass"
+	"github.com/R-a-dio/valkyrie/util/secret"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestSecretKeyGeneration(t *testing.T) {
-	s1, err := daypass.NewSecret(16)
+	s1, err := secret.NewSecret(16)
 	require.NoError(t, err)
 	require.True(t, s1.Equal(s1.Get(nil), nil), "s1 should equal itself")
 
-	s2, err := daypass.NewSecret(16)
+	s2, err := secret.NewSecret(16)
 	require.NoError(t, err)
 	require.True(t, s2.Equal(s2.Get(nil), nil), "s2 should equal itself")
 
@@ -27,7 +27,7 @@ func TestSecretKeyGeneration(t *testing.T) {
 func TestSecretSaltComparison(t *testing.T) {
 	for i := 1; i < sha256.Size*2; i++ {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			s, err := daypass.NewSecret(i)
+			s, err := secret.NewSecret(i)
 			require.NoError(t, err)
 
 			salt := []byte("testing world")

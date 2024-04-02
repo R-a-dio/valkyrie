@@ -3,19 +3,19 @@ package admin
 import (
 	"net/http"
 
-	"github.com/R-a-dio/valkyrie/util/daypass"
+	"github.com/R-a-dio/valkyrie/util/secret"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 )
 
 type HomeInput struct {
 	middleware.Input
-	Daypass daypass.DaypassInfo
+	Daypass string
 }
 
-func NewHomeInput(r *http.Request, dp *daypass.Daypass) HomeInput {
+func NewHomeInput(r *http.Request, dp secret.Secret) HomeInput {
 	return HomeInput{
 		Input:   middleware.InputFromRequest(r),
-		Daypass: dp.Info(),
+		Daypass: dp.Get(nil),
 	}
 }
 

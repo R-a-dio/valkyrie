@@ -15,7 +15,7 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/streamer/audio"
 	"github.com/R-a-dio/valkyrie/util"
-	"github.com/R-a-dio/valkyrie/util/daypass"
+	"github.com/R-a-dio/valkyrie/util/secret"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/rs/zerolog/hlog"
 )
@@ -89,7 +89,7 @@ func (s State) canSubmitSong(r *http.Request) (time.Duration, error) {
 	}
 
 	daypass := r.Header.Get(daypassHeader)
-	if s.Daypass.Is(daypass) { // daypass was used so can submit song
+	if s.Daypass.Equal(daypass, nil) { // daypass was used so can submit song
 		return 0, nil
 	}
 
@@ -396,7 +396,7 @@ func NewSubmissionForm(tempdir string, mr *multipart.Reader) (*SubmissionForm, e
 // Validate checks if required fields are filled in the SubmissionForm and
 // if a daypass was supplied if it was a valid one. Populates sf.Errors with
 // any errors that occur and what input field caused it.
-func (sf *SubmissionForm) Validate(ts radio.TrackStorage, dp *daypass.Daypass) bool {
+func (sf *SubmissionForm) Validate(ts radio.TrackStorage, dp secret.Secret) bool {
 	sf.Errors = make(map[string]string)
 	if sf.File == "" {
 		sf.Errors["track"] = "no temporary file"
@@ -408,7 +408,7 @@ func (sf *SubmissionForm) Validate(ts radio.TrackStorage, dp *daypass.Daypass) b
 		sf.Errors["comment"] = "no comment supplied"
 	}
 	if sf.Daypass != "" {
-		sf.IsDaypass = dp.Is(sf.Daypass)
+		sf.IsDaypass = dp.Equal(sf.Daypass, nil)
 		if !sf.IsDaypass {
 			sf.Errors["daypass"] = "daypass invalid"
 		}

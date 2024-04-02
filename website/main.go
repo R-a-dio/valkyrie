@@ -15,7 +15,7 @@ import (
 	"github.com/R-a-dio/valkyrie/storage"
 	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/R-a-dio/valkyrie/util"
-	"github.com/R-a-dio/valkyrie/util/daypass"
+	"github.com/R-a-dio/valkyrie/util/secret"
 	"github.com/R-a-dio/valkyrie/website/admin"
 	phpapi "github.com/R-a-dio/valkyrie/website/api/php"
 	v1 "github.com/R-a-dio/valkyrie/website/api/v1"
@@ -67,7 +67,10 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	}
 	executor := siteTemplates.Executor()
 	// daypass generation
-	dpass := daypass.New(ctx)
+	dpass, err := secret.NewSecret(secret.DaypassLength)
+	if err != nil {
+		return errors.E(op, err)
+	}
 	// search service
 	searchService, err := search.Open(ctx, cfg)
 	if err != nil {
