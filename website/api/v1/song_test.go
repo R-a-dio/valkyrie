@@ -80,7 +80,7 @@ func createSong(t *testing.T, api *API, id radio.TrackID, filename, metadata str
 	song.Hydrate()
 
 	data := make([]byte, 128)
-	_, err := io.ReadFull(rand.New(rand.NewSource(42)), data)
+	_, err := io.ReadFull(rand.New(rand.NewSource(int64(id))), data)
 	require.NoError(t, err)
 	sdata := base64.URLEncoding.EncodeToString(data)
 
@@ -114,23 +114,34 @@ func TestGetSong(t *testing.T) {
 		values.Del("id")
 		assert.HTTPStatusCode(t, api.GetSong, http.MethodGet, "/song", values, http.StatusBadRequest)
 		assert.HTTPBodyContains(t, api.GetSong, http.MethodGet, "/song", values, "missing")
+		assert.HTTPBodyNotContains(t, api.GetSong, http.MethodGet, "/song", values, data)
 	})
 	t.Run("invalid id", func(t *testing.T) {
 		values := createValues(api, tapi.GetRet)
 		values.Set("id", "this is not a number")
 		assert.HTTPStatusCode(t, api.GetSong, http.MethodGet, "/song", values, http.StatusBadRequest)
 		assert.HTTPBodyContains(t, api.GetSong, http.MethodGet, "/song", values, "invalid")
+		assert.HTTPBodyNotContains(t, api.GetSong, http.MethodGet, "/song", values, data)
 	})
 	t.Run("unknown id", func(t *testing.T) {
 		values := createValues(api, tapi.GetRet)
 		values.Set("id", "100")
 		assert.HTTPStatusCode(t, api.GetSong, http.MethodGet, "/song", values, http.StatusNotFound)
 		assert.HTTPBodyContains(t, api.GetSong, http.MethodGet, "/song", values, "unknown")
+		assert.HTTPBodyNotContains(t, api.GetSong, http.MethodGet, "/song", values, data)
 	})
-	t.Run("invalid key", func(t *testing.T) {
+	t.Run("missing key", func(t *testing.T) {
 		values := createValues(api, tapi.GetRet)
-		values.Set("key", "randomdata")
+		values.Del("key")
 		assert.HTTPStatusCode(t, api.GetSong, http.MethodGet, "/song", values, http.StatusUnauthorized)
 		assert.HTTPBodyContains(t, api.GetSong, http.MethodGet, "/song", values, "invalid key")
+		assert.HTTPBodyNotContains(t, api.GetSong, http.MethodGet, "/song", values, data)
+	})
+	t.Run("invalid key", func(t *testing.T) {
+		otherSong, data := createSong(t, api, 50, "other.flac", "big test")
+		values := createValues(api, otherSong)
+		assert.HTTPStatusCode(t, api.GetSong, http.MethodGet, "/song", values, http.StatusUnauthorized)
+		assert.HTTPBodyContains(t, api.GetSong, http.MethodGet, "/song", values, "invalid key")
+		assert.HTTPBodyNotContains(t, api.GetSong, http.MethodGet, "/song", values, data)
 	})
 }
