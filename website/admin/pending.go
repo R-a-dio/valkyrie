@@ -18,7 +18,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/xid"
 	"github.com/rs/zerolog/hlog"
-	"github.com/spf13/afero"
 )
 
 type PendingInput struct {
@@ -85,8 +84,15 @@ func (s *State) GetPendingSong(w http.ResponseWriter, r *http.Request) {
 
 	// if we want the audio file, send that back
 	if r.FormValue("spectrum") == "" {
-		w.Header().Set("Content-Disposition", "attachment")
-		http.ServeFileFS(w, r, afero.NewIOFS(s.FS), path)
+		f, err := s.FS.Open(path)
+		if err != nil {
+			hlog.FromRequest(r).Error().Err(err).Msg("fs failure")
+			return
+		}
+		defer f.Close()
+
+		util.AddContentDispositionSong(w, song.Metadata(), song.FilePath)
+		http.ServeContent(w, r, "", time.Now(), f)
 		return
 	}
 
@@ -98,7 +104,8 @@ func (s *State) GetPendingSong(w http.ResponseWriter, r *http.Request) {
 	}
 	defer os.Remove(specPath)
 
-	http.ServeFileFS(w, r, afero.NewIOFS(s.FS), specPath)
+	// TODO: use in-memory file
+	http.ServeFile(w, r, specPath)
 }
 
 func (s *State) GetPending(w http.ResponseWriter, r *http.Request) {

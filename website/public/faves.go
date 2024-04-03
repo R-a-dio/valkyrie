@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/R-a-dio/valkyrie/website/shared"
 	"github.com/go-chi/chi/v5"
@@ -71,7 +72,7 @@ func (s State) GetFaves(w http.ResponseWriter, r *http.Request) {
 	// so we need to support that for old users
 	if r.FormValue("dl") != "" {
 		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s_faves.json", input.Nickname))
+		util.AddContentDisposition(w, fmt.Sprintf("%s_faves.json", input.Nickname))
 		err := json.NewEncoder(w).Encode(NewFaveDownload(input.Faves))
 		if err != nil {
 			s.errorHandler(w, r, err)

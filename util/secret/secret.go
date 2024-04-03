@@ -10,7 +10,7 @@ import (
 const keySize = 256
 
 func NewSecretWithKey(length int, key []byte) Secret {
-	length = min(length, MinLength)
+	length = max(length, MinLength)
 	return &secret{length, key, time.Now}
 }
 

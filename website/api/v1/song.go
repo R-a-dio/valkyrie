@@ -2,11 +2,13 @@ package v1
 
 import (
 	"net/http"
+	"os"
+	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/util"
 	"github.com/rs/zerolog/hlog"
-	"github.com/spf13/afero"
 )
 
 func (a *API) GetSong(w http.ResponseWriter, r *http.Request) {
@@ -24,7 +26,7 @@ func (a *API) GetSong(w http.ResponseWriter, r *http.Request) {
 	song, err := a.storage.Track(r.Context()).Get(tid)
 	if err != nil {
 		hlog.FromRequest(r).Error().Err(err)
-		http.Error(w, "invalid id", http.StatusNotFound)
+		http.Error(w, "unknown id", http.StatusNotFound)
 		return
 	}
 
@@ -35,5 +37,19 @@ func (a *API) GetSong(w http.ResponseWriter, r *http.Request) {
 	}
 
 	path := util.AbsolutePath(a.Config.Conf().MusicPath, song.FilePath)
-	http.ServeFileFS(w, r, afero.NewIOFS(a.fs), path)
+
+	f, err := a.fs.Open(path)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.IsE(err, os.ErrNotExist) {
+			status = http.StatusNotFound
+		}
+		hlog.FromRequest(r).Error().Err(err)
+		http.Error(w, http.StatusText(status), status)
+		return
+	}
+	defer f.Close()
+
+	util.AddContentDispositionSong(w, song.Metadata, song.FilePath)
+	http.ServeContent(w, r, "", time.Now(), f)
 }
