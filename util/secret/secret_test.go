@@ -70,7 +70,6 @@ func TestSecretDateChange(t *testing.T) {
 	for i := 0; i < 365*2; i++ {
 		require.True(t, s.Equal(last, nil), "should equal before day change")
 		require.True(t, s.Equal(lastSalted, salt), "should equal before day change")
-		t.Log(rd)
 		rd = rd.AddDate(0, 0, 1)
 		require.False(t, s.Equal(last, nil), "should not equal after day change")
 		require.False(t, s.Equal(lastSalted, salt), "should not equal after day change")
