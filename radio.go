@@ -1035,7 +1035,7 @@ type SubmissionStats struct {
 }
 
 // SubmissionID is the ID of a pending song
-type SubmissionID uint
+type SubmissionID uint64
 
 func (id SubmissionID) String() string {
 	return strconv.FormatUint(uint64(id), 10)
