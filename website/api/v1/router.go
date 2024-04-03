@@ -10,9 +10,13 @@ import (
 	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/R-a-dio/valkyrie/util/secret"
 	"github.com/go-chi/chi/v5"
+	"github.com/spf13/afero"
 )
 
-func NewAPI(ctx context.Context, cfg config.Config, templates templates.Executor, songSecret secret.Secret) (*API, error) {
+func NewAPI(ctx context.Context, cfg config.Config,
+	templates templates.Executor,
+	fs afero.Fs,
+	songSecret secret.Secret) (*API, error) {
 	sg, err := storage.Open(ctx, cfg)
 	if err != nil {
 		return nil, err
@@ -32,6 +36,7 @@ func NewAPI(ctx context.Context, cfg config.Config, templates templates.Executor
 		streamer:   cfg.Conf().Streamer.Client(),
 		storage:    sg,
 		songSecret: songSecret,
+		fs:         fs,
 	}
 
 	// start up status updates
@@ -50,6 +55,7 @@ type API struct {
 	streamer   radio.StreamerService
 	storage    radio.StorageService
 	songSecret secret.Secret
+	fs         afero.Fs
 }
 
 func (a *API) Route(r chi.Router) {

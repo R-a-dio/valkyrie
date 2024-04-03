@@ -6,6 +6,7 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/util"
 	"github.com/rs/zerolog/hlog"
+	"github.com/spf13/afero"
 )
 
 func (a *API) GetSong(w http.ResponseWriter, r *http.Request) {
@@ -34,5 +35,5 @@ func (a *API) GetSong(w http.ResponseWriter, r *http.Request) {
 	}
 
 	path := util.AbsolutePath(a.Config.Conf().MusicPath, song.FilePath)
-	http.ServeFile(w, r, path)
+	http.ServeFileFS(w, r, afero.NewIOFS(a.fs), path)
 }

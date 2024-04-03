@@ -140,7 +140,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	r.Route(`/request/{TrackID:[0-9]+}`, v0.RequestRoute)
 
 	logger.Info().Str("event", "init").Str("part", "api_v1").Msg("")
-	v1, err := v1.NewAPI(ctx, cfg, executor, songSecret)
+	v1, err := v1.NewAPI(ctx, cfg, executor, afero.NewReadOnlyFs(afero.NewOsFs()), songSecret)
 	if err != nil {
 		return errors.E(op, err)
 	}

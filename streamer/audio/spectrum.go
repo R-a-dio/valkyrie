@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+
+	"github.com/spf13/afero"
 )
 
-func Spectrum(ctx context.Context, filename string) (string, error) {
+func Spectrum(ctx context.Context, fs afero.Fs, filename string) (string, error) {
+	// TODO: use fs interface instead of plain to disk writing
 	f, err := os.CreateTemp("", "spectrum*.jpg")
 	if err != nil {
 		return "", err
