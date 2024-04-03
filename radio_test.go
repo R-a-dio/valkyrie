@@ -1,7 +1,6 @@
 package radio
 
 import (
-	"crypto/sha1"
 	"fmt"
 	"reflect"
 	"testing"
@@ -448,13 +447,9 @@ func TestPasswordFunctions(t *testing.T) {
 }
 
 func TestSongHashValuer(t *testing.T) {
+	a := arbitrary.DefaultArbitraries()
 	p := gopter.NewProperties(nil)
-	p.Property("roundtrip", prop.ForAll(func(data []byte) bool {
-		// gopter doesn't support arrays so we instead just take a fixed-length
-		// slice and copy it over to our type before we run the test
-		var in SongHash
-		copy(in[:], data)
-
+	p.Property("roundtrip", a.ForAll(func(in SongHash) bool {
 		value, err := in.Value()
 		if err != nil {
 			t.Log("value failed:", err)
@@ -468,7 +463,7 @@ func TestSongHashValuer(t *testing.T) {
 			return false
 		}
 		return out == in
-	}, gen.SliceOfN(sha1.Size, gen.UInt8())))
+	}))
 	p.TestingRun(t)
 }
 
@@ -496,13 +491,9 @@ func TestSongHashScan(t *testing.T) {
 }
 
 func TestSongHashJSON(t *testing.T) {
+	a := arbitrary.DefaultArbitraries()
 	p := gopter.NewProperties(nil)
-	p.Property("roundtrip", prop.ForAll(func(data []byte) bool {
-		// gopter doesn't support arrays so we instead just take a fixed-length
-		// slice and copy it over to our type before we run the test
-		var in SongHash
-		copy(in[:], data)
-
+	p.Property("roundtrip", a.ForAll(func(in SongHash) bool {
 		value, err := in.MarshalJSON()
 		if err != nil {
 			t.Log("marshal failed:", err)
@@ -516,6 +507,6 @@ func TestSongHashJSON(t *testing.T) {
 			return false
 		}
 		return out == in
-	}, gen.SliceOfN(sha1.Size, gen.UInt8())))
+	}))
 	p.TestingRun(t)
 }
