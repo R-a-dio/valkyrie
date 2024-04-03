@@ -29,7 +29,7 @@ func TestSecretKeyGeneration(t *testing.T) {
 }
 
 func TestSecretSaltComparison(t *testing.T) {
-	for i := 1; i < sha256.Size*2; i++ {
+	for i := MinLength; i < sha256.Size*2; i++ {
 		i := i
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			t.Parallel()

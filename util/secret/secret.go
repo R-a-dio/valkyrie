@@ -10,6 +10,7 @@ import (
 const keySize = 256
 
 func NewSecretWithKey(length int, key []byte) Secret {
+	length = min(length, MinLength)
 	return &secret{length, key, time.Now}
 }
 
@@ -26,6 +27,7 @@ func NewSecret(length int) (Secret, error) {
 const (
 	DaypassLength = 16
 	SongLength    = 24
+	MinLength     = 8
 )
 
 type Secret interface {
