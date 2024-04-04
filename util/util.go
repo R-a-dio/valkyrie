@@ -36,7 +36,7 @@ func RedirectBack(r *http.Request) *http.Request {
 	if err != nil {
 		r.URL = current
 	} else {
-		current, err = url.Parse(r.Header.Get("Referer"))
+		current, err = url.Parse(r.Referer())
 		if err == nil {
 			r.URL = current
 		}
