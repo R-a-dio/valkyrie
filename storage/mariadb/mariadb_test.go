@@ -40,7 +40,11 @@ func (setup *MariaDBSetup) Setup(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
 	setup.db, err = sqlx.ConnectContext(ctx, "mysql", dsn)
+	if err != nil {
+		container.Terminate(ctx)
+	}
 	return err
 }
 
@@ -66,8 +70,9 @@ func (setup *MariaDBSetup) TearDown(ctx context.Context) error {
 }
 
 func (setup *MariaDBSetup) CreateStorage(ctx context.Context, name string) (radio.StorageService, error) {
-	// create the database
+	// test names have a / prefixed sometimes
 	name = strings.ReplaceAll(name, "/", "")
+	// create the database
 	setup.db.MustExecContext(ctx, "CREATE DATABASE "+name+";")
 	// update our config to connect to the container
 	cfg, err := config.LoadFile()

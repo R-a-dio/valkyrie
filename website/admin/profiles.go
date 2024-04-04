@@ -17,7 +17,6 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/R-a-dio/valkyrie/website/middleware"
-	"github.com/rs/zerolog/hlog"
 	"github.com/spf13/afero"
 )
 
@@ -30,10 +29,21 @@ const (
 type ProfileForm struct {
 	radio.User
 
+	// IsAdmin indicates if we're setting up the admin-only form
+	IsAdmin bool
+	// IsSelf indicates if we're setting up a form for ourselves, can only
+	// be false if IsAdmin is true
+	IsSelf bool
+	// UserIP is the users current IP, as a template.JS because we include
+	// it in a button to set the IP field
+	CurrentIP template.JS
 	// PasswordChangeForm holds the fields required for changing a password
 	PasswordChangeForm ProfilePasswordChangeForm
 	// Errors that occured while parsing the form
 	Errors map[string]string
+
+	// newPermissions holds the permissions list received from the client
+	newPermissions radio.UserPermissions
 }
 
 func (ProfileForm) TemplateBundle() string {
@@ -49,7 +59,7 @@ func (ProfileForm) TemplateName() string {
 func (s *State) GetProfile(w http.ResponseWriter, r *http.Request) {
 	err := s.getProfile(w, r)
 	if err != nil {
-		hlog.FromRequest(r).Error().Err(err).Msg("")
+		s.errorHandler(w, r, err, "")
 		return
 	}
 }
@@ -57,42 +67,18 @@ func (s *State) GetProfile(w http.ResponseWriter, r *http.Request) {
 type ProfileInput struct {
 	middleware.Input
 
-	// IsAdmin indicates if we're setting up the admin-only form
-	IsAdmin bool
-	// IsSelf indicates if we're setting up a form for ourselves, can only
-	// be false if IsAdmin is true
-	IsSelf bool
-	// UserIP is the users current IP, as a template.JS because we include
-	// it in a button to set the IP field
-	UserIP template.JS
-	Form   ProfileForm
-}
-
-func NewProfileInput(r *http.Request) (*ProfileInput, error) {
-	return &ProfileInput{
-		IsAdmin: false,
-		IsSelf:  true,
-		Input:   middleware.InputFromRequest(r),
-		UserIP:  template.JS(r.RemoteAddr),
-		Form: ProfileForm{
-			User: *middleware.UserFromContext(r.Context()),
-		},
-	}, nil
+	Form ProfileForm
 }
 
 func (ProfileInput) TemplateBundle() string {
 	return "profile"
 }
 
-func NewProfileAsAdminInput(forUser radio.User, r *http.Request) (*ProfileInput, error) {
+func NewProfileInput(forUser radio.User, r *http.Request) (*ProfileInput, error) {
 	input := ProfileInput{
-		IsAdmin: true,
-		Input:   middleware.InputFromRequest(r),
-		Form: ProfileForm{
-			User: forUser,
-		},
+		Input: middleware.InputFromRequest(r),
+		Form:  newProfileForm(forUser, r),
 	}
-	input.IsSelf = forUser.ID == input.User.ID
 
 	return &input, nil
 }
@@ -114,42 +100,20 @@ func (s *State) getProfile(w http.ResponseWriter, r *http.Request) error {
 
 	user := middleware.UserFromContext(ctx)
 
-	// if admin, they can change all profiles so we delegate that to another handler
+	// if admin, they can see other users, check if that is the case
 	if user.UserPermissions.Has(radio.PermAdmin) {
-		return s.getProfileAdmin(w, r)
-	}
-
-	input, err := NewProfileInput(r)
-	if err != nil {
-		return errors.E(op, err)
-	}
-
-	err = s.TemplateExecutor.Execute(w, r, input)
-	if err != nil {
-		return errors.E(op, err)
-	}
-	return nil
-}
-
-func (s *State) getProfileAdmin(w http.ResponseWriter, r *http.Request) error {
-	const op errors.Op = "website/admin.getProfileAdmin"
-	ctx := r.Context()
-
-	// admins also look at their own profile if we don't get any arguments
-	forUser := middleware.UserFromContext(ctx)
-
-	// but if we do they can also look at other users
-	username := r.FormValue("username")
-	if username != "" {
-		// lookup provided username and use that for the form instead
-		user, err := s.Storage.User(ctx).Get(username)
-		if err != nil {
-			return errors.E(op, err)
+		username := r.FormValue("username")
+		if username != "" {
+			// lookup provided username and use that for the form instead
+			other, err := s.Storage.User(ctx).Get(username)
+			if err != nil {
+				return errors.E(op, err)
+			}
+			user = other
 		}
-		forUser = user
 	}
 
-	input, err := NewProfileAsAdminInput(*forUser, r)
+	input, err := NewProfileInput(*user, r)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -158,7 +122,6 @@ func (s *State) getProfileAdmin(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return errors.E(op, err)
 	}
-
 	return nil
 }
 
@@ -166,10 +129,6 @@ func (s *State) getProfileAdmin(w http.ResponseWriter, r *http.Request) error {
 //
 // The expected form as input is defined in templates/partials/form_admin_profile
 func (s *State) PostProfile(w http.ResponseWriter, r *http.Request) {
-	user := middleware.UserFromContext(r.Context())
-	if user.UserPermissions.Has(radio.PermAdmin) {
-		s.postProfileAdmin(w, r)
-	}
 	form, err := s.postProfile(w, r)
 	if err != nil {
 		s.errorHandler(w, r, err, "failed post profile")
@@ -185,39 +144,6 @@ func (s *State) PostProfile(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, r.URL.String(), http.StatusSeeOther)
 }
 
-func (s *State) postProfileAdmin(w http.ResponseWriter, r *http.Request) (templates.TemplateSelectable, error) {
-	const op errors.Op = "website/admin.postProfileAdmin"
-	var err error
-
-	ctx := r.Context()
-	user := middleware.UserFromContext(ctx)
-
-	// first check for what user we're here for
-	username := r.PostFormValue("username")
-
-	if username != user.Username {
-		// we're here for a user that isn't us, so get the data for that user instead
-		user, err = s.Storage.User(ctx).Get(username)
-		if err != nil {
-			return nil, errors.E(op, err)
-		}
-	}
-
-	// then parse the form with that user as context
-	form, err := NewProfileForm(*user, r)
-	if err != nil {
-		return nil, errors.E(op, err)
-	}
-
-	// then check if we're creating a new profile, this is done through an extra parameter
-	// in the request. If we are hand it over to that handler instead
-	if r.PostFormValue("new") != "" {
-		return s.postNewProfile(w, r, form)
-	}
-
-	return nil, nil
-}
-
 func (s *State) postProfile(w http.ResponseWriter, r *http.Request) (templates.TemplateSelectable, error) {
 	const op errors.Op = "website/admin.postProfile"
 
@@ -228,29 +154,44 @@ func (s *State) postProfile(w http.ResponseWriter, r *http.Request) (templates.T
 	toEdit := currentUser
 
 	// now first parse the form
-	err := r.ParseMultipartForm(16 * 1024)
+	err := r.ParseForm()
 	if err != nil {
-		return nil, errors.E(op, errors.InternalServer, err)
+		return nil, errors.E(op, errors.InvalidForm, err)
+	}
+
+	err = r.ParseMultipartForm(16 * 1024)
+	// the above will error if the form submitted wasn't multipart/form-data but
+	// that isn't a critical error so continue if that occurs
+	if err != nil && !errors.IsE(err, http.ErrNotMultipart) {
+		return nil, errors.E(op, errors.InvalidForm, err)
 	}
 
 	// now if the user is admin, we need to check if we are working on
 	// another user
 	if currentUser.UserPermissions.Has(radio.PermAdmin) {
 		username := r.PostFormValue("username")
-		if username == "" {
-			return nil, errors.E(op, errors.InvalidForm)
+		if username == "" { // double check that there is an actual user
+			return nil, errors.E(op, errors.InvalidForm, "no username in form")
 		}
+		// check if the username differs from what we were planning to edit
 		if username != toEdit.Username {
+			// grab the other user
 			toEdit, err = s.Storage.User(ctx).Get(username)
 			if err != nil {
-				return nil, errors.E(op, err)
+				return nil, errors.E(op, err, errors.InternalServer)
 			}
 		}
 	}
 
+	// parse the request form values into our form struct
 	form, err := NewProfileForm(*toEdit, r)
 	if err != nil {
 		return nil, errors.E(op, err)
+	}
+
+	// check if we're asking to make a new user
+	if r.PostFormValue("new") != "" {
+		return s.postNewProfile(w, r, form)
 	}
 
 	// check for a password change
@@ -276,8 +217,13 @@ func (s *State) postProfile(w http.ResponseWriter, r *http.Request) (templates.T
 		form.DJ.Image = imagePath
 	}
 
+	// apply any permission change, only admins can change this (for now)
+	if currentUser.UserPermissions.Has(radio.PermAdmin) {
+		form.User.UserPermissions = form.newPermissions
+	}
+
 	// update the user in the database
-	updatedUser, err := s.Storage.User(ctx).UpdateUser(form.User)
+	updatedUser, err := s.Storage.User(ctx).Update(form.User)
 	if err != nil {
 		return form, errors.E(op, err)
 	}
@@ -303,12 +249,11 @@ func (s *State) postNewProfile(w http.ResponseWriter, r *http.Request, form *Pro
 	// add the active permissions to the new user
 	form.UserPermissions[radio.PermActive] = struct{}{}
 
-	new, err := s.Storage.User(ctx).UpdateUser(form.User)
+	uid, err := s.Storage.User(ctx).Create(form.User)
 	if err != nil {
 		return form, errors.E(op, err)
 	}
-
-	form.User = new
+	form.User.ID = uid
 	return form, nil
 }
 
@@ -427,11 +372,22 @@ func NewProfileForm(user radio.User, r *http.Request) (*ProfileForm, error) {
 		return nil, errors.E(op, errors.AccessDenied)
 	}
 
-	var form ProfileForm
-	form.User = user
-	form.PasswordChangeForm.For = user
+	form := newProfileForm(user, r)
 	form.Update(values)
-	return nil, nil
+	return &form, nil
+}
+
+func newProfileForm(user radio.User, r *http.Request) ProfileForm {
+	requestUser := middleware.UserFromContext(r.Context())
+	return ProfileForm{
+		User:      user,
+		IsAdmin:   requestUser.UserPermissions.Has(radio.PermAdmin),
+		IsSelf:    requestUser.Username == user.Username,
+		CurrentIP: template.JS(r.RemoteAddr),
+		PasswordChangeForm: ProfilePasswordChangeForm{
+			For: user,
+		},
+	}
 }
 
 func (pf *ProfileForm) Update(form url.Values) {
@@ -450,4 +406,9 @@ func (pf *ProfileForm) Update(form url.Values) {
 	pf.PasswordChangeForm.Current = form.Get("password.current")
 	pf.PasswordChangeForm.New = form.Get("password.new")
 	pf.PasswordChangeForm.Repeated = form.Get("password.repeated")
+
+	pf.newPermissions = make(radio.UserPermissions)
+	for _, perm := range form["permissions"] {
+		pf.newPermissions[radio.UserPermission(perm)] = struct{}{}
+	}
 }

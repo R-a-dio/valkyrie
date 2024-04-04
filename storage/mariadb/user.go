@@ -15,175 +15,244 @@ type UserStorage struct {
 	handle handle
 }
 
-// UpdateUser implements radio.UserStorage
-func (us UserStorage) UpdateUser(user radio.User) (radio.User, error) {
-	const op errors.Op = "mariadb/UserStorage.UpdateUser"
+const updateUserQuery = `
+UPDATE
+	users
+SET
+	pass=:password,
+	email=:email,
+	ip=:ip,
+	updated_at=CURRENT_TIMESTAMP()
+WHERE
+	users.id=:id; 
+`
+
+const updateUserAndDJQuery = `
+UPDATE
+	users, djs 
+SET 
+	users.pass=:password,
+	users.email=:email,
+	users.ip=:ip,
+	users.updated_at=CURRENT_TIMESTAMP()
+	djs.djname=:dj.name,
+	djs.djtext=:dj.text,
+	djs.djimage=:dj.image,
+	djs.visible=:dj.visible,
+	djs.priority=:dj.priority,
+	djs.css=:dj.css,
+	djs.djcolor=:dj.color,
+	djs.role=:dj.role,
+	djs.theme_id=:dj.theme.id,
+	djs.regex=:dj.regex
+WHERE
+	users.id=:id AND djs.id=:dj.id;
+`
+
+// Update implements radio.UserStorage
+func (us UserStorage) Update(user radio.User) (radio.User, error) {
+	const op errors.Op = "mariadb/UserStorage.Update"
 	handle, deferFn := us.handle.span(op)
 	defer deferFn()
 
 	var query string
 
-	// start trans
 	handle, tx, err := requireTx(handle)
 	if err != nil {
 		return user, errors.E(op, err)
 	}
 	defer tx.Rollback()
-	// if userid is 0, insert new user
 
-	if user.ID == 0 {
-		query = `
-			INSERT INTO users (
-				user,
-				pass,
-				email,
-				ip,
-				updated_at,
-				created_at
-			)
-			VALUES (
-				:username,
-				:password,
-				:email,
-				:ip,
-				CURRENT_TIMESTAMP(),
-				CURRENT_TIMESTAMP()
-			);
-		`
-	} else {
-		query = `
-			UPDATE 
-				users
-			SET
-				pass=:password,
-				email=:email,
-				ip=:ip,
-				updated_at=CURRENT_TIMESTAMP()
-			WHERE
-				users.id=:id;
-		`
-	}
-	result, err := sqlx.NamedExec(handle, query, user)
-	if err != nil {
-		return user, errors.E(op, err)
-	}
-	if user.ID == 0 {
-		last, err := result.LastInsertId()
-		if err != nil {
-			return user, errors.E(op, err)
-		}
-		user.ID = radio.UserID(last)
+	query = updateUserQuery
+	if user.DJ.ID != 0 { // use combi query if there is a dj
+		query = updateUserAndDJQuery
 	}
 
-	// delete perms
-	query = `
-		DELETE FROM permissions
-		WHERE
-			permissions.user_id = ?
-		;
-	`
-	_, err = handle.Exec(query, user.ID)
+	// update the users (and dj) table
+	_, err = sqlx.NamedExec(handle, query, user)
 	if err != nil {
 		return user, errors.E(op, err)
 	}
 
-	// insert perms
-	query = `
-		INSERT INTO permissions (
-			user_id,
-			permission
-		)
-		VALUES (?, ?);
-	`
-	for perm := range user.UserPermissions {
-		_, err := handle.Exec(query, user.ID, perm)
-		if err != nil {
-			return user, errors.E(op, err)
-		}
-	}
-
-	// If djid is zero and dj is nondefault, insert
-	// Otherwise, if djid is nonzero, update
-	if user.DJ.ID == 0 && user.DJ != (radio.DJ{}) {
-		query = `
-			INSERT INTO djs (
-				djname,
-				djtext,
-				djimage,
-				visible,
-				priority,
-				css,
-				djcolor,
-				role,
-				theme_id,
-				regex
-			) VALUES (
-				:name,
-				:text,
-				:image,
-				:visible,
-				:priority,
-				:css,
-				:color,
-				:role,
-				:theme.id,
-				:regex
-			);
-		`
-		result, err = sqlx.NamedExec(handle, query, user.DJ)
-		if err != nil {
-			return user, errors.E(op, err)
-		}
-		last, err := result.LastInsertId()
-		if err != nil {
-			return user, errors.E(op, err)
-		}
-		user.DJ.ID = radio.DJID(last)
-
-		// insert the new ID into the users table
-		query = `
-			UPDATE
-				users
-			SET
-				djid=:dj.id
-			WHERE
-				id=:id;
-		`
-
-		_, err = sqlx.NamedExec(handle, query, user)
-		if err != nil {
-			return user, errors.E(op, err)
-		}
-	} else if user.DJ.ID != 0 {
-		query = `
-			UPDATE
-				djs 
-			SET 
-				djname=:name,
-				djtext=:text,
-				djimage=:image,
-				visible=:visible,
-				priority=:priority,
-				css=:css,
-				djcolor=:color,
-				role=:role,
-				theme_id=:theme.id,
-				regex=:regex
-			WHERE
-				id=:id;
-		`
-		_, err = sqlx.NamedExec(handle, query, user.DJ)
-		if err != nil {
-			return user, errors.E(op, err)
-		}
+	// update the permissions table
+	err = us.updatePermissions(handle, user)
+	if err != nil {
+		return user, errors.E(op, err)
 	}
 
 	err = tx.Commit()
 	if err != nil {
 		return user, errors.E(op, err)
 	}
-
 	return user, nil
+}
+
+const createUserQuery = `
+INSERT INTO users (
+	user,
+	pass,
+	email,
+	ip,
+	updated_at,
+	created_at
+)
+VALUES (
+	:username,
+	:password,
+	:email,
+	:ip,
+	CURRENT_TIMESTAMP(),
+	CURRENT_TIMESTAMP()
+);
+`
+
+func (us UserStorage) Create(user radio.User) (radio.UserID, error) {
+	const op errors.Op = "mariadb/UserStorage.Create"
+	handle, deferFn := us.handle.span(op)
+	defer deferFn()
+
+	handle, tx, err := requireTx(handle)
+	if err != nil {
+		return 0, errors.E(op, err)
+	}
+	defer tx.Rollback()
+
+	res, err := sqlx.NamedExec(handle, createUserQuery, user)
+	if err != nil {
+		return 0, errors.E(op, err)
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, errors.E(op, err)
+	}
+	user.ID = radio.UserID(id)
+
+	err = us.updatePermissions(handle, user)
+	if err != nil {
+		return 0, errors.E(op, err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return 0, errors.E(op, err)
+	}
+
+	return radio.UserID(id), nil
+}
+
+const createDJQuery = `
+INSERT INTO djs (
+	djname,
+	djtext,
+	djimage,
+	visible,
+	priority,
+	css,
+	djcolor,
+	role,
+	theme_id,
+	regex
+) VALUES (
+	:name,
+	:text,
+	:image,
+	:visible,
+	:priority,
+	:css,
+	:color,
+	:role,
+	:theme.id,
+	:regex
+);
+`
+
+const updateUserDJIDQuery = `
+UPDATE
+	users, djs
+SET
+	users.djid=:dj.id
+WHERE
+	users.id=:id;
+`
+
+func (us UserStorage) CreateDJ(user radio.User, dj radio.DJ) (radio.DJID, error) {
+	const op errors.Op = "mariadb/UserStorage.CreateDJ"
+	handle, deferFn := us.handle.span(op)
+	defer deferFn()
+
+	user.DJ = dj
+
+	handle, tx, err := requireTx(handle)
+	if err != nil {
+		return 0, errors.E(op, err)
+	}
+	defer tx.Rollback()
+
+	res, err := sqlx.NamedExec(handle, createDJQuery, dj)
+	if err != nil {
+		return 0, errors.E(op, err)
+	}
+
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, errors.E(op, err)
+	}
+	user.DJ.ID = radio.DJID(id)
+
+	_, err = handle.Exec(updateUserDJIDQuery, user)
+	if err != nil {
+		return 0, errors.E(op, err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return 0, errors.E(op, err)
+	}
+
+	return user.DJ.ID, nil
+}
+
+const updatePermissionsQuery = `
+INSERT INTO permissions (
+	user_id,
+	permission
+) VALUES (?, ?);
+`
+const deletePermissionQuery = `
+DELETE FROM 
+	permissions
+WHERE
+	permissions.user_id = ?;
+`
+
+func (us UserStorage) updatePermissions(handle handle, user radio.User) error {
+	const op errors.Op = "mariadb/UserStorage.updatePermissions"
+	handle, deferFn := handle.span(op)
+	defer deferFn()
+
+	handle, tx, err := requireTx(handle)
+	if err != nil {
+		return errors.E(op, err)
+	}
+	defer tx.Rollback()
+
+	_, err = handle.Exec(deletePermissionQuery, user.ID)
+	if err != nil {
+		return errors.E(op, err)
+	}
+
+	for perm := range user.UserPermissions {
+		_, err = handle.Exec(updatePermissionsQuery, user.ID, perm)
+		if err != nil {
+			return errors.E(op, err)
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return errors.E(op, err)
+	}
+	return nil
 }
 
 // getQuery is for single-row returns on the users table, the only thing you can

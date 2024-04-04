@@ -837,12 +837,14 @@ type UserStorageService interface {
 type UserStorage interface {
 	// All returns all users
 	All() ([]User, error)
+	// Create creates a user
+	Create(User) (UserID, error)
 	// Get returns the user matching the name given
 	Get(name string) (*User, error)
 	// GetByDJID returns the user associated with the DJID
 	GetByDJID(DJID) (*User, error)
-	// UpdateUser updates the given user
-	UpdateUser(User) (User, error)
+	// Update updates the given user
+	Update(User) (User, error)
 	// LookupName matches the name given fuzzily to a user
 	LookupName(name string) (*User, error)
 	// ByNick returns an user that is associated with the nick given

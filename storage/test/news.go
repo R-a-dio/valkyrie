@@ -100,8 +100,9 @@ func (suite *Suite) TestNewsWithUser(t *testing.T) {
 	user.ID = 0
 
 	// insert our user
-	user, err := us.UpdateUser(user)
+	uid, err := us.Create(user)
 	require.NoError(t, err)
+	user.ID = uid
 
 	post := createDummyNewsPost("news with user")
 	// set out user id

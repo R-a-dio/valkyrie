@@ -168,7 +168,7 @@ func (d databaseCmd) addUser(ctx context.Context, cfg config.Config) error {
 		},
 	}
 
-	_, err = u.UpdateUser(user)
+	_, err = u.Create(user)
 	if err != nil {
 		return err
 	}

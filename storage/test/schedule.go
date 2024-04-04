@@ -18,8 +18,9 @@ func (suite *Suite) TestScheduleUpdate(t *testing.T) {
 	user := OneOff[radio.User](genUser())
 	user.ID = 0
 
-	user, err := s.User(suite.ctx).UpdateUser(user)
+	uid, err := s.User(suite.ctx).Create(user)
 	require.NoError(t, err)
+	user.ID = uid
 
 	empty, err := ss.Latest()
 	require.NoError(t, err)
