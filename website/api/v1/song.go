@@ -16,7 +16,7 @@ func (a *API) GetSong(w http.ResponseWriter, r *http.Request) {
 
 	tid, err := radio.ParseTrackID(query.Get("id"))
 	if err != nil {
-		hlog.FromRequest(r).Error().Err(err)
+		hlog.FromRequest(r).Error().Err(err).Msg("")
 		http.Error(w, "invalid or missing id", http.StatusBadRequest)
 		return
 	}
@@ -25,7 +25,7 @@ func (a *API) GetSong(w http.ResponseWriter, r *http.Request) {
 
 	song, err := a.storage.Track(r.Context()).Get(tid)
 	if err != nil {
-		hlog.FromRequest(r).Error().Err(err)
+		hlog.FromRequest(r).Error().Err(err).Msg("")
 		http.Error(w, "unknown id", http.StatusNotFound)
 		return
 	}
@@ -44,7 +44,7 @@ func (a *API) GetSong(w http.ResponseWriter, r *http.Request) {
 		if errors.IsE(err, os.ErrNotExist) {
 			status = http.StatusNotFound
 		}
-		hlog.FromRequest(r).Error().Err(err)
+		hlog.FromRequest(r).Error().Err(err).Msg("")
 		http.Error(w, http.StatusText(status), status)
 		return
 	}

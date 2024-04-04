@@ -28,6 +28,7 @@ func (s *State) GetHome(w http.ResponseWriter, r *http.Request) {
 
 	err := s.TemplateExecutor.Execute(w, r, input)
 	if err != nil {
-		s.errorHandler(w, r, err)
+		s.errorHandler(w, r, err, "input creation failure")
+		return
 	}
 }

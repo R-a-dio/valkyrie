@@ -21,8 +21,6 @@ import (
 	"github.com/gorilla/schema"
 )
 
-const bcryptCost = 14
-
 var profileDecoder = schema.NewDecoder()
 
 // ProfileForm defines the form we use for the profile page

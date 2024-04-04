@@ -12,6 +12,7 @@ import (
 	"github.com/R-a-dio/valkyrie/util/secret"
 	vmiddleware "github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/R-a-dio/valkyrie/website/shared"
+	"github.com/rs/zerolog/hlog"
 	"github.com/spf13/afero"
 
 	"github.com/alexedwards/scs/v2"
@@ -85,6 +86,8 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 			vmiddleware.RequirePermission(radio.PermDatabaseView, s.GetSongs))
 		r.Post("/songs",
 			vmiddleware.RequirePermission(radio.PermDatabaseEdit, s.PostSongs))
+		r.Get("/users",
+			vmiddleware.RequirePermission(radio.PermAdmin, s.GetUsersList))
 
 		// proxy to the grafana host
 		grafana, _ := url.Parse("http://localhost:3000")
@@ -100,7 +103,8 @@ func (s *State) PostStreamerStop(w http.ResponseWriter, r *http.Request) {
 	s.Conf().Streamer.Client().Stop(r.Context(), false)
 }
 
-func (s *State) errorHandler(w http.ResponseWriter, r *http.Request, err error) {
+func (s *State) errorHandler(w http.ResponseWriter, r *http.Request, err error, msg string) {
 	// TODO: implement this better
+	hlog.FromRequest(r).Error().Err(err).Msg(msg)
 	http.Error(w, err.Error(), http.StatusInternalServerError)
 }

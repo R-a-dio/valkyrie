@@ -108,7 +108,7 @@ func (s *State) GetSongs(w http.ResponseWriter, r *http.Request) {
 func (s *State) PostSongs(w http.ResponseWriter, r *http.Request) {
 	form, err := s.postSongs(w, r)
 	if err != nil {
-		s.errorHandler(w, r, err)
+		s.errorHandler(w, r, err, "")
 		return
 	}
 
