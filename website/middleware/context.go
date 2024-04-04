@@ -6,6 +6,7 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/go-chi/chi/v5"
+	"github.com/rs/zerolog/hlog"
 )
 
 type trackKey struct{}
@@ -22,17 +23,12 @@ func TrackCtx(storage radio.TrackStorageService) func(http.Handler) http.Handler
 			id := chi.URLParamFromCtx(ctx, "TrackID")
 			trackid, err := radio.ParseTrackID(id)
 			if err != nil {
-				// TODO: update this to 1.13 error handling
-				/*if errors.Is(err, strconv.ErrRange) {
-					return
-				}*/
-
 				panic("TrackCtx: non-number found: " + id)
 			}
 
 			song, err := storage.Track(ctx).Get(trackid)
 			if err != nil {
-				// TODO: handle error
+				hlog.FromRequest(r).Error().Err(err).Msg("failed trackctx")
 				return
 			}
 
