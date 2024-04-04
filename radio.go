@@ -839,6 +839,8 @@ type UserStorage interface {
 	All() ([]User, error)
 	// Create creates a user
 	Create(User) (UserID, error)
+	// CreateDJ creates a DJ for the user given
+	CreateDJ(User, DJ) (DJID, error)
 	// Get returns the user matching the name given
 	Get(name string) (*User, error)
 	// GetByDJID returns the user associated with the DJID

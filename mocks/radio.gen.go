@@ -2078,6 +2078,9 @@ var _ radio.UserStorage = &UserStorageMock{}
 //			CreateFunc: func(user radio.User) (radio.UserID, error) {
 //				panic("mock out the Create method")
 //			},
+//			CreateDJFunc: func(user radio.User, dJ radio.DJ) (radio.DJID, error) {
+//				panic("mock out the CreateDJ method")
+//			},
 //			GetFunc: func(name string) (*radio.User, error) {
 //				panic("mock out the Get method")
 //			},
@@ -2112,6 +2115,9 @@ type UserStorageMock struct {
 	// CreateFunc mocks the Create method.
 	CreateFunc func(user radio.User) (radio.UserID, error)
 
+	// CreateDJFunc mocks the CreateDJ method.
+	CreateDJFunc func(user radio.User, dJ radio.DJ) (radio.DJID, error)
+
 	// GetFunc mocks the Get method.
 	GetFunc func(name string) (*radio.User, error)
 
@@ -2144,6 +2150,13 @@ type UserStorageMock struct {
 		Create []struct {
 			// User is the user argument value.
 			User radio.User
+		}
+		// CreateDJ holds details about calls to the CreateDJ method.
+		CreateDJ []struct {
+			// User is the user argument value.
+			User radio.User
+			// DJ is the dJ argument value.
+			DJ radio.DJ
 		}
 		// Get holds details about calls to the Get method.
 		Get []struct {
@@ -2179,6 +2192,7 @@ type UserStorageMock struct {
 	lockAll             sync.RWMutex
 	lockByNick          sync.RWMutex
 	lockCreate          sync.RWMutex
+	lockCreateDJ        sync.RWMutex
 	lockGet             sync.RWMutex
 	lockGetByDJID       sync.RWMutex
 	lockLookupName      sync.RWMutex
@@ -2275,6 +2289,42 @@ func (mock *UserStorageMock) CreateCalls() []struct {
 	mock.lockCreate.RLock()
 	calls = mock.calls.Create
 	mock.lockCreate.RUnlock()
+	return calls
+}
+
+// CreateDJ calls CreateDJFunc.
+func (mock *UserStorageMock) CreateDJ(user radio.User, dJ radio.DJ) (radio.DJID, error) {
+	if mock.CreateDJFunc == nil {
+		panic("UserStorageMock.CreateDJFunc: method is nil but UserStorage.CreateDJ was just called")
+	}
+	callInfo := struct {
+		User radio.User
+		DJ   radio.DJ
+	}{
+		User: user,
+		DJ:   dJ,
+	}
+	mock.lockCreateDJ.Lock()
+	mock.calls.CreateDJ = append(mock.calls.CreateDJ, callInfo)
+	mock.lockCreateDJ.Unlock()
+	return mock.CreateDJFunc(user, dJ)
+}
+
+// CreateDJCalls gets all the calls that were made to CreateDJ.
+// Check the length with:
+//
+//	len(mockedUserStorage.CreateDJCalls())
+func (mock *UserStorageMock) CreateDJCalls() []struct {
+	User radio.User
+	DJ   radio.DJ
+} {
+	var calls []struct {
+		User radio.User
+		DJ   radio.DJ
+	}
+	mock.lockCreateDJ.RLock()
+	calls = mock.calls.CreateDJ
+	mock.lockCreateDJ.RUnlock()
 	return calls
 }
 
