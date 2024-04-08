@@ -2,12 +2,15 @@ package storagetest
 
 import (
 	"reflect"
+	"testing"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/arbitrary"
 	"github.com/leanovate/gopter/gen"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // OneOff generates a single value from the gopter.Gen given
@@ -97,4 +100,121 @@ func genTimePtr() gopter.Gen {
 		res.ResultType = reflect.TypeOf(res.Result)
 		return res
 	}
+}
+
+func (suite *Suite) TestUserCreate(t *testing.T) {
+	us := suite.Storage(t).User(suite.ctx)
+
+	user := testUser
+	// Create should not be creating a DJ even if one is present
+	// so add one here so we can see if it has been added later
+	user.DJ = testDJ
+
+	uid, err := us.Create(user)
+	require.NoError(t, err, "expected no error")
+	require.NotZero(t, uid, "expected new user id back")
+
+	other, err := us.Get(user.Username)
+	require.NoError(t, err, "expected no error")
+	require.NotNil(t, other, "expected user back")
+	require.Zero(t, other.DJ, "expected no DJ")
+
+	assert.Equal(t, user.Username, other.Username)
+	assert.Equal(t, user.Password, other.Password)
+	assert.Equal(t, user.Email, other.Email)
+	assert.Equal(t, user.UserPermissions, other.UserPermissions)
+}
+
+func (suite *Suite) TestUserCreateDJ(t *testing.T) {
+	us := suite.Storage(t).User(suite.ctx)
+
+	user := testUser
+	user.DJ = testDJ
+
+	uid, err := us.Create(user)
+	require.NoError(t, err, "expected no error")
+	require.NotZero(t, uid, "expected new user id back")
+	user.ID = uid
+
+	djid, err := us.CreateDJ(user, user.DJ)
+	require.NoError(t, err, "expected no error")
+	require.NotZero(t, djid, "expected new dj id back")
+	user.DJ.ID = djid
+
+	other, err := us.Get(user.Username)
+	require.NoError(t, err, "expected no error")
+	require.NotNil(t, other, "expected user back")
+
+	assert.Equal(t, user.Username, other.Username)
+	assert.Equal(t, user.Password, other.Password)
+	assert.Equal(t, user.Email, other.Email)
+	assert.Equal(t, user.UserPermissions, other.UserPermissions)
+	assert.Equal(t, user.DJ, other.DJ)
+}
+
+func (suite *Suite) TestUserUpdate(t *testing.T) {
+	us := suite.Storage(t).User(suite.ctx)
+
+	user := testUser
+	user.DJ = testDJ
+
+	uid, err := us.Create(user)
+	require.NoError(t, err, "expected no error")
+	require.NotZero(t, uid, "expected new user id back")
+	user.ID = uid
+
+	djid, err := us.CreateDJ(user, user.DJ)
+	require.NoError(t, err, "expected no error")
+	require.NotZero(t, djid, "expected new dj id back")
+	user.DJ.ID = djid
+
+	other, err := us.Get(user.Username)
+	require.NoError(t, err, "expected no error")
+	require.NotNil(t, other, "expected user back")
+
+	assert.Equal(t, user.Username, other.Username)
+	assert.Equal(t, user.Password, other.Password)
+	assert.Equal(t, user.Email, other.Email)
+	assert.Equal(t, user.UserPermissions, other.UserPermissions)
+	assert.Equal(t, user.DJ, other.DJ)
+
+	user.Email = "otherexample@example.com"
+	user.DJ.Role = "dev"
+
+	updated, err := us.Update(user)
+	require.NoError(t, err, "expected no error")
+	require.NotZero(t, updated, "expected user back")
+
+	assert.Equal(t, user.Email, updated.Email)
+	assert.Equal(t, user.DJ.Role, updated.DJ.Role)
+
+	updatedGet, err := us.Get(user.Username)
+	require.NoError(t, err, "expected no error")
+	require.NotNil(t, updatedGet, "expected user back")
+
+	assert.Equal(t, user.Email, updatedGet.Email)
+	assert.Equal(t, user.DJ.Role, updatedGet.DJ.Role)
+}
+
+var testUser = radio.User{
+	Username: "me",
+	Password: "not a real password",
+	Email:    "example@example.com",
+	IP:       "127.0.0.1",
+	UserPermissions: radio.UserPermissions{
+		radio.PermAdmin:  struct{}{},
+		radio.PermActive: struct{}{},
+	},
+}
+
+var testDJ = radio.DJ{
+	Name:     "testing dj",
+	Regex:    "test(ing)? dj",
+	Text:     "We are testing here",
+	Image:    "none",
+	Visible:  true,
+	Priority: 500,
+	Role:     "staff",
+	CSS:      "unused",
+	Color:    "also unused",
 }

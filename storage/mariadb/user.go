@@ -34,7 +34,7 @@ SET
 	users.pass=:password,
 	users.email=:email,
 	users.ip=:ip,
-	users.updated_at=CURRENT_TIMESTAMP()
+	users.updated_at=CURRENT_TIMESTAMP(),
 	djs.djname=:dj.name,
 	djs.djtext=:dj.text,
 	djs.djimage=:dj.image,
@@ -199,7 +199,7 @@ func (us UserStorage) CreateDJ(user radio.User, dj radio.DJ) (radio.DJID, error)
 	}
 	user.DJ.ID = radio.DJID(id)
 
-	_, err = handle.Exec(updateUserDJIDQuery, user)
+	_, err = sqlx.NamedExec(handle, updateUserDJIDQuery, user)
 	if err != nil {
 		return 0, errors.E(op, err)
 	}
