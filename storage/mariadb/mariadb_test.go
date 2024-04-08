@@ -40,6 +40,7 @@ func (setup *MariaDBSetup) Setup(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	dsn = fixdsn(dsn)
 
 	setup.db, err = sqlx.ConnectContext(ctx, "mysql", dsn)
 	if err != nil {
@@ -84,6 +85,7 @@ func (setup *MariaDBSetup) CreateStorage(ctx context.Context, name string) (radi
 	if err != nil {
 		return nil, err
 	}
+	dsn = fixdsn(dsn)
 
 	mycfg, err := mysql.ParseDSN(dsn)
 	if err != nil {
@@ -113,4 +115,13 @@ func TestMariaDBStorage(t *testing.T) {
 	if !testing.Short() {
 		storagetest.RunTests(t, new(MariaDBSetup))
 	}
+}
+
+func fixdsn(dsn string) string {
+	// see https://github.com/testcontainers/testcontainers-go/issues/551
+	// using localhost as the address will run a racer on ipv4
+	// and ipv6 and connect to whoever wins, but docker doesn't
+	// actually bind both to the same port so the ipv6 version isn't
+	// ever valid to use. so we fix it by forcing ipv4
+	return strings.Replace(dsn, "localhost", "127.0.0.1", 1)
 }
