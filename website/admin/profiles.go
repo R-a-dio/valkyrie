@@ -240,15 +240,11 @@ func (s *State) postProfile(w http.ResponseWriter, r *http.Request) (*ProfileFor
 	}
 
 	// update the user in the database
-	updatedUser, err := s.Storage.User(ctx).Update(form.User)
+	_, err = s.Storage.User(ctx).Update(form.User)
 	if err != nil {
 		return form, errors.E(op, err)
 	}
 
-	// updatedUser and form.User should already be matching, but just to support
-	// UpdateUser actually changing something we apply it to our form before
-	// returning
-	form.User = updatedUser
 	return form, nil
 }
 
@@ -393,11 +389,15 @@ func NewProfileForm(user radio.User, r *http.Request) (*ProfileForm, error) {
 
 	form := newProfileForm(user, r)
 	form.Update(values)
+	if form.IsAdmin { // only allow updating permissions by admin
+		form.UserPermissions = form.newPermissions
+	}
 	return &form, nil
 }
 
 func newProfileForm(user radio.User, r *http.Request) ProfileForm {
 	requestUser := middleware.UserFromContext(r.Context())
+
 	return ProfileForm{
 		User:      user,
 		IsAdmin:   requestUser.UserPermissions.Has(radio.PermAdmin),
@@ -434,7 +434,31 @@ func (pf *ProfileForm) Update(form url.Values) {
 
 func (pf *ProfileForm) ToValues() url.Values {
 	values := url.Values{}
+
+	// user fields
 	values.Set("username", pf.Username)
+	values.Set("ip", pf.IP)
+	values.Set("email", pf.Email)
+	for perm, _ := range pf.UserPermissions {
+		values.Add("permissions", string(perm))
+	}
+
+	// dj fields
+	if pf.DJ.ID != 0 {
+		if pf.DJ.Visible {
+			values.Set("dj.visible", "true")
+		}
+		if pf.DJ.Name != "" {
+			values.Set("dj.name", pf.DJ.Name)
+		}
+		values.Set("dj.priority", strconv.FormatInt(int64(pf.DJ.Priority), 10))
+		values.Set("dj.regex", pf.DJ.Regex)
+		if pf.DJ.Theme.Name != "" {
+			values.Set("dj.theme.name", pf.DJ.Theme.Name)
+		}
+	}
+
+	// password fields
 	values.Set("password.new", pf.PasswordChangeForm.New)
 	values.Set("password.current", pf.PasswordChangeForm.Current)
 	values.Set("password.repeated", pf.PasswordChangeForm.Repeated)
