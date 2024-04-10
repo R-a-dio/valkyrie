@@ -144,7 +144,7 @@ func (s *State) PostProfile(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, r.URL.String(), http.StatusSeeOther)
 }
 
-func (s *State) postProfile(w http.ResponseWriter, r *http.Request) (templates.TemplateSelectable, error) {
+func (s *State) postProfile(w http.ResponseWriter, r *http.Request) (*ProfileForm, error) {
 	const op errors.Op = "website/admin.postProfile"
 
 	ctx := r.Context()
@@ -162,14 +162,34 @@ func (s *State) postProfile(w http.ResponseWriter, r *http.Request) (templates.T
 	err = r.ParseMultipartForm(16 * 1024)
 	// the above will error if the form submitted wasn't multipart/form-data but
 	// that isn't a critical error so continue if that occurs
-	if err != nil && !errors.IsE(err, http.ErrNotMultipart) {
+	if errors.IsE(err, http.ErrNotMultipart) {
+		err = nil
+	}
+
+	if err != nil {
 		return nil, errors.E(op, errors.InvalidForm, err)
 	}
 
-	// now if the user is admin, we need to check if we are working on
-	// another user
+	// check if a new user is being made
+	if r.FormValue("new") != "" {
+		// only admins are allowed to do this
+		if !currentUser.UserPermissions.Has(radio.PermAdmin) {
+			return nil, errors.E(op, errors.AccessDenied)
+		}
+
+		form, err := NewProfileForm(radio.User{
+			Username: r.FormValue("username"),
+		}, r)
+		if err != nil {
+			return nil, errors.E(op, err)
+		}
+		return s.postNewProfile(w, r, form)
+	}
+
+	// not a new user, but might still be an admin editing someone else so
+	// check if the username is different
 	if currentUser.UserPermissions.Has(radio.PermAdmin) {
-		username := r.PostFormValue("username")
+		username := r.FormValue("username")
 		if username == "" { // double check that there is an actual user
 			return nil, errors.E(op, errors.InvalidForm, "no username in form")
 		}
@@ -189,11 +209,6 @@ func (s *State) postProfile(w http.ResponseWriter, r *http.Request) (templates.T
 		return nil, errors.E(op, err)
 	}
 
-	// check if we're asking to make a new user
-	if r.PostFormValue("new") != "" {
-		return s.postNewProfile(w, r, form)
-	}
-
 	// check for a password change
 	if cf := form.PasswordChangeForm; cf.New != "" {
 		new, err := postProfilePassword(cf, currentUser.UserPermissions.Has(radio.PermAdmin))
@@ -204,17 +219,19 @@ func (s *State) postProfile(w http.ResponseWriter, r *http.Request) (templates.T
 	}
 
 	// check for a image change
-	if f := r.MultipartForm.File["dj.image"]; len(f) > 0 {
-		imagePath, err := postProfileImage(
-			afero.NewBasePathFs(s.FS, s.Conf().Website.DJImagePath),
-			form.DJ.ID,
-			s.Conf().Website.DJImageMaxSize,
-			f[0],
-		)
-		if err != nil {
-			return form, errors.E(op, err)
+	if r.MultipartForm != nil {
+		if f := r.MultipartForm.File["dj.image"]; len(f) > 0 {
+			imagePath, err := postProfileImage(
+				afero.NewBasePathFs(s.FS, s.Conf().Website.DJImagePath),
+				form.DJ.ID,
+				s.Conf().Website.DJImageMaxSize,
+				f[0],
+			)
+			if err != nil {
+				return form, errors.E(op, err)
+			}
+			form.DJ.Image = imagePath
 		}
-		form.DJ.Image = imagePath
 	}
 
 	// apply any permission change, only admins can change this (for now)
@@ -235,7 +252,7 @@ func (s *State) postProfile(w http.ResponseWriter, r *http.Request) (templates.T
 	return form, nil
 }
 
-func (s *State) postNewProfile(w http.ResponseWriter, r *http.Request, form *ProfileForm) (templates.TemplateSelectable, error) {
+func (s *State) postNewProfile(w http.ResponseWriter, r *http.Request, form *ProfileForm) (*ProfileForm, error) {
 	const op errors.Op = "website/admin.postNewProfile"
 	ctx := r.Context()
 
@@ -246,9 +263,12 @@ func (s *State) postNewProfile(w http.ResponseWriter, r *http.Request, form *Pro
 	}
 	form.Password = newPassword
 
-	// add the active permissions to the new user
-	form.UserPermissions[radio.PermActive] = struct{}{}
+	// add the active permission to the new user
+	form.UserPermissions = radio.UserPermissions{
+		radio.PermActive: struct{}{},
+	}
 
+	// and then create the user
 	uid, err := s.Storage.User(ctx).Create(form.User)
 	if err != nil {
 		return form, errors.E(op, err)
@@ -364,8 +384,7 @@ func postProfileImage(fsys afero.Fs, id radio.DJID, maxSize int64, header *multi
 func NewProfileForm(user radio.User, r *http.Request) (*ProfileForm, error) {
 	const op errors.Op = "website/admin.NewProfileForm"
 
-	// convert to url.Values for the helper methods
-	values := url.Values(r.MultipartForm.Value)
+	values := r.PostForm
 
 	// initial check to see if we're actually editing the expected user
 	if values.Get("username") != user.Username {
@@ -411,4 +430,13 @@ func (pf *ProfileForm) Update(form url.Values) {
 	for _, perm := range form["permissions"] {
 		pf.newPermissions[radio.UserPermission(perm)] = struct{}{}
 	}
+}
+
+func (pf *ProfileForm) ToValues() url.Values {
+	values := url.Values{}
+	values.Set("username", pf.Username)
+	values.Set("password.new", pf.PasswordChangeForm.New)
+	values.Set("password.current", pf.PasswordChangeForm.Current)
+	values.Set("password.repeated", pf.PasswordChangeForm.Repeated)
+	return values
 }

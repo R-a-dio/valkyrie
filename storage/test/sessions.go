@@ -17,10 +17,14 @@ import (
 
 var ourStartTime = time.Date(2009, 8, 20, 0, 0, 0, 0, time.UTC)
 
+func init() {
+	time.Local = time.UTC
+}
+
 // TestGenSessionStorage runs through all methods of the SessionStorage interface with
 // a randomly generated session.
 func (suite *Suite) TestGenSessionStorage(t *testing.T) {
-	time.Local = time.UTC
+	//	time.Local = time.UTC
 	ss := suite.Storage(t).Sessions(suite.ctx)
 
 	parameters := gopter.DefaultTestParameters()

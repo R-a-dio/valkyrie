@@ -2,6 +2,7 @@ package storagetest
 
 import (
 	"reflect"
+	"slices"
 	"testing"
 	"time"
 
@@ -118,11 +119,7 @@ func (suite *Suite) TestUserCreate(t *testing.T) {
 	require.NoError(t, err, "expected no error")
 	require.NotNil(t, other, "expected user back")
 	require.Zero(t, other.DJ, "expected no DJ")
-
-	assert.Equal(t, user.Username, other.Username)
-	assert.Equal(t, user.Password, other.Password)
-	assert.Equal(t, user.Email, other.Email)
-	assert.Equal(t, user.UserPermissions, other.UserPermissions)
+	compareUser(t, false, user, *other)
 }
 
 func (suite *Suite) TestUserCreateDJ(t *testing.T) {
@@ -144,12 +141,18 @@ func (suite *Suite) TestUserCreateDJ(t *testing.T) {
 	other, err := us.Get(user.Username)
 	require.NoError(t, err, "expected no error")
 	require.NotNil(t, other, "expected user back")
+	compareUser(t, true, user, *other)
+}
 
-	assert.Equal(t, user.Username, other.Username)
-	assert.Equal(t, user.Password, other.Password)
-	assert.Equal(t, user.Email, other.Email)
-	assert.Equal(t, user.UserPermissions, other.UserPermissions)
-	assert.Equal(t, user.DJ, other.DJ)
+func compareUser(t *testing.T, comparedj bool, a, b radio.User) bool {
+	res := assert.Equal(t, a.Username, b.Username) &&
+		assert.Equal(t, a.Password, b.Password) &&
+		assert.Equal(t, a.Email, b.Email) &&
+		assert.Equal(t, a.UserPermissions, b.UserPermissions)
+	if comparedj {
+		res = res && assert.Equal(t, a.DJ, b.DJ)
+	}
+	return res
 }
 
 func (suite *Suite) TestUserUpdate(t *testing.T) {
@@ -171,12 +174,12 @@ func (suite *Suite) TestUserUpdate(t *testing.T) {
 	other, err := us.Get(user.Username)
 	require.NoError(t, err, "expected no error")
 	require.NotNil(t, other, "expected user back")
+	compareUser(t, true, user, *other)
 
-	assert.Equal(t, user.Username, other.Username)
-	assert.Equal(t, user.Password, other.Password)
-	assert.Equal(t, user.Email, other.Email)
-	assert.Equal(t, user.UserPermissions, other.UserPermissions)
-	assert.Equal(t, user.DJ, other.DJ)
+	djOther, err := us.GetByDJID(user.DJ.ID)
+	require.NoError(t, err, "expected no error")
+	require.NotNil(t, djOther, "expected user back")
+	compareUser(t, true, user, *djOther)
 
 	user.Email = "otherexample@example.com"
 	user.DJ.Role = "dev"
@@ -191,9 +194,12 @@ func (suite *Suite) TestUserUpdate(t *testing.T) {
 	updatedGet, err := us.Get(user.Username)
 	require.NoError(t, err, "expected no error")
 	require.NotNil(t, updatedGet, "expected user back")
+	compareUser(t, true, user, *updatedGet)
 
-	assert.Equal(t, user.Email, updatedGet.Email)
-	assert.Equal(t, user.DJ.Role, updatedGet.DJ.Role)
+	djGet, err := us.GetByDJID(user.DJ.ID)
+	require.NoError(t, err, "expected no error")
+	require.NotNil(t, djGet, "expected user back")
+	compareUser(t, true, user, *djGet)
 }
 
 var testUser = radio.User{
@@ -217,4 +223,55 @@ var testDJ = radio.DJ{
 	Role:     "staff",
 	CSS:      "unused",
 	Color:    "also unused",
+}
+
+func (suite *Suite) TestUserPermissions(t *testing.T) {
+	us := suite.Storage(t).User(suite.ctx)
+
+	// retrieve permissions from the database
+	perms, err := us.Permissions()
+	require.NoError(t, err)
+	require.NotNil(t, perms)
+
+	// retrieve permissions from the codebase
+	local := radio.AllUserPermissions()
+
+	// check we have the same amount of permissions in both
+	assert.Equal(t, len(local), len(perms), "missing permissions")
+
+	// sort them so we can easily compare them
+	slices.Sort(local)
+	slices.Sort(perms)
+	assert.Equal(t, local, perms, "database and code permissions don't match")
+}
+
+func (suite *Suite) TestUserLookupName(t *testing.T) {
+	us := suite.Storage(t).User(suite.ctx)
+
+	user := testUser
+	user.DJ = testDJ
+
+	uid, err := us.Create(user)
+	require.NoError(t, err, "expected no error")
+	require.NotZero(t, uid, "expected new user id back")
+	user.ID = uid
+
+	djid, err := us.CreateDJ(user, user.DJ)
+	require.NoError(t, err, "expected no error")
+	require.NotZero(t, djid, "expected new dj id back")
+	user.DJ.ID = djid
+
+	// test some regex variants, we're not really testing the
+	// regex implementation, just that it does regex matching
+	// at all and does it case-insensitive.
+	cases := []string{
+		"test dj", "testing dj", "TEST DJ", "tEsTiNg Dj",
+	}
+
+	for _, c := range cases {
+		other, err := us.LookupName(c)
+		require.NoError(t, err, "expected no error")
+		require.NotNil(t, other, "expected user back")
+		compareUser(t, true, user, *other)
+	}
 }

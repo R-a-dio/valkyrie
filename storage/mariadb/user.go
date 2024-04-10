@@ -24,7 +24,7 @@ SET
 	ip=:ip,
 	updated_at=CURRENT_TIMESTAMP()
 WHERE
-	users.id=:id; 
+	users.id=:id;
 `
 
 const updateUserAndDJQuery = `
@@ -117,6 +117,7 @@ func (us UserStorage) Create(user radio.User) (radio.UserID, error) {
 	}
 	defer tx.Rollback()
 
+	// create the user
 	res, err := sqlx.NamedExec(handle, createUserQuery, user)
 	if err != nil {
 		return 0, errors.E(op, err)
@@ -127,6 +128,7 @@ func (us UserStorage) Create(user radio.User) (radio.UserID, error) {
 	}
 	user.ID = radio.UserID(id)
 
+	// update the permissions table
 	err = us.updatePermissions(handle, user)
 	if err != nil {
 		return 0, errors.E(op, err)
