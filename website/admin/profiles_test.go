@@ -27,6 +27,8 @@ type profileTest struct {
 	Form ProfileForm
 	// Form we expect back
 	ExpectedForm *ProfileForm
+	// Password we expect the user to have in the form
+	ExpectedPassword string
 	// Error we expect back, checked by errors.IsE
 	Error error
 
@@ -50,19 +52,30 @@ var adminUser = &radio.User{
 	},
 }
 
+var profileTestUserRawPassword = "hackme"
+
 var profileTestUser = &radio.User{
 	Username: "profile-test",
 	UserPermissions: radio.UserPermissions{
 		radio.PermActive: struct{}{},
 		radio.PermDJ:     struct{}{},
 	},
+	Password: mustGenerate(profileTestUserRawPassword),
+}
+
+func mustGenerate(passwd string) string {
+	h, err := radio.GenerateHashFromPassword(passwd)
+	if err != nil {
+		panic("failed password generation in test: " + err.Error())
+	}
+	return h
 }
 
 var profileTests = []profileTest{
 	{
 		// new user creation done by an admin, should work
 		Name: "NewUserCreation",
-		Path: "/admin/profile?new=true",
+		Path: "/admin/profile?new=" + profileNewUser,
 		User: *adminUser,
 		Form: ProfileForm{
 			User: radio.User{
@@ -80,7 +93,7 @@ var profileTests = []profileTest{
 	{
 		// new user creation done by a non-admin, should not be allowed
 		Name: "NewUserCreationNotAdmin",
-		Path: "/admin/profile?new=true",
+		Path: "/admin/profile?new=" + profileNewUser,
 		User: *profileTestUser,
 		Form: ProfileForm{
 			User: radio.User{
@@ -91,7 +104,7 @@ var profileTests = []profileTest{
 				Repeated: "hackme",
 			},
 		},
-		ExpectedForm: profileSameAsInput,
+		ExpectedForm: nil,
 		Error:        errors.E(errors.AccessDenied),
 	},
 	{
@@ -101,6 +114,7 @@ var profileTests = []profileTest{
 		Form: ProfileForm{
 			User: radio.User{
 				Username: profileTestUser.Username,
+				Password: profileTestUser.Password,
 				UserPermissions: radio.UserPermissions{
 					radio.PermActive: struct{}{},
 					// remove PermDJ
@@ -134,6 +148,107 @@ var profileTests = []profileTest{
 		TxFunc: mocks.CommitTx,
 		GetRet: *profileTestUser,
 	},
+	{
+		// users should be able to update their own password assuming they know
+		// their current password.
+		Name: "UpdatePasswordAsUser",
+		User: *profileTestUser,
+		Form: ProfileForm{
+			User: *profileTestUser,
+			PasswordChangeForm: ProfilePasswordChangeForm{
+				Current:  profileTestUserRawPassword,
+				New:      "donthackme",
+				Repeated: "donthackme",
+			},
+		},
+		ExpectedForm: &ProfileForm{
+			User: *profileTestUser,
+		},
+		ExpectedPassword: "donthackme",
+		TxFunc:           mocks.CommitTx,
+		GetRet:           *profileTestUser,
+	},
+	{
+		// should only be able to change passwords if New and Repeated match
+		Name: "UpdatePasswordAsUserWithWrongRepeated",
+		User: *profileTestUser,
+		Form: ProfileForm{
+			User: *profileTestUser,
+			PasswordChangeForm: ProfilePasswordChangeForm{
+				Current:  profileTestUserRawPassword,
+				New:      "donthackme",
+				Repeated: "wrong", // doesn't match New
+			},
+		},
+		ExpectedForm: &ProfileForm{
+			User: *profileTestUser,
+		},
+		ExpectedPassword: "hackme",
+		TxFunc:           mocks.CommitTx,
+		GetRet:           *profileTestUser,
+		Error:            errors.E(errors.InvalidForm),
+	},
+	{
+		// should only be able to change passwords if Current is correct
+		Name: "UpdatePasswordAsUserWithWrongCurrent",
+		User: *profileTestUser,
+		Form: ProfileForm{
+			User: *profileTestUser,
+			PasswordChangeForm: ProfilePasswordChangeForm{
+				Current:  "notthepassword",
+				New:      "donthackme",
+				Repeated: "donthackme",
+			},
+		},
+		ExpectedForm: &ProfileForm{
+			User: *profileTestUser,
+		},
+		ExpectedPassword: "hackme",
+		TxFunc:           mocks.CommitTx,
+		GetRet:           *profileTestUser,
+		Error:            errors.E(errors.AccessDenied),
+	},
+	{
+		// should only be able to change passwords if Current is actually given
+		Name: "UpdatePasswordAsUserWithNoCurrent",
+		User: *profileTestUser,
+		Form: ProfileForm{
+			User: *profileTestUser,
+			PasswordChangeForm: ProfilePasswordChangeForm{
+				New:      "donthackme",
+				Repeated: "donthackme",
+			},
+		},
+		ExpectedForm: &ProfileForm{
+			User: *profileTestUser,
+		},
+		ExpectedPassword: "hackme",
+		TxFunc:           mocks.CommitTx,
+		GetRet:           *profileTestUser,
+		Error:            errors.E(errors.InvalidForm),
+	},
+	{
+		// admins should be able to update passwords for other users
+		Name: "UpdatePasswordAsAdmin",
+		User: *adminUser,
+		Form: ProfileForm{
+			User: *profileTestUser,
+			PasswordChangeForm: ProfilePasswordChangeForm{
+				New:      "donthackme",
+				Repeated: "donthackme",
+			},
+		},
+		ExpectedForm: &ProfileForm{
+			User: *profileTestUser,
+		},
+		ExpectedPassword: "donthackme",
+		TxFunc:           mocks.CommitTx,
+		GetRet:           *profileTestUser,
+	},
+}
+
+func mutateUser(user radio.User, fn func(radio.User) radio.User) radio.User {
+	return fn(user)
 }
 
 // sentinel value to apply the Form field to ExpectedForm field in profileTests
@@ -151,6 +266,9 @@ func TestPostProfile(t *testing.T) {
 			}
 			if test.ExpectedForm == profileSameAsInput {
 				test.ExpectedForm = &test.Form
+			}
+			if test.ExpectedPassword == "" {
+				test.ExpectedPassword = profileTestUserRawPassword
 			}
 
 			// setup storage mocks
@@ -172,7 +290,7 @@ func TestPostProfile(t *testing.T) {
 						return &test.GetRet, nil
 					},
 					UpdateFunc: func(user radio.User) (radio.User, error) {
-						assert.Equal(t, test.ExpectedForm.User, user)
+						assert.Equal(t, test.ExpectedForm.Username, user.Username)
 						return test.UpdateRet, test.UpdateErr
 					},
 				}
@@ -204,14 +322,32 @@ func TestPostProfile(t *testing.T) {
 				if assert.Error(t, err, "test should have errored") {
 					assert.ErrorIs(t, err, test.Error)
 				}
+				if test.ExpectedForm != nil {
+					assert.NotNil(t, form)
+					checkForm(t, test, form)
+				} else {
+					assert.Nil(t, form)
+				}
 				return
 			}
 
 			// test should not error
 			if assert.NoError(t, err, "test should not have errored") {
-				assert.NotNil(t, form)
-				assert.Equal(t, test.ExpectedForm.Username, form.Username)
+				if test.ExpectedForm != nil {
+					assert.NotNil(t, form)
+					checkForm(t, test, form)
+				} else {
+					assert.Nil(t, form)
+				}
+				return
 			}
 		})
 	}
+}
+
+func checkForm(t *testing.T, test profileTest, got *ProfileForm) {
+	expected := test.ExpectedForm
+
+	assert.NoError(t, got.User.ComparePassword(test.ExpectedPassword))
+	assert.Equal(t, expected.Username, got.Username)
 }

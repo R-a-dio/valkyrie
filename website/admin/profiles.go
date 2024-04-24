@@ -22,8 +22,29 @@ import (
 
 const (
 	DefaultDJPriority = 200
-	DefaultTheme      = templates.DEFAULT_DIR
+	DefaultDJTheme    = templates.DEFAULT_DIR
+	DefaultDJRole     = "dj"
+
+	profileNewUser = "user"
+	profileNewDJ   = "dj"
 )
+
+func newProfileUser(username string) radio.User {
+	return radio.User{
+		Username: username,
+		UserPermissions: radio.UserPermissions{
+			radio.PermActive: struct{}{},
+		},
+	}
+}
+
+func newProfileDJ(name string) radio.DJ {
+	return radio.DJ{
+		Name:     name,
+		Priority: DefaultDJPriority,
+		Role:     DefaultDJRole,
+	}
+}
 
 // ProfileForm defines the form we use for the profile page
 type ProfileForm struct {
@@ -165,25 +186,18 @@ func (s *State) postProfile(w http.ResponseWriter, r *http.Request) (*ProfileFor
 	if errors.IsE(err, http.ErrNotMultipart) {
 		err = nil
 	}
-
 	if err != nil {
 		return nil, errors.E(op, errors.InvalidForm, err)
 	}
 
-	// check if a new user is being made
+	// check if a new user or dj is being made
 	if r.FormValue("new") != "" {
 		// only admins are allowed to do this
 		if !currentUser.UserPermissions.Has(radio.PermAdmin) {
 			return nil, errors.E(op, errors.AccessDenied)
 		}
 
-		form, err := NewProfileForm(radio.User{
-			Username: r.FormValue("username"),
-		}, r)
-		if err != nil {
-			return nil, errors.E(op, err)
-		}
-		return s.postNewProfile(w, r, form)
+		return s.postNewProfile(r)
 	}
 
 	// not a new user, but might still be an admin editing someone else so
@@ -248,9 +262,18 @@ func (s *State) postProfile(w http.ResponseWriter, r *http.Request) (*ProfileFor
 	return form, nil
 }
 
-func (s *State) postNewProfile(w http.ResponseWriter, r *http.Request, form *ProfileForm) (*ProfileForm, error) {
-	const op errors.Op = "website/admin.postNewProfile"
+// postNewProfileUser creates a new user from a username and a password
+func (s *State) postNewProfileUser(r *http.Request, username string) (*ProfileForm, error) {
+	const op errors.Op = "website/admin.postNewProfileUser"
 	ctx := r.Context()
+
+	user := newProfileUser(username)
+
+	// parse the rest of the form
+	form, err := NewProfileForm(user, r)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
 
 	// generate a password for the user
 	newPassword, err := postProfilePassword(form.PasswordChangeForm, true)
@@ -259,11 +282,6 @@ func (s *State) postNewProfile(w http.ResponseWriter, r *http.Request, form *Pro
 	}
 	form.Password = newPassword
 
-	// add the active permission to the new user
-	form.UserPermissions = radio.UserPermissions{
-		radio.PermActive: struct{}{},
-	}
-
 	// and then create the user
 	uid, err := s.Storage.User(ctx).Create(form.User)
 	if err != nil {
@@ -271,6 +289,51 @@ func (s *State) postNewProfile(w http.ResponseWriter, r *http.Request, form *Pro
 	}
 	form.User.ID = uid
 	return form, nil
+}
+
+// postNewProfileDJ creates a new dj for an existing user username with default
+// values.
+func (s *State) postNewProfileDJ(r *http.Request, username string) (*ProfileForm, error) {
+	const op errors.Op = "website/admin.postNewProfileDJ"
+	ctx := r.Context()
+
+	user, err := s.Storage.User(ctx).Get(username)
+	if err != nil {
+		return nil, errors.E(op, err, errors.InternalServer)
+	}
+
+	// parse the rest of the form
+	form, err := NewProfileForm(*user, r)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	// create a DJ with default values
+	dj := newProfileDJ(form.User.Username)
+
+	// and then create the dj
+	djid, err := s.Storage.User(ctx).CreateDJ(form.User, dj)
+	if err != nil {
+		return form, errors.E(op, err)
+	}
+	form.User.DJ.ID = djid
+	return form, nil
+}
+
+func (s *State) postNewProfile(r *http.Request) (*ProfileForm, error) {
+	const op errors.Op = "website/admin.postNewProfile"
+
+	newMode := r.FormValue("new")       // what we're making a new thing off
+	username := r.FormValue("username") // the user we're making a new thing for
+
+	switch newMode {
+	case profileNewUser:
+		return s.postNewProfileUser(r, username)
+	case profileNewDJ:
+		return s.postNewProfileDJ(r, username)
+	default:
+		return nil, errors.E(op, errors.InvalidArgument, errors.Info(newMode))
+	}
 }
 
 func postProfilePassword(form ProfilePasswordChangeForm, isAdmin bool) (string, error) {
