@@ -843,6 +843,8 @@ type UserStorage interface {
 	CreateDJ(User, DJ) (DJID, error)
 	// Get returns the user matching the name given
 	Get(name string) (*User, error)
+	// GetByID returns the user associated with the UserID
+	GetByID(UserID) (*User, error)
 	// GetByDJID returns the user associated with the DJID
 	GetByDJID(DJID) (*User, error)
 	// Update updates the given user

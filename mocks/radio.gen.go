@@ -2087,6 +2087,9 @@ var _ radio.UserStorage = &UserStorageMock{}
 //			GetByDJIDFunc: func(dJID radio.DJID) (*radio.User, error) {
 //				panic("mock out the GetByDJID method")
 //			},
+//			GetByIDFunc: func(userID radio.UserID) (*radio.User, error) {
+//				panic("mock out the GetByID method")
+//			},
 //			LookupNameFunc: func(name string) (*radio.User, error) {
 //				panic("mock out the LookupName method")
 //			},
@@ -2123,6 +2126,9 @@ type UserStorageMock struct {
 
 	// GetByDJIDFunc mocks the GetByDJID method.
 	GetByDJIDFunc func(dJID radio.DJID) (*radio.User, error)
+
+	// GetByIDFunc mocks the GetByID method.
+	GetByIDFunc func(userID radio.UserID) (*radio.User, error)
 
 	// LookupNameFunc mocks the LookupName method.
 	LookupNameFunc func(name string) (*radio.User, error)
@@ -2168,6 +2174,11 @@ type UserStorageMock struct {
 			// DJID is the dJID argument value.
 			DJID radio.DJID
 		}
+		// GetByID holds details about calls to the GetByID method.
+		GetByID []struct {
+			// UserID is the userID argument value.
+			UserID radio.UserID
+		}
 		// LookupName holds details about calls to the LookupName method.
 		LookupName []struct {
 			// Name is the name argument value.
@@ -2195,6 +2206,7 @@ type UserStorageMock struct {
 	lockCreateDJ        sync.RWMutex
 	lockGet             sync.RWMutex
 	lockGetByDJID       sync.RWMutex
+	lockGetByID         sync.RWMutex
 	lockLookupName      sync.RWMutex
 	lockPermissions     sync.RWMutex
 	lockRecordListeners sync.RWMutex
@@ -2389,6 +2401,38 @@ func (mock *UserStorageMock) GetByDJIDCalls() []struct {
 	mock.lockGetByDJID.RLock()
 	calls = mock.calls.GetByDJID
 	mock.lockGetByDJID.RUnlock()
+	return calls
+}
+
+// GetByID calls GetByIDFunc.
+func (mock *UserStorageMock) GetByID(userID radio.UserID) (*radio.User, error) {
+	if mock.GetByIDFunc == nil {
+		panic("UserStorageMock.GetByIDFunc: method is nil but UserStorage.GetByID was just called")
+	}
+	callInfo := struct {
+		UserID radio.UserID
+	}{
+		UserID: userID,
+	}
+	mock.lockGetByID.Lock()
+	mock.calls.GetByID = append(mock.calls.GetByID, callInfo)
+	mock.lockGetByID.Unlock()
+	return mock.GetByIDFunc(userID)
+}
+
+// GetByIDCalls gets all the calls that were made to GetByID.
+// Check the length with:
+//
+//	len(mockedUserStorage.GetByIDCalls())
+func (mock *UserStorageMock) GetByIDCalls() []struct {
+	UserID radio.UserID
+} {
+	var calls []struct {
+		UserID radio.UserID
+	}
+	mock.lockGetByID.RLock()
+	calls = mock.calls.GetByID
+	mock.lockGetByID.RUnlock()
 	return calls
 }
 

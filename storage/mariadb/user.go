@@ -284,9 +284,9 @@ SELECT
 	IFNULL(djs.css, '') AS 'dj.css',
 	IFNULL(djs.djcolor, '') AS 'dj.color',
 	IFNULL(themes.id, 0) AS 'dj.theme.id',
-	IFNULL(themes.name, '') AS 'dj.theme.name',
-	IFNULL(themes.display_name, '') AS 'dj.theme.displayname',
-	IFNULL(themes.author, '') AS 'dj.theme.author'
+	IFNULL(themes.name, 'default') AS 'dj.theme.name',
+	IFNULL(themes.display_name, 'default') AS 'dj.theme.displayname',
+	IFNULL(themes.author, 'unknown') AS 'dj.theme.author'
 FROM
 	users
 LEFT JOIN
@@ -374,6 +374,10 @@ func (us UserStorage) LookupName(name string) (*radio.User, error) {
 	}
 
 	for _, user := range users {
+		if user.DJ.ID == 0 {
+			// skip users with no DJ profile
+			continue
+		}
 		if user.DJ.Regex == "" {
 			// skip users with no regex
 			continue
