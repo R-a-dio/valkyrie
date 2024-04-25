@@ -38,6 +38,7 @@ var defaultConfig = config{
 		Addr:            ":4747",
 		ListenAddr:      ":4747",
 		DJImageMaxSize:  10 * 1024 * 1024,
+		DJImagePath:     "/radio/dj-images",
 		PublicStreamURL: "http://localhost:8000/main.mp3",
 	},
 	Streamer: streamer{
