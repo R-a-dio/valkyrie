@@ -255,8 +255,8 @@ func (s *State) postProfile(w http.ResponseWriter, r *http.Request) (*ProfileFor
 		form.Password = new
 	}
 
-	// check for a image change
-	if r.MultipartForm != nil {
+	// check for a image change, but only if the user has a dj entry
+	if toEdit.DJ.ID != 0 && r.MultipartForm != nil {
 		if f := r.MultipartForm.File["dj.image"]; len(f) > 0 {
 			imagePath, err := postProfileImage(
 				afero.NewBasePathFs(s.FS, s.Conf().Website.DJImagePath),
@@ -423,18 +423,18 @@ func postProfileImage(fsys afero.Fs, id radio.DJID, maxSize int64, header *multi
 	if err != nil {
 		return "", errors.E(op, errors.InternalServer, err)
 	}
-	defer func(f afero.File) {
+	defer func(f afero.File, filename string) {
 		f.Close()
 		// cleanup file, but after a successful rename it shouldn't exist anymore
 		// so this is just for if we exit early
-		err := fsys.Remove(f.Name())
+		err := fsys.Remove(filename)
 		if err != nil && !errors.IsE(err, fs.ErrNotExist) {
 			// TODO: probably log any errors so we don't have millions
 			// of temp files leftover at some point
 			log.Println("dj image upload removal failure:", err)
 		}
 
-	}(out)
+	}(out, out.Name())
 
 	hash := sha256.New()
 

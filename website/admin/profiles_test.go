@@ -1,8 +1,12 @@
 package admin
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"io"
 	"maps"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -18,6 +22,7 @@ import (
 	"github.com/leanovate/gopter/arbitrary"
 	"github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
+	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -51,6 +56,8 @@ type profileTest struct {
 
 	UpdateRet radio.User
 	UpdateErr error
+
+	DJImage *strings.Reader
 }
 
 var adminUser = &radio.User{
@@ -71,6 +78,14 @@ var profileTestUser = &radio.User{
 	},
 	Password: mustGenerate(profileTestUserRawPassword),
 }
+
+var profileTestUserWithDJ = mutateUserPtr(*profileTestUser, func(u radio.User) radio.User {
+	u.DJ = radio.DJ{
+		ID:   5,
+		Name: u.Username,
+	}
+	return u
+})
 
 func mustGenerate(passwd string) string {
 	h, err := radio.GenerateHashFromPassword(passwd)
@@ -138,6 +153,17 @@ var profileTests = []profileTest{
 		GetErr:      nil,
 		CreateDJRet: 70,
 		CreateDJErr: nil,
+	},
+	{
+		Name: "NewDJProfileCreationNotAdmin",
+		Path: "/admin/profile?new=" + profileNewDJ,
+		User: *profileTestUser,
+		Form: ProfileForm{
+			User: *profileTestUser,
+		},
+		ExpectedForm: nil,
+		TxFunc:       mocks.CommitTx,
+		Error:        errors.E(errors.AccessDenied),
 	},
 	{
 		// permissions update executed by an admin, should work
@@ -270,24 +296,30 @@ var profileTests = []profileTest{
 		Name: "UpdatePasswordAsAdmin",
 		User: *adminUser,
 		Form: ProfileForm{
-			User: *profileTestUser,
+			User: *profileTestUserWithDJ,
 			PasswordChangeForm: ProfilePasswordChangeForm{
 				New:      "donthackme",
 				Repeated: "donthackme",
 			},
 		},
 		ExpectedForm: &ProfileForm{
-			User: *profileTestUser,
+			User: *profileTestUserWithDJ,
 		},
 		ExpectedPassword: "donthackme",
 		TxFunc:           mocks.CommitTx,
-		GetRet:           *profileTestUser,
+		GetRet:           *profileTestUserWithDJ,
 		GetErr:           nil,
+		DJImage:          strings.NewReader("just some data"),
 	},
 }
 
 func mutateUser(user radio.User, fn func(radio.User) radio.User) radio.User {
 	return fn(user)
+}
+
+func mutateUserPtr(user radio.User, fn func(radio.User) radio.User) *radio.User {
+	user = fn(user)
+	return &user
 }
 
 // sentinel value to apply the Form field to ExpectedForm field in profileTests
@@ -343,18 +375,47 @@ func TestPostProfile(t *testing.T) {
 			cfg, err := config.LoadFile()
 			require.NoError(t, err)
 
-			state := State{
+			state := &State{
 				Storage: storage,
 				Config:  cfg,
+				FS:      afero.NewMemMapFs(),
 			}
 
 			// setup the form
+			var body io.Reader
 			formWeSend := test.Form
-			body := strings.NewReader(formWeSend.ToValues().Encode())
+			body = strings.NewReader(formWeSend.ToValues().Encode())
+			ct := "application/x-www-form-urlencoded"
+			// if we're testing a multipart upload instead, we have to create it
+			// which is somehow a pain in Go
+			if test.DJImage != nil {
+				buf := new(bytes.Buffer)
+				w := multipart.NewWriter(buf)
+				// add our normal text fields to it
+				for k, v := range formWeSend.ToValues() {
+					for _, vv := range v {
+						fw, err := w.CreateFormField(k)
+						require.NoError(t, err)
+						_, err = io.WriteString(fw, vv)
+						require.NoError(t, err)
+					}
+				}
+				// add the dj image field
+				fw, err := w.CreateFormFile("dj.image", "test.png")
+				require.NoError(t, err)
+				_, err = io.Copy(fw, test.DJImage)
+				require.NoError(t, err)
+
+				// close the multipart writer so it flushes everything and
+				// creates the trailing header
+				w.Close()
+
+				body, ct = buf, w.FormDataContentType()
+			}
 
 			// setup the request
 			req := httptest.NewRequest(http.MethodPost, test.Path, body)
-			req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+			req.Header.Add("Content-Type", ct)
 			req = middleware.RequestWithUser(req, &test.User)
 			w := httptest.NewRecorder()
 
@@ -367,7 +428,7 @@ func TestPostProfile(t *testing.T) {
 				}
 				if test.ExpectedForm != nil {
 					assert.NotNil(t, form)
-					checkForm(t, test, form)
+					checkForm(t, test, state, form)
 				} else {
 					assert.Nil(t, form)
 				}
@@ -378,7 +439,7 @@ func TestPostProfile(t *testing.T) {
 			if assert.NoError(t, err, "test should not have errored") {
 				if test.ExpectedForm != nil {
 					assert.NotNil(t, form)
-					checkForm(t, test, form)
+					checkForm(t, test, state, form)
 				} else {
 					assert.Nil(t, form)
 				}
@@ -388,12 +449,42 @@ func TestPostProfile(t *testing.T) {
 	}
 }
 
-func checkForm(t *testing.T, test profileTest, got *ProfileForm) {
+func checkForm(t *testing.T, test profileTest, state *State, got *ProfileForm) {
 	expected := test.ExpectedForm
+	fs := afero.NewBasePathFs(state.FS, state.Conf().Website.DJImagePath)
 
+	// password should match
 	assert.NoError(t, got.User.ComparePassword(test.ExpectedPassword))
+	// username should match
 	assert.Equal(t, expected.Username, got.Username)
+	// and permissions
 	assert.Equal(t, expected.UserPermissions, got.UserPermissions)
+	// for DJ comparison we first need to know if we're testing with a
+	// DJ image upload or not
+	if test.DJImage != nil {
+		// if we did test with an image upload, then we need to check the DJ
+		// image field
+		assert.NotZero(t, got.DJ.Image)
+		// filename on disk is just the ID
+		imageName := fmt.Sprintf("%d", got.DJ.ID)
+		// see that it exists
+		ok, err := afero.Exists(fs, imageName)
+		assert.NoError(t, err, "should not error")
+		assert.True(t, ok, "file should exist: %s %s", imageName, got.DJ.Image)
+		// then make sure the image filename we store has the DJID in it
+		assert.True(t, strings.HasPrefix(got.DJ.Image, imageName), "%s does not contain %s", got.DJ.Image, imageName)
+		// then make sure the contents we uploaded are in the file
+		contents, err := afero.ReadFile(fs, imageName)
+		if assert.NoError(t, err) {
+			_, err = test.DJImage.Seek(0, io.SeekStart)
+			require.NoError(t, err)
+			expected, err := io.ReadAll(test.DJImage)
+			if assert.NoError(t, err) {
+				assert.Equal(t, expected, contents)
+			}
+		}
+		got.DJ.Image = "" // then zero it so comparison succeeds below
+	}
 	assert.Equal(t, expected.DJ, got.DJ)
 }
 
