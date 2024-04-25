@@ -23,12 +23,13 @@ func InputMiddleware(cfg config.Config, status *util.Value[radio.Status]) func(h
 
 			user := UserFromContext(ctx)
 			input := Input{
-				Now:       time.Now(),
-				IsHTMX:    util.IsHTMX(r),
-				IsUser:    user != nil,
-				User:      user,
-				StreamURL: PublicStreamURL,
-				Status:    status.Latest(),
+				Now:        time.Now(),
+				IsHTMX:     util.IsHTMX(r),
+				IsUser:     user != nil,
+				User:       user,
+				StreamURL:  PublicStreamURL,
+				RequestURL: template.URL(r.URL.String()),
+				Status:     status.Latest(),
 			}
 
 			ctx = context.WithValue(ctx, inputKey{}, input)
@@ -53,12 +54,13 @@ func InputFromContext(ctx context.Context) Input {
 
 // Input is a bunch of data that should be accessable to the base template
 type Input struct {
-	Now       time.Time
-	IsUser    bool
-	IsHTMX    bool
-	User      *radio.User
-	Status    radio.Status
-	StreamURL template.URL
+	Now        time.Time
+	IsUser     bool
+	IsHTMX     bool
+	User       *radio.User
+	Status     radio.Status
+	StreamURL  template.URL
+	RequestURL template.URL
 }
 
 func (Input) TemplateName() string {

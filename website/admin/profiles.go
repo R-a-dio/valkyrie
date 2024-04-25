@@ -75,6 +75,29 @@ func (ProfileForm) TemplateName() string {
 	return "form_profile"
 }
 
+const profileFormAction = "/admin/profile"
+
+func (ProfileForm) FormAction() template.HTMLAttr {
+	return profileFormAction
+}
+
+func (ProfileForm) FormType() template.HTMLAttr {
+	return `enctype="multipart/form-data"`
+}
+
+func (f *ProfileForm) AddDJProfileURL() template.URL {
+	uri, err := url.Parse(profileFormAction)
+	if err != nil {
+		return ""
+	}
+
+	query := uri.Query()
+	query.Set("username", f.Username)
+	query.Set("new", profileNewDJ)
+	uri.RawQuery = query.Encode()
+	return template.URL(uri.String())
+}
+
 // GetProfile is mounted under /admin/profile and shows the currently logged
 // in users profile
 func (s *State) GetProfile(w http.ResponseWriter, r *http.Request) {
@@ -275,6 +298,10 @@ func (s *State) postNewProfileUser(r *http.Request, username string) (*ProfileFo
 		return nil, errors.E(op, err)
 	}
 
+	// NewProfileForm will have emptied our UserPermissions because the new user
+	// form doesn't send any, so just overwrite it here
+	form.UserPermissions = user.UserPermissions
+
 	// generate a password for the user
 	newPassword, err := postProfilePassword(form.PasswordChangeForm, true)
 	if err != nil {
@@ -316,14 +343,15 @@ func (s *State) postNewProfileDJ(r *http.Request, username string) (*ProfileForm
 	if err != nil {
 		return form, errors.E(op, err)
 	}
-	form.User.DJ.ID = djid
+	dj.ID = djid      // apply the id
+	form.User.DJ = dj // then add it to the form we're returning
 	return form, nil
 }
 
 func (s *State) postNewProfile(r *http.Request) (*ProfileForm, error) {
 	const op errors.Op = "website/admin.postNewProfile"
 
-	newMode := r.FormValue("new")       // what we're making a new thing off
+	newMode := r.FormValue("new")       // what we're making a new thing of
 	username := r.FormValue("username") // the user we're making a new thing for
 
 	switch newMode {
@@ -447,7 +475,7 @@ func NewProfileForm(user radio.User, r *http.Request) (*ProfileForm, error) {
 
 	// initial check to see if we're actually editing the expected user
 	if values.Get("username") != user.Username {
-		return nil, errors.E(op, errors.AccessDenied)
+		return nil, errors.E(op, errors.AccessDenied, "username does not match")
 	}
 
 	form := newProfileForm(user, r)
@@ -473,16 +501,30 @@ func newProfileForm(user radio.User, r *http.Request) ProfileForm {
 }
 
 func (pf *ProfileForm) Update(form url.Values) {
-	pf.Username = form.Get("username")
-	pf.IP = form.Get("ip")
-	pf.Email = form.Get("email")
-	pf.DJ.Visible = form.Get("dj.visible") != ""
-	pf.DJ.Name = form.Get("dj.name")
+	if form.Has("username") {
+		pf.Username = form.Get("username")
+	}
+	if form.Has("ip") {
+		pf.IP = form.Get("ip")
+	}
+	if form.Has("email") {
+		pf.Email = form.Get("email")
+	}
+	if form.Has("dj.visible") {
+		pf.DJ.Visible = form.Get("dj.visible") != ""
+	}
+	if form.Has("dj.name") {
+		pf.DJ.Name = form.Get("dj.name")
+	}
 	if prio, err := strconv.Atoi(form.Get("dj.priority")); err == nil {
 		pf.DJ.Priority = prio
 	}
-	pf.DJ.Regex = form.Get("dj.regex")
-	pf.DJ.Theme.Name = form.Get("dj.theme.name")
+	if form.Has("dj.regex") {
+		pf.DJ.Regex = form.Get("dj.regex")
+	}
+	if form.Has("dj.theme.name") {
+		pf.DJ.Theme.Name = form.Get("dj.theme.name")
+	}
 
 	// password handling
 	pf.PasswordChangeForm.Current = form.Get("password.current")

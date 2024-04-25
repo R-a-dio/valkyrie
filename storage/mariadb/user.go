@@ -413,27 +413,27 @@ func (us UserStorage) All() ([]radio.User, error) {
 		users.created_at AS created_at,
 		IFNULL(users.user, '') AS username,
 		(SELECT group_concat(permission) FROM permissions WHERE user_id=users.id) AS userpermissions,
-		djs.id AS 'dj.id',
-		djs.regex AS 'dj.regex',
-		djs.djname AS 'dj.name',
-
-		djs.djtext AS 'dj.text',
-		djs.djimage AS 'dj.image',
-
-		djs.visible AS 'dj.visible',
-		djs.priority AS 'dj.priority',
-		djs.role AS 'dj.role',
-
-		djs.css AS 'dj.css',
-		djs.djcolor AS 'dj.color',
+		IFNULL(djs.id, 0) AS 'dj.id',
+		IFNULL(djs.regex, '') AS 'dj.regex',
+		IFNULL(djs.djname, '') AS 'dj.name',
+	
+		IFNULL(djs.djtext, '') AS 'dj.text',
+		IFNULL(djs.djimage, '') AS 'dj.image',
+	
+		IFNULL(djs.visible, 0) AS 'dj.visible',
+		IFNULL(djs.priority, 0) AS 'dj.priority',
+		IFNULL(djs.role, '') AS 'dj.role',
+	
+		IFNULL(djs.css, '') AS 'dj.css',
+		IFNULL(djs.djcolor, '') AS 'dj.color',
 		IFNULL(themes.id, 0) AS 'dj.theme.id',
 		IFNULL(themes.name, 'default') AS 'dj.theme.name',
 		IFNULL(themes.display_name, 'default') AS 'dj.theme.displayname',
 		IFNULL(themes.author, 'unknown') AS 'dj.theme.author'
 	FROM
-		djs
-	JOIN
-		users ON djs.id = users.djid
+		users
+	LEFT JOIN
+		djs ON djs.id = users.djid
 	LEFT JOIN
 		themes ON djs.theme_id = themes.id;
 	`

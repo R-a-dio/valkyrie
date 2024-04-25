@@ -2,8 +2,10 @@ package admin
 
 import (
 	"context"
+	"maps"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -12,6 +14,10 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/mocks"
 	"github.com/R-a-dio/valkyrie/website/middleware"
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/arbitrary"
+	"github.com/leanovate/gopter/gen"
+	"github.com/leanovate/gopter/prop"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -36,6 +42,9 @@ type profileTest struct {
 
 	CreateRet radio.UserID
 	CreateErr error
+
+	CreateDJRet radio.DJID
+	CreateDJErr error
 
 	GetRet radio.User
 	GetErr error
@@ -80,6 +89,9 @@ var profileTests = []profileTest{
 		Form: ProfileForm{
 			User: radio.User{
 				Username: "newuser",
+				UserPermissions: radio.UserPermissions{
+					radio.PermActive: struct{}{},
+				},
 			},
 			PasswordChangeForm: ProfilePasswordChangeForm{
 				New:      "hackme",
@@ -108,6 +120,26 @@ var profileTests = []profileTest{
 		Error:        errors.E(errors.AccessDenied),
 	},
 	{
+		Name: "NewDJProfileCreation",
+		Path: "/admin/profile?new=" + profileNewDJ,
+		User: *adminUser,
+		Form: ProfileForm{
+			User: *profileTestUser,
+		},
+		ExpectedForm: &ProfileForm{
+			User: mutateUser(*profileTestUser, func(u radio.User) radio.User {
+				u.DJ = newProfileDJ(u.Username)
+				u.DJ.ID = 70 // should be same as CreateDJRet
+				return u
+			}),
+		},
+		TxFunc:      mocks.CommitTx,
+		GetRet:      *profileTestUser,
+		GetErr:      nil,
+		CreateDJRet: 70,
+		CreateDJErr: nil,
+	},
+	{
 		// permissions update executed by an admin, should work
 		Name: "UpdatePermissionsAsAdmin",
 		User: *adminUser,
@@ -124,6 +156,7 @@ var profileTests = []profileTest{
 		ExpectedForm: profileSameAsInput,
 		TxFunc:       mocks.CommitTx,
 		GetRet:       *profileTestUser,
+		GetErr:       nil,
 	},
 	{
 		// permissions update by the user themselves, should not work,
@@ -147,6 +180,7 @@ var profileTests = []profileTest{
 		},
 		TxFunc: mocks.CommitTx,
 		GetRet: *profileTestUser,
+		GetErr: nil,
 	},
 	{
 		// users should be able to update their own password assuming they know
@@ -167,6 +201,7 @@ var profileTests = []profileTest{
 		ExpectedPassword: "donthackme",
 		TxFunc:           mocks.CommitTx,
 		GetRet:           *profileTestUser,
+		GetErr:           nil,
 	},
 	{
 		// should only be able to change passwords if New and Repeated match
@@ -186,6 +221,7 @@ var profileTests = []profileTest{
 		ExpectedPassword: "hackme",
 		TxFunc:           mocks.CommitTx,
 		GetRet:           *profileTestUser,
+		GetErr:           nil,
 		Error:            errors.E(errors.InvalidForm),
 	},
 	{
@@ -206,6 +242,7 @@ var profileTests = []profileTest{
 		ExpectedPassword: "hackme",
 		TxFunc:           mocks.CommitTx,
 		GetRet:           *profileTestUser,
+		GetErr:           nil,
 		Error:            errors.E(errors.AccessDenied),
 	},
 	{
@@ -225,6 +262,7 @@ var profileTests = []profileTest{
 		ExpectedPassword: "hackme",
 		TxFunc:           mocks.CommitTx,
 		GetRet:           *profileTestUser,
+		GetErr:           nil,
 		Error:            errors.E(errors.InvalidForm),
 	},
 	{
@@ -244,6 +282,7 @@ var profileTests = []profileTest{
 		ExpectedPassword: "donthackme",
 		TxFunc:           mocks.CommitTx,
 		GetRet:           *profileTestUser,
+		GetErr:           nil,
 	},
 }
 
@@ -292,6 +331,10 @@ func TestPostProfile(t *testing.T) {
 					UpdateFunc: func(user radio.User) (radio.User, error) {
 						assert.Equal(t, test.ExpectedForm.Username, user.Username)
 						return test.UpdateRet, test.UpdateErr
+					},
+					CreateDJFunc: func(user radio.User, dJ radio.DJ) (radio.DJID, error) {
+						assert.Equal(t, test.ExpectedForm.Username, user.Username)
+						return test.CreateDJRet, test.CreateDJErr
 					},
 				}
 			}
@@ -350,4 +393,55 @@ func checkForm(t *testing.T, test profileTest, got *ProfileForm) {
 
 	assert.NoError(t, got.User.ComparePassword(test.ExpectedPassword))
 	assert.Equal(t, expected.Username, got.Username)
+	assert.Equal(t, expected.UserPermissions, got.UserPermissions)
+	assert.Equal(t, expected.DJ, got.DJ)
+}
+
+func TestProfileFormRoundTrip(t *testing.T) {
+	a := arbitrary.DefaultArbitraries()
+	p := gopter.NewProperties(nil)
+
+	profileUserGen := gen.Struct(reflect.TypeOf(radio.User{}), map[string]gopter.Gen{
+		"Username":        gen.AnyString(),
+		"Email":           gen.AnyString(),
+		"IP":              gen.AnyString(),
+		"UserPermissions": genForType[radio.UserPermissions](a),
+		"DJ": gen.Struct(reflect.TypeOf(radio.DJ{}), map[string]gopter.Gen{
+			"ID": genForType[radio.DJID](a).SuchThat(func(v radio.DJID) bool {
+				return v != 0
+			}),
+			"Visible":  gen.Bool(),
+			"Name":     gen.AnyString(),
+			"Priority": gen.Int(),
+			"Regex":    gen.AnyString(),
+		}),
+	})
+
+	p.Property("form should roundtrip", prop.ForAll(
+		func(u radio.User) bool {
+			in := ProfileForm{
+				User: u,
+			}
+			var out ProfileForm
+
+			out.Update(in.ToValues())
+			// null the djid, since we don't actually roundtrip it but it is required
+			// by the ToValues to be set
+			in.DJ.ID = 0
+
+			return in.Username == out.Username &&
+				in.Email == out.Email &&
+				in.IP == out.IP &&
+				in.DJ == out.DJ &&
+				in.PasswordChangeForm.Current == out.PasswordChangeForm.Current &&
+				in.PasswordChangeForm.New == out.PasswordChangeForm.New &&
+				in.PasswordChangeForm.Repeated == out.PasswordChangeForm.Repeated &&
+				maps.Equal(in.UserPermissions, out.newPermissions)
+		}, profileUserGen,
+	))
+	p.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func genForType[T any](a *arbitrary.Arbitraries) gopter.Gen {
+	return a.GenForType(reflect.TypeFor[T]())
 }
