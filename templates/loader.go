@@ -370,7 +370,7 @@ func noExt(s string) string {
 	return strings.TrimSuffix(filepath.Base(s), filepath.Ext(s))
 }
 
-func (ls loadState) loadThemes(themes Themes, defaultDir string, dirs []string) error {
+func (ls *loadState) loadThemes(themes Themes, defaultDir string, dirs []string) error {
 	const op errors.Op = "templates/loadState.loadThemes"
 	var defaults loadStateDefault
 	var err error
