@@ -125,24 +125,33 @@ type UserPermissions map[UserPermission]struct{}
 // Has returns true if the permissions in UserPermission allow
 // access to the permission given
 func (up UserPermissions) Has(perm UserPermission) bool {
-	if up == nil { // nil map, has no permissions ever
-		return false
-	}
-	_, ok := up[PermActive]
-	if !ok { // not an active user, no permissions ever
+	if !up.has(PermActive) { // not an active user
 		return false
 	}
 
-	_, ok = up[perm]
-	if !ok { // don't have this perm but might be dev who has access to everything
-		_, ok = up[PermDev]
-		return ok
-	}
-	return ok
+	return up.has(perm) || up.has(PermDev)
 }
 
 // HasExplicit returns true if the permission given is explicitly in the UserPermissions
 func (up UserPermissions) HasExplicit(perm UserPermission) bool {
+	return up.has(perm)
+}
+
+// HasEdit returns true if the UserPermissions is allowed to edit the given permission
+func (up UserPermissions) HasEdit(perm UserPermission) bool {
+	// devs can edit any permission
+	if up.has(PermDev) {
+		return true
+	}
+	// admins can edit every permission except for PermDev
+	if up.has(PermAdmin) && perm != PermDev {
+		return true
+	}
+	// no one else can edit permissions
+	return false
+}
+
+func (up UserPermissions) has(perm UserPermission) bool {
 	if up == nil {
 		return false
 	}

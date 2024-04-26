@@ -46,10 +46,18 @@ func newProfileDJ(name string) radio.DJ {
 	}
 }
 
+type ProfilePermissionEntry struct {
+	Perm     radio.UserPermission
+	Checked  bool
+	Disabled bool
+}
+
 // ProfileForm defines the form we use for the profile page
 type ProfileForm struct {
 	radio.User
 
+	// PermissionList is the list of permissions we should render
+	PermissionList []ProfilePermissionEntry
 	// IsAdmin indicates if we're setting up the admin-only form
 	IsAdmin bool
 	// IsSelf indicates if we're setting up a form for ourselves, can only
@@ -194,6 +202,9 @@ func (s *State) postProfile(w http.ResponseWriter, r *http.Request) (*ProfileFor
 	ctx := r.Context()
 	// current user of this session
 	currentUser := middleware.UserFromContext(ctx)
+	if currentUser == nil {
+		panic("admin request with no user")
+	}
 	// the user we're editing
 	toEdit := currentUser
 
@@ -274,6 +285,7 @@ func (s *State) postProfile(w http.ResponseWriter, r *http.Request) (*ProfileFor
 	// apply any permission change, only admins can change this (for now)
 	if currentUser.UserPermissions.Has(radio.PermAdmin) {
 		form.User.UserPermissions = form.newPermissions
+		form.PermissionList = generatePermissionList(*currentUser, form.User)
 	}
 
 	// update the user in the database
@@ -488,16 +500,32 @@ func NewProfileForm(user radio.User, r *http.Request) (*ProfileForm, error) {
 
 func newProfileForm(user radio.User, r *http.Request) ProfileForm {
 	requestUser := middleware.UserFromContext(r.Context())
+	if requestUser == nil {
+		panic("admin request with no user")
+	}
 
 	return ProfileForm{
-		User:      user,
-		IsAdmin:   requestUser.UserPermissions.Has(radio.PermAdmin),
-		IsSelf:    requestUser.Username == user.Username,
-		CurrentIP: template.JS(r.RemoteAddr),
+		User:           user,
+		PermissionList: generatePermissionList(*requestUser, user),
+		IsAdmin:        requestUser.UserPermissions.Has(radio.PermAdmin),
+		IsSelf:         requestUser.Username == user.Username,
+		CurrentIP:      template.JS(r.RemoteAddr),
 		PasswordChangeForm: ProfilePasswordChangeForm{
 			For: user,
 		},
 	}
+}
+
+func generatePermissionList(by, other radio.User) []ProfilePermissionEntry {
+	var entries []ProfilePermissionEntry
+	for _, perm := range radio.AllUserPermissions() {
+		entries = append(entries, ProfilePermissionEntry{
+			Perm:     perm,
+			Checked:  other.UserPermissions.HasExplicit(perm),
+			Disabled: !by.UserPermissions.HasEdit(perm),
+		})
+	}
+	return entries
 }
 
 func (pf *ProfileForm) Update(form url.Values) {
