@@ -151,6 +151,11 @@ func (s *State) getProfile(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 
 	user := middleware.UserFromContext(ctx)
+	if user == nil {
+		panic("admin request with no user")
+	}
+	// the user we're viewing
+	toView := *user
 
 	// if admin, they can see other users, check if that is the case
 	if user.UserPermissions.Has(radio.PermAdmin) {
@@ -161,11 +166,11 @@ func (s *State) getProfile(w http.ResponseWriter, r *http.Request) error {
 			if err != nil {
 				return errors.E(op, err)
 			}
-			user = other
+			toView = *other
 		}
 	}
 
-	input, err := NewProfileInput(*user, r)
+	input, err := NewProfileInput(toView, r)
 	if err != nil {
 		return errors.E(op, err)
 	}
