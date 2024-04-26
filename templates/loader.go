@@ -303,10 +303,14 @@ func (tb ThemeBundle) Assets() fs.FS {
 type loadState struct {
 	fs fs.FS
 
-	baseTemplates   []string
-	defaultPartials []string
-	defaultForms    []string
-	defaultBundle   map[string]*TemplateBundle
+	baseTemplates []string
+	defaults      loadStateDefault
+}
+
+type loadStateDefault struct {
+	partials []string
+	forms    []string
+	bundle   map[string]*TemplateBundle
 }
 
 func LoadThemes(fsys fs.FS) (Themes, error) {
@@ -316,67 +320,46 @@ func LoadThemes(fsys fs.FS) (Themes, error) {
 	var err error
 
 	state.fs = fsys
+
+	// first, we're looking for .tmpl files in the main template directory
+	// these are included in all other templates as a base
 	state.baseTemplates, err = readDirFilterString(fsys, ".", isTemplate)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
 
-	// find our default directory
-	state.defaultBundle, err = state.loadSubDir(DEFAULT_DIR)
-	if err != nil {
-		return nil, errors.E(op, err)
-	}
-	// sanity check that we have atleast 1 bundle
-	if len(state.defaultBundle) == 0 {
-		return nil, errors.E(op, "default bundle empty")
-	}
-
-	// grab the partials from any template bundle
-	for _, v := range state.defaultBundle {
-		state.defaultPartials = v.partials
-		state.defaultForms = v.forms
-		break
-	}
-
-	// get the assets directory fs
-	assets, err := fs.Sub(fsys, path.Join(DEFAULT_DIR, ASSETS_DIR))
-	if err != nil && !errors.IsE(err, os.ErrNotExist) {
-		return nil, errors.E(op, err)
-	}
-
-	// read the rest of the directories
-	subdirs, err := readDirFilterString(fsys, ".", func(e fs.DirEntry) bool {
-		isExcluded := strings.HasPrefix(e.Name(), ".")
-		return !isExcluded && e.IsDir()
+	// then we're going to look for directories that don't start with a dot
+	subdirs, err := readDirFilterString(fsys, ".", func(de fs.DirEntry) bool {
+		return !strings.HasPrefix(de.Name(), ".") && de.IsDir()
 	})
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
 
-	// add our default directory that we loaded above as a ThemeBundle
-	themes := Themes{
-		DEFAULT_DIR: ThemeBundle{DEFAULT_DIR, state.defaultBundle, assets},
+	// now each directory will be a separate theme in the final result, but we
+	// have 'public' themes and 'admin' themes so split those apart
+	var publicDirs, adminDirs []string
+	for _, dir := range subdirs {
+		if strings.HasPrefix(dir, ADMIN_PREFIX) {
+			adminDirs = append(adminDirs, dir)
+		} else {
+			publicDirs = append(publicDirs, dir)
+		}
 	}
-	// then read the rest of the themes
-	for _, subdir := range subdirs {
-		if subdir == DEFAULT_DIR { // skip the default dir since we already loaded it earlier
-			continue
-		}
-		bundles, err := state.loadSubDir(subdir)
-		if err != nil {
-			return nil, errors.E(op, err)
-		}
 
-		assets, err := fs.Sub(fsys, path.Join(subdir, ASSETS_DIR))
-		if err != nil && !errors.IsE(err, os.ErrNotExist) {
-			return nil, errors.E(op, err)
-		}
+	fmt.Println(publicDirs, adminDirs)
+	// now setup the themes we're going to end up returning later
+	var themes = make(Themes)
 
-		themes[subdir] = ThemeBundle{
-			name:   subdir,
-			pages:  bundles,
-			assets: assets,
-		}
+	// fill it with the public themes
+	err = state.loadThemes(themes, DEFAULT_DIR, publicDirs)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+	// and the admin themes
+	err = state.loadThemes(themes, DEFAULT_ADMIN_DIR, adminDirs)
+	if err != nil {
+		return nil, errors.E(op, err)
 	}
 
 	return themes, nil
@@ -385,6 +368,60 @@ func LoadThemes(fsys fs.FS) (Themes, error) {
 // noExt removes the extension of s as returned by filepath.Ext
 func noExt(s string) string {
 	return strings.TrimSuffix(filepath.Base(s), filepath.Ext(s))
+}
+
+func (ls loadState) loadThemes(themes Themes, defaultDir string, dirs []string) error {
+	const op errors.Op = "templates/loadState.loadThemes"
+	var defaults loadStateDefault
+	var err error
+
+	// load the default theme
+	defaults.bundle, err = ls.loadSubDir(defaultDir)
+	if errors.IsE(err, os.ErrNotExist) {
+		return errors.E(op, err, errors.Info("default theme does not exist"))
+	}
+	if err != nil {
+		return errors.E(op, err)
+	}
+	// grab the partials and forms for quicker access
+	for _, v := range defaults.bundle {
+		defaults.forms = v.forms
+		defaults.partials = v.partials
+		break
+	}
+	// set the default in the loadState so it can be used by the other themes
+	ls.defaults = defaults
+
+	// and we need the assets directory for the construction of the
+	// ThemeBundle
+	assetsFs, err := fs.Sub(ls.fs, path.Join(defaultDir, ASSETS_DIR))
+	if err != nil && !errors.IsE(err, os.ErrNotExist) {
+		return errors.E(op, err)
+	}
+
+	// construct the bundle for the default
+	themes[defaultDir] = ThemeBundle{defaultDir, defaults.bundle, assetsFs}
+
+	// and now we have to do it for all the leftover directories
+	for _, dir := range dirs {
+		if dir == defaultDir {
+			// skip the default, since we already loaded it above
+			continue
+		}
+
+		bundle, err := ls.loadSubDir(dir)
+		if err != nil {
+			return errors.E(op, err)
+		}
+
+		assetsFs, err := fs.Sub(ls.fs, path.Join(dir, ASSETS_DIR))
+		if err != nil && !errors.IsE(err, os.ErrNotExist) {
+			return errors.E(op, err)
+		}
+
+		themes[dir] = ThemeBundle{dir, bundle, assetsFs}
+	}
+	return nil
 }
 
 // loadSubDir searches a subdirectory of the FS used in the creation of the loader.
@@ -398,8 +435,8 @@ func (ls loadState) loadSubDir(dir string) (map[string]*TemplateBundle, error) {
 	var bundle = TemplateBundle{
 		fs:              ls.fs,
 		base:            ls.baseTemplates,
-		defaultPartials: ls.defaultPartials,
-		defaultForms:    ls.defaultForms,
+		defaultPartials: ls.defaults.partials,
+		defaultForms:    ls.defaults.forms,
 	}
 
 	// read the forms subdirectory
@@ -444,7 +481,7 @@ func (ls loadState) loadSubDir(dir string) (map[string]*TemplateBundle, error) {
 		// create a bundle for each page in this directory
 		pageBundle := bundle
 
-		defaultPage := ls.defaultBundle[noExt(name)]
+		defaultPage := ls.defaults.bundle[noExt(name)]
 		if defaultPage != nil {
 			pageBundle.defaultPage = defaultPage.page
 		}
@@ -454,14 +491,14 @@ func (ls loadState) loadSubDir(dir string) (map[string]*TemplateBundle, error) {
 	}
 
 	// if there are no defaults to handle, we're done
-	if ls.defaultBundle == nil {
+	if ls.defaults.bundle == nil {
 		return bundles, nil
 	}
 
 	// otherwise check for missing pages, these are pages defined
 	// in the default theme but not in this current theme. Copy over
 	// the default pages if they're missing.
-	for name, page := range ls.defaultBundle {
+	for name, page := range ls.defaults.bundle {
 		if _, ok := bundles[name]; ok {
 			continue
 		}

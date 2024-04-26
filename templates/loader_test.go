@@ -69,6 +69,10 @@ func txtarFSFromBytes(b []byte) fstest.MapFS {
 	return txtarFS(txtar.Parse(b))
 }
 
+func txtarFSFromString(b string) fstest.MapFS {
+	return txtarFSFromBytes([]byte(b))
+}
+
 func TestLoadThemes(t *testing.T) {
 	type args struct {
 		fsys fs.FS
@@ -115,7 +119,8 @@ func FuzzLoadThemes(f *testing.F) {
 
 func TestExecuteTemplate(t *testing.T) {
 	type args struct {
-		fsys fs.FS
+		fsys  fs.FS
+		theme string
 	}
 	tests := []struct {
 		name       string
@@ -123,7 +128,8 @@ func TestExecuteTemplate(t *testing.T) {
 		wantErr    bool
 		shouldExec bool
 	}{
-		{"empty", args{txtarFSFromBytes([]byte(`
+		{"empty", args{
+			fsys: txtarFSFromString(`
 -- base.tmpl --
 {{ define "base" }}
 base
@@ -136,7 +142,31 @@ base
 -- default-light/partials/empty.tmpl --
 {{ define "empty_part" }}
 empty
-{{ end }}`))}, false, true},
+{{ end }}
+-- admin-light/default.tmpl --
+null
+`),
+			theme: "default-light",
+		}, false, true},
+		{"admin", args{
+			fsys: txtarFSFromString(`
+-- base.tmpl --
+{{ define "base" }}
+admin-base
+{{ template "admin" }}
+{{ template "admin_partial" }}
+{{ end }}
+-- default-light/default.tmpl --
+{{ define "empty" }}{{ end }}
+-- admin-light/default.tmpl --
+{{ define "admin" }}{{ end }}
+-- admin-light/partials/admin.tmpl --
+{{ define "admin_partial" }}{{ end }}
+-- admin-dark/default.tmpl --
+{{ define "admin" }}{{ end }}
+`),
+			theme: "admin-dark",
+		}, false, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -145,9 +175,10 @@ empty
 				t.Errorf("FromFS() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+
 			if tt.shouldExec {
 				exec := got.Executor()
-				err = exec.ExecuteTemplate(context.Background(), "default", "default", "base", io.Discard, nil)
+				err = exec.ExecuteTemplate(context.Background(), tt.args.theme, "default", "base", io.Discard, nil)
 				if err != nil {
 					t.Errorf("template did not execute: %v", err)
 					return
