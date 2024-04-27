@@ -24,6 +24,7 @@ type Executor interface {
 	Execute(w io.Writer, r *http.Request, input TemplateSelectable) error
 	ExecuteTemplate(ctx context.Context, theme, page, template string, output io.Writer, input any) error
 	ExecuteAll(input TemplateSelectable) (map[string][]byte, error)
+	ExecuteAllAdmin(input TemplateSelectable) (map[string][]byte, error)
 }
 
 type executor struct {
@@ -82,16 +83,26 @@ func (e *executor) ExecuteTemplate(ctx context.Context, theme, page string, temp
 	return nil
 }
 
-// ExecuteTemplateAll executes the template given feeding the input given for all known themes
+// ExecuteAll executes the template selected in all public themes
 func (e *executor) ExecuteAll(input TemplateSelectable) (map[string][]byte, error) {
 	const op errors.Op = "templates/Executor.ExecuteAll"
+
+	res, err := e.executeAll(input, e.site.ThemeNames())
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+	return res, nil
+}
+
+func (e *executor) executeAll(input TemplateSelectable, themes []string) (map[string][]byte, error) {
+	const op errors.Op = "templates/Executor.executeAll"
 
 	var out = make(map[string][]byte)
 
 	b := bufferPool.Get()
 	defer bufferPool.Put(b)
 
-	for _, theme := range e.site.ThemeNames() {
+	for _, theme := range themes {
 		tmpl, err := e.site.Template(theme, input.TemplateBundle())
 		if err != nil {
 			return nil, errors.E(op, err)
@@ -106,4 +117,15 @@ func (e *executor) ExecuteAll(input TemplateSelectable) (map[string][]byte, erro
 		b.Reset()
 	}
 	return out, nil
+}
+
+// ExecuteAllAdmin executes the template selected in all admin themes
+func (e *executor) ExecuteAllAdmin(input TemplateSelectable) (map[string][]byte, error) {
+	const op errors.Op = "templates/Executor.ExecuteAllAdmin"
+
+	res, err := e.executeAll(input, e.site.ThemeNamesAdmin())
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+	return res, nil
 }

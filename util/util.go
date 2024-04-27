@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/R-a-dio/valkyrie/util/eventstream"
+	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog"
 )
 
@@ -33,7 +34,7 @@ func IsHTMX(r *http.Request) bool {
 
 func RedirectBack(r *http.Request) *http.Request {
 	current, err := url.Parse(r.Header.Get("Hx-Current-Url"))
-	if err != nil {
+	if err == nil {
 		r.URL = current
 	} else {
 		current, err = url.Parse(r.Referer())
@@ -41,6 +42,13 @@ func RedirectBack(r *http.Request) *http.Request {
 			r.URL = current
 		}
 	}
+
+	r.RequestURI = r.URL.RequestURI()
+	// chi uses some internal routing context that holds state even after we
+	// redirect with the above method, so we null the RoutePath in it so that
+	// chi will fill it back in
+	chiCtx := r.Context().Value(chi.RouteCtxKey).(*chi.Context)
+	chiCtx.RoutePath = ""
 	return r
 }
 

@@ -42,9 +42,11 @@ type Site struct {
 
 	fs fs.FS
 
-	mu     sync.RWMutex
-	themes Themes
-	cache  map[string]*template.Template
+	mu               sync.RWMutex
+	themes           Themes
+	themeNamesPublic []string
+	themeNamesAdmin  []string
+	cache            map[string]*template.Template
 }
 
 func (s *Site) Reload() error {
@@ -58,6 +60,18 @@ func (s *Site) Reload() error {
 		return errors.E(op, err)
 	}
 	s.themes = themes
+
+	// populate the theme name lists, one for public, one for admin
+	names := maps.Keys(themes)
+	slices.Sort(names)
+
+	for _, name := range names {
+		if strings.HasPrefix(name, ADMIN_PREFIX) {
+			s.themeNamesAdmin = append(s.themeNamesAdmin, name)
+		} else {
+			s.themeNamesPublic = append(s.themeNamesPublic, name)
+		}
+	}
 	return nil
 }
 
@@ -73,9 +87,14 @@ func (s *Site) ThemeNames() []string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	keys := maps.Keys(s.themes)
-	slices.Sort(keys)
-	return keys
+	return s.themeNamesPublic
+}
+
+func (s *Site) ThemeNamesAdmin() []string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.themeNamesAdmin
 }
 
 // Template returns a Template associated with the theme and page name given.
@@ -347,7 +366,6 @@ func LoadThemes(fsys fs.FS) (Themes, error) {
 		}
 	}
 
-	fmt.Println(publicDirs, adminDirs)
 	// now setup the themes we're going to end up returning later
 	var themes = make(Themes)
 
@@ -385,8 +403,8 @@ func (ls *loadState) loadThemes(themes Themes, defaultDir string, dirs []string)
 	}
 	// grab the partials and forms for quicker access
 	for _, v := range defaults.bundle {
-		defaults.forms = v.forms
-		defaults.partials = v.partials
+		defaults.forms = slices.Concat(v.defaultForms, v.forms)
+		defaults.partials = slices.Concat(v.defaultPartials, v.partials)
 		break
 	}
 	// set the default in the loadState so it can be used by the other themes
