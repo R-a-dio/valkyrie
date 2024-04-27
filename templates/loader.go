@@ -60,18 +60,8 @@ func (s *Site) Reload() error {
 		return errors.E(op, err)
 	}
 	s.themes = themes
+	s.populateNames()
 
-	// populate the theme name lists, one for public, one for admin
-	names := maps.Keys(themes)
-	slices.Sort(names)
-
-	for _, name := range names {
-		if strings.HasPrefix(name, ADMIN_PREFIX) {
-			s.themeNamesAdmin = append(s.themeNamesAdmin, name)
-		} else {
-			s.themeNamesPublic = append(s.themeNamesPublic, name)
-		}
-	}
 	return nil
 }
 
@@ -81,6 +71,22 @@ type TemplateSelector interface {
 
 func (s *Site) Executor() Executor {
 	return newExecutor(s)
+}
+
+func (s *Site) populateNames() {
+	// populate the theme name lists, one for public, one for admin
+	names := maps.Keys(s.themes)
+	slices.Sort(names)
+
+	s.themeNamesAdmin = make([]string, 0, len(s.themeNamesAdmin))
+	s.themeNamesPublic = make([]string, 0, len(s.themeNamesPublic))
+	for _, name := range names {
+		if strings.HasPrefix(name, ADMIN_PREFIX) {
+			s.themeNamesAdmin = append(s.themeNamesAdmin, name)
+		} else {
+			s.themeNamesPublic = append(s.themeNamesPublic, name)
+		}
+	}
 }
 
 func (s *Site) ThemeNames() []string {
@@ -201,6 +207,7 @@ func FromFS(fsys fs.FS) (*Site, error) {
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
+	tmpl.populateNames()
 
 	return &tmpl, nil
 }
