@@ -96,6 +96,7 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 
 		// debug handlers, might not be needed later
 		r.Post("/api/streamer/stop", vmiddleware.RequirePermission(radio.PermAdmin, s.PostStreamerStop))
+		r.Post("/api/website/reload-templates", vmiddleware.RequirePermission(radio.PermAdmin, s.PostReloadTemplates))
 	}
 }
 

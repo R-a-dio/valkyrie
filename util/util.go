@@ -45,10 +45,14 @@ func RedirectBack(r *http.Request) *http.Request {
 
 	r.RequestURI = r.URL.RequestURI()
 	// chi uses some internal routing context that holds state even after we
-	// redirect with the above method, so we null the RoutePath in it so that
+	// redirect with the above method, so we empty the RoutePath in it so that
 	// chi will fill it back in
-	chiCtx := r.Context().Value(chi.RouteCtxKey).(*chi.Context)
-	chiCtx.RoutePath = ""
+	rCtx := r.Context().Value(chi.RouteCtxKey)
+	if rCtx != nil {
+		if chiCtx, ok := rCtx.(*chi.Context); ok {
+			chiCtx.RoutePath = ""
+		}
+	}
 	return r
 }
 
