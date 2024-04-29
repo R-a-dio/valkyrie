@@ -62,4 +62,5 @@ func (a *API) Route(r chi.Router) {
 	r.Get("/sse", a.sse.ServeHTTP)
 	r.Get("/search", a.SearchHTML)
 	r.Get("/song", a.GetSong)
+	r.Post("/request", a.PostRequest)
 }

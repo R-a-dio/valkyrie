@@ -95,13 +95,11 @@ func SetThemeHandler(cookieName string, resolve func(string) string) http.Handle
 		// and change the theme so the new page actually uses our new theme set
 		r = r.WithContext(SetTheme(r.Context(), theme, true))
 
-		srv := r.Context().Value(http.ServerContextKey)
-		if srv == nil {
-			hlog.FromRequest(r).Error().Msg("SetThemeHandler used with no server")
+		err := util.RedirectToServer(w, r)
+		if err != nil {
+			hlog.FromRequest(r).Error().Err(err).Msg("SetThemeHandler")
 			w.WriteHeader(http.StatusOK)
 			return
 		}
-
-		srv.(*http.Server).Handler.ServeHTTP(w, r)
 	})
 }

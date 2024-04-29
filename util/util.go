@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/util/eventstream"
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog"
@@ -33,13 +34,21 @@ func IsHTMX(r *http.Request) bool {
 }
 
 func RedirectBack(r *http.Request) *http.Request {
-	current, err := url.Parse(r.Header.Get("Hx-Current-Url"))
-	if err == nil {
-		r.URL = current
-	} else {
-		current, err = url.Parse(r.Referer())
+	var changed bool
+
+	if hxHeader := r.Header.Get("Hx-Current-Url"); hxHeader != "" {
+		current, err := url.Parse(hxHeader)
 		if err == nil {
 			r.URL = current
+			changed = true
+		}
+	}
+
+	if !changed {
+		current, err := url.Parse(r.Referer())
+		if err == nil {
+			r.URL = current
+			changed = true
 		}
 	}
 
@@ -54,6 +63,50 @@ func RedirectBack(r *http.Request) *http.Request {
 		}
 	}
 	return r
+}
+
+func ChangeRequestMethod(r *http.Request, method string) *http.Request {
+	r.Method = method
+
+	rCtx := r.Context().Value(chi.RouteCtxKey)
+	if rCtx != nil {
+		if chiCtx, ok := rCtx.(*chi.Context); ok {
+			chiCtx.RouteMethod = method
+		}
+	}
+
+	return r
+}
+
+type alreadyRedirectedKey struct{}
+
+// RedirectToServer looks up the http.Server associated with this request
+// and calls ServeHTTP again
+func RedirectToServer(w http.ResponseWriter, r *http.Request) error {
+	const op errors.Op = "util.RedirectToServer"
+	ctx := r.Context()
+
+	alreadyRedirected := ctx.Value(alreadyRedirectedKey{})
+	if alreadyRedirected != nil {
+		return errors.E(op, "request was already redirected once")
+	}
+
+	srv := ctx.Value(http.ServerContextKey)
+	if srv == nil {
+		return errors.E(op, "no server context key found")
+	}
+
+	httpSrv, ok := srv.(*http.Server)
+	if !ok {
+		return errors.E(op, "server context key did not contain *http.Server")
+	}
+
+	// add a context value so we know we've redirected internally
+	ctx = context.WithValue(r.Context(), alreadyRedirectedKey{}, struct{}{})
+
+	// and then send them off to be handled again
+	httpSrv.Handler.ServeHTTP(w, r.WithContext(ctx))
+	return nil
 }
 
 func AbsolutePath(dir string, path string) string {

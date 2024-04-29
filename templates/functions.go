@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"reflect"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -30,6 +31,13 @@ var fnMap = map[string]any{
 	"Sub":                         func(a, b int64) int64 { return a - b },
 	"CalculateSubmissionCooldown": radio.CalculateSubmissionCooldown,
 	"AllUserPermissions":          radio.AllUserPermissions,
+	"HasField":                    HasField,
+}
+
+func HasField(v any, name string) bool {
+	rv := reflect.ValueOf(v)
+	rv = reflect.Indirect(rv)
+	return rv.FieldByName(name).IsValid()
 }
 
 func PrintJSON(v any) (template.HTML, error) {
