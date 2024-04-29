@@ -30,7 +30,7 @@ func init() {
 
 // IsHTMX checks if a request was made by HTMX through the Hx-Request header
 func IsHTMX(r *http.Request) bool {
-	return r.Header.Get("Hx-Request") == "true"
+	return r.Header.Get("Hx-Request") == "true" && r.Header.Get("Hx-History-Restore-Request") != "true"
 }
 
 func RedirectBack(r *http.Request) *http.Request {
