@@ -3,6 +3,7 @@ package shared
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"html/template"
 	"strings"
 	"time"
@@ -110,6 +111,39 @@ func (nc *NewsCache) RenderComment(comment radio.NewsComment) (NewsMarkdown, err
 	key := generateCacheKey(commentKeyPrefix, comment.PostID, comment.ID)
 
 	return nc.loadOrRender(key, nc.untrusted, comment.Body)
+}
+
+// RenderBypassCache renders a news post header and body as markdown and skips
+// the cache mechanism
+func (nc *NewsCache) RenderBypassCache(post radio.NewsPost) (header, body NewsMarkdown, err error) {
+	header, err = nc.render(nc.trusted, post.Header)
+	if err != nil {
+		return header, body, err
+	}
+
+	body, err = nc.render(nc.trusted, post.Body)
+	if err != nil {
+		return header, body, err
+	}
+
+	return header, body, err
+}
+
+// RenderBypass renders string as markdown and skips the cache mechanism,
+// source should come from a trusted input
+func (nc *NewsCache) RenderBypass(source string) (NewsMarkdown, error) {
+	return nc.render(nc.trusted, source)
+}
+
+const errorMarkdown = `
+You have an error in your markdown, or something is broken:
+
+%s
+`
+
+func (nc *NewsCache) RenderError(err error) NewsMarkdown {
+	res, _ := nc.render(nc.untrusted, fmt.Sprintf(errorMarkdown, err.Error()))
+	return res
 }
 
 // Empty clears the cache of the post given, this clears the Body and Header cache

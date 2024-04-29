@@ -11,7 +11,6 @@ import (
 	"github.com/R-a-dio/valkyrie/util/secret"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/R-a-dio/valkyrie/website/shared"
-	"github.com/rs/zerolog/hlog"
 )
 
 const songsPageSize = 20
@@ -94,13 +93,13 @@ func GenerateSongURL(ss secret.Secret, song radio.Song) string {
 func (s *State) GetSongs(w http.ResponseWriter, r *http.Request) {
 	input, err := NewSongsInput(s.Search, s.SongSecret, r)
 	if err != nil {
-		hlog.FromRequest(r).Error().Err(err).Msg("input creation failure")
+		s.errorHandler(w, r, err, "")
 		return
 	}
 
 	err = s.TemplateExecutor.Execute(w, r, input)
 	if err != nil {
-		hlog.FromRequest(r).Error().Err(err).Msg("template failure")
+		s.errorHandler(w, r, err, "")
 		return
 	}
 }
@@ -118,7 +117,7 @@ func (s *State) PostSongs(w http.ResponseWriter, r *http.Request) {
 		}
 		err = s.TemplateExecutor.Execute(w, r, form)
 		if err != nil {
-			hlog.FromRequest(r).Error().Err(err).Msg("template failure")
+			s.errorHandler(w, r, err, "")
 			return
 		}
 		return
