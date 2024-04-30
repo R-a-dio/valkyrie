@@ -2,16 +2,19 @@ package admin
 
 import (
 	"cmp"
+	"html/template"
 	"net/http"
 	"slices"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/website/middleware"
+	"github.com/gorilla/csrf"
 )
 
 type UsersInput struct {
 	middleware.Input
+	CSRFTokenInput template.HTML
 
 	Users []radio.User
 }
@@ -34,8 +37,9 @@ func NewUsersInput(us radio.UserStorage, r *http.Request) (*UsersInput, error) {
 	})
 	// construct the input
 	input := &UsersInput{
-		Input: middleware.InputFromRequest(r),
-		Users: users,
+		Input:          middleware.InputFromRequest(r),
+		CSRFTokenInput: csrf.TemplateField(r),
+		Users:          users,
 	}
 
 	return input, nil

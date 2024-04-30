@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"html/template"
 	"net/http"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/R-a-dio/valkyrie/website/shared"
 	"github.com/go-chi/chi/v5"
+	"github.com/gorilla/csrf"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -31,6 +33,7 @@ func (NewsInput) TemplateBundle() string {
 
 type NewsInputPost struct {
 	middleware.Input
+	CSRFTokenInput template.HTML
 
 	IsNew bool
 	Raw   radio.NewsPost
@@ -43,12 +46,14 @@ func (NewsInputPost) TemplateBundle() string {
 	return "news-single"
 }
 
-func AsNewsInputPost(ctx context.Context, cache *shared.NewsCache, entries []radio.NewsPost) ([]NewsInputPost, error) {
+func AsNewsInputPost(ctx context.Context, cache *shared.NewsCache, r *http.Request, entries []radio.NewsPost) ([]NewsInputPost, error) {
 	const op errors.Op = "website/admin.AsNewsInputPost"
 	ctx, span := trace.SpanFromContext(ctx).TracerProvider().Tracer("markdown").Start(ctx, "markdown")
 	defer span.End()
 
 	sharedInput := middleware.InputFromContext(ctx)
+	sharedCsrf := csrf.TemplateField(r)
+
 	posts := make([]NewsInputPost, 0, len(entries))
 	for _, post := range entries {
 		header, err := cache.RenderHeader(post)
@@ -62,10 +67,11 @@ func AsNewsInputPost(ctx context.Context, cache *shared.NewsCache, entries []rad
 		}
 
 		posts = append(posts, NewsInputPost{
-			Input:  sharedInput,
-			Raw:    post,
-			Header: header,
-			Body:   body,
+			Input:          sharedInput,
+			CSRFTokenInput: sharedCsrf,
+			Raw:            post,
+			Header:         header,
+			Body:           body,
 		})
 	}
 	return posts, nil
@@ -84,7 +90,7 @@ func NewNewsInput(cache *shared.NewsCache, ns radio.NewsStorage, r *http.Request
 		return nil, err
 	}
 
-	posts, err := AsNewsInputPost(ctx, cache, entries.Entries)
+	posts, err := AsNewsInputPost(ctx, cache, r, entries.Entries)
 	if err != nil {
 		return nil, err
 	}
@@ -152,6 +158,7 @@ func NewNewsInputPost(cache *shared.NewsCache, ns radio.NewsStorage, r *http.Req
 	}
 
 	input.Input = middleware.InputFromContext(ctx)
+	input.CSRFTokenInput = csrf.TemplateField(r)
 	input.IsNew = isNew
 	return &input, nil
 }

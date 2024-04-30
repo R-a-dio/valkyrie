@@ -2,8 +2,8 @@ package admin
 
 import (
 	"fmt"
+	"html/template"
 	"net/http"
-	"net/url"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
@@ -11,6 +11,7 @@ import (
 	"github.com/R-a-dio/valkyrie/util/secret"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/R-a-dio/valkyrie/website/shared"
+	"github.com/gorilla/csrf"
 )
 
 const songsPageSize = 20
@@ -28,6 +29,8 @@ func (SongsInput) TemplateBundle() string {
 }
 
 type SongsForm struct {
+	CSRFTokenInput template.HTML
+
 	Errors map[string]string
 
 	// HasDelete indicates if we should show the delete button
@@ -71,10 +74,12 @@ func NewSongsInput(s radio.SearchService, ss secret.Secret, r *http.Request) (*S
 		),
 	}
 
+	csrfInput := csrf.TemplateField(r)
 	hasDelete := input.User.UserPermissions.Has(radio.PermDatabaseDelete)
 	hasEdit := input.User.UserPermissions.Has(radio.PermDatabaseEdit)
 	forms := make([]SongsForm, len(searchResult.Songs))
 	for i := range searchResult.Songs {
+		forms[i].CSRFTokenInput = csrfInput
 		forms[i].Song = searchResult.Songs[i]
 		forms[i].HasDelete = hasDelete
 		forms[i].HasEdit = hasEdit
@@ -144,7 +149,7 @@ func (s *State) postSongs(w http.ResponseWriter, r *http.Request) (*SongsForm, e
 	}
 
 	// construct the new updated song form from the input
-	form, err := NewSongsForm(ts, *user, r.Form)
+	form, err := NewSongsForm(ts, *user, r)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
@@ -182,10 +187,11 @@ func (s *State) postSongs(w http.ResponseWriter, r *http.Request) (*SongsForm, e
 	return form, nil
 }
 
-func NewSongsForm(ts radio.TrackStorage, user radio.User, values url.Values) (*SongsForm, error) {
+func NewSongsForm(ts radio.TrackStorage, user radio.User, r *http.Request) (*SongsForm, error) {
 	const op errors.Op = "website/admin.NewSongsForm"
 
 	var form SongsForm
+	values := r.Form
 
 	tid, err := radio.ParseTrackID(values.Get("id"))
 	if err != nil {
@@ -212,6 +218,7 @@ func NewSongsForm(ts radio.TrackStorage, user radio.User, values url.Values) (*S
 	form.Song = *song
 	form.HasDelete = user.UserPermissions.Has(radio.PermDatabaseDelete)
 	form.HasEdit = user.UserPermissions.Has(radio.PermDatabaseEdit)
+	form.CSRFTokenInput = csrf.TemplateField(r)
 	return &form, nil
 }
 

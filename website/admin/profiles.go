@@ -17,6 +17,7 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/R-a-dio/valkyrie/website/middleware"
+	"github.com/gorilla/csrf"
 	"github.com/spf13/afero"
 )
 
@@ -56,6 +57,8 @@ type ProfilePermissionEntry struct {
 type ProfileForm struct {
 	radio.User
 
+	// CSRFTokenInput is the <input> that should be included in the form for CSRF
+	CSRFTokenInput template.HTML
 	// PermissionList is the list of permissions we should render
 	PermissionList []ProfilePermissionEntry
 	// IsAdmin indicates if we're setting up the admin-only form
@@ -511,6 +514,7 @@ func newProfileForm(user radio.User, r *http.Request) ProfileForm {
 
 	return ProfileForm{
 		User:           user,
+		CSRFTokenInput: csrf.TemplateField(r),
 		PermissionList: generatePermissionList(*requestUser, user),
 		IsAdmin:        requestUser.UserPermissions.Has(radio.PermAdmin),
 		IsSelf:         requestUser.Username == user.Username,

@@ -96,7 +96,10 @@ func TestNewSongsForm(t *testing.T) {
 		values.Set("title", c.new.Title)
 		values.Set("tags", c.new.Tags)
 
-		form, err := NewSongsForm(ts, user, values)
+		r := httptest.NewRequest(http.MethodPost, "/admin/songs", nil)
+		r.Form = values
+
+		form, err := NewSongsForm(ts, user, r)
 		if !assert.NoError(t, err) {
 			continue
 		}

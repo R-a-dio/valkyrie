@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"encoding/json"
+	"html/template"
 	"net/http"
 	"strings"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/alexedwards/scs/v2"
+	"github.com/gorilla/csrf"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
 )
@@ -176,15 +178,16 @@ func (a *authentication) getLogin(w http.ResponseWriter, r *http.Request, input 
 
 func NewLoginInput(r *http.Request, message string) LoginInput {
 	return LoginInput{
-		Input:        InputFromRequest(r),
-		ErrorMessage: message,
+		Input:          InputFromRequest(r),
+		CSRFTokenInput: csrf.TemplateField(r),
+		ErrorMessage:   message,
 	}
 }
 
 type LoginInput struct {
 	Input
-
-	ErrorMessage string
+	CSRFTokenInput template.HTML
+	ErrorMessage   string
 }
 
 func (LoginInput) TemplateBundle() string {

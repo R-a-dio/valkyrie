@@ -15,13 +15,22 @@ func NewSecretWithKey(length int, key []byte) Secret {
 }
 
 func NewSecret(length int) (Secret, error) {
-	key := make([]byte, keySize)
-	_, err := rand.Read(key[:])
+	key, err := NewKey(keySize)
 	if err != nil {
 		return nil, err
 	}
 
 	return NewSecretWithKey(length, key), nil
+}
+
+func NewKey(size int) ([]byte, error) {
+	key := make([]byte, size)
+	_, err := rand.Read(key[:])
+	if err != nil {
+		return nil, err
+	}
+
+	return key, nil
 }
 
 const (

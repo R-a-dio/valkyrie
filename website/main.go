@@ -22,6 +22,7 @@ import (
 	vmiddleware "github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/R-a-dio/valkyrie/website/public"
 	"github.com/R-a-dio/valkyrie/website/shared"
+	"github.com/gorilla/csrf"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
 	"github.com/spf13/afero"
@@ -110,6 +111,13 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	// user handling
 	authentication := vmiddleware.NewAuthentication(storage, executor, sessionManager)
 	r.Use(authentication.UserMiddleware)
+	// CSRF token handling
+	// TODO: make this not use a random key
+	csrfKey, err := secret.NewKey(32)
+	if err != nil {
+		return errors.E(op, err)
+	}
+	r.Use(csrf.Protect(csrfKey, csrf.Secure(false)))
 	// shared input handling, stuff the base template needs
 	r.Use(vmiddleware.InputMiddleware(cfg, statusValue))
 	// theme state management

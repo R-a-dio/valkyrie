@@ -2,8 +2,8 @@ package public
 
 import (
 	"context"
+	"html/template"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -17,6 +17,7 @@ import (
 	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/util/secret"
 	"github.com/R-a-dio/valkyrie/website/middleware"
+	"github.com/gorilla/csrf"
 	"github.com/rs/zerolog/hlog"
 )
 
@@ -152,7 +153,8 @@ func (s State) PostSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// send a new empty form back to the user
-	back := SubmissionForm{Success: true}
+	back := newSubmissionForm(r, nil)
+	back.Success = true
 	if form.IsDaypass {
 		// if the submission was with a daypass, prefill the daypass for them again
 		back.Daypass = form.Daypass
@@ -168,23 +170,16 @@ func (s State) postSubmit(w http.ResponseWriter, r *http.Request) (SubmissionFor
 	// find out if the client is allowed to upload
 	cooldown, err := s.canSubmitSong(r)
 	if err != nil {
-		return SubmissionForm{
-			Errors: map[string]string{
-				"cooldown": strconv.FormatInt(int64(cooldown/time.Second), 10),
-			},
-		}, errors.E(op, err)
+		return newSubmissionForm(r, map[string]string{
+			"cooldown": strconv.FormatInt(int64(cooldown/time.Second), 10),
+		}), errors.E(op, err)
 	}
 
 	// start parsing the form, it's multipart encoded due to file upload and we manually
-	// handle some details due to reasons described in ParseForm
-	mr, err := r.MultipartReader()
+	// handle some details due to reasons described in NewSubmissionForm
+	form, err := NewSubmissionForm(filepath.Join(s.Conf().MusicPath, "pending"), r)
 	if err != nil {
-		return SubmissionForm{}, errors.E(op, err, errors.InternalServer)
-	}
-
-	form, err := NewSubmissionForm(filepath.Join(s.Conf().MusicPath, "pending"), mr)
-	if err != nil {
-		return SubmissionForm{}, errors.E(op, err, errors.InternalServer)
+		return newSubmissionForm(r, nil), errors.E(op, err, errors.InternalServer)
 	}
 
 	// ParseForm just saved a temporary file that we want to delete if any other error
@@ -267,7 +262,7 @@ func PendingFromProbe(filename string) (*radio.PendingSong, error) {
 
 // SubmissionForm is the form struct passed to the submit page templates as .Form
 type SubmissionForm struct {
-	Token string // csrf token?
+	CSRFTokenInput template.HTML
 	// Success indicates if the upload was a success
 	Success bool
 	// IsDaypass is true if Daypass was valid
@@ -300,7 +295,14 @@ func (SubmissionForm) TemplateName() string {
 	return "form_submit"
 }
 
-// ParseForm parses a multipart form into the SubmissionForm
+func newSubmissionForm(r *http.Request, errors map[string]string) SubmissionForm {
+	return SubmissionForm{
+		CSRFTokenInput: csrf.TemplateField(r),
+		Errors:         errors,
+	}
+}
+
+// NewSubmissionForm parses a multipart form into the SubmissionForm
 //
 // Go has standard library support to do this simpler, but it doesn't let you set limits on individual fields,
 // so we're parsing each field ourselves so we can limit their length.
@@ -313,10 +315,17 @@ func (SubmissionForm) TemplateName() string {
 //	"replacement":	an TrackID (number) indicating what song to replace in the database with this
 //
 // Any other fields cause an error to be returned and all form parsing to stop.
-func NewSubmissionForm(tempdir string, mr *multipart.Reader) (*SubmissionForm, error) {
+func NewSubmissionForm(tempdir string, r *http.Request) (*SubmissionForm, error) {
 	const op errors.Op = "public.NewSubmissionForm"
 
-	var sf SubmissionForm
+	sf := newSubmissionForm(r, nil)
+
+	sf.CSRFTokenInput = csrf.TemplateField(r)
+
+	mr, err := r.MultipartReader()
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
 
 	for i := 0; i < formMaxMIMEParts; i++ {
 		part, err := mr.NextPart()

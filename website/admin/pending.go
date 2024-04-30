@@ -2,6 +2,7 @@ package admin
 
 import (
 	"fmt"
+	"html/template"
 	"net/http"
 	"net/url"
 	"os"
@@ -16,6 +17,7 @@ import (
 	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/go-chi/chi/v5"
+	"github.com/gorilla/csrf"
 	"github.com/rs/xid"
 	"github.com/rs/zerolog/hlog"
 )
@@ -38,7 +40,8 @@ func (PendingInput) TemplateBundle() string {
 type PendingForm struct {
 	radio.PendingSong
 
-	Errors map[string]string
+	CSRFTokenInput template.HTML
+	Errors         map[string]string
 }
 
 func (PendingForm) TemplateBundle() string {
@@ -50,7 +53,7 @@ func (PendingForm) TemplateName() string {
 }
 
 // Hydrate hydrates the PendingInput with information from the SubmissionStorage
-func (pi *PendingInput) Hydrate(s radio.SubmissionStorage) error {
+func (pi *PendingInput) Hydrate(s radio.SubmissionStorage, r *http.Request) error {
 	const op errors.Op = "website/admin.pendingInput.Hydrate"
 
 	subms, err := s.All()
@@ -58,9 +61,11 @@ func (pi *PendingInput) Hydrate(s radio.SubmissionStorage) error {
 		return errors.E(op, err)
 	}
 
+	csrfInput := csrf.TemplateField(r)
 	pi.Submissions = make([]PendingForm, len(subms))
 	for i, v := range subms {
 		pi.Submissions[i].PendingSong = v
+		pi.Submissions[i].CSRFTokenInput = csrfInput
 	}
 	return nil
 }
@@ -111,7 +116,7 @@ func (s *State) GetPendingSong(w http.ResponseWriter, r *http.Request) {
 func (s *State) GetPending(w http.ResponseWriter, r *http.Request) {
 	var input = NewPendingInput(r)
 
-	if err := input.Hydrate(s.Storage.Submissions(r.Context())); err != nil {
+	if err := input.Hydrate(s.Storage.Submissions(r.Context()), r); err != nil {
 		hlog.FromRequest(r).Error().Err(err).Msg("database failure")
 		return
 	}
@@ -156,7 +161,7 @@ func (s *State) PostPending(w http.ResponseWriter, r *http.Request) {
 
 	// no htmx, send a full page back, but we have to hydrate the full list and swap out
 	// the element that was posted with the posted values
-	if err := input.Hydrate(s.Storage.Submissions(r.Context())); err != nil {
+	if err := input.Hydrate(s.Storage.Submissions(r.Context()), r); err != nil {
 		hlog.FromRequest(r).Error().Err(err).Msg("database failure")
 		return
 	}
@@ -181,22 +186,22 @@ func (s *State) postPending(w http.ResponseWriter, r *http.Request) (PendingForm
 	const op errors.Op = "website/admin.postPending"
 
 	if err := r.ParseForm(); err != nil {
-		return PendingForm{}, errors.E(op, err, errors.InvalidForm)
+		return newPendingForm(r), errors.E(op, err, errors.InvalidForm)
 	}
 	// grab the pending id
 	id, err := radio.ParseSubmissionID(r.PostFormValue("id"))
 	if err != nil {
-		return PendingForm{}, errors.E(op, err, errors.InvalidForm)
+		return newPendingForm(r), errors.E(op, err, errors.InvalidForm)
 	}
 
 	// grab the pending data from the database
 	song, err := s.Storage.Submissions(r.Context()).GetSubmission(id)
 	if err != nil {
-		return PendingForm{}, errors.E(op, err, errors.InternalServer)
+		return newPendingForm(r), errors.E(op, err, errors.InternalServer)
 	}
 
 	// then update it with the submitted form data
-	form, err := NewPendingForm(*song, r.PostForm)
+	form, err := NewPendingForm(r, *song)
 	if err != nil {
 		return form, errors.E(op, errors.InvalidForm)
 	}
@@ -275,7 +280,7 @@ func (s *State) postPendingDoReplace(w http.ResponseWriter, r *http.Request, for
 		return form, errors.E(op, err, errors.InternalServer)
 	}
 
-	return PendingForm{}, nil
+	return newPendingForm(r), nil
 }
 
 func (s *State) postPendingDoDecline(w http.ResponseWriter, r *http.Request, form PendingForm) (PendingForm, error) {
@@ -394,15 +399,22 @@ func (s *State) postPendingDoAccept(w http.ResponseWriter, r *http.Request, form
 
 // NewPendingForm creates a PendingForm with song as a base and updating those
 // values from the form values given.
-func NewPendingForm(song radio.PendingSong, form url.Values) (PendingForm, error) {
+func NewPendingForm(r *http.Request, song radio.PendingSong) (PendingForm, error) {
 	const op errors.Op = "website/admin.NewPendingForm"
 
-	pf := PendingForm{PendingSong: song}
-	pf.Update(form)
+	pf := newPendingForm(r)
+	pf.PendingSong = song
+	pf.Update(r.PostForm)
 	if !pf.Validate() {
 		return pf, errors.E(op, errors.InvalidForm)
 	}
 	return pf, nil
+}
+
+func newPendingForm(r *http.Request) PendingForm {
+	return PendingForm{
+		CSRFTokenInput: csrf.TemplateField(r),
+	}
 }
 
 func (pf *PendingForm) Update(form url.Values) {
