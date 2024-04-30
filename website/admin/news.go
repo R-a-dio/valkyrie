@@ -315,8 +315,13 @@ func NewNewsPostFromRequest(post radio.NewsPost, r *http.Request) radio.NewsPost
 
 	switch r.FormValue("action") {
 	case "delete":
-		now := time.Now()
-		post.DeletedAt = &now
+		if post.DeletedAt == nil {
+			now := time.Now()
+			post.DeletedAt = &now
+		} else {
+			// undelete if we're asked to delete a second time
+			post.DeletedAt = nil
+		}
 	case "save":
 		if post.ID == 0 {
 			post.CreatedAt = time.Now()
