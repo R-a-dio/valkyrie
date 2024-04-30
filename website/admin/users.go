@@ -20,10 +20,6 @@ func (UsersInput) TemplateBundle() string {
 	return "users"
 }
 
-type UsersForm struct {
-	radio.User
-}
-
 func NewUsersInput(us radio.UserStorage, r *http.Request) (*UsersInput, error) {
 	const op errors.Op = "website/admin.NewUsersInput"
 

@@ -133,7 +133,8 @@ func createDummyNewsPost(pre string) radio.NewsPost {
 		Header: pre + "header",
 		Body:   pre + "body",
 		User: radio.User{
-			ID: 1,
+			ID:       1,
+			Username: "unknown",
 		},
 		DeletedAt: nil,
 		CreatedAt: now,

@@ -7,6 +7,7 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/R-a-dio/valkyrie/website/shared"
 	"github.com/go-chi/chi/v5"
@@ -14,6 +15,7 @@ import (
 )
 
 const newsPageSize = 20
+const chiNewsKey = "NewsID"
 
 type NewsInput struct {
 	middleware.Input
@@ -30,7 +32,8 @@ func (NewsInput) TemplateBundle() string {
 type NewsInputPost struct {
 	middleware.Input
 
-	Raw radio.NewsPost
+	IsNew bool
+	Raw   radio.NewsPost
 
 	Header shared.NewsMarkdown
 	Body   shared.NewsMarkdown
@@ -112,42 +115,53 @@ func (s *State) GetNews(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func NewNewsInputPost(cache *shared.NewsCache, ns radio.NewsStorage, r *http.Request) (*NewsInputPost, error) {
+func NewNewsInputPost(cache *shared.NewsCache, ns radio.NewsStorage, r *http.Request, nid radio.NewsPostID) (*NewsInputPost, error) {
 	const op errors.Op = "website/admin.NewNewsInputPost"
 	ctx := r.Context()
-
-	nid, err := radio.ParseNewsPostID(chi.URLParamFromCtx(ctx, "NewsID"))
-	if err != nil {
-		return nil, errors.E(op, err)
-	}
-
 	var input NewsInputPost
+	var err error
 
-	post, err := ns.Get(nid)
-	if err != nil {
-		return nil, errors.E(op, err)
+	id := chi.URLParamFromCtx(ctx, chiNewsKey)
+	isNew := nid == 0 && id == "new"
+	if nid == 0 && !isNew {
+		nid, err = radio.ParseNewsPostID(id)
+		if err != nil {
+			return nil, errors.E(op, err)
+		}
 	}
-	input.Raw = *post
+
+	if !isNew {
+		post, err := ns.Get(nid)
+		if err != nil {
+			return nil, errors.E(op, err)
+		}
+		input.Raw = *post
+	}
 
 	// errors in rendering are ignored so that faulty news post won't lock you
 	// out of their admin panel. Can't fix the faulty post if you can't output
 	// it.
-	input.Header, err = cache.RenderHeader(*post)
+	input.Header, err = cache.RenderHeader(input.Raw)
 	if err != nil {
 		input.Header = cache.RenderError(err)
 	}
 
-	input.Body, err = cache.RenderBody(*post)
+	input.Body, err = cache.RenderBody(input.Raw)
 	if err != nil {
 		input.Body = cache.RenderError(err)
 	}
 
 	input.Input = middleware.InputFromContext(ctx)
+	input.IsNew = isNew
 	return &input, nil
 }
 
 func (s *State) GetNewsEntry(w http.ResponseWriter, r *http.Request) {
-	input, err := NewNewsInputPost(s.News, s.Storage.News(r.Context()), r)
+	s.getNewsEntry(w, r, 0)
+}
+
+func (s *State) getNewsEntry(w http.ResponseWriter, r *http.Request, nid radio.NewsPostID) {
+	input, err := NewNewsInputPost(s.News, s.Storage.News(r.Context()), r, nid)
 	if err != nil {
 		s.errorHandler(w, r, err, "")
 		return
@@ -161,45 +175,103 @@ func (s *State) GetNewsEntry(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *State) PostNewsEntry(w http.ResponseWriter, r *http.Request) {
-	return
+	ctx := r.Context()
+	id := chi.URLParamFromCtx(ctx, chiNewsKey)
+	isNew := id == "new"
+
+	var post radio.NewsPost
+	var nid radio.NewsPostID
+	var err error
+
+	if !isNew {
+		// not a new entry, so find the current data and then
+		// update it with form values
+		nid, err = radio.ParseNewsPostID(id)
+		if err != nil {
+			s.errorHandler(w, r, err, "")
+			return
+		}
+
+		ppost, err := s.Storage.News(ctx).Get(nid)
+		if err != nil {
+			s.errorHandler(w, r, err, "")
+			return
+		}
+		post = *ppost
+	}
+
+	post = NewNewsPostFromRequest(post, r)
+
+	if isNew {
+		nid, err = s.Storage.News(ctx).Create(post)
+	} else if post.DeletedAt != nil {
+		err = s.Storage.News(ctx).Delete(post.ID)
+	} else {
+		err = s.Storage.News(ctx).Update(post)
+	}
+	if err != nil {
+		s.errorHandler(w, r, err, "")
+		return
+	}
+
+	if isNew {
+		// redirect to the newly created post with htmx
+		w.Header().Set("Hx-Replace-Url", "/admin/news/"+nid.String())
+	}
+
+	s.getNewsEntry(w, r, nid)
 }
 
 func (s *State) PostNewsRender(w http.ResponseWriter, r *http.Request) {
-	post := radio.NewsPost{
-		Header: r.FormValue("header"),
-		Body:   r.FormValue("body"),
-	}
+	ctx := r.Context()
 
-	var templateName string
+	var post radio.NewsPost
 	var res shared.NewsMarkdown
 	var err error
 
 	part := r.FormValue("part")
 	switch part {
 	case "body":
-		res, err = s.News.RenderBypass(post.Body)
-		templateName = "body-render"
+		res, err = s.News.RenderBypass(r.FormValue("body"))
 	case "header":
-		res, err = s.News.RenderBypass(post.Header)
-		templateName = "header-render"
+		res, err = s.News.RenderBypass(r.FormValue("header"))
+	case "title":
+		// grab the id, but this might be the literal string "new" in
+		// which case this will just error and give us a 0 back
+		nid, _ := radio.ParseNewsPostID(r.FormValue("id"))
+		if nid != 0 { // avoid a lookup if it's zero
+			tmp, err := s.Storage.News(ctx).Get(nid)
+			if err != nil && !errors.Is(errors.NewsUnknown, err) {
+				s.errorHandler(w, r, err, "")
+				return
+			}
+			post = *tmp
+		}
+		post.Title = r.FormValue("title")
 	default:
 		s.errorHandler(w, r, err, "invalid part argument")
 		return
 	}
 	if err != nil {
-		// TODO: give error output
-		res, err = s.News.RenderBypass(`
-		You have an error in your markdown: 
-		` + err.Error())
-		if err != nil {
-			s.errorHandler(w, r, err, "failed to render error markdown")
-			return
-		}
+		res = s.News.RenderError(err)
 	}
 
-	input := SelectedNewsMarkdown{
-		NewsMarkdown: res,
-		Name:         templateName,
+	var input templates.TemplateSelectable
+
+	switch part {
+	case "body", "header":
+		input = SelectedNewsMarkdown{
+			NewsMarkdown: res,
+			Name:         part + "-render",
+		}
+	case "title":
+		if post.CreatedAt.IsZero() {
+			post.CreatedAt = time.Now()
+			post.User = *middleware.UserFromContext(ctx)
+		}
+		input = TitleNewsRender{
+			NewsPost: post,
+		}
 	}
 
 	err = s.TemplateExecutor.Execute(w, r, input)
@@ -220,6 +292,18 @@ func (SelectedNewsMarkdown) TemplateBundle() string {
 
 func (snm SelectedNewsMarkdown) TemplateName() string {
 	return snm.Name
+}
+
+type TitleNewsRender struct {
+	radio.NewsPost
+}
+
+func (TitleNewsRender) TemplateBundle() string {
+	return "news-single"
+}
+
+func (TitleNewsRender) TemplateName() string {
+	return "title-render"
 }
 
 func NewNewsPostFromRequest(post radio.NewsPost, r *http.Request) radio.NewsPost {

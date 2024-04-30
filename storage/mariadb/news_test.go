@@ -64,10 +64,13 @@ func TestNewsStorageGet(t *testing.T) {
 
 	now := time.Now()
 	expected := radio.NewsPost{
-		ID:        1,
-		Title:     "test",
-		Header:    "a small test",
-		Body:      "a small test",
+		ID:     1,
+		Title:  "test",
+		Header: "a small test",
+		Body:   "a small test",
+		User: radio.User{
+			Username: "unknown",
+		},
 		DeletedAt: &now,
 		CreatedAt: now,
 		UpdatedAt: &now,

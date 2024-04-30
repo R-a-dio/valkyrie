@@ -90,9 +90,9 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 			vmiddleware.RequirePermission(radio.PermAdmin, s.GetUsersList))
 		r.Get("/news",
 			vmiddleware.RequirePermission(radio.PermNews, s.GetNews))
-		r.Get("/news/{NewsID:[0-9]+}",
+		r.Get("/news/{NewsID:[0-9]+|new}",
 			vmiddleware.RequirePermission(radio.PermNews, s.GetNewsEntry))
-		r.Post("/news/{NewsID:[0-9]+}",
+		r.Post("/news/{NewsID:[0-9]+|new}",
 			vmiddleware.RequirePermission(radio.PermNews, s.PostNewsEntry))
 		r.Post("/news/render",
 			vmiddleware.RequirePermission(radio.PermNews, s.PostNewsRender))
