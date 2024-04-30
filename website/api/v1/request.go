@@ -65,21 +65,6 @@ func (a *API) PostRequest(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-type RequestInput struct {
-	radio.Song
-
-	Message string
-	Error   string
-}
-
-func (RequestInput) TemplateBundle() string {
-	return "search"
-}
-
-func (RequestInput) TemplateName() string {
-	return "request-response"
-}
-
 func (a *API) postRequest(r *http.Request) error {
 	const op errors.Op = "website/api/v1/API.postRequest"
 
