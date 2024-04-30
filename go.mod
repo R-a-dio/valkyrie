@@ -2,6 +2,8 @@ module github.com/R-a-dio/valkyrie
 
 go 1.22.0
 
+replace github.com/gorilla/csrf => github.com/Wessie/csrf v0.0.0-20240430222011-49a3bdf737c0
+
 require (
 	github.com/BurntSushi/toml v1.3.2
 	github.com/DATA-DOG/go-sqlmock v1.5.2
@@ -15,7 +17,9 @@ require (
 	github.com/go-sql-driver/mysql v1.8.1
 	github.com/golang-migrate/migrate/v4 v4.17.0
 	github.com/google/subcommands v1.2.0
+	github.com/gorilla/csrf v1.7.2
 	github.com/jmoiron/sqlx v1.3.5
+	github.com/jxskiss/base62 v1.1.0
 	github.com/leanovate/gopter v0.2.10
 	github.com/lrstanley/girc v0.0.0-20240317214256-a4a3d96369cb
 	github.com/prometheus/client_golang v1.19.0
@@ -66,7 +70,6 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/gorilla/csrf v1.7.2 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.19.1 // indirect
 	github.com/klauspost/compress v1.17.7 // indirect
