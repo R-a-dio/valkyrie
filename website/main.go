@@ -118,6 +118,8 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	if err != nil {
 		return errors.E(op, err)
 	}
+	// fixes a compatibility issue with the PHP api, see middleware documentation
+	r.Use(phpapi.MoveTokenToHeaderForRequests)
 	r.Use(csrf.Protect(csrfKey,
 		csrf.Secure(false),
 		csrf.Encoding(base62.StdEncoding),
