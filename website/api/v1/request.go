@@ -7,11 +7,48 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/util"
+	"github.com/R-a-dio/valkyrie/website/public"
 	"github.com/rs/zerolog/hlog"
 )
 
 func (a *API) PostRequest(w http.ResponseWriter, r *http.Request) {
-	res := a.postRequest(r)
+	var message string
+
+	err := a.postRequest(r)
+	if err != nil {
+		switch {
+		case errors.Is(errors.SongCooldown, err):
+			message = "Song is on cooldown"
+		case errors.Is(errors.UserCooldown, err):
+			message = "You can't request yet"
+		case errors.Is(errors.StreamerNoRequests, err):
+			message = "Requests are currently disabled"
+		case errors.Is(errors.InvalidForm, err):
+			message = "Invalid form in request"
+		case errors.Is(errors.SongUnknown, err):
+			message = "Unknown song, how did you get here?"
+		default:
+			message = "something broke, report to IRC."
+			hlog.FromRequest(r).Error().Err(err).Msg("request failed")
+		}
+	}
+
+	input, err := public.NewSearchInput(
+		a.Search,
+		a.storage.Request(r.Context()),
+		r,
+		time.Duration(a.Config.Conf().UserRequestDelay),
+	)
+	if err != nil {
+		hlog.FromRequest(r).Error().Err(err).Msg("")
+		return
+	}
+	if message == "" {
+		input.Message = "Thank you for requesting"
+		input.IsError = true
+	} else {
+		input.Message = message
+	}
 
 	if !util.IsHTMX(r) {
 		// for non-htmx users we redirect them back to where they came from
@@ -21,7 +58,7 @@ func (a *API) PostRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := a.Templates.Execute(w, r, &res)
+	err = a.Templates.Execute(w, r, input)
 	if err != nil {
 		hlog.FromRequest(r).Error().Err(err).Msg("template failure")
 		return
@@ -43,43 +80,25 @@ func (RequestInput) TemplateName() string {
 	return "request-response"
 }
 
-func (a *API) postRequest(r *http.Request) RequestInput {
-	var res RequestInput
+func (a *API) postRequest(r *http.Request) error {
+	const op errors.Op = "website/api/v1/API.postRequest"
 
 	ctx := r.Context()
 
 	tid, err := radio.ParseTrackID(r.FormValue("trackid"))
 	if err != nil {
-		hlog.FromRequest(r).Error().Err(err).Msg("invalid request form")
-		res.Error = "Invalid Request"
-		return res
+		return errors.E(op, err, errors.InvalidForm)
 	}
 
 	song, err := a.storage.Track(ctx).Get(tid)
 	if err != nil {
-		hlog.FromRequest(r).Error().Err(err).Msg("invalid request form")
-		res.Error = "Unknown Song"
-		return res
+		return errors.E(op, err, errors.SongUnknown)
 	}
-	res.Song = *song
 
 	err = a.streamer.RequestSong(ctx, *song, r.RemoteAddr)
 	if err != nil {
-		switch {
-		case errors.Is(errors.SongCooldown, err):
-			res.Error = "Song is on cooldown"
-		case errors.Is(errors.UserCooldown, err):
-			res.Error = "You can't request yet"
-		case errors.Is(errors.StreamerNoRequests, err):
-			res.Error = "Requests are disabled"
-		default:
-			res.Error = "something broke, report to IRC."
-			hlog.FromRequest(r).Error().Err(err).Msg("request failed")
-		}
-		return res
+		return err
 	}
 
-	res.Song.LastRequested = time.Now()
-	res.Message = "Thanks for requesting"
-	return res
+	return nil
 }

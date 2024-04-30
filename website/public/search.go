@@ -1,6 +1,8 @@
 package public
 
 import (
+	"fmt"
+	"html/template"
 	"net/http"
 	"time"
 
@@ -8,13 +10,43 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/R-a-dio/valkyrie/website/shared"
+	"github.com/gorilla/csrf"
 )
 
 const searchPageSize = 20
 
 type SearchInput struct {
 	middleware.Input
+	SearchSharedInput
+	CSRFLegacyFix template.HTML
 
+	// IsError indicates if the message given is an error
+	IsError bool
+	// Message to show at the top of the page
+	Message string
+}
+
+func (SearchInput) TemplateBundle() string {
+	return "search"
+}
+
+func NewSearchInput(s radio.SearchService, rs radio.RequestStorage, r *http.Request, requestDelay time.Duration) (*SearchInput, error) {
+	const op errors.Op = "website/public.NewSearchInput"
+
+	sharedInput, err := NewSearchSharedInput(s, rs, r, requestDelay, searchPageSize)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	return &SearchInput{
+		Input:             middleware.InputFromRequest(r),
+		SearchSharedInput: *sharedInput,
+		CSRFLegacyFix:     csrfLegacyFix(r),
+	}, nil
+}
+
+type SearchSharedInput struct {
+	CSRFTokenInput  template.HTML
 	Query           string
 	Songs           []radio.Song
 	CanRequest      bool
@@ -22,11 +54,11 @@ type SearchInput struct {
 	Page            *shared.Pagination
 }
 
-func NewSearchInput(s radio.SearchService, rs radio.RequestStorage, r *http.Request, requestDelay time.Duration) (*SearchInput, error) {
-	const op errors.Op = "website/public.NewSearchInput"
+func NewSearchSharedInput(s radio.SearchService, rs radio.RequestStorage, r *http.Request, requestDelay time.Duration, pageSize int64) (*SearchSharedInput, error) {
+	const op errors.Op = "website/public.NewSearchSharedInput"
 	ctx := r.Context()
 
-	page, offset, err := getPageOffset(r, searchPageSize)
+	page, offset, err := getPageOffset(r, pageSize)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
@@ -46,8 +78,8 @@ func NewSearchInput(s radio.SearchService, rs radio.RequestStorage, r *http.Requ
 
 	cd, ok := radio.CalculateCooldown(requestDelay, lastRequest)
 
-	return &SearchInput{
-		Input:           middleware.InputFromRequest(r),
+	return &SearchSharedInput{
+		CSRFTokenInput:  csrf.TemplateField(r),
 		Query:           query,
 		Songs:           searchResult.Songs,
 		CanRequest:      ok,
@@ -57,10 +89,6 @@ func NewSearchInput(s radio.SearchService, rs radio.RequestStorage, r *http.Requ
 			r.URL,
 		),
 	}, nil
-}
-
-func (SearchInput) TemplateBundle() string {
-	return "search"
 }
 
 func (s State) GetSearch(w http.ResponseWriter, r *http.Request) {
@@ -80,4 +108,12 @@ func (s State) GetSearch(w http.ResponseWriter, r *http.Request) {
 		s.errorHandler(w, r, err)
 		return
 	}
+}
+
+func csrfLegacyFix(r *http.Request) template.HTML {
+	return template.HTML(fmt.Sprintf(`
+<!--
+<form %s
+-->
+	`, csrf.TemplateField(r)))
 }

@@ -32,6 +32,19 @@ var fnMap = map[string]any{
 	"CalculateSubmissionCooldown": radio.CalculateSubmissionCooldown,
 	"AllUserPermissions":          radio.AllUserPermissions,
 	"HasField":                    HasField,
+	"SongPair":                    SongPair,
+}
+
+type SongPairing struct {
+	*radio.Song
+	Data any
+}
+
+func SongPair(song radio.Song, data any) SongPairing {
+	return SongPairing{
+		Song: &song,
+		Data: data,
+	}
 }
 
 func HasField(v any, name string) bool {
