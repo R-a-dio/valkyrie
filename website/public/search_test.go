@@ -19,6 +19,35 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestNewSearchInput(t *testing.T) {
+	ss := &mocks.SearchServiceMock{
+		SearchFunc: func(ctx context.Context, query string, limit, offset int64) (*radio.SearchResult, error) {
+			return &radio.SearchResult{
+				Songs: make([]radio.Song, limit),
+			}, nil
+		},
+	}
+
+	query := "welcome"
+	req := httptest.NewRequest(http.MethodGet, "/search?q="+query, nil)
+
+	rs := &mocks.RequestStorageMock{
+		LastRequestFunc: func(identifier string) (time.Time, error) {
+			assert.Equal(t, req.RemoteAddr, identifier)
+			return time.Now().Add(-time.Hour * 12), nil
+		},
+	}
+
+	input, err := NewSearchInput(ss, rs, req, time.Hour)
+	require.NoError(t, err)
+	require.NotNil(t, input)
+
+	assert.Equal(t, query, input.Query, "should have query passed back to us")
+	assert.Len(t, input.Songs, searchPageSize)
+	assert.True(t, input.CanRequest, "should be able to request after 12 hours")
+	assert.Zero(t, input.RequestCooldown, "should have no cooldown after 12 hours")
+}
+
 func TestNewSearchSharedInputURLFix(t *testing.T) {
 	ss := &mocks.SearchServiceMock{
 		SearchFunc: func(ctx context.Context, query string, limit, offset int64) (*radio.SearchResult, error) {
