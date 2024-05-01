@@ -11,6 +11,1326 @@ import (
 	"time"
 )
 
+// Ensure, that SearchServiceMock does implement radio.SearchService.
+// If this is not the case, regenerate this file with moq.
+var _ radio.SearchService = &SearchServiceMock{}
+
+// SearchServiceMock is a mock implementation of radio.SearchService.
+//
+//	func TestSomethingThatUsesSearchService(t *testing.T) {
+//
+//		// make and configure a mocked radio.SearchService
+//		mockedSearchService := &SearchServiceMock{
+//			DeleteFunc: func(contextMoqParam context.Context, trackIDs ...radio.TrackID) error {
+//				panic("mock out the Delete method")
+//			},
+//			SearchFunc: func(ctx context.Context, query string, limit int64, offset int64) (*radio.SearchResult, error) {
+//				panic("mock out the Search method")
+//			},
+//			UpdateFunc: func(contextMoqParam context.Context, songs ...radio.Song) error {
+//				panic("mock out the Update method")
+//			},
+//		}
+//
+//		// use mockedSearchService in code that requires radio.SearchService
+//		// and then make assertions.
+//
+//	}
+type SearchServiceMock struct {
+	// DeleteFunc mocks the Delete method.
+	DeleteFunc func(contextMoqParam context.Context, trackIDs ...radio.TrackID) error
+
+	// SearchFunc mocks the Search method.
+	SearchFunc func(ctx context.Context, query string, limit int64, offset int64) (*radio.SearchResult, error)
+
+	// UpdateFunc mocks the Update method.
+	UpdateFunc func(contextMoqParam context.Context, songs ...radio.Song) error
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// Delete holds details about calls to the Delete method.
+		Delete []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+			// TrackIDs is the trackIDs argument value.
+			TrackIDs []radio.TrackID
+		}
+		// Search holds details about calls to the Search method.
+		Search []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Query is the query argument value.
+			Query string
+			// Limit is the limit argument value.
+			Limit int64
+			// Offset is the offset argument value.
+			Offset int64
+		}
+		// Update holds details about calls to the Update method.
+		Update []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+			// Songs is the songs argument value.
+			Songs []radio.Song
+		}
+	}
+	lockDelete sync.RWMutex
+	lockSearch sync.RWMutex
+	lockUpdate sync.RWMutex
+}
+
+// Delete calls DeleteFunc.
+func (mock *SearchServiceMock) Delete(contextMoqParam context.Context, trackIDs ...radio.TrackID) error {
+	if mock.DeleteFunc == nil {
+		panic("SearchServiceMock.DeleteFunc: method is nil but SearchService.Delete was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+		TrackIDs        []radio.TrackID
+	}{
+		ContextMoqParam: contextMoqParam,
+		TrackIDs:        trackIDs,
+	}
+	mock.lockDelete.Lock()
+	mock.calls.Delete = append(mock.calls.Delete, callInfo)
+	mock.lockDelete.Unlock()
+	return mock.DeleteFunc(contextMoqParam, trackIDs...)
+}
+
+// DeleteCalls gets all the calls that were made to Delete.
+// Check the length with:
+//
+//	len(mockedSearchService.DeleteCalls())
+func (mock *SearchServiceMock) DeleteCalls() []struct {
+	ContextMoqParam context.Context
+	TrackIDs        []radio.TrackID
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+		TrackIDs        []radio.TrackID
+	}
+	mock.lockDelete.RLock()
+	calls = mock.calls.Delete
+	mock.lockDelete.RUnlock()
+	return calls
+}
+
+// Search calls SearchFunc.
+func (mock *SearchServiceMock) Search(ctx context.Context, query string, limit int64, offset int64) (*radio.SearchResult, error) {
+	if mock.SearchFunc == nil {
+		panic("SearchServiceMock.SearchFunc: method is nil but SearchService.Search was just called")
+	}
+	callInfo := struct {
+		Ctx    context.Context
+		Query  string
+		Limit  int64
+		Offset int64
+	}{
+		Ctx:    ctx,
+		Query:  query,
+		Limit:  limit,
+		Offset: offset,
+	}
+	mock.lockSearch.Lock()
+	mock.calls.Search = append(mock.calls.Search, callInfo)
+	mock.lockSearch.Unlock()
+	return mock.SearchFunc(ctx, query, limit, offset)
+}
+
+// SearchCalls gets all the calls that were made to Search.
+// Check the length with:
+//
+//	len(mockedSearchService.SearchCalls())
+func (mock *SearchServiceMock) SearchCalls() []struct {
+	Ctx    context.Context
+	Query  string
+	Limit  int64
+	Offset int64
+} {
+	var calls []struct {
+		Ctx    context.Context
+		Query  string
+		Limit  int64
+		Offset int64
+	}
+	mock.lockSearch.RLock()
+	calls = mock.calls.Search
+	mock.lockSearch.RUnlock()
+	return calls
+}
+
+// Update calls UpdateFunc.
+func (mock *SearchServiceMock) Update(contextMoqParam context.Context, songs ...radio.Song) error {
+	if mock.UpdateFunc == nil {
+		panic("SearchServiceMock.UpdateFunc: method is nil but SearchService.Update was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+		Songs           []radio.Song
+	}{
+		ContextMoqParam: contextMoqParam,
+		Songs:           songs,
+	}
+	mock.lockUpdate.Lock()
+	mock.calls.Update = append(mock.calls.Update, callInfo)
+	mock.lockUpdate.Unlock()
+	return mock.UpdateFunc(contextMoqParam, songs...)
+}
+
+// UpdateCalls gets all the calls that were made to Update.
+// Check the length with:
+//
+//	len(mockedSearchService.UpdateCalls())
+func (mock *SearchServiceMock) UpdateCalls() []struct {
+	ContextMoqParam context.Context
+	Songs           []radio.Song
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+		Songs           []radio.Song
+	}
+	mock.lockUpdate.RLock()
+	calls = mock.calls.Update
+	mock.lockUpdate.RUnlock()
+	return calls
+}
+
+// Ensure, that ManagerServiceMock does implement radio.ManagerService.
+// If this is not the case, regenerate this file with moq.
+var _ radio.ManagerService = &ManagerServiceMock{}
+
+// ManagerServiceMock is a mock implementation of radio.ManagerService.
+//
+//	func TestSomethingThatUsesManagerService(t *testing.T) {
+//
+//		// make and configure a mocked radio.ManagerService
+//		mockedManagerService := &ManagerServiceMock{
+//			CurrentListenersFunc: func(contextMoqParam context.Context) (eventstream.Stream[int64], error) {
+//				panic("mock out the CurrentListeners method")
+//			},
+//			CurrentSongFunc: func(contextMoqParam context.Context) (eventstream.Stream[*radio.SongUpdate], error) {
+//				panic("mock out the CurrentSong method")
+//			},
+//			CurrentStatusFunc: func(contextMoqParam context.Context) (eventstream.Stream[radio.Status], error) {
+//				panic("mock out the CurrentStatus method")
+//			},
+//			CurrentThreadFunc: func(contextMoqParam context.Context) (eventstream.Stream[string], error) {
+//				panic("mock out the CurrentThread method")
+//			},
+//			CurrentUserFunc: func(contextMoqParam context.Context) (eventstream.Stream[*radio.User], error) {
+//				panic("mock out the CurrentUser method")
+//			},
+//			UpdateListenersFunc: func(contextMoqParam context.Context, n int64) error {
+//				panic("mock out the UpdateListeners method")
+//			},
+//			UpdateSongFunc: func(contextMoqParam context.Context, songUpdate *radio.SongUpdate) error {
+//				panic("mock out the UpdateSong method")
+//			},
+//			UpdateThreadFunc: func(contextMoqParam context.Context, s string) error {
+//				panic("mock out the UpdateThread method")
+//			},
+//			UpdateUserFunc: func(contextMoqParam context.Context, user *radio.User) error {
+//				panic("mock out the UpdateUser method")
+//			},
+//		}
+//
+//		// use mockedManagerService in code that requires radio.ManagerService
+//		// and then make assertions.
+//
+//	}
+type ManagerServiceMock struct {
+	// CurrentListenersFunc mocks the CurrentListeners method.
+	CurrentListenersFunc func(contextMoqParam context.Context) (eventstream.Stream[int64], error)
+
+	// CurrentSongFunc mocks the CurrentSong method.
+	CurrentSongFunc func(contextMoqParam context.Context) (eventstream.Stream[*radio.SongUpdate], error)
+
+	// CurrentStatusFunc mocks the CurrentStatus method.
+	CurrentStatusFunc func(contextMoqParam context.Context) (eventstream.Stream[radio.Status], error)
+
+	// CurrentThreadFunc mocks the CurrentThread method.
+	CurrentThreadFunc func(contextMoqParam context.Context) (eventstream.Stream[string], error)
+
+	// CurrentUserFunc mocks the CurrentUser method.
+	CurrentUserFunc func(contextMoqParam context.Context) (eventstream.Stream[*radio.User], error)
+
+	// UpdateListenersFunc mocks the UpdateListeners method.
+	UpdateListenersFunc func(contextMoqParam context.Context, n int64) error
+
+	// UpdateSongFunc mocks the UpdateSong method.
+	UpdateSongFunc func(contextMoqParam context.Context, songUpdate *radio.SongUpdate) error
+
+	// UpdateThreadFunc mocks the UpdateThread method.
+	UpdateThreadFunc func(contextMoqParam context.Context, s string) error
+
+	// UpdateUserFunc mocks the UpdateUser method.
+	UpdateUserFunc func(contextMoqParam context.Context, user *radio.User) error
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// CurrentListeners holds details about calls to the CurrentListeners method.
+		CurrentListeners []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+		}
+		// CurrentSong holds details about calls to the CurrentSong method.
+		CurrentSong []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+		}
+		// CurrentStatus holds details about calls to the CurrentStatus method.
+		CurrentStatus []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+		}
+		// CurrentThread holds details about calls to the CurrentThread method.
+		CurrentThread []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+		}
+		// CurrentUser holds details about calls to the CurrentUser method.
+		CurrentUser []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+		}
+		// UpdateListeners holds details about calls to the UpdateListeners method.
+		UpdateListeners []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+			// N is the n argument value.
+			N int64
+		}
+		// UpdateSong holds details about calls to the UpdateSong method.
+		UpdateSong []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+			// SongUpdate is the songUpdate argument value.
+			SongUpdate *radio.SongUpdate
+		}
+		// UpdateThread holds details about calls to the UpdateThread method.
+		UpdateThread []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+			// S is the s argument value.
+			S string
+		}
+		// UpdateUser holds details about calls to the UpdateUser method.
+		UpdateUser []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+			// User is the user argument value.
+			User *radio.User
+		}
+	}
+	lockCurrentListeners sync.RWMutex
+	lockCurrentSong      sync.RWMutex
+	lockCurrentStatus    sync.RWMutex
+	lockCurrentThread    sync.RWMutex
+	lockCurrentUser      sync.RWMutex
+	lockUpdateListeners  sync.RWMutex
+	lockUpdateSong       sync.RWMutex
+	lockUpdateThread     sync.RWMutex
+	lockUpdateUser       sync.RWMutex
+}
+
+// CurrentListeners calls CurrentListenersFunc.
+func (mock *ManagerServiceMock) CurrentListeners(contextMoqParam context.Context) (eventstream.Stream[int64], error) {
+	if mock.CurrentListenersFunc == nil {
+		panic("ManagerServiceMock.CurrentListenersFunc: method is nil but ManagerService.CurrentListeners was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+	}{
+		ContextMoqParam: contextMoqParam,
+	}
+	mock.lockCurrentListeners.Lock()
+	mock.calls.CurrentListeners = append(mock.calls.CurrentListeners, callInfo)
+	mock.lockCurrentListeners.Unlock()
+	return mock.CurrentListenersFunc(contextMoqParam)
+}
+
+// CurrentListenersCalls gets all the calls that were made to CurrentListeners.
+// Check the length with:
+//
+//	len(mockedManagerService.CurrentListenersCalls())
+func (mock *ManagerServiceMock) CurrentListenersCalls() []struct {
+	ContextMoqParam context.Context
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+	}
+	mock.lockCurrentListeners.RLock()
+	calls = mock.calls.CurrentListeners
+	mock.lockCurrentListeners.RUnlock()
+	return calls
+}
+
+// CurrentSong calls CurrentSongFunc.
+func (mock *ManagerServiceMock) CurrentSong(contextMoqParam context.Context) (eventstream.Stream[*radio.SongUpdate], error) {
+	if mock.CurrentSongFunc == nil {
+		panic("ManagerServiceMock.CurrentSongFunc: method is nil but ManagerService.CurrentSong was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+	}{
+		ContextMoqParam: contextMoqParam,
+	}
+	mock.lockCurrentSong.Lock()
+	mock.calls.CurrentSong = append(mock.calls.CurrentSong, callInfo)
+	mock.lockCurrentSong.Unlock()
+	return mock.CurrentSongFunc(contextMoqParam)
+}
+
+// CurrentSongCalls gets all the calls that were made to CurrentSong.
+// Check the length with:
+//
+//	len(mockedManagerService.CurrentSongCalls())
+func (mock *ManagerServiceMock) CurrentSongCalls() []struct {
+	ContextMoqParam context.Context
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+	}
+	mock.lockCurrentSong.RLock()
+	calls = mock.calls.CurrentSong
+	mock.lockCurrentSong.RUnlock()
+	return calls
+}
+
+// CurrentStatus calls CurrentStatusFunc.
+func (mock *ManagerServiceMock) CurrentStatus(contextMoqParam context.Context) (eventstream.Stream[radio.Status], error) {
+	if mock.CurrentStatusFunc == nil {
+		panic("ManagerServiceMock.CurrentStatusFunc: method is nil but ManagerService.CurrentStatus was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+	}{
+		ContextMoqParam: contextMoqParam,
+	}
+	mock.lockCurrentStatus.Lock()
+	mock.calls.CurrentStatus = append(mock.calls.CurrentStatus, callInfo)
+	mock.lockCurrentStatus.Unlock()
+	return mock.CurrentStatusFunc(contextMoqParam)
+}
+
+// CurrentStatusCalls gets all the calls that were made to CurrentStatus.
+// Check the length with:
+//
+//	len(mockedManagerService.CurrentStatusCalls())
+func (mock *ManagerServiceMock) CurrentStatusCalls() []struct {
+	ContextMoqParam context.Context
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+	}
+	mock.lockCurrentStatus.RLock()
+	calls = mock.calls.CurrentStatus
+	mock.lockCurrentStatus.RUnlock()
+	return calls
+}
+
+// CurrentThread calls CurrentThreadFunc.
+func (mock *ManagerServiceMock) CurrentThread(contextMoqParam context.Context) (eventstream.Stream[string], error) {
+	if mock.CurrentThreadFunc == nil {
+		panic("ManagerServiceMock.CurrentThreadFunc: method is nil but ManagerService.CurrentThread was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+	}{
+		ContextMoqParam: contextMoqParam,
+	}
+	mock.lockCurrentThread.Lock()
+	mock.calls.CurrentThread = append(mock.calls.CurrentThread, callInfo)
+	mock.lockCurrentThread.Unlock()
+	return mock.CurrentThreadFunc(contextMoqParam)
+}
+
+// CurrentThreadCalls gets all the calls that were made to CurrentThread.
+// Check the length with:
+//
+//	len(mockedManagerService.CurrentThreadCalls())
+func (mock *ManagerServiceMock) CurrentThreadCalls() []struct {
+	ContextMoqParam context.Context
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+	}
+	mock.lockCurrentThread.RLock()
+	calls = mock.calls.CurrentThread
+	mock.lockCurrentThread.RUnlock()
+	return calls
+}
+
+// CurrentUser calls CurrentUserFunc.
+func (mock *ManagerServiceMock) CurrentUser(contextMoqParam context.Context) (eventstream.Stream[*radio.User], error) {
+	if mock.CurrentUserFunc == nil {
+		panic("ManagerServiceMock.CurrentUserFunc: method is nil but ManagerService.CurrentUser was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+	}{
+		ContextMoqParam: contextMoqParam,
+	}
+	mock.lockCurrentUser.Lock()
+	mock.calls.CurrentUser = append(mock.calls.CurrentUser, callInfo)
+	mock.lockCurrentUser.Unlock()
+	return mock.CurrentUserFunc(contextMoqParam)
+}
+
+// CurrentUserCalls gets all the calls that were made to CurrentUser.
+// Check the length with:
+//
+//	len(mockedManagerService.CurrentUserCalls())
+func (mock *ManagerServiceMock) CurrentUserCalls() []struct {
+	ContextMoqParam context.Context
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+	}
+	mock.lockCurrentUser.RLock()
+	calls = mock.calls.CurrentUser
+	mock.lockCurrentUser.RUnlock()
+	return calls
+}
+
+// UpdateListeners calls UpdateListenersFunc.
+func (mock *ManagerServiceMock) UpdateListeners(contextMoqParam context.Context, n int64) error {
+	if mock.UpdateListenersFunc == nil {
+		panic("ManagerServiceMock.UpdateListenersFunc: method is nil but ManagerService.UpdateListeners was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+		N               int64
+	}{
+		ContextMoqParam: contextMoqParam,
+		N:               n,
+	}
+	mock.lockUpdateListeners.Lock()
+	mock.calls.UpdateListeners = append(mock.calls.UpdateListeners, callInfo)
+	mock.lockUpdateListeners.Unlock()
+	return mock.UpdateListenersFunc(contextMoqParam, n)
+}
+
+// UpdateListenersCalls gets all the calls that were made to UpdateListeners.
+// Check the length with:
+//
+//	len(mockedManagerService.UpdateListenersCalls())
+func (mock *ManagerServiceMock) UpdateListenersCalls() []struct {
+	ContextMoqParam context.Context
+	N               int64
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+		N               int64
+	}
+	mock.lockUpdateListeners.RLock()
+	calls = mock.calls.UpdateListeners
+	mock.lockUpdateListeners.RUnlock()
+	return calls
+}
+
+// UpdateSong calls UpdateSongFunc.
+func (mock *ManagerServiceMock) UpdateSong(contextMoqParam context.Context, songUpdate *radio.SongUpdate) error {
+	if mock.UpdateSongFunc == nil {
+		panic("ManagerServiceMock.UpdateSongFunc: method is nil but ManagerService.UpdateSong was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+		SongUpdate      *radio.SongUpdate
+	}{
+		ContextMoqParam: contextMoqParam,
+		SongUpdate:      songUpdate,
+	}
+	mock.lockUpdateSong.Lock()
+	mock.calls.UpdateSong = append(mock.calls.UpdateSong, callInfo)
+	mock.lockUpdateSong.Unlock()
+	return mock.UpdateSongFunc(contextMoqParam, songUpdate)
+}
+
+// UpdateSongCalls gets all the calls that were made to UpdateSong.
+// Check the length with:
+//
+//	len(mockedManagerService.UpdateSongCalls())
+func (mock *ManagerServiceMock) UpdateSongCalls() []struct {
+	ContextMoqParam context.Context
+	SongUpdate      *radio.SongUpdate
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+		SongUpdate      *radio.SongUpdate
+	}
+	mock.lockUpdateSong.RLock()
+	calls = mock.calls.UpdateSong
+	mock.lockUpdateSong.RUnlock()
+	return calls
+}
+
+// UpdateThread calls UpdateThreadFunc.
+func (mock *ManagerServiceMock) UpdateThread(contextMoqParam context.Context, s string) error {
+	if mock.UpdateThreadFunc == nil {
+		panic("ManagerServiceMock.UpdateThreadFunc: method is nil but ManagerService.UpdateThread was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+		S               string
+	}{
+		ContextMoqParam: contextMoqParam,
+		S:               s,
+	}
+	mock.lockUpdateThread.Lock()
+	mock.calls.UpdateThread = append(mock.calls.UpdateThread, callInfo)
+	mock.lockUpdateThread.Unlock()
+	return mock.UpdateThreadFunc(contextMoqParam, s)
+}
+
+// UpdateThreadCalls gets all the calls that were made to UpdateThread.
+// Check the length with:
+//
+//	len(mockedManagerService.UpdateThreadCalls())
+func (mock *ManagerServiceMock) UpdateThreadCalls() []struct {
+	ContextMoqParam context.Context
+	S               string
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+		S               string
+	}
+	mock.lockUpdateThread.RLock()
+	calls = mock.calls.UpdateThread
+	mock.lockUpdateThread.RUnlock()
+	return calls
+}
+
+// UpdateUser calls UpdateUserFunc.
+func (mock *ManagerServiceMock) UpdateUser(contextMoqParam context.Context, user *radio.User) error {
+	if mock.UpdateUserFunc == nil {
+		panic("ManagerServiceMock.UpdateUserFunc: method is nil but ManagerService.UpdateUser was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+		User            *radio.User
+	}{
+		ContextMoqParam: contextMoqParam,
+		User:            user,
+	}
+	mock.lockUpdateUser.Lock()
+	mock.calls.UpdateUser = append(mock.calls.UpdateUser, callInfo)
+	mock.lockUpdateUser.Unlock()
+	return mock.UpdateUserFunc(contextMoqParam, user)
+}
+
+// UpdateUserCalls gets all the calls that were made to UpdateUser.
+// Check the length with:
+//
+//	len(mockedManagerService.UpdateUserCalls())
+func (mock *ManagerServiceMock) UpdateUserCalls() []struct {
+	ContextMoqParam context.Context
+	User            *radio.User
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+		User            *radio.User
+	}
+	mock.lockUpdateUser.RLock()
+	calls = mock.calls.UpdateUser
+	mock.lockUpdateUser.RUnlock()
+	return calls
+}
+
+// Ensure, that StreamerServiceMock does implement radio.StreamerService.
+// If this is not the case, regenerate this file with moq.
+var _ radio.StreamerService = &StreamerServiceMock{}
+
+// StreamerServiceMock is a mock implementation of radio.StreamerService.
+//
+//	func TestSomethingThatUsesStreamerService(t *testing.T) {
+//
+//		// make and configure a mocked radio.StreamerService
+//		mockedStreamerService := &StreamerServiceMock{
+//			QueueFunc: func(contextMoqParam context.Context) ([]radio.QueueEntry, error) {
+//				panic("mock out the Queue method")
+//			},
+//			RequestSongFunc: func(contextMoqParam context.Context, song radio.Song, s string) error {
+//				panic("mock out the RequestSong method")
+//			},
+//			StartFunc: func(contextMoqParam context.Context) error {
+//				panic("mock out the Start method")
+//			},
+//			StopFunc: func(ctx context.Context, force bool) error {
+//				panic("mock out the Stop method")
+//			},
+//		}
+//
+//		// use mockedStreamerService in code that requires radio.StreamerService
+//		// and then make assertions.
+//
+//	}
+type StreamerServiceMock struct {
+	// QueueFunc mocks the Queue method.
+	QueueFunc func(contextMoqParam context.Context) ([]radio.QueueEntry, error)
+
+	// RequestSongFunc mocks the RequestSong method.
+	RequestSongFunc func(contextMoqParam context.Context, song radio.Song, s string) error
+
+	// StartFunc mocks the Start method.
+	StartFunc func(contextMoqParam context.Context) error
+
+	// StopFunc mocks the Stop method.
+	StopFunc func(ctx context.Context, force bool) error
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// Queue holds details about calls to the Queue method.
+		Queue []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+		}
+		// RequestSong holds details about calls to the RequestSong method.
+		RequestSong []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+			// Song is the song argument value.
+			Song radio.Song
+			// S is the s argument value.
+			S string
+		}
+		// Start holds details about calls to the Start method.
+		Start []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+		}
+		// Stop holds details about calls to the Stop method.
+		Stop []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Force is the force argument value.
+			Force bool
+		}
+	}
+	lockQueue       sync.RWMutex
+	lockRequestSong sync.RWMutex
+	lockStart       sync.RWMutex
+	lockStop        sync.RWMutex
+}
+
+// Queue calls QueueFunc.
+func (mock *StreamerServiceMock) Queue(contextMoqParam context.Context) ([]radio.QueueEntry, error) {
+	if mock.QueueFunc == nil {
+		panic("StreamerServiceMock.QueueFunc: method is nil but StreamerService.Queue was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+	}{
+		ContextMoqParam: contextMoqParam,
+	}
+	mock.lockQueue.Lock()
+	mock.calls.Queue = append(mock.calls.Queue, callInfo)
+	mock.lockQueue.Unlock()
+	return mock.QueueFunc(contextMoqParam)
+}
+
+// QueueCalls gets all the calls that were made to Queue.
+// Check the length with:
+//
+//	len(mockedStreamerService.QueueCalls())
+func (mock *StreamerServiceMock) QueueCalls() []struct {
+	ContextMoqParam context.Context
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+	}
+	mock.lockQueue.RLock()
+	calls = mock.calls.Queue
+	mock.lockQueue.RUnlock()
+	return calls
+}
+
+// RequestSong calls RequestSongFunc.
+func (mock *StreamerServiceMock) RequestSong(contextMoqParam context.Context, song radio.Song, s string) error {
+	if mock.RequestSongFunc == nil {
+		panic("StreamerServiceMock.RequestSongFunc: method is nil but StreamerService.RequestSong was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+		Song            radio.Song
+		S               string
+	}{
+		ContextMoqParam: contextMoqParam,
+		Song:            song,
+		S:               s,
+	}
+	mock.lockRequestSong.Lock()
+	mock.calls.RequestSong = append(mock.calls.RequestSong, callInfo)
+	mock.lockRequestSong.Unlock()
+	return mock.RequestSongFunc(contextMoqParam, song, s)
+}
+
+// RequestSongCalls gets all the calls that were made to RequestSong.
+// Check the length with:
+//
+//	len(mockedStreamerService.RequestSongCalls())
+func (mock *StreamerServiceMock) RequestSongCalls() []struct {
+	ContextMoqParam context.Context
+	Song            radio.Song
+	S               string
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+		Song            radio.Song
+		S               string
+	}
+	mock.lockRequestSong.RLock()
+	calls = mock.calls.RequestSong
+	mock.lockRequestSong.RUnlock()
+	return calls
+}
+
+// Start calls StartFunc.
+func (mock *StreamerServiceMock) Start(contextMoqParam context.Context) error {
+	if mock.StartFunc == nil {
+		panic("StreamerServiceMock.StartFunc: method is nil but StreamerService.Start was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+	}{
+		ContextMoqParam: contextMoqParam,
+	}
+	mock.lockStart.Lock()
+	mock.calls.Start = append(mock.calls.Start, callInfo)
+	mock.lockStart.Unlock()
+	return mock.StartFunc(contextMoqParam)
+}
+
+// StartCalls gets all the calls that were made to Start.
+// Check the length with:
+//
+//	len(mockedStreamerService.StartCalls())
+func (mock *StreamerServiceMock) StartCalls() []struct {
+	ContextMoqParam context.Context
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+	}
+	mock.lockStart.RLock()
+	calls = mock.calls.Start
+	mock.lockStart.RUnlock()
+	return calls
+}
+
+// Stop calls StopFunc.
+func (mock *StreamerServiceMock) Stop(ctx context.Context, force bool) error {
+	if mock.StopFunc == nil {
+		panic("StreamerServiceMock.StopFunc: method is nil but StreamerService.Stop was just called")
+	}
+	callInfo := struct {
+		Ctx   context.Context
+		Force bool
+	}{
+		Ctx:   ctx,
+		Force: force,
+	}
+	mock.lockStop.Lock()
+	mock.calls.Stop = append(mock.calls.Stop, callInfo)
+	mock.lockStop.Unlock()
+	return mock.StopFunc(ctx, force)
+}
+
+// StopCalls gets all the calls that were made to Stop.
+// Check the length with:
+//
+//	len(mockedStreamerService.StopCalls())
+func (mock *StreamerServiceMock) StopCalls() []struct {
+	Ctx   context.Context
+	Force bool
+} {
+	var calls []struct {
+		Ctx   context.Context
+		Force bool
+	}
+	mock.lockStop.RLock()
+	calls = mock.calls.Stop
+	mock.lockStop.RUnlock()
+	return calls
+}
+
+// Ensure, that QueueServiceMock does implement radio.QueueService.
+// If this is not the case, regenerate this file with moq.
+var _ radio.QueueService = &QueueServiceMock{}
+
+// QueueServiceMock is a mock implementation of radio.QueueService.
+//
+//	func TestSomethingThatUsesQueueService(t *testing.T) {
+//
+//		// make and configure a mocked radio.QueueService
+//		mockedQueueService := &QueueServiceMock{
+//			AddRequestFunc: func(contextMoqParam context.Context, song radio.Song, s string) error {
+//				panic("mock out the AddRequest method")
+//			},
+//			EntriesFunc: func(contextMoqParam context.Context) ([]radio.QueueEntry, error) {
+//				panic("mock out the Entries method")
+//			},
+//			RemoveFunc: func(contextMoqParam context.Context, queueID radio.QueueID) (bool, error) {
+//				panic("mock out the Remove method")
+//			},
+//			ReserveNextFunc: func(contextMoqParam context.Context) (*radio.QueueEntry, error) {
+//				panic("mock out the ReserveNext method")
+//			},
+//			ResetReservedFunc: func(contextMoqParam context.Context) error {
+//				panic("mock out the ResetReserved method")
+//			},
+//		}
+//
+//		// use mockedQueueService in code that requires radio.QueueService
+//		// and then make assertions.
+//
+//	}
+type QueueServiceMock struct {
+	// AddRequestFunc mocks the AddRequest method.
+	AddRequestFunc func(contextMoqParam context.Context, song radio.Song, s string) error
+
+	// EntriesFunc mocks the Entries method.
+	EntriesFunc func(contextMoqParam context.Context) ([]radio.QueueEntry, error)
+
+	// RemoveFunc mocks the Remove method.
+	RemoveFunc func(contextMoqParam context.Context, queueID radio.QueueID) (bool, error)
+
+	// ReserveNextFunc mocks the ReserveNext method.
+	ReserveNextFunc func(contextMoqParam context.Context) (*radio.QueueEntry, error)
+
+	// ResetReservedFunc mocks the ResetReserved method.
+	ResetReservedFunc func(contextMoqParam context.Context) error
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// AddRequest holds details about calls to the AddRequest method.
+		AddRequest []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+			// Song is the song argument value.
+			Song radio.Song
+			// S is the s argument value.
+			S string
+		}
+		// Entries holds details about calls to the Entries method.
+		Entries []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+		}
+		// Remove holds details about calls to the Remove method.
+		Remove []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+			// QueueID is the queueID argument value.
+			QueueID radio.QueueID
+		}
+		// ReserveNext holds details about calls to the ReserveNext method.
+		ReserveNext []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+		}
+		// ResetReserved holds details about calls to the ResetReserved method.
+		ResetReserved []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+		}
+	}
+	lockAddRequest    sync.RWMutex
+	lockEntries       sync.RWMutex
+	lockRemove        sync.RWMutex
+	lockReserveNext   sync.RWMutex
+	lockResetReserved sync.RWMutex
+}
+
+// AddRequest calls AddRequestFunc.
+func (mock *QueueServiceMock) AddRequest(contextMoqParam context.Context, song radio.Song, s string) error {
+	if mock.AddRequestFunc == nil {
+		panic("QueueServiceMock.AddRequestFunc: method is nil but QueueService.AddRequest was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+		Song            radio.Song
+		S               string
+	}{
+		ContextMoqParam: contextMoqParam,
+		Song:            song,
+		S:               s,
+	}
+	mock.lockAddRequest.Lock()
+	mock.calls.AddRequest = append(mock.calls.AddRequest, callInfo)
+	mock.lockAddRequest.Unlock()
+	return mock.AddRequestFunc(contextMoqParam, song, s)
+}
+
+// AddRequestCalls gets all the calls that were made to AddRequest.
+// Check the length with:
+//
+//	len(mockedQueueService.AddRequestCalls())
+func (mock *QueueServiceMock) AddRequestCalls() []struct {
+	ContextMoqParam context.Context
+	Song            radio.Song
+	S               string
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+		Song            radio.Song
+		S               string
+	}
+	mock.lockAddRequest.RLock()
+	calls = mock.calls.AddRequest
+	mock.lockAddRequest.RUnlock()
+	return calls
+}
+
+// Entries calls EntriesFunc.
+func (mock *QueueServiceMock) Entries(contextMoqParam context.Context) ([]radio.QueueEntry, error) {
+	if mock.EntriesFunc == nil {
+		panic("QueueServiceMock.EntriesFunc: method is nil but QueueService.Entries was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+	}{
+		ContextMoqParam: contextMoqParam,
+	}
+	mock.lockEntries.Lock()
+	mock.calls.Entries = append(mock.calls.Entries, callInfo)
+	mock.lockEntries.Unlock()
+	return mock.EntriesFunc(contextMoqParam)
+}
+
+// EntriesCalls gets all the calls that were made to Entries.
+// Check the length with:
+//
+//	len(mockedQueueService.EntriesCalls())
+func (mock *QueueServiceMock) EntriesCalls() []struct {
+	ContextMoqParam context.Context
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+	}
+	mock.lockEntries.RLock()
+	calls = mock.calls.Entries
+	mock.lockEntries.RUnlock()
+	return calls
+}
+
+// Remove calls RemoveFunc.
+func (mock *QueueServiceMock) Remove(contextMoqParam context.Context, queueID radio.QueueID) (bool, error) {
+	if mock.RemoveFunc == nil {
+		panic("QueueServiceMock.RemoveFunc: method is nil but QueueService.Remove was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+		QueueID         radio.QueueID
+	}{
+		ContextMoqParam: contextMoqParam,
+		QueueID:         queueID,
+	}
+	mock.lockRemove.Lock()
+	mock.calls.Remove = append(mock.calls.Remove, callInfo)
+	mock.lockRemove.Unlock()
+	return mock.RemoveFunc(contextMoqParam, queueID)
+}
+
+// RemoveCalls gets all the calls that were made to Remove.
+// Check the length with:
+//
+//	len(mockedQueueService.RemoveCalls())
+func (mock *QueueServiceMock) RemoveCalls() []struct {
+	ContextMoqParam context.Context
+	QueueID         radio.QueueID
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+		QueueID         radio.QueueID
+	}
+	mock.lockRemove.RLock()
+	calls = mock.calls.Remove
+	mock.lockRemove.RUnlock()
+	return calls
+}
+
+// ReserveNext calls ReserveNextFunc.
+func (mock *QueueServiceMock) ReserveNext(contextMoqParam context.Context) (*radio.QueueEntry, error) {
+	if mock.ReserveNextFunc == nil {
+		panic("QueueServiceMock.ReserveNextFunc: method is nil but QueueService.ReserveNext was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+	}{
+		ContextMoqParam: contextMoqParam,
+	}
+	mock.lockReserveNext.Lock()
+	mock.calls.ReserveNext = append(mock.calls.ReserveNext, callInfo)
+	mock.lockReserveNext.Unlock()
+	return mock.ReserveNextFunc(contextMoqParam)
+}
+
+// ReserveNextCalls gets all the calls that were made to ReserveNext.
+// Check the length with:
+//
+//	len(mockedQueueService.ReserveNextCalls())
+func (mock *QueueServiceMock) ReserveNextCalls() []struct {
+	ContextMoqParam context.Context
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+	}
+	mock.lockReserveNext.RLock()
+	calls = mock.calls.ReserveNext
+	mock.lockReserveNext.RUnlock()
+	return calls
+}
+
+// ResetReserved calls ResetReservedFunc.
+func (mock *QueueServiceMock) ResetReserved(contextMoqParam context.Context) error {
+	if mock.ResetReservedFunc == nil {
+		panic("QueueServiceMock.ResetReservedFunc: method is nil but QueueService.ResetReserved was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+	}{
+		ContextMoqParam: contextMoqParam,
+	}
+	mock.lockResetReserved.Lock()
+	mock.calls.ResetReserved = append(mock.calls.ResetReserved, callInfo)
+	mock.lockResetReserved.Unlock()
+	return mock.ResetReservedFunc(contextMoqParam)
+}
+
+// ResetReservedCalls gets all the calls that were made to ResetReserved.
+// Check the length with:
+//
+//	len(mockedQueueService.ResetReservedCalls())
+func (mock *QueueServiceMock) ResetReservedCalls() []struct {
+	ContextMoqParam context.Context
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+	}
+	mock.lockResetReserved.RLock()
+	calls = mock.calls.ResetReserved
+	mock.lockResetReserved.RUnlock()
+	return calls
+}
+
+// Ensure, that AnnounceServiceMock does implement radio.AnnounceService.
+// If this is not the case, regenerate this file with moq.
+var _ radio.AnnounceService = &AnnounceServiceMock{}
+
+// AnnounceServiceMock is a mock implementation of radio.AnnounceService.
+//
+//	func TestSomethingThatUsesAnnounceService(t *testing.T) {
+//
+//		// make and configure a mocked radio.AnnounceService
+//		mockedAnnounceService := &AnnounceServiceMock{
+//			AnnounceRequestFunc: func(contextMoqParam context.Context, song radio.Song) error {
+//				panic("mock out the AnnounceRequest method")
+//			},
+//			AnnounceSongFunc: func(contextMoqParam context.Context, status radio.Status) error {
+//				panic("mock out the AnnounceSong method")
+//			},
+//		}
+//
+//		// use mockedAnnounceService in code that requires radio.AnnounceService
+//		// and then make assertions.
+//
+//	}
+type AnnounceServiceMock struct {
+	// AnnounceRequestFunc mocks the AnnounceRequest method.
+	AnnounceRequestFunc func(contextMoqParam context.Context, song radio.Song) error
+
+	// AnnounceSongFunc mocks the AnnounceSong method.
+	AnnounceSongFunc func(contextMoqParam context.Context, status radio.Status) error
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// AnnounceRequest holds details about calls to the AnnounceRequest method.
+		AnnounceRequest []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+			// Song is the song argument value.
+			Song radio.Song
+		}
+		// AnnounceSong holds details about calls to the AnnounceSong method.
+		AnnounceSong []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+			// Status is the status argument value.
+			Status radio.Status
+		}
+	}
+	lockAnnounceRequest sync.RWMutex
+	lockAnnounceSong    sync.RWMutex
+}
+
+// AnnounceRequest calls AnnounceRequestFunc.
+func (mock *AnnounceServiceMock) AnnounceRequest(contextMoqParam context.Context, song radio.Song) error {
+	if mock.AnnounceRequestFunc == nil {
+		panic("AnnounceServiceMock.AnnounceRequestFunc: method is nil but AnnounceService.AnnounceRequest was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+		Song            radio.Song
+	}{
+		ContextMoqParam: contextMoqParam,
+		Song:            song,
+	}
+	mock.lockAnnounceRequest.Lock()
+	mock.calls.AnnounceRequest = append(mock.calls.AnnounceRequest, callInfo)
+	mock.lockAnnounceRequest.Unlock()
+	return mock.AnnounceRequestFunc(contextMoqParam, song)
+}
+
+// AnnounceRequestCalls gets all the calls that were made to AnnounceRequest.
+// Check the length with:
+//
+//	len(mockedAnnounceService.AnnounceRequestCalls())
+func (mock *AnnounceServiceMock) AnnounceRequestCalls() []struct {
+	ContextMoqParam context.Context
+	Song            radio.Song
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+		Song            radio.Song
+	}
+	mock.lockAnnounceRequest.RLock()
+	calls = mock.calls.AnnounceRequest
+	mock.lockAnnounceRequest.RUnlock()
+	return calls
+}
+
+// AnnounceSong calls AnnounceSongFunc.
+func (mock *AnnounceServiceMock) AnnounceSong(contextMoqParam context.Context, status radio.Status) error {
+	if mock.AnnounceSongFunc == nil {
+		panic("AnnounceServiceMock.AnnounceSongFunc: method is nil but AnnounceService.AnnounceSong was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+		Status          radio.Status
+	}{
+		ContextMoqParam: contextMoqParam,
+		Status:          status,
+	}
+	mock.lockAnnounceSong.Lock()
+	mock.calls.AnnounceSong = append(mock.calls.AnnounceSong, callInfo)
+	mock.lockAnnounceSong.Unlock()
+	return mock.AnnounceSongFunc(contextMoqParam, status)
+}
+
+// AnnounceSongCalls gets all the calls that were made to AnnounceSong.
+// Check the length with:
+//
+//	len(mockedAnnounceService.AnnounceSongCalls())
+func (mock *AnnounceServiceMock) AnnounceSongCalls() []struct {
+	ContextMoqParam context.Context
+	Status          radio.Status
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+		Status          radio.Status
+	}
+	mock.lockAnnounceSong.RLock()
+	calls = mock.calls.AnnounceSong
+	mock.lockAnnounceSong.RUnlock()
+	return calls
+}
+
+// Ensure, that StorageTxMock does implement radio.StorageTx.
+// If this is not the case, regenerate this file with moq.
+var _ radio.StorageTx = &StorageTxMock{}
+
+// StorageTxMock is a mock implementation of radio.StorageTx.
+//
+//	func TestSomethingThatUsesStorageTx(t *testing.T) {
+//
+//		// make and configure a mocked radio.StorageTx
+//		mockedStorageTx := &StorageTxMock{
+//			CommitFunc: func() error {
+//				panic("mock out the Commit method")
+//			},
+//			RollbackFunc: func() error {
+//				panic("mock out the Rollback method")
+//			},
+//		}
+//
+//		// use mockedStorageTx in code that requires radio.StorageTx
+//		// and then make assertions.
+//
+//	}
+type StorageTxMock struct {
+	// CommitFunc mocks the Commit method.
+	CommitFunc func() error
+
+	// RollbackFunc mocks the Rollback method.
+	RollbackFunc func() error
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// Commit holds details about calls to the Commit method.
+		Commit []struct {
+		}
+		// Rollback holds details about calls to the Rollback method.
+		Rollback []struct {
+		}
+	}
+	lockCommit   sync.RWMutex
+	lockRollback sync.RWMutex
+}
+
+// Commit calls CommitFunc.
+func (mock *StorageTxMock) Commit() error {
+	if mock.CommitFunc == nil {
+		panic("StorageTxMock.CommitFunc: method is nil but StorageTx.Commit was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockCommit.Lock()
+	mock.calls.Commit = append(mock.calls.Commit, callInfo)
+	mock.lockCommit.Unlock()
+	return mock.CommitFunc()
+}
+
+// CommitCalls gets all the calls that were made to Commit.
+// Check the length with:
+//
+//	len(mockedStorageTx.CommitCalls())
+func (mock *StorageTxMock) CommitCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockCommit.RLock()
+	calls = mock.calls.Commit
+	mock.lockCommit.RUnlock()
+	return calls
+}
+
+// Rollback calls RollbackFunc.
+func (mock *StorageTxMock) Rollback() error {
+	if mock.RollbackFunc == nil {
+		panic("StorageTxMock.RollbackFunc: method is nil but StorageTx.Rollback was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockRollback.Lock()
+	mock.calls.Rollback = append(mock.calls.Rollback, callInfo)
+	mock.lockRollback.Unlock()
+	return mock.RollbackFunc()
+}
+
+// RollbackCalls gets all the calls that were made to Rollback.
+// Check the length with:
+//
+//	len(mockedStorageTx.RollbackCalls())
+func (mock *StorageTxMock) RollbackCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockRollback.RLock()
+	calls = mock.calls.Rollback
+	mock.lockRollback.RUnlock()
+	return calls
+}
+
 // Ensure, that StorageServiceMock does implement radio.StorageService.
 // If this is not the case, regenerate this file with moq.
 var _ radio.StorageService = &StorageServiceMock{}
@@ -1017,99 +2337,1422 @@ func (mock *StorageServiceMock) UserTxCalls() []struct {
 	return calls
 }
 
-// Ensure, that StorageTxMock does implement radio.StorageTx.
+// Ensure, that SessionStorageServiceMock does implement radio.SessionStorageService.
 // If this is not the case, regenerate this file with moq.
-var _ radio.StorageTx = &StorageTxMock{}
+var _ radio.SessionStorageService = &SessionStorageServiceMock{}
 
-// StorageTxMock is a mock implementation of radio.StorageTx.
+// SessionStorageServiceMock is a mock implementation of radio.SessionStorageService.
 //
-//	func TestSomethingThatUsesStorageTx(t *testing.T) {
+//	func TestSomethingThatUsesSessionStorageService(t *testing.T) {
 //
-//		// make and configure a mocked radio.StorageTx
-//		mockedStorageTx := &StorageTxMock{
-//			CommitFunc: func() error {
-//				panic("mock out the Commit method")
+//		// make and configure a mocked radio.SessionStorageService
+//		mockedSessionStorageService := &SessionStorageServiceMock{
+//			SessionsFunc: func(contextMoqParam context.Context) radio.SessionStorage {
+//				panic("mock out the Sessions method")
 //			},
-//			RollbackFunc: func() error {
-//				panic("mock out the Rollback method")
+//			SessionsTxFunc: func(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.SessionStorage, radio.StorageTx, error) {
+//				panic("mock out the SessionsTx method")
 //			},
 //		}
 //
-//		// use mockedStorageTx in code that requires radio.StorageTx
+//		// use mockedSessionStorageService in code that requires radio.SessionStorageService
 //		// and then make assertions.
 //
 //	}
-type StorageTxMock struct {
-	// CommitFunc mocks the Commit method.
-	CommitFunc func() error
+type SessionStorageServiceMock struct {
+	// SessionsFunc mocks the Sessions method.
+	SessionsFunc func(contextMoqParam context.Context) radio.SessionStorage
 
-	// RollbackFunc mocks the Rollback method.
-	RollbackFunc func() error
+	// SessionsTxFunc mocks the SessionsTx method.
+	SessionsTxFunc func(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.SessionStorage, radio.StorageTx, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
-		// Commit holds details about calls to the Commit method.
-		Commit []struct {
+		// Sessions holds details about calls to the Sessions method.
+		Sessions []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
 		}
-		// Rollback holds details about calls to the Rollback method.
-		Rollback []struct {
+		// SessionsTx holds details about calls to the SessionsTx method.
+		SessionsTx []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+			// StorageTx is the storageTx argument value.
+			StorageTx radio.StorageTx
 		}
 	}
-	lockCommit   sync.RWMutex
-	lockRollback sync.RWMutex
+	lockSessions   sync.RWMutex
+	lockSessionsTx sync.RWMutex
 }
 
-// Commit calls CommitFunc.
-func (mock *StorageTxMock) Commit() error {
-	if mock.CommitFunc == nil {
-		panic("StorageTxMock.CommitFunc: method is nil but StorageTx.Commit was just called")
+// Sessions calls SessionsFunc.
+func (mock *SessionStorageServiceMock) Sessions(contextMoqParam context.Context) radio.SessionStorage {
+	if mock.SessionsFunc == nil {
+		panic("SessionStorageServiceMock.SessionsFunc: method is nil but SessionStorageService.Sessions was just called")
 	}
 	callInfo := struct {
-	}{}
-	mock.lockCommit.Lock()
-	mock.calls.Commit = append(mock.calls.Commit, callInfo)
-	mock.lockCommit.Unlock()
-	return mock.CommitFunc()
+		ContextMoqParam context.Context
+	}{
+		ContextMoqParam: contextMoqParam,
+	}
+	mock.lockSessions.Lock()
+	mock.calls.Sessions = append(mock.calls.Sessions, callInfo)
+	mock.lockSessions.Unlock()
+	return mock.SessionsFunc(contextMoqParam)
 }
 
-// CommitCalls gets all the calls that were made to Commit.
+// SessionsCalls gets all the calls that were made to Sessions.
 // Check the length with:
 //
-//	len(mockedStorageTx.CommitCalls())
-func (mock *StorageTxMock) CommitCalls() []struct {
+//	len(mockedSessionStorageService.SessionsCalls())
+func (mock *SessionStorageServiceMock) SessionsCalls() []struct {
+	ContextMoqParam context.Context
 } {
 	var calls []struct {
+		ContextMoqParam context.Context
 	}
-	mock.lockCommit.RLock()
-	calls = mock.calls.Commit
-	mock.lockCommit.RUnlock()
+	mock.lockSessions.RLock()
+	calls = mock.calls.Sessions
+	mock.lockSessions.RUnlock()
 	return calls
 }
 
-// Rollback calls RollbackFunc.
-func (mock *StorageTxMock) Rollback() error {
-	if mock.RollbackFunc == nil {
-		panic("StorageTxMock.RollbackFunc: method is nil but StorageTx.Rollback was just called")
+// SessionsTx calls SessionsTxFunc.
+func (mock *SessionStorageServiceMock) SessionsTx(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.SessionStorage, radio.StorageTx, error) {
+	if mock.SessionsTxFunc == nil {
+		panic("SessionStorageServiceMock.SessionsTxFunc: method is nil but SessionStorageService.SessionsTx was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+		StorageTx       radio.StorageTx
+	}{
+		ContextMoqParam: contextMoqParam,
+		StorageTx:       storageTx,
+	}
+	mock.lockSessionsTx.Lock()
+	mock.calls.SessionsTx = append(mock.calls.SessionsTx, callInfo)
+	mock.lockSessionsTx.Unlock()
+	return mock.SessionsTxFunc(contextMoqParam, storageTx)
+}
+
+// SessionsTxCalls gets all the calls that were made to SessionsTx.
+// Check the length with:
+//
+//	len(mockedSessionStorageService.SessionsTxCalls())
+func (mock *SessionStorageServiceMock) SessionsTxCalls() []struct {
+	ContextMoqParam context.Context
+	StorageTx       radio.StorageTx
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+		StorageTx       radio.StorageTx
+	}
+	mock.lockSessionsTx.RLock()
+	calls = mock.calls.SessionsTx
+	mock.lockSessionsTx.RUnlock()
+	return calls
+}
+
+// Ensure, that SessionStorageMock does implement radio.SessionStorage.
+// If this is not the case, regenerate this file with moq.
+var _ radio.SessionStorage = &SessionStorageMock{}
+
+// SessionStorageMock is a mock implementation of radio.SessionStorage.
+//
+//	func TestSomethingThatUsesSessionStorage(t *testing.T) {
+//
+//		// make and configure a mocked radio.SessionStorage
+//		mockedSessionStorage := &SessionStorageMock{
+//			DeleteFunc: func(sessionToken radio.SessionToken) error {
+//				panic("mock out the Delete method")
+//			},
+//			GetFunc: func(sessionToken radio.SessionToken) (radio.Session, error) {
+//				panic("mock out the Get method")
+//			},
+//			SaveFunc: func(session radio.Session) error {
+//				panic("mock out the Save method")
+//			},
+//		}
+//
+//		// use mockedSessionStorage in code that requires radio.SessionStorage
+//		// and then make assertions.
+//
+//	}
+type SessionStorageMock struct {
+	// DeleteFunc mocks the Delete method.
+	DeleteFunc func(sessionToken radio.SessionToken) error
+
+	// GetFunc mocks the Get method.
+	GetFunc func(sessionToken radio.SessionToken) (radio.Session, error)
+
+	// SaveFunc mocks the Save method.
+	SaveFunc func(session radio.Session) error
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// Delete holds details about calls to the Delete method.
+		Delete []struct {
+			// SessionToken is the sessionToken argument value.
+			SessionToken radio.SessionToken
+		}
+		// Get holds details about calls to the Get method.
+		Get []struct {
+			// SessionToken is the sessionToken argument value.
+			SessionToken radio.SessionToken
+		}
+		// Save holds details about calls to the Save method.
+		Save []struct {
+			// Session is the session argument value.
+			Session radio.Session
+		}
+	}
+	lockDelete sync.RWMutex
+	lockGet    sync.RWMutex
+	lockSave   sync.RWMutex
+}
+
+// Delete calls DeleteFunc.
+func (mock *SessionStorageMock) Delete(sessionToken radio.SessionToken) error {
+	if mock.DeleteFunc == nil {
+		panic("SessionStorageMock.DeleteFunc: method is nil but SessionStorage.Delete was just called")
+	}
+	callInfo := struct {
+		SessionToken radio.SessionToken
+	}{
+		SessionToken: sessionToken,
+	}
+	mock.lockDelete.Lock()
+	mock.calls.Delete = append(mock.calls.Delete, callInfo)
+	mock.lockDelete.Unlock()
+	return mock.DeleteFunc(sessionToken)
+}
+
+// DeleteCalls gets all the calls that were made to Delete.
+// Check the length with:
+//
+//	len(mockedSessionStorage.DeleteCalls())
+func (mock *SessionStorageMock) DeleteCalls() []struct {
+	SessionToken radio.SessionToken
+} {
+	var calls []struct {
+		SessionToken radio.SessionToken
+	}
+	mock.lockDelete.RLock()
+	calls = mock.calls.Delete
+	mock.lockDelete.RUnlock()
+	return calls
+}
+
+// Get calls GetFunc.
+func (mock *SessionStorageMock) Get(sessionToken radio.SessionToken) (radio.Session, error) {
+	if mock.GetFunc == nil {
+		panic("SessionStorageMock.GetFunc: method is nil but SessionStorage.Get was just called")
+	}
+	callInfo := struct {
+		SessionToken radio.SessionToken
+	}{
+		SessionToken: sessionToken,
+	}
+	mock.lockGet.Lock()
+	mock.calls.Get = append(mock.calls.Get, callInfo)
+	mock.lockGet.Unlock()
+	return mock.GetFunc(sessionToken)
+}
+
+// GetCalls gets all the calls that were made to Get.
+// Check the length with:
+//
+//	len(mockedSessionStorage.GetCalls())
+func (mock *SessionStorageMock) GetCalls() []struct {
+	SessionToken radio.SessionToken
+} {
+	var calls []struct {
+		SessionToken radio.SessionToken
+	}
+	mock.lockGet.RLock()
+	calls = mock.calls.Get
+	mock.lockGet.RUnlock()
+	return calls
+}
+
+// Save calls SaveFunc.
+func (mock *SessionStorageMock) Save(session radio.Session) error {
+	if mock.SaveFunc == nil {
+		panic("SessionStorageMock.SaveFunc: method is nil but SessionStorage.Save was just called")
+	}
+	callInfo := struct {
+		Session radio.Session
+	}{
+		Session: session,
+	}
+	mock.lockSave.Lock()
+	mock.calls.Save = append(mock.calls.Save, callInfo)
+	mock.lockSave.Unlock()
+	return mock.SaveFunc(session)
+}
+
+// SaveCalls gets all the calls that were made to Save.
+// Check the length with:
+//
+//	len(mockedSessionStorage.SaveCalls())
+func (mock *SessionStorageMock) SaveCalls() []struct {
+	Session radio.Session
+} {
+	var calls []struct {
+		Session radio.Session
+	}
+	mock.lockSave.RLock()
+	calls = mock.calls.Save
+	mock.lockSave.RUnlock()
+	return calls
+}
+
+// Ensure, that QueueStorageServiceMock does implement radio.QueueStorageService.
+// If this is not the case, regenerate this file with moq.
+var _ radio.QueueStorageService = &QueueStorageServiceMock{}
+
+// QueueStorageServiceMock is a mock implementation of radio.QueueStorageService.
+//
+//	func TestSomethingThatUsesQueueStorageService(t *testing.T) {
+//
+//		// make and configure a mocked radio.QueueStorageService
+//		mockedQueueStorageService := &QueueStorageServiceMock{
+//			QueueFunc: func(contextMoqParam context.Context) radio.QueueStorage {
+//				panic("mock out the Queue method")
+//			},
+//			QueueTxFunc: func(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.QueueStorage, radio.StorageTx, error) {
+//				panic("mock out the QueueTx method")
+//			},
+//		}
+//
+//		// use mockedQueueStorageService in code that requires radio.QueueStorageService
+//		// and then make assertions.
+//
+//	}
+type QueueStorageServiceMock struct {
+	// QueueFunc mocks the Queue method.
+	QueueFunc func(contextMoqParam context.Context) radio.QueueStorage
+
+	// QueueTxFunc mocks the QueueTx method.
+	QueueTxFunc func(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.QueueStorage, radio.StorageTx, error)
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// Queue holds details about calls to the Queue method.
+		Queue []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+		}
+		// QueueTx holds details about calls to the QueueTx method.
+		QueueTx []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+			// StorageTx is the storageTx argument value.
+			StorageTx radio.StorageTx
+		}
+	}
+	lockQueue   sync.RWMutex
+	lockQueueTx sync.RWMutex
+}
+
+// Queue calls QueueFunc.
+func (mock *QueueStorageServiceMock) Queue(contextMoqParam context.Context) radio.QueueStorage {
+	if mock.QueueFunc == nil {
+		panic("QueueStorageServiceMock.QueueFunc: method is nil but QueueStorageService.Queue was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+	}{
+		ContextMoqParam: contextMoqParam,
+	}
+	mock.lockQueue.Lock()
+	mock.calls.Queue = append(mock.calls.Queue, callInfo)
+	mock.lockQueue.Unlock()
+	return mock.QueueFunc(contextMoqParam)
+}
+
+// QueueCalls gets all the calls that were made to Queue.
+// Check the length with:
+//
+//	len(mockedQueueStorageService.QueueCalls())
+func (mock *QueueStorageServiceMock) QueueCalls() []struct {
+	ContextMoqParam context.Context
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+	}
+	mock.lockQueue.RLock()
+	calls = mock.calls.Queue
+	mock.lockQueue.RUnlock()
+	return calls
+}
+
+// QueueTx calls QueueTxFunc.
+func (mock *QueueStorageServiceMock) QueueTx(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.QueueStorage, radio.StorageTx, error) {
+	if mock.QueueTxFunc == nil {
+		panic("QueueStorageServiceMock.QueueTxFunc: method is nil but QueueStorageService.QueueTx was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+		StorageTx       radio.StorageTx
+	}{
+		ContextMoqParam: contextMoqParam,
+		StorageTx:       storageTx,
+	}
+	mock.lockQueueTx.Lock()
+	mock.calls.QueueTx = append(mock.calls.QueueTx, callInfo)
+	mock.lockQueueTx.Unlock()
+	return mock.QueueTxFunc(contextMoqParam, storageTx)
+}
+
+// QueueTxCalls gets all the calls that were made to QueueTx.
+// Check the length with:
+//
+//	len(mockedQueueStorageService.QueueTxCalls())
+func (mock *QueueStorageServiceMock) QueueTxCalls() []struct {
+	ContextMoqParam context.Context
+	StorageTx       radio.StorageTx
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+		StorageTx       radio.StorageTx
+	}
+	mock.lockQueueTx.RLock()
+	calls = mock.calls.QueueTx
+	mock.lockQueueTx.RUnlock()
+	return calls
+}
+
+// Ensure, that QueueStorageMock does implement radio.QueueStorage.
+// If this is not the case, regenerate this file with moq.
+var _ radio.QueueStorage = &QueueStorageMock{}
+
+// QueueStorageMock is a mock implementation of radio.QueueStorage.
+//
+//	func TestSomethingThatUsesQueueStorage(t *testing.T) {
+//
+//		// make and configure a mocked radio.QueueStorage
+//		mockedQueueStorage := &QueueStorageMock{
+//			LoadFunc: func(name string) ([]radio.QueueEntry, error) {
+//				panic("mock out the Load method")
+//			},
+//			StoreFunc: func(name string, queue []radio.QueueEntry) error {
+//				panic("mock out the Store method")
+//			},
+//		}
+//
+//		// use mockedQueueStorage in code that requires radio.QueueStorage
+//		// and then make assertions.
+//
+//	}
+type QueueStorageMock struct {
+	// LoadFunc mocks the Load method.
+	LoadFunc func(name string) ([]radio.QueueEntry, error)
+
+	// StoreFunc mocks the Store method.
+	StoreFunc func(name string, queue []radio.QueueEntry) error
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// Load holds details about calls to the Load method.
+		Load []struct {
+			// Name is the name argument value.
+			Name string
+		}
+		// Store holds details about calls to the Store method.
+		Store []struct {
+			// Name is the name argument value.
+			Name string
+			// Queue is the queue argument value.
+			Queue []radio.QueueEntry
+		}
+	}
+	lockLoad  sync.RWMutex
+	lockStore sync.RWMutex
+}
+
+// Load calls LoadFunc.
+func (mock *QueueStorageMock) Load(name string) ([]radio.QueueEntry, error) {
+	if mock.LoadFunc == nil {
+		panic("QueueStorageMock.LoadFunc: method is nil but QueueStorage.Load was just called")
+	}
+	callInfo := struct {
+		Name string
+	}{
+		Name: name,
+	}
+	mock.lockLoad.Lock()
+	mock.calls.Load = append(mock.calls.Load, callInfo)
+	mock.lockLoad.Unlock()
+	return mock.LoadFunc(name)
+}
+
+// LoadCalls gets all the calls that were made to Load.
+// Check the length with:
+//
+//	len(mockedQueueStorage.LoadCalls())
+func (mock *QueueStorageMock) LoadCalls() []struct {
+	Name string
+} {
+	var calls []struct {
+		Name string
+	}
+	mock.lockLoad.RLock()
+	calls = mock.calls.Load
+	mock.lockLoad.RUnlock()
+	return calls
+}
+
+// Store calls StoreFunc.
+func (mock *QueueStorageMock) Store(name string, queue []radio.QueueEntry) error {
+	if mock.StoreFunc == nil {
+		panic("QueueStorageMock.StoreFunc: method is nil but QueueStorage.Store was just called")
+	}
+	callInfo := struct {
+		Name  string
+		Queue []radio.QueueEntry
+	}{
+		Name:  name,
+		Queue: queue,
+	}
+	mock.lockStore.Lock()
+	mock.calls.Store = append(mock.calls.Store, callInfo)
+	mock.lockStore.Unlock()
+	return mock.StoreFunc(name, queue)
+}
+
+// StoreCalls gets all the calls that were made to Store.
+// Check the length with:
+//
+//	len(mockedQueueStorage.StoreCalls())
+func (mock *QueueStorageMock) StoreCalls() []struct {
+	Name  string
+	Queue []radio.QueueEntry
+} {
+	var calls []struct {
+		Name  string
+		Queue []radio.QueueEntry
+	}
+	mock.lockStore.RLock()
+	calls = mock.calls.Store
+	mock.lockStore.RUnlock()
+	return calls
+}
+
+// Ensure, that SongStorageServiceMock does implement radio.SongStorageService.
+// If this is not the case, regenerate this file with moq.
+var _ radio.SongStorageService = &SongStorageServiceMock{}
+
+// SongStorageServiceMock is a mock implementation of radio.SongStorageService.
+//
+//	func TestSomethingThatUsesSongStorageService(t *testing.T) {
+//
+//		// make and configure a mocked radio.SongStorageService
+//		mockedSongStorageService := &SongStorageServiceMock{
+//			SongFunc: func(contextMoqParam context.Context) radio.SongStorage {
+//				panic("mock out the Song method")
+//			},
+//			SongTxFunc: func(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.SongStorage, radio.StorageTx, error) {
+//				panic("mock out the SongTx method")
+//			},
+//		}
+//
+//		// use mockedSongStorageService in code that requires radio.SongStorageService
+//		// and then make assertions.
+//
+//	}
+type SongStorageServiceMock struct {
+	// SongFunc mocks the Song method.
+	SongFunc func(contextMoqParam context.Context) radio.SongStorage
+
+	// SongTxFunc mocks the SongTx method.
+	SongTxFunc func(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.SongStorage, radio.StorageTx, error)
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// Song holds details about calls to the Song method.
+		Song []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+		}
+		// SongTx holds details about calls to the SongTx method.
+		SongTx []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+			// StorageTx is the storageTx argument value.
+			StorageTx radio.StorageTx
+		}
+	}
+	lockSong   sync.RWMutex
+	lockSongTx sync.RWMutex
+}
+
+// Song calls SongFunc.
+func (mock *SongStorageServiceMock) Song(contextMoqParam context.Context) radio.SongStorage {
+	if mock.SongFunc == nil {
+		panic("SongStorageServiceMock.SongFunc: method is nil but SongStorageService.Song was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+	}{
+		ContextMoqParam: contextMoqParam,
+	}
+	mock.lockSong.Lock()
+	mock.calls.Song = append(mock.calls.Song, callInfo)
+	mock.lockSong.Unlock()
+	return mock.SongFunc(contextMoqParam)
+}
+
+// SongCalls gets all the calls that were made to Song.
+// Check the length with:
+//
+//	len(mockedSongStorageService.SongCalls())
+func (mock *SongStorageServiceMock) SongCalls() []struct {
+	ContextMoqParam context.Context
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+	}
+	mock.lockSong.RLock()
+	calls = mock.calls.Song
+	mock.lockSong.RUnlock()
+	return calls
+}
+
+// SongTx calls SongTxFunc.
+func (mock *SongStorageServiceMock) SongTx(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.SongStorage, radio.StorageTx, error) {
+	if mock.SongTxFunc == nil {
+		panic("SongStorageServiceMock.SongTxFunc: method is nil but SongStorageService.SongTx was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+		StorageTx       radio.StorageTx
+	}{
+		ContextMoqParam: contextMoqParam,
+		StorageTx:       storageTx,
+	}
+	mock.lockSongTx.Lock()
+	mock.calls.SongTx = append(mock.calls.SongTx, callInfo)
+	mock.lockSongTx.Unlock()
+	return mock.SongTxFunc(contextMoqParam, storageTx)
+}
+
+// SongTxCalls gets all the calls that were made to SongTx.
+// Check the length with:
+//
+//	len(mockedSongStorageService.SongTxCalls())
+func (mock *SongStorageServiceMock) SongTxCalls() []struct {
+	ContextMoqParam context.Context
+	StorageTx       radio.StorageTx
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+		StorageTx       radio.StorageTx
+	}
+	mock.lockSongTx.RLock()
+	calls = mock.calls.SongTx
+	mock.lockSongTx.RUnlock()
+	return calls
+}
+
+// Ensure, that SongStorageMock does implement radio.SongStorage.
+// If this is not the case, regenerate this file with moq.
+var _ radio.SongStorage = &SongStorageMock{}
+
+// SongStorageMock is a mock implementation of radio.SongStorage.
+//
+//	func TestSomethingThatUsesSongStorage(t *testing.T) {
+//
+//		// make and configure a mocked radio.SongStorage
+//		mockedSongStorage := &SongStorageMock{
+//			AddFavoriteFunc: func(song radio.Song, nick string) (bool, error) {
+//				panic("mock out the AddFavorite method")
+//			},
+//			AddPlayFunc: func(song radio.Song, streamer radio.User, ldiff *int64) error {
+//				panic("mock out the AddPlay method")
+//			},
+//			CreateFunc: func(song radio.Song) (*radio.Song, error) {
+//				panic("mock out the Create method")
+//			},
+//			FavoriteCountFunc: func(song radio.Song) (int64, error) {
+//				panic("mock out the FavoriteCount method")
+//			},
+//			FavoritesFunc: func(song radio.Song) ([]string, error) {
+//				panic("mock out the Favorites method")
+//			},
+//			FavoritesOfFunc: func(nick string, limit int64, offset int64) ([]radio.Song, error) {
+//				panic("mock out the FavoritesOf method")
+//			},
+//			FromHashFunc: func(songHash radio.SongHash) (*radio.Song, error) {
+//				panic("mock out the FromHash method")
+//			},
+//			FromMetadataFunc: func(metadata string) (*radio.Song, error) {
+//				panic("mock out the FromMetadata method")
+//			},
+//			LastPlayedFunc: func(offset int64, amount int64) ([]radio.Song, error) {
+//				panic("mock out the LastPlayed method")
+//			},
+//			LastPlayedCountFunc: func() (int64, error) {
+//				panic("mock out the LastPlayedCount method")
+//			},
+//			PlayedCountFunc: func(song radio.Song) (int64, error) {
+//				panic("mock out the PlayedCount method")
+//			},
+//			RemoveFavoriteFunc: func(song radio.Song, nick string) (bool, error) {
+//				panic("mock out the RemoveFavorite method")
+//			},
+//			UpdateHashLinkFunc: func(entry radio.SongHash, hashLink radio.SongHash) error {
+//				panic("mock out the UpdateHashLink method")
+//			},
+//			UpdateLengthFunc: func(song radio.Song, duration time.Duration) error {
+//				panic("mock out the UpdateLength method")
+//			},
+//		}
+//
+//		// use mockedSongStorage in code that requires radio.SongStorage
+//		// and then make assertions.
+//
+//	}
+type SongStorageMock struct {
+	// AddFavoriteFunc mocks the AddFavorite method.
+	AddFavoriteFunc func(song radio.Song, nick string) (bool, error)
+
+	// AddPlayFunc mocks the AddPlay method.
+	AddPlayFunc func(song radio.Song, streamer radio.User, ldiff *int64) error
+
+	// CreateFunc mocks the Create method.
+	CreateFunc func(song radio.Song) (*radio.Song, error)
+
+	// FavoriteCountFunc mocks the FavoriteCount method.
+	FavoriteCountFunc func(song radio.Song) (int64, error)
+
+	// FavoritesFunc mocks the Favorites method.
+	FavoritesFunc func(song radio.Song) ([]string, error)
+
+	// FavoritesOfFunc mocks the FavoritesOf method.
+	FavoritesOfFunc func(nick string, limit int64, offset int64) ([]radio.Song, error)
+
+	// FromHashFunc mocks the FromHash method.
+	FromHashFunc func(songHash radio.SongHash) (*radio.Song, error)
+
+	// FromMetadataFunc mocks the FromMetadata method.
+	FromMetadataFunc func(metadata string) (*radio.Song, error)
+
+	// LastPlayedFunc mocks the LastPlayed method.
+	LastPlayedFunc func(offset int64, amount int64) ([]radio.Song, error)
+
+	// LastPlayedCountFunc mocks the LastPlayedCount method.
+	LastPlayedCountFunc func() (int64, error)
+
+	// PlayedCountFunc mocks the PlayedCount method.
+	PlayedCountFunc func(song radio.Song) (int64, error)
+
+	// RemoveFavoriteFunc mocks the RemoveFavorite method.
+	RemoveFavoriteFunc func(song radio.Song, nick string) (bool, error)
+
+	// UpdateHashLinkFunc mocks the UpdateHashLink method.
+	UpdateHashLinkFunc func(entry radio.SongHash, hashLink radio.SongHash) error
+
+	// UpdateLengthFunc mocks the UpdateLength method.
+	UpdateLengthFunc func(song radio.Song, duration time.Duration) error
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// AddFavorite holds details about calls to the AddFavorite method.
+		AddFavorite []struct {
+			// Song is the song argument value.
+			Song radio.Song
+			// Nick is the nick argument value.
+			Nick string
+		}
+		// AddPlay holds details about calls to the AddPlay method.
+		AddPlay []struct {
+			// Song is the song argument value.
+			Song radio.Song
+			// Streamer is the streamer argument value.
+			Streamer radio.User
+			// Ldiff is the ldiff argument value.
+			Ldiff *int64
+		}
+		// Create holds details about calls to the Create method.
+		Create []struct {
+			// Song is the song argument value.
+			Song radio.Song
+		}
+		// FavoriteCount holds details about calls to the FavoriteCount method.
+		FavoriteCount []struct {
+			// Song is the song argument value.
+			Song radio.Song
+		}
+		// Favorites holds details about calls to the Favorites method.
+		Favorites []struct {
+			// Song is the song argument value.
+			Song radio.Song
+		}
+		// FavoritesOf holds details about calls to the FavoritesOf method.
+		FavoritesOf []struct {
+			// Nick is the nick argument value.
+			Nick string
+			// Limit is the limit argument value.
+			Limit int64
+			// Offset is the offset argument value.
+			Offset int64
+		}
+		// FromHash holds details about calls to the FromHash method.
+		FromHash []struct {
+			// SongHash is the songHash argument value.
+			SongHash radio.SongHash
+		}
+		// FromMetadata holds details about calls to the FromMetadata method.
+		FromMetadata []struct {
+			// Metadata is the metadata argument value.
+			Metadata string
+		}
+		// LastPlayed holds details about calls to the LastPlayed method.
+		LastPlayed []struct {
+			// Offset is the offset argument value.
+			Offset int64
+			// Amount is the amount argument value.
+			Amount int64
+		}
+		// LastPlayedCount holds details about calls to the LastPlayedCount method.
+		LastPlayedCount []struct {
+		}
+		// PlayedCount holds details about calls to the PlayedCount method.
+		PlayedCount []struct {
+			// Song is the song argument value.
+			Song radio.Song
+		}
+		// RemoveFavorite holds details about calls to the RemoveFavorite method.
+		RemoveFavorite []struct {
+			// Song is the song argument value.
+			Song radio.Song
+			// Nick is the nick argument value.
+			Nick string
+		}
+		// UpdateHashLink holds details about calls to the UpdateHashLink method.
+		UpdateHashLink []struct {
+			// Entry is the entry argument value.
+			Entry radio.SongHash
+			// HashLink is the hashLink argument value.
+			HashLink radio.SongHash
+		}
+		// UpdateLength holds details about calls to the UpdateLength method.
+		UpdateLength []struct {
+			// Song is the song argument value.
+			Song radio.Song
+			// Duration is the duration argument value.
+			Duration time.Duration
+		}
+	}
+	lockAddFavorite     sync.RWMutex
+	lockAddPlay         sync.RWMutex
+	lockCreate          sync.RWMutex
+	lockFavoriteCount   sync.RWMutex
+	lockFavorites       sync.RWMutex
+	lockFavoritesOf     sync.RWMutex
+	lockFromHash        sync.RWMutex
+	lockFromMetadata    sync.RWMutex
+	lockLastPlayed      sync.RWMutex
+	lockLastPlayedCount sync.RWMutex
+	lockPlayedCount     sync.RWMutex
+	lockRemoveFavorite  sync.RWMutex
+	lockUpdateHashLink  sync.RWMutex
+	lockUpdateLength    sync.RWMutex
+}
+
+// AddFavorite calls AddFavoriteFunc.
+func (mock *SongStorageMock) AddFavorite(song radio.Song, nick string) (bool, error) {
+	if mock.AddFavoriteFunc == nil {
+		panic("SongStorageMock.AddFavoriteFunc: method is nil but SongStorage.AddFavorite was just called")
+	}
+	callInfo := struct {
+		Song radio.Song
+		Nick string
+	}{
+		Song: song,
+		Nick: nick,
+	}
+	mock.lockAddFavorite.Lock()
+	mock.calls.AddFavorite = append(mock.calls.AddFavorite, callInfo)
+	mock.lockAddFavorite.Unlock()
+	return mock.AddFavoriteFunc(song, nick)
+}
+
+// AddFavoriteCalls gets all the calls that were made to AddFavorite.
+// Check the length with:
+//
+//	len(mockedSongStorage.AddFavoriteCalls())
+func (mock *SongStorageMock) AddFavoriteCalls() []struct {
+	Song radio.Song
+	Nick string
+} {
+	var calls []struct {
+		Song radio.Song
+		Nick string
+	}
+	mock.lockAddFavorite.RLock()
+	calls = mock.calls.AddFavorite
+	mock.lockAddFavorite.RUnlock()
+	return calls
+}
+
+// AddPlay calls AddPlayFunc.
+func (mock *SongStorageMock) AddPlay(song radio.Song, streamer radio.User, ldiff *int64) error {
+	if mock.AddPlayFunc == nil {
+		panic("SongStorageMock.AddPlayFunc: method is nil but SongStorage.AddPlay was just called")
+	}
+	callInfo := struct {
+		Song     radio.Song
+		Streamer radio.User
+		Ldiff    *int64
+	}{
+		Song:     song,
+		Streamer: streamer,
+		Ldiff:    ldiff,
+	}
+	mock.lockAddPlay.Lock()
+	mock.calls.AddPlay = append(mock.calls.AddPlay, callInfo)
+	mock.lockAddPlay.Unlock()
+	return mock.AddPlayFunc(song, streamer, ldiff)
+}
+
+// AddPlayCalls gets all the calls that were made to AddPlay.
+// Check the length with:
+//
+//	len(mockedSongStorage.AddPlayCalls())
+func (mock *SongStorageMock) AddPlayCalls() []struct {
+	Song     radio.Song
+	Streamer radio.User
+	Ldiff    *int64
+} {
+	var calls []struct {
+		Song     radio.Song
+		Streamer radio.User
+		Ldiff    *int64
+	}
+	mock.lockAddPlay.RLock()
+	calls = mock.calls.AddPlay
+	mock.lockAddPlay.RUnlock()
+	return calls
+}
+
+// Create calls CreateFunc.
+func (mock *SongStorageMock) Create(song radio.Song) (*radio.Song, error) {
+	if mock.CreateFunc == nil {
+		panic("SongStorageMock.CreateFunc: method is nil but SongStorage.Create was just called")
+	}
+	callInfo := struct {
+		Song radio.Song
+	}{
+		Song: song,
+	}
+	mock.lockCreate.Lock()
+	mock.calls.Create = append(mock.calls.Create, callInfo)
+	mock.lockCreate.Unlock()
+	return mock.CreateFunc(song)
+}
+
+// CreateCalls gets all the calls that were made to Create.
+// Check the length with:
+//
+//	len(mockedSongStorage.CreateCalls())
+func (mock *SongStorageMock) CreateCalls() []struct {
+	Song radio.Song
+} {
+	var calls []struct {
+		Song radio.Song
+	}
+	mock.lockCreate.RLock()
+	calls = mock.calls.Create
+	mock.lockCreate.RUnlock()
+	return calls
+}
+
+// FavoriteCount calls FavoriteCountFunc.
+func (mock *SongStorageMock) FavoriteCount(song radio.Song) (int64, error) {
+	if mock.FavoriteCountFunc == nil {
+		panic("SongStorageMock.FavoriteCountFunc: method is nil but SongStorage.FavoriteCount was just called")
+	}
+	callInfo := struct {
+		Song radio.Song
+	}{
+		Song: song,
+	}
+	mock.lockFavoriteCount.Lock()
+	mock.calls.FavoriteCount = append(mock.calls.FavoriteCount, callInfo)
+	mock.lockFavoriteCount.Unlock()
+	return mock.FavoriteCountFunc(song)
+}
+
+// FavoriteCountCalls gets all the calls that were made to FavoriteCount.
+// Check the length with:
+//
+//	len(mockedSongStorage.FavoriteCountCalls())
+func (mock *SongStorageMock) FavoriteCountCalls() []struct {
+	Song radio.Song
+} {
+	var calls []struct {
+		Song radio.Song
+	}
+	mock.lockFavoriteCount.RLock()
+	calls = mock.calls.FavoriteCount
+	mock.lockFavoriteCount.RUnlock()
+	return calls
+}
+
+// Favorites calls FavoritesFunc.
+func (mock *SongStorageMock) Favorites(song radio.Song) ([]string, error) {
+	if mock.FavoritesFunc == nil {
+		panic("SongStorageMock.FavoritesFunc: method is nil but SongStorage.Favorites was just called")
+	}
+	callInfo := struct {
+		Song radio.Song
+	}{
+		Song: song,
+	}
+	mock.lockFavorites.Lock()
+	mock.calls.Favorites = append(mock.calls.Favorites, callInfo)
+	mock.lockFavorites.Unlock()
+	return mock.FavoritesFunc(song)
+}
+
+// FavoritesCalls gets all the calls that were made to Favorites.
+// Check the length with:
+//
+//	len(mockedSongStorage.FavoritesCalls())
+func (mock *SongStorageMock) FavoritesCalls() []struct {
+	Song radio.Song
+} {
+	var calls []struct {
+		Song radio.Song
+	}
+	mock.lockFavorites.RLock()
+	calls = mock.calls.Favorites
+	mock.lockFavorites.RUnlock()
+	return calls
+}
+
+// FavoritesOf calls FavoritesOfFunc.
+func (mock *SongStorageMock) FavoritesOf(nick string, limit int64, offset int64) ([]radio.Song, error) {
+	if mock.FavoritesOfFunc == nil {
+		panic("SongStorageMock.FavoritesOfFunc: method is nil but SongStorage.FavoritesOf was just called")
+	}
+	callInfo := struct {
+		Nick   string
+		Limit  int64
+		Offset int64
+	}{
+		Nick:   nick,
+		Limit:  limit,
+		Offset: offset,
+	}
+	mock.lockFavoritesOf.Lock()
+	mock.calls.FavoritesOf = append(mock.calls.FavoritesOf, callInfo)
+	mock.lockFavoritesOf.Unlock()
+	return mock.FavoritesOfFunc(nick, limit, offset)
+}
+
+// FavoritesOfCalls gets all the calls that were made to FavoritesOf.
+// Check the length with:
+//
+//	len(mockedSongStorage.FavoritesOfCalls())
+func (mock *SongStorageMock) FavoritesOfCalls() []struct {
+	Nick   string
+	Limit  int64
+	Offset int64
+} {
+	var calls []struct {
+		Nick   string
+		Limit  int64
+		Offset int64
+	}
+	mock.lockFavoritesOf.RLock()
+	calls = mock.calls.FavoritesOf
+	mock.lockFavoritesOf.RUnlock()
+	return calls
+}
+
+// FromHash calls FromHashFunc.
+func (mock *SongStorageMock) FromHash(songHash radio.SongHash) (*radio.Song, error) {
+	if mock.FromHashFunc == nil {
+		panic("SongStorageMock.FromHashFunc: method is nil but SongStorage.FromHash was just called")
+	}
+	callInfo := struct {
+		SongHash radio.SongHash
+	}{
+		SongHash: songHash,
+	}
+	mock.lockFromHash.Lock()
+	mock.calls.FromHash = append(mock.calls.FromHash, callInfo)
+	mock.lockFromHash.Unlock()
+	return mock.FromHashFunc(songHash)
+}
+
+// FromHashCalls gets all the calls that were made to FromHash.
+// Check the length with:
+//
+//	len(mockedSongStorage.FromHashCalls())
+func (mock *SongStorageMock) FromHashCalls() []struct {
+	SongHash radio.SongHash
+} {
+	var calls []struct {
+		SongHash radio.SongHash
+	}
+	mock.lockFromHash.RLock()
+	calls = mock.calls.FromHash
+	mock.lockFromHash.RUnlock()
+	return calls
+}
+
+// FromMetadata calls FromMetadataFunc.
+func (mock *SongStorageMock) FromMetadata(metadata string) (*radio.Song, error) {
+	if mock.FromMetadataFunc == nil {
+		panic("SongStorageMock.FromMetadataFunc: method is nil but SongStorage.FromMetadata was just called")
+	}
+	callInfo := struct {
+		Metadata string
+	}{
+		Metadata: metadata,
+	}
+	mock.lockFromMetadata.Lock()
+	mock.calls.FromMetadata = append(mock.calls.FromMetadata, callInfo)
+	mock.lockFromMetadata.Unlock()
+	return mock.FromMetadataFunc(metadata)
+}
+
+// FromMetadataCalls gets all the calls that were made to FromMetadata.
+// Check the length with:
+//
+//	len(mockedSongStorage.FromMetadataCalls())
+func (mock *SongStorageMock) FromMetadataCalls() []struct {
+	Metadata string
+} {
+	var calls []struct {
+		Metadata string
+	}
+	mock.lockFromMetadata.RLock()
+	calls = mock.calls.FromMetadata
+	mock.lockFromMetadata.RUnlock()
+	return calls
+}
+
+// LastPlayed calls LastPlayedFunc.
+func (mock *SongStorageMock) LastPlayed(offset int64, amount int64) ([]radio.Song, error) {
+	if mock.LastPlayedFunc == nil {
+		panic("SongStorageMock.LastPlayedFunc: method is nil but SongStorage.LastPlayed was just called")
+	}
+	callInfo := struct {
+		Offset int64
+		Amount int64
+	}{
+		Offset: offset,
+		Amount: amount,
+	}
+	mock.lockLastPlayed.Lock()
+	mock.calls.LastPlayed = append(mock.calls.LastPlayed, callInfo)
+	mock.lockLastPlayed.Unlock()
+	return mock.LastPlayedFunc(offset, amount)
+}
+
+// LastPlayedCalls gets all the calls that were made to LastPlayed.
+// Check the length with:
+//
+//	len(mockedSongStorage.LastPlayedCalls())
+func (mock *SongStorageMock) LastPlayedCalls() []struct {
+	Offset int64
+	Amount int64
+} {
+	var calls []struct {
+		Offset int64
+		Amount int64
+	}
+	mock.lockLastPlayed.RLock()
+	calls = mock.calls.LastPlayed
+	mock.lockLastPlayed.RUnlock()
+	return calls
+}
+
+// LastPlayedCount calls LastPlayedCountFunc.
+func (mock *SongStorageMock) LastPlayedCount() (int64, error) {
+	if mock.LastPlayedCountFunc == nil {
+		panic("SongStorageMock.LastPlayedCountFunc: method is nil but SongStorage.LastPlayedCount was just called")
 	}
 	callInfo := struct {
 	}{}
-	mock.lockRollback.Lock()
-	mock.calls.Rollback = append(mock.calls.Rollback, callInfo)
-	mock.lockRollback.Unlock()
-	return mock.RollbackFunc()
+	mock.lockLastPlayedCount.Lock()
+	mock.calls.LastPlayedCount = append(mock.calls.LastPlayedCount, callInfo)
+	mock.lockLastPlayedCount.Unlock()
+	return mock.LastPlayedCountFunc()
 }
 
-// RollbackCalls gets all the calls that were made to Rollback.
+// LastPlayedCountCalls gets all the calls that were made to LastPlayedCount.
 // Check the length with:
 //
-//	len(mockedStorageTx.RollbackCalls())
-func (mock *StorageTxMock) RollbackCalls() []struct {
+//	len(mockedSongStorage.LastPlayedCountCalls())
+func (mock *SongStorageMock) LastPlayedCountCalls() []struct {
 } {
 	var calls []struct {
 	}
-	mock.lockRollback.RLock()
-	calls = mock.calls.Rollback
-	mock.lockRollback.RUnlock()
+	mock.lockLastPlayedCount.RLock()
+	calls = mock.calls.LastPlayedCount
+	mock.lockLastPlayedCount.RUnlock()
+	return calls
+}
+
+// PlayedCount calls PlayedCountFunc.
+func (mock *SongStorageMock) PlayedCount(song radio.Song) (int64, error) {
+	if mock.PlayedCountFunc == nil {
+		panic("SongStorageMock.PlayedCountFunc: method is nil but SongStorage.PlayedCount was just called")
+	}
+	callInfo := struct {
+		Song radio.Song
+	}{
+		Song: song,
+	}
+	mock.lockPlayedCount.Lock()
+	mock.calls.PlayedCount = append(mock.calls.PlayedCount, callInfo)
+	mock.lockPlayedCount.Unlock()
+	return mock.PlayedCountFunc(song)
+}
+
+// PlayedCountCalls gets all the calls that were made to PlayedCount.
+// Check the length with:
+//
+//	len(mockedSongStorage.PlayedCountCalls())
+func (mock *SongStorageMock) PlayedCountCalls() []struct {
+	Song radio.Song
+} {
+	var calls []struct {
+		Song radio.Song
+	}
+	mock.lockPlayedCount.RLock()
+	calls = mock.calls.PlayedCount
+	mock.lockPlayedCount.RUnlock()
+	return calls
+}
+
+// RemoveFavorite calls RemoveFavoriteFunc.
+func (mock *SongStorageMock) RemoveFavorite(song radio.Song, nick string) (bool, error) {
+	if mock.RemoveFavoriteFunc == nil {
+		panic("SongStorageMock.RemoveFavoriteFunc: method is nil but SongStorage.RemoveFavorite was just called")
+	}
+	callInfo := struct {
+		Song radio.Song
+		Nick string
+	}{
+		Song: song,
+		Nick: nick,
+	}
+	mock.lockRemoveFavorite.Lock()
+	mock.calls.RemoveFavorite = append(mock.calls.RemoveFavorite, callInfo)
+	mock.lockRemoveFavorite.Unlock()
+	return mock.RemoveFavoriteFunc(song, nick)
+}
+
+// RemoveFavoriteCalls gets all the calls that were made to RemoveFavorite.
+// Check the length with:
+//
+//	len(mockedSongStorage.RemoveFavoriteCalls())
+func (mock *SongStorageMock) RemoveFavoriteCalls() []struct {
+	Song radio.Song
+	Nick string
+} {
+	var calls []struct {
+		Song radio.Song
+		Nick string
+	}
+	mock.lockRemoveFavorite.RLock()
+	calls = mock.calls.RemoveFavorite
+	mock.lockRemoveFavorite.RUnlock()
+	return calls
+}
+
+// UpdateHashLink calls UpdateHashLinkFunc.
+func (mock *SongStorageMock) UpdateHashLink(entry radio.SongHash, hashLink radio.SongHash) error {
+	if mock.UpdateHashLinkFunc == nil {
+		panic("SongStorageMock.UpdateHashLinkFunc: method is nil but SongStorage.UpdateHashLink was just called")
+	}
+	callInfo := struct {
+		Entry    radio.SongHash
+		HashLink radio.SongHash
+	}{
+		Entry:    entry,
+		HashLink: hashLink,
+	}
+	mock.lockUpdateHashLink.Lock()
+	mock.calls.UpdateHashLink = append(mock.calls.UpdateHashLink, callInfo)
+	mock.lockUpdateHashLink.Unlock()
+	return mock.UpdateHashLinkFunc(entry, hashLink)
+}
+
+// UpdateHashLinkCalls gets all the calls that were made to UpdateHashLink.
+// Check the length with:
+//
+//	len(mockedSongStorage.UpdateHashLinkCalls())
+func (mock *SongStorageMock) UpdateHashLinkCalls() []struct {
+	Entry    radio.SongHash
+	HashLink radio.SongHash
+} {
+	var calls []struct {
+		Entry    radio.SongHash
+		HashLink radio.SongHash
+	}
+	mock.lockUpdateHashLink.RLock()
+	calls = mock.calls.UpdateHashLink
+	mock.lockUpdateHashLink.RUnlock()
+	return calls
+}
+
+// UpdateLength calls UpdateLengthFunc.
+func (mock *SongStorageMock) UpdateLength(song radio.Song, duration time.Duration) error {
+	if mock.UpdateLengthFunc == nil {
+		panic("SongStorageMock.UpdateLengthFunc: method is nil but SongStorage.UpdateLength was just called")
+	}
+	callInfo := struct {
+		Song     radio.Song
+		Duration time.Duration
+	}{
+		Song:     song,
+		Duration: duration,
+	}
+	mock.lockUpdateLength.Lock()
+	mock.calls.UpdateLength = append(mock.calls.UpdateLength, callInfo)
+	mock.lockUpdateLength.Unlock()
+	return mock.UpdateLengthFunc(song, duration)
+}
+
+// UpdateLengthCalls gets all the calls that were made to UpdateLength.
+// Check the length with:
+//
+//	len(mockedSongStorage.UpdateLengthCalls())
+func (mock *SongStorageMock) UpdateLengthCalls() []struct {
+	Song     radio.Song
+	Duration time.Duration
+} {
+	var calls []struct {
+		Song     radio.Song
+		Duration time.Duration
+	}
+	mock.lockUpdateLength.RLock()
+	calls = mock.calls.UpdateLength
+	mock.lockUpdateLength.RUnlock()
+	return calls
+}
+
+// Ensure, that TrackStorageServiceMock does implement radio.TrackStorageService.
+// If this is not the case, regenerate this file with moq.
+var _ radio.TrackStorageService = &TrackStorageServiceMock{}
+
+// TrackStorageServiceMock is a mock implementation of radio.TrackStorageService.
+//
+//	func TestSomethingThatUsesTrackStorageService(t *testing.T) {
+//
+//		// make and configure a mocked radio.TrackStorageService
+//		mockedTrackStorageService := &TrackStorageServiceMock{
+//			TrackFunc: func(contextMoqParam context.Context) radio.TrackStorage {
+//				panic("mock out the Track method")
+//			},
+//			TrackTxFunc: func(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.TrackStorage, radio.StorageTx, error) {
+//				panic("mock out the TrackTx method")
+//			},
+//		}
+//
+//		// use mockedTrackStorageService in code that requires radio.TrackStorageService
+//		// and then make assertions.
+//
+//	}
+type TrackStorageServiceMock struct {
+	// TrackFunc mocks the Track method.
+	TrackFunc func(contextMoqParam context.Context) radio.TrackStorage
+
+	// TrackTxFunc mocks the TrackTx method.
+	TrackTxFunc func(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.TrackStorage, radio.StorageTx, error)
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// Track holds details about calls to the Track method.
+		Track []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+		}
+		// TrackTx holds details about calls to the TrackTx method.
+		TrackTx []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+			// StorageTx is the storageTx argument value.
+			StorageTx radio.StorageTx
+		}
+	}
+	lockTrack   sync.RWMutex
+	lockTrackTx sync.RWMutex
+}
+
+// Track calls TrackFunc.
+func (mock *TrackStorageServiceMock) Track(contextMoqParam context.Context) radio.TrackStorage {
+	if mock.TrackFunc == nil {
+		panic("TrackStorageServiceMock.TrackFunc: method is nil but TrackStorageService.Track was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+	}{
+		ContextMoqParam: contextMoqParam,
+	}
+	mock.lockTrack.Lock()
+	mock.calls.Track = append(mock.calls.Track, callInfo)
+	mock.lockTrack.Unlock()
+	return mock.TrackFunc(contextMoqParam)
+}
+
+// TrackCalls gets all the calls that were made to Track.
+// Check the length with:
+//
+//	len(mockedTrackStorageService.TrackCalls())
+func (mock *TrackStorageServiceMock) TrackCalls() []struct {
+	ContextMoqParam context.Context
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+	}
+	mock.lockTrack.RLock()
+	calls = mock.calls.Track
+	mock.lockTrack.RUnlock()
+	return calls
+}
+
+// TrackTx calls TrackTxFunc.
+func (mock *TrackStorageServiceMock) TrackTx(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.TrackStorage, radio.StorageTx, error) {
+	if mock.TrackTxFunc == nil {
+		panic("TrackStorageServiceMock.TrackTxFunc: method is nil but TrackStorageService.TrackTx was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+		StorageTx       radio.StorageTx
+	}{
+		ContextMoqParam: contextMoqParam,
+		StorageTx:       storageTx,
+	}
+	mock.lockTrackTx.Lock()
+	mock.calls.TrackTx = append(mock.calls.TrackTx, callInfo)
+	mock.lockTrackTx.Unlock()
+	return mock.TrackTxFunc(contextMoqParam, storageTx)
+}
+
+// TrackTxCalls gets all the calls that were made to TrackTx.
+// Check the length with:
+//
+//	len(mockedTrackStorageService.TrackTxCalls())
+func (mock *TrackStorageServiceMock) TrackTxCalls() []struct {
+	ContextMoqParam context.Context
+	StorageTx       radio.StorageTx
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+		StorageTx       radio.StorageTx
+	}
+	mock.lockTrackTx.RLock()
+	calls = mock.calls.TrackTx
+	mock.lockTrackTx.RUnlock()
 	return calls
 }
 
@@ -1692,370 +4335,345 @@ func (mock *TrackStorageMock) UpdateUsableCalls() []struct {
 	return calls
 }
 
-// Ensure, that SubmissionStorageMock does implement radio.SubmissionStorage.
+// Ensure, that RequestStorageServiceMock does implement radio.RequestStorageService.
 // If this is not the case, regenerate this file with moq.
-var _ radio.SubmissionStorage = &SubmissionStorageMock{}
+var _ radio.RequestStorageService = &RequestStorageServiceMock{}
 
-// SubmissionStorageMock is a mock implementation of radio.SubmissionStorage.
+// RequestStorageServiceMock is a mock implementation of radio.RequestStorageService.
 //
-//	func TestSomethingThatUsesSubmissionStorage(t *testing.T) {
+//	func TestSomethingThatUsesRequestStorageService(t *testing.T) {
 //
-//		// make and configure a mocked radio.SubmissionStorage
-//		mockedSubmissionStorage := &SubmissionStorageMock{
-//			AllFunc: func() ([]radio.PendingSong, error) {
-//				panic("mock out the All method")
+//		// make and configure a mocked radio.RequestStorageService
+//		mockedRequestStorageService := &RequestStorageServiceMock{
+//			RequestFunc: func(contextMoqParam context.Context) radio.RequestStorage {
+//				panic("mock out the Request method")
 //			},
-//			GetSubmissionFunc: func(submissionID radio.SubmissionID) (*radio.PendingSong, error) {
-//				panic("mock out the GetSubmission method")
-//			},
-//			InsertPostPendingFunc: func(pendingSong radio.PendingSong) error {
-//				panic("mock out the InsertPostPending method")
-//			},
-//			InsertSubmissionFunc: func(pendingSong radio.PendingSong) error {
-//				panic("mock out the InsertSubmission method")
-//			},
-//			LastSubmissionTimeFunc: func(identifier string) (time.Time, error) {
-//				panic("mock out the LastSubmissionTime method")
-//			},
-//			RemoveSubmissionFunc: func(submissionID radio.SubmissionID) error {
-//				panic("mock out the RemoveSubmission method")
-//			},
-//			SubmissionStatsFunc: func(identifier string) (radio.SubmissionStats, error) {
-//				panic("mock out the SubmissionStats method")
-//			},
-//			UpdateSubmissionTimeFunc: func(identifier string) error {
-//				panic("mock out the UpdateSubmissionTime method")
+//			RequestTxFunc: func(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.RequestStorage, radio.StorageTx, error) {
+//				panic("mock out the RequestTx method")
 //			},
 //		}
 //
-//		// use mockedSubmissionStorage in code that requires radio.SubmissionStorage
+//		// use mockedRequestStorageService in code that requires radio.RequestStorageService
 //		// and then make assertions.
 //
 //	}
-type SubmissionStorageMock struct {
-	// AllFunc mocks the All method.
-	AllFunc func() ([]radio.PendingSong, error)
+type RequestStorageServiceMock struct {
+	// RequestFunc mocks the Request method.
+	RequestFunc func(contextMoqParam context.Context) radio.RequestStorage
 
-	// GetSubmissionFunc mocks the GetSubmission method.
-	GetSubmissionFunc func(submissionID radio.SubmissionID) (*radio.PendingSong, error)
-
-	// InsertPostPendingFunc mocks the InsertPostPending method.
-	InsertPostPendingFunc func(pendingSong radio.PendingSong) error
-
-	// InsertSubmissionFunc mocks the InsertSubmission method.
-	InsertSubmissionFunc func(pendingSong radio.PendingSong) error
-
-	// LastSubmissionTimeFunc mocks the LastSubmissionTime method.
-	LastSubmissionTimeFunc func(identifier string) (time.Time, error)
-
-	// RemoveSubmissionFunc mocks the RemoveSubmission method.
-	RemoveSubmissionFunc func(submissionID radio.SubmissionID) error
-
-	// SubmissionStatsFunc mocks the SubmissionStats method.
-	SubmissionStatsFunc func(identifier string) (radio.SubmissionStats, error)
-
-	// UpdateSubmissionTimeFunc mocks the UpdateSubmissionTime method.
-	UpdateSubmissionTimeFunc func(identifier string) error
+	// RequestTxFunc mocks the RequestTx method.
+	RequestTxFunc func(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.RequestStorage, radio.StorageTx, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
-		// All holds details about calls to the All method.
-		All []struct {
+		// Request holds details about calls to the Request method.
+		Request []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
 		}
-		// GetSubmission holds details about calls to the GetSubmission method.
-		GetSubmission []struct {
-			// SubmissionID is the submissionID argument value.
-			SubmissionID radio.SubmissionID
+		// RequestTx holds details about calls to the RequestTx method.
+		RequestTx []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+			// StorageTx is the storageTx argument value.
+			StorageTx radio.StorageTx
 		}
-		// InsertPostPending holds details about calls to the InsertPostPending method.
-		InsertPostPending []struct {
-			// PendingSong is the pendingSong argument value.
-			PendingSong radio.PendingSong
-		}
-		// InsertSubmission holds details about calls to the InsertSubmission method.
-		InsertSubmission []struct {
-			// PendingSong is the pendingSong argument value.
-			PendingSong radio.PendingSong
-		}
-		// LastSubmissionTime holds details about calls to the LastSubmissionTime method.
-		LastSubmissionTime []struct {
+	}
+	lockRequest   sync.RWMutex
+	lockRequestTx sync.RWMutex
+}
+
+// Request calls RequestFunc.
+func (mock *RequestStorageServiceMock) Request(contextMoqParam context.Context) radio.RequestStorage {
+	if mock.RequestFunc == nil {
+		panic("RequestStorageServiceMock.RequestFunc: method is nil but RequestStorageService.Request was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+	}{
+		ContextMoqParam: contextMoqParam,
+	}
+	mock.lockRequest.Lock()
+	mock.calls.Request = append(mock.calls.Request, callInfo)
+	mock.lockRequest.Unlock()
+	return mock.RequestFunc(contextMoqParam)
+}
+
+// RequestCalls gets all the calls that were made to Request.
+// Check the length with:
+//
+//	len(mockedRequestStorageService.RequestCalls())
+func (mock *RequestStorageServiceMock) RequestCalls() []struct {
+	ContextMoqParam context.Context
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+	}
+	mock.lockRequest.RLock()
+	calls = mock.calls.Request
+	mock.lockRequest.RUnlock()
+	return calls
+}
+
+// RequestTx calls RequestTxFunc.
+func (mock *RequestStorageServiceMock) RequestTx(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.RequestStorage, radio.StorageTx, error) {
+	if mock.RequestTxFunc == nil {
+		panic("RequestStorageServiceMock.RequestTxFunc: method is nil but RequestStorageService.RequestTx was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+		StorageTx       radio.StorageTx
+	}{
+		ContextMoqParam: contextMoqParam,
+		StorageTx:       storageTx,
+	}
+	mock.lockRequestTx.Lock()
+	mock.calls.RequestTx = append(mock.calls.RequestTx, callInfo)
+	mock.lockRequestTx.Unlock()
+	return mock.RequestTxFunc(contextMoqParam, storageTx)
+}
+
+// RequestTxCalls gets all the calls that were made to RequestTx.
+// Check the length with:
+//
+//	len(mockedRequestStorageService.RequestTxCalls())
+func (mock *RequestStorageServiceMock) RequestTxCalls() []struct {
+	ContextMoqParam context.Context
+	StorageTx       radio.StorageTx
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+		StorageTx       radio.StorageTx
+	}
+	mock.lockRequestTx.RLock()
+	calls = mock.calls.RequestTx
+	mock.lockRequestTx.RUnlock()
+	return calls
+}
+
+// Ensure, that RequestStorageMock does implement radio.RequestStorage.
+// If this is not the case, regenerate this file with moq.
+var _ radio.RequestStorage = &RequestStorageMock{}
+
+// RequestStorageMock is a mock implementation of radio.RequestStorage.
+//
+//	func TestSomethingThatUsesRequestStorage(t *testing.T) {
+//
+//		// make and configure a mocked radio.RequestStorage
+//		mockedRequestStorage := &RequestStorageMock{
+//			LastRequestFunc: func(identifier string) (time.Time, error) {
+//				panic("mock out the LastRequest method")
+//			},
+//			UpdateLastRequestFunc: func(identifier string) error {
+//				panic("mock out the UpdateLastRequest method")
+//			},
+//		}
+//
+//		// use mockedRequestStorage in code that requires radio.RequestStorage
+//		// and then make assertions.
+//
+//	}
+type RequestStorageMock struct {
+	// LastRequestFunc mocks the LastRequest method.
+	LastRequestFunc func(identifier string) (time.Time, error)
+
+	// UpdateLastRequestFunc mocks the UpdateLastRequest method.
+	UpdateLastRequestFunc func(identifier string) error
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// LastRequest holds details about calls to the LastRequest method.
+		LastRequest []struct {
 			// Identifier is the identifier argument value.
 			Identifier string
 		}
-		// RemoveSubmission holds details about calls to the RemoveSubmission method.
-		RemoveSubmission []struct {
-			// SubmissionID is the submissionID argument value.
-			SubmissionID radio.SubmissionID
-		}
-		// SubmissionStats holds details about calls to the SubmissionStats method.
-		SubmissionStats []struct {
-			// Identifier is the identifier argument value.
-			Identifier string
-		}
-		// UpdateSubmissionTime holds details about calls to the UpdateSubmissionTime method.
-		UpdateSubmissionTime []struct {
+		// UpdateLastRequest holds details about calls to the UpdateLastRequest method.
+		UpdateLastRequest []struct {
 			// Identifier is the identifier argument value.
 			Identifier string
 		}
 	}
-	lockAll                  sync.RWMutex
-	lockGetSubmission        sync.RWMutex
-	lockInsertPostPending    sync.RWMutex
-	lockInsertSubmission     sync.RWMutex
-	lockLastSubmissionTime   sync.RWMutex
-	lockRemoveSubmission     sync.RWMutex
-	lockSubmissionStats      sync.RWMutex
-	lockUpdateSubmissionTime sync.RWMutex
+	lockLastRequest       sync.RWMutex
+	lockUpdateLastRequest sync.RWMutex
 }
 
-// All calls AllFunc.
-func (mock *SubmissionStorageMock) All() ([]radio.PendingSong, error) {
-	if mock.AllFunc == nil {
-		panic("SubmissionStorageMock.AllFunc: method is nil but SubmissionStorage.All was just called")
-	}
-	callInfo := struct {
-	}{}
-	mock.lockAll.Lock()
-	mock.calls.All = append(mock.calls.All, callInfo)
-	mock.lockAll.Unlock()
-	return mock.AllFunc()
-}
-
-// AllCalls gets all the calls that were made to All.
-// Check the length with:
-//
-//	len(mockedSubmissionStorage.AllCalls())
-func (mock *SubmissionStorageMock) AllCalls() []struct {
-} {
-	var calls []struct {
-	}
-	mock.lockAll.RLock()
-	calls = mock.calls.All
-	mock.lockAll.RUnlock()
-	return calls
-}
-
-// GetSubmission calls GetSubmissionFunc.
-func (mock *SubmissionStorageMock) GetSubmission(submissionID radio.SubmissionID) (*radio.PendingSong, error) {
-	if mock.GetSubmissionFunc == nil {
-		panic("SubmissionStorageMock.GetSubmissionFunc: method is nil but SubmissionStorage.GetSubmission was just called")
-	}
-	callInfo := struct {
-		SubmissionID radio.SubmissionID
-	}{
-		SubmissionID: submissionID,
-	}
-	mock.lockGetSubmission.Lock()
-	mock.calls.GetSubmission = append(mock.calls.GetSubmission, callInfo)
-	mock.lockGetSubmission.Unlock()
-	return mock.GetSubmissionFunc(submissionID)
-}
-
-// GetSubmissionCalls gets all the calls that were made to GetSubmission.
-// Check the length with:
-//
-//	len(mockedSubmissionStorage.GetSubmissionCalls())
-func (mock *SubmissionStorageMock) GetSubmissionCalls() []struct {
-	SubmissionID radio.SubmissionID
-} {
-	var calls []struct {
-		SubmissionID radio.SubmissionID
-	}
-	mock.lockGetSubmission.RLock()
-	calls = mock.calls.GetSubmission
-	mock.lockGetSubmission.RUnlock()
-	return calls
-}
-
-// InsertPostPending calls InsertPostPendingFunc.
-func (mock *SubmissionStorageMock) InsertPostPending(pendingSong radio.PendingSong) error {
-	if mock.InsertPostPendingFunc == nil {
-		panic("SubmissionStorageMock.InsertPostPendingFunc: method is nil but SubmissionStorage.InsertPostPending was just called")
-	}
-	callInfo := struct {
-		PendingSong radio.PendingSong
-	}{
-		PendingSong: pendingSong,
-	}
-	mock.lockInsertPostPending.Lock()
-	mock.calls.InsertPostPending = append(mock.calls.InsertPostPending, callInfo)
-	mock.lockInsertPostPending.Unlock()
-	return mock.InsertPostPendingFunc(pendingSong)
-}
-
-// InsertPostPendingCalls gets all the calls that were made to InsertPostPending.
-// Check the length with:
-//
-//	len(mockedSubmissionStorage.InsertPostPendingCalls())
-func (mock *SubmissionStorageMock) InsertPostPendingCalls() []struct {
-	PendingSong radio.PendingSong
-} {
-	var calls []struct {
-		PendingSong radio.PendingSong
-	}
-	mock.lockInsertPostPending.RLock()
-	calls = mock.calls.InsertPostPending
-	mock.lockInsertPostPending.RUnlock()
-	return calls
-}
-
-// InsertSubmission calls InsertSubmissionFunc.
-func (mock *SubmissionStorageMock) InsertSubmission(pendingSong radio.PendingSong) error {
-	if mock.InsertSubmissionFunc == nil {
-		panic("SubmissionStorageMock.InsertSubmissionFunc: method is nil but SubmissionStorage.InsertSubmission was just called")
-	}
-	callInfo := struct {
-		PendingSong radio.PendingSong
-	}{
-		PendingSong: pendingSong,
-	}
-	mock.lockInsertSubmission.Lock()
-	mock.calls.InsertSubmission = append(mock.calls.InsertSubmission, callInfo)
-	mock.lockInsertSubmission.Unlock()
-	return mock.InsertSubmissionFunc(pendingSong)
-}
-
-// InsertSubmissionCalls gets all the calls that were made to InsertSubmission.
-// Check the length with:
-//
-//	len(mockedSubmissionStorage.InsertSubmissionCalls())
-func (mock *SubmissionStorageMock) InsertSubmissionCalls() []struct {
-	PendingSong radio.PendingSong
-} {
-	var calls []struct {
-		PendingSong radio.PendingSong
-	}
-	mock.lockInsertSubmission.RLock()
-	calls = mock.calls.InsertSubmission
-	mock.lockInsertSubmission.RUnlock()
-	return calls
-}
-
-// LastSubmissionTime calls LastSubmissionTimeFunc.
-func (mock *SubmissionStorageMock) LastSubmissionTime(identifier string) (time.Time, error) {
-	if mock.LastSubmissionTimeFunc == nil {
-		panic("SubmissionStorageMock.LastSubmissionTimeFunc: method is nil but SubmissionStorage.LastSubmissionTime was just called")
+// LastRequest calls LastRequestFunc.
+func (mock *RequestStorageMock) LastRequest(identifier string) (time.Time, error) {
+	if mock.LastRequestFunc == nil {
+		panic("RequestStorageMock.LastRequestFunc: method is nil but RequestStorage.LastRequest was just called")
 	}
 	callInfo := struct {
 		Identifier string
 	}{
 		Identifier: identifier,
 	}
-	mock.lockLastSubmissionTime.Lock()
-	mock.calls.LastSubmissionTime = append(mock.calls.LastSubmissionTime, callInfo)
-	mock.lockLastSubmissionTime.Unlock()
-	return mock.LastSubmissionTimeFunc(identifier)
+	mock.lockLastRequest.Lock()
+	mock.calls.LastRequest = append(mock.calls.LastRequest, callInfo)
+	mock.lockLastRequest.Unlock()
+	return mock.LastRequestFunc(identifier)
 }
 
-// LastSubmissionTimeCalls gets all the calls that were made to LastSubmissionTime.
+// LastRequestCalls gets all the calls that were made to LastRequest.
 // Check the length with:
 //
-//	len(mockedSubmissionStorage.LastSubmissionTimeCalls())
-func (mock *SubmissionStorageMock) LastSubmissionTimeCalls() []struct {
+//	len(mockedRequestStorage.LastRequestCalls())
+func (mock *RequestStorageMock) LastRequestCalls() []struct {
 	Identifier string
 } {
 	var calls []struct {
 		Identifier string
 	}
-	mock.lockLastSubmissionTime.RLock()
-	calls = mock.calls.LastSubmissionTime
-	mock.lockLastSubmissionTime.RUnlock()
+	mock.lockLastRequest.RLock()
+	calls = mock.calls.LastRequest
+	mock.lockLastRequest.RUnlock()
 	return calls
 }
 
-// RemoveSubmission calls RemoveSubmissionFunc.
-func (mock *SubmissionStorageMock) RemoveSubmission(submissionID radio.SubmissionID) error {
-	if mock.RemoveSubmissionFunc == nil {
-		panic("SubmissionStorageMock.RemoveSubmissionFunc: method is nil but SubmissionStorage.RemoveSubmission was just called")
-	}
-	callInfo := struct {
-		SubmissionID radio.SubmissionID
-	}{
-		SubmissionID: submissionID,
-	}
-	mock.lockRemoveSubmission.Lock()
-	mock.calls.RemoveSubmission = append(mock.calls.RemoveSubmission, callInfo)
-	mock.lockRemoveSubmission.Unlock()
-	return mock.RemoveSubmissionFunc(submissionID)
-}
-
-// RemoveSubmissionCalls gets all the calls that were made to RemoveSubmission.
-// Check the length with:
-//
-//	len(mockedSubmissionStorage.RemoveSubmissionCalls())
-func (mock *SubmissionStorageMock) RemoveSubmissionCalls() []struct {
-	SubmissionID radio.SubmissionID
-} {
-	var calls []struct {
-		SubmissionID radio.SubmissionID
-	}
-	mock.lockRemoveSubmission.RLock()
-	calls = mock.calls.RemoveSubmission
-	mock.lockRemoveSubmission.RUnlock()
-	return calls
-}
-
-// SubmissionStats calls SubmissionStatsFunc.
-func (mock *SubmissionStorageMock) SubmissionStats(identifier string) (radio.SubmissionStats, error) {
-	if mock.SubmissionStatsFunc == nil {
-		panic("SubmissionStorageMock.SubmissionStatsFunc: method is nil but SubmissionStorage.SubmissionStats was just called")
+// UpdateLastRequest calls UpdateLastRequestFunc.
+func (mock *RequestStorageMock) UpdateLastRequest(identifier string) error {
+	if mock.UpdateLastRequestFunc == nil {
+		panic("RequestStorageMock.UpdateLastRequestFunc: method is nil but RequestStorage.UpdateLastRequest was just called")
 	}
 	callInfo := struct {
 		Identifier string
 	}{
 		Identifier: identifier,
 	}
-	mock.lockSubmissionStats.Lock()
-	mock.calls.SubmissionStats = append(mock.calls.SubmissionStats, callInfo)
-	mock.lockSubmissionStats.Unlock()
-	return mock.SubmissionStatsFunc(identifier)
+	mock.lockUpdateLastRequest.Lock()
+	mock.calls.UpdateLastRequest = append(mock.calls.UpdateLastRequest, callInfo)
+	mock.lockUpdateLastRequest.Unlock()
+	return mock.UpdateLastRequestFunc(identifier)
 }
 
-// SubmissionStatsCalls gets all the calls that were made to SubmissionStats.
+// UpdateLastRequestCalls gets all the calls that were made to UpdateLastRequest.
 // Check the length with:
 //
-//	len(mockedSubmissionStorage.SubmissionStatsCalls())
-func (mock *SubmissionStorageMock) SubmissionStatsCalls() []struct {
+//	len(mockedRequestStorage.UpdateLastRequestCalls())
+func (mock *RequestStorageMock) UpdateLastRequestCalls() []struct {
 	Identifier string
 } {
 	var calls []struct {
 		Identifier string
 	}
-	mock.lockSubmissionStats.RLock()
-	calls = mock.calls.SubmissionStats
-	mock.lockSubmissionStats.RUnlock()
+	mock.lockUpdateLastRequest.RLock()
+	calls = mock.calls.UpdateLastRequest
+	mock.lockUpdateLastRequest.RUnlock()
 	return calls
 }
 
-// UpdateSubmissionTime calls UpdateSubmissionTimeFunc.
-func (mock *SubmissionStorageMock) UpdateSubmissionTime(identifier string) error {
-	if mock.UpdateSubmissionTimeFunc == nil {
-		panic("SubmissionStorageMock.UpdateSubmissionTimeFunc: method is nil but SubmissionStorage.UpdateSubmissionTime was just called")
+// Ensure, that UserStorageServiceMock does implement radio.UserStorageService.
+// If this is not the case, regenerate this file with moq.
+var _ radio.UserStorageService = &UserStorageServiceMock{}
+
+// UserStorageServiceMock is a mock implementation of radio.UserStorageService.
+//
+//	func TestSomethingThatUsesUserStorageService(t *testing.T) {
+//
+//		// make and configure a mocked radio.UserStorageService
+//		mockedUserStorageService := &UserStorageServiceMock{
+//			UserFunc: func(contextMoqParam context.Context) radio.UserStorage {
+//				panic("mock out the User method")
+//			},
+//			UserTxFunc: func(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.UserStorage, radio.StorageTx, error) {
+//				panic("mock out the UserTx method")
+//			},
+//		}
+//
+//		// use mockedUserStorageService in code that requires radio.UserStorageService
+//		// and then make assertions.
+//
+//	}
+type UserStorageServiceMock struct {
+	// UserFunc mocks the User method.
+	UserFunc func(contextMoqParam context.Context) radio.UserStorage
+
+	// UserTxFunc mocks the UserTx method.
+	UserTxFunc func(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.UserStorage, radio.StorageTx, error)
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// User holds details about calls to the User method.
+		User []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+		}
+		// UserTx holds details about calls to the UserTx method.
+		UserTx []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+			// StorageTx is the storageTx argument value.
+			StorageTx radio.StorageTx
+		}
 	}
-	callInfo := struct {
-		Identifier string
-	}{
-		Identifier: identifier,
-	}
-	mock.lockUpdateSubmissionTime.Lock()
-	mock.calls.UpdateSubmissionTime = append(mock.calls.UpdateSubmissionTime, callInfo)
-	mock.lockUpdateSubmissionTime.Unlock()
-	return mock.UpdateSubmissionTimeFunc(identifier)
+	lockUser   sync.RWMutex
+	lockUserTx sync.RWMutex
 }
 
-// UpdateSubmissionTimeCalls gets all the calls that were made to UpdateSubmissionTime.
+// User calls UserFunc.
+func (mock *UserStorageServiceMock) User(contextMoqParam context.Context) radio.UserStorage {
+	if mock.UserFunc == nil {
+		panic("UserStorageServiceMock.UserFunc: method is nil but UserStorageService.User was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+	}{
+		ContextMoqParam: contextMoqParam,
+	}
+	mock.lockUser.Lock()
+	mock.calls.User = append(mock.calls.User, callInfo)
+	mock.lockUser.Unlock()
+	return mock.UserFunc(contextMoqParam)
+}
+
+// UserCalls gets all the calls that were made to User.
 // Check the length with:
 //
-//	len(mockedSubmissionStorage.UpdateSubmissionTimeCalls())
-func (mock *SubmissionStorageMock) UpdateSubmissionTimeCalls() []struct {
-	Identifier string
+//	len(mockedUserStorageService.UserCalls())
+func (mock *UserStorageServiceMock) UserCalls() []struct {
+	ContextMoqParam context.Context
 } {
 	var calls []struct {
-		Identifier string
+		ContextMoqParam context.Context
 	}
-	mock.lockUpdateSubmissionTime.RLock()
-	calls = mock.calls.UpdateSubmissionTime
-	mock.lockUpdateSubmissionTime.RUnlock()
+	mock.lockUser.RLock()
+	calls = mock.calls.User
+	mock.lockUser.RUnlock()
+	return calls
+}
+
+// UserTx calls UserTxFunc.
+func (mock *UserStorageServiceMock) UserTx(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.UserStorage, radio.StorageTx, error) {
+	if mock.UserTxFunc == nil {
+		panic("UserStorageServiceMock.UserTxFunc: method is nil but UserStorageService.UserTx was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+		StorageTx       radio.StorageTx
+	}{
+		ContextMoqParam: contextMoqParam,
+		StorageTx:       storageTx,
+	}
+	mock.lockUserTx.Lock()
+	mock.calls.UserTx = append(mock.calls.UserTx, callInfo)
+	mock.lockUserTx.Unlock()
+	return mock.UserTxFunc(contextMoqParam, storageTx)
+}
+
+// UserTxCalls gets all the calls that were made to UserTx.
+// Check the length with:
+//
+//	len(mockedUserStorageService.UserTxCalls())
+func (mock *UserStorageServiceMock) UserTxCalls() []struct {
+	ContextMoqParam context.Context
+	StorageTx       radio.StorageTx
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+		StorageTx       radio.StorageTx
+	}
+	mock.lockUserTx.RLock()
+	calls = mock.calls.UserTx
+	mock.lockUserTx.RUnlock()
 	return calls
 }
 
@@ -2563,498 +5181,381 @@ func (mock *UserStorageMock) UpdateCalls() []struct {
 	return calls
 }
 
-// Ensure, that ManagerServiceMock does implement radio.ManagerService.
+// Ensure, that StatusStorageServiceMock does implement radio.StatusStorageService.
 // If this is not the case, regenerate this file with moq.
-var _ radio.ManagerService = &ManagerServiceMock{}
+var _ radio.StatusStorageService = &StatusStorageServiceMock{}
 
-// ManagerServiceMock is a mock implementation of radio.ManagerService.
+// StatusStorageServiceMock is a mock implementation of radio.StatusStorageService.
 //
-//	func TestSomethingThatUsesManagerService(t *testing.T) {
+//	func TestSomethingThatUsesStatusStorageService(t *testing.T) {
 //
-//		// make and configure a mocked radio.ManagerService
-//		mockedManagerService := &ManagerServiceMock{
-//			CurrentListenersFunc: func(contextMoqParam context.Context) (eventstream.Stream[int64], error) {
-//				panic("mock out the CurrentListeners method")
-//			},
-//			CurrentSongFunc: func(contextMoqParam context.Context) (eventstream.Stream[*radio.SongUpdate], error) {
-//				panic("mock out the CurrentSong method")
-//			},
-//			CurrentStatusFunc: func(contextMoqParam context.Context) (eventstream.Stream[radio.Status], error) {
-//				panic("mock out the CurrentStatus method")
-//			},
-//			CurrentThreadFunc: func(contextMoqParam context.Context) (eventstream.Stream[string], error) {
-//				panic("mock out the CurrentThread method")
-//			},
-//			CurrentUserFunc: func(contextMoqParam context.Context) (eventstream.Stream[*radio.User], error) {
-//				panic("mock out the CurrentUser method")
-//			},
-//			UpdateListenersFunc: func(contextMoqParam context.Context, n int64) error {
-//				panic("mock out the UpdateListeners method")
-//			},
-//			UpdateSongFunc: func(contextMoqParam context.Context, songUpdate *radio.SongUpdate) error {
-//				panic("mock out the UpdateSong method")
-//			},
-//			UpdateThreadFunc: func(contextMoqParam context.Context, s string) error {
-//				panic("mock out the UpdateThread method")
-//			},
-//			UpdateUserFunc: func(contextMoqParam context.Context, user *radio.User) error {
-//				panic("mock out the UpdateUser method")
+//		// make and configure a mocked radio.StatusStorageService
+//		mockedStatusStorageService := &StatusStorageServiceMock{
+//			StatusFunc: func(contextMoqParam context.Context) radio.StatusStorage {
+//				panic("mock out the Status method")
 //			},
 //		}
 //
-//		// use mockedManagerService in code that requires radio.ManagerService
+//		// use mockedStatusStorageService in code that requires radio.StatusStorageService
 //		// and then make assertions.
 //
 //	}
-type ManagerServiceMock struct {
-	// CurrentListenersFunc mocks the CurrentListeners method.
-	CurrentListenersFunc func(contextMoqParam context.Context) (eventstream.Stream[int64], error)
-
-	// CurrentSongFunc mocks the CurrentSong method.
-	CurrentSongFunc func(contextMoqParam context.Context) (eventstream.Stream[*radio.SongUpdate], error)
-
-	// CurrentStatusFunc mocks the CurrentStatus method.
-	CurrentStatusFunc func(contextMoqParam context.Context) (eventstream.Stream[radio.Status], error)
-
-	// CurrentThreadFunc mocks the CurrentThread method.
-	CurrentThreadFunc func(contextMoqParam context.Context) (eventstream.Stream[string], error)
-
-	// CurrentUserFunc mocks the CurrentUser method.
-	CurrentUserFunc func(contextMoqParam context.Context) (eventstream.Stream[*radio.User], error)
-
-	// UpdateListenersFunc mocks the UpdateListeners method.
-	UpdateListenersFunc func(contextMoqParam context.Context, n int64) error
-
-	// UpdateSongFunc mocks the UpdateSong method.
-	UpdateSongFunc func(contextMoqParam context.Context, songUpdate *radio.SongUpdate) error
-
-	// UpdateThreadFunc mocks the UpdateThread method.
-	UpdateThreadFunc func(contextMoqParam context.Context, s string) error
-
-	// UpdateUserFunc mocks the UpdateUser method.
-	UpdateUserFunc func(contextMoqParam context.Context, user *radio.User) error
+type StatusStorageServiceMock struct {
+	// StatusFunc mocks the Status method.
+	StatusFunc func(contextMoqParam context.Context) radio.StatusStorage
 
 	// calls tracks calls to the methods.
 	calls struct {
-		// CurrentListeners holds details about calls to the CurrentListeners method.
-		CurrentListeners []struct {
+		// Status holds details about calls to the Status method.
+		Status []struct {
 			// ContextMoqParam is the contextMoqParam argument value.
 			ContextMoqParam context.Context
-		}
-		// CurrentSong holds details about calls to the CurrentSong method.
-		CurrentSong []struct {
-			// ContextMoqParam is the contextMoqParam argument value.
-			ContextMoqParam context.Context
-		}
-		// CurrentStatus holds details about calls to the CurrentStatus method.
-		CurrentStatus []struct {
-			// ContextMoqParam is the contextMoqParam argument value.
-			ContextMoqParam context.Context
-		}
-		// CurrentThread holds details about calls to the CurrentThread method.
-		CurrentThread []struct {
-			// ContextMoqParam is the contextMoqParam argument value.
-			ContextMoqParam context.Context
-		}
-		// CurrentUser holds details about calls to the CurrentUser method.
-		CurrentUser []struct {
-			// ContextMoqParam is the contextMoqParam argument value.
-			ContextMoqParam context.Context
-		}
-		// UpdateListeners holds details about calls to the UpdateListeners method.
-		UpdateListeners []struct {
-			// ContextMoqParam is the contextMoqParam argument value.
-			ContextMoqParam context.Context
-			// N is the n argument value.
-			N int64
-		}
-		// UpdateSong holds details about calls to the UpdateSong method.
-		UpdateSong []struct {
-			// ContextMoqParam is the contextMoqParam argument value.
-			ContextMoqParam context.Context
-			// SongUpdate is the songUpdate argument value.
-			SongUpdate *radio.SongUpdate
-		}
-		// UpdateThread holds details about calls to the UpdateThread method.
-		UpdateThread []struct {
-			// ContextMoqParam is the contextMoqParam argument value.
-			ContextMoqParam context.Context
-			// S is the s argument value.
-			S string
-		}
-		// UpdateUser holds details about calls to the UpdateUser method.
-		UpdateUser []struct {
-			// ContextMoqParam is the contextMoqParam argument value.
-			ContextMoqParam context.Context
-			// User is the user argument value.
-			User *radio.User
 		}
 	}
-	lockCurrentListeners sync.RWMutex
-	lockCurrentSong      sync.RWMutex
-	lockCurrentStatus    sync.RWMutex
-	lockCurrentThread    sync.RWMutex
-	lockCurrentUser      sync.RWMutex
-	lockUpdateListeners  sync.RWMutex
-	lockUpdateSong       sync.RWMutex
-	lockUpdateThread     sync.RWMutex
-	lockUpdateUser       sync.RWMutex
+	lockStatus sync.RWMutex
 }
 
-// CurrentListeners calls CurrentListenersFunc.
-func (mock *ManagerServiceMock) CurrentListeners(contextMoqParam context.Context) (eventstream.Stream[int64], error) {
-	if mock.CurrentListenersFunc == nil {
-		panic("ManagerServiceMock.CurrentListenersFunc: method is nil but ManagerService.CurrentListeners was just called")
+// Status calls StatusFunc.
+func (mock *StatusStorageServiceMock) Status(contextMoqParam context.Context) radio.StatusStorage {
+	if mock.StatusFunc == nil {
+		panic("StatusStorageServiceMock.StatusFunc: method is nil but StatusStorageService.Status was just called")
 	}
 	callInfo := struct {
 		ContextMoqParam context.Context
 	}{
 		ContextMoqParam: contextMoqParam,
 	}
-	mock.lockCurrentListeners.Lock()
-	mock.calls.CurrentListeners = append(mock.calls.CurrentListeners, callInfo)
-	mock.lockCurrentListeners.Unlock()
-	return mock.CurrentListenersFunc(contextMoqParam)
+	mock.lockStatus.Lock()
+	mock.calls.Status = append(mock.calls.Status, callInfo)
+	mock.lockStatus.Unlock()
+	return mock.StatusFunc(contextMoqParam)
 }
 
-// CurrentListenersCalls gets all the calls that were made to CurrentListeners.
+// StatusCalls gets all the calls that were made to Status.
 // Check the length with:
 //
-//	len(mockedManagerService.CurrentListenersCalls())
-func (mock *ManagerServiceMock) CurrentListenersCalls() []struct {
+//	len(mockedStatusStorageService.StatusCalls())
+func (mock *StatusStorageServiceMock) StatusCalls() []struct {
 	ContextMoqParam context.Context
 } {
 	var calls []struct {
 		ContextMoqParam context.Context
 	}
-	mock.lockCurrentListeners.RLock()
-	calls = mock.calls.CurrentListeners
-	mock.lockCurrentListeners.RUnlock()
+	mock.lockStatus.RLock()
+	calls = mock.calls.Status
+	mock.lockStatus.RUnlock()
 	return calls
 }
 
-// CurrentSong calls CurrentSongFunc.
-func (mock *ManagerServiceMock) CurrentSong(contextMoqParam context.Context) (eventstream.Stream[*radio.SongUpdate], error) {
-	if mock.CurrentSongFunc == nil {
-		panic("ManagerServiceMock.CurrentSongFunc: method is nil but ManagerService.CurrentSong was just called")
-	}
-	callInfo := struct {
-		ContextMoqParam context.Context
-	}{
-		ContextMoqParam: contextMoqParam,
-	}
-	mock.lockCurrentSong.Lock()
-	mock.calls.CurrentSong = append(mock.calls.CurrentSong, callInfo)
-	mock.lockCurrentSong.Unlock()
-	return mock.CurrentSongFunc(contextMoqParam)
-}
-
-// CurrentSongCalls gets all the calls that were made to CurrentSong.
-// Check the length with:
-//
-//	len(mockedManagerService.CurrentSongCalls())
-func (mock *ManagerServiceMock) CurrentSongCalls() []struct {
-	ContextMoqParam context.Context
-} {
-	var calls []struct {
-		ContextMoqParam context.Context
-	}
-	mock.lockCurrentSong.RLock()
-	calls = mock.calls.CurrentSong
-	mock.lockCurrentSong.RUnlock()
-	return calls
-}
-
-// CurrentStatus calls CurrentStatusFunc.
-func (mock *ManagerServiceMock) CurrentStatus(contextMoqParam context.Context) (eventstream.Stream[radio.Status], error) {
-	if mock.CurrentStatusFunc == nil {
-		panic("ManagerServiceMock.CurrentStatusFunc: method is nil but ManagerService.CurrentStatus was just called")
-	}
-	callInfo := struct {
-		ContextMoqParam context.Context
-	}{
-		ContextMoqParam: contextMoqParam,
-	}
-	mock.lockCurrentStatus.Lock()
-	mock.calls.CurrentStatus = append(mock.calls.CurrentStatus, callInfo)
-	mock.lockCurrentStatus.Unlock()
-	return mock.CurrentStatusFunc(contextMoqParam)
-}
-
-// CurrentStatusCalls gets all the calls that were made to CurrentStatus.
-// Check the length with:
-//
-//	len(mockedManagerService.CurrentStatusCalls())
-func (mock *ManagerServiceMock) CurrentStatusCalls() []struct {
-	ContextMoqParam context.Context
-} {
-	var calls []struct {
-		ContextMoqParam context.Context
-	}
-	mock.lockCurrentStatus.RLock()
-	calls = mock.calls.CurrentStatus
-	mock.lockCurrentStatus.RUnlock()
-	return calls
-}
-
-// CurrentThread calls CurrentThreadFunc.
-func (mock *ManagerServiceMock) CurrentThread(contextMoqParam context.Context) (eventstream.Stream[string], error) {
-	if mock.CurrentThreadFunc == nil {
-		panic("ManagerServiceMock.CurrentThreadFunc: method is nil but ManagerService.CurrentThread was just called")
-	}
-	callInfo := struct {
-		ContextMoqParam context.Context
-	}{
-		ContextMoqParam: contextMoqParam,
-	}
-	mock.lockCurrentThread.Lock()
-	mock.calls.CurrentThread = append(mock.calls.CurrentThread, callInfo)
-	mock.lockCurrentThread.Unlock()
-	return mock.CurrentThreadFunc(contextMoqParam)
-}
-
-// CurrentThreadCalls gets all the calls that were made to CurrentThread.
-// Check the length with:
-//
-//	len(mockedManagerService.CurrentThreadCalls())
-func (mock *ManagerServiceMock) CurrentThreadCalls() []struct {
-	ContextMoqParam context.Context
-} {
-	var calls []struct {
-		ContextMoqParam context.Context
-	}
-	mock.lockCurrentThread.RLock()
-	calls = mock.calls.CurrentThread
-	mock.lockCurrentThread.RUnlock()
-	return calls
-}
-
-// CurrentUser calls CurrentUserFunc.
-func (mock *ManagerServiceMock) CurrentUser(contextMoqParam context.Context) (eventstream.Stream[*radio.User], error) {
-	if mock.CurrentUserFunc == nil {
-		panic("ManagerServiceMock.CurrentUserFunc: method is nil but ManagerService.CurrentUser was just called")
-	}
-	callInfo := struct {
-		ContextMoqParam context.Context
-	}{
-		ContextMoqParam: contextMoqParam,
-	}
-	mock.lockCurrentUser.Lock()
-	mock.calls.CurrentUser = append(mock.calls.CurrentUser, callInfo)
-	mock.lockCurrentUser.Unlock()
-	return mock.CurrentUserFunc(contextMoqParam)
-}
-
-// CurrentUserCalls gets all the calls that were made to CurrentUser.
-// Check the length with:
-//
-//	len(mockedManagerService.CurrentUserCalls())
-func (mock *ManagerServiceMock) CurrentUserCalls() []struct {
-	ContextMoqParam context.Context
-} {
-	var calls []struct {
-		ContextMoqParam context.Context
-	}
-	mock.lockCurrentUser.RLock()
-	calls = mock.calls.CurrentUser
-	mock.lockCurrentUser.RUnlock()
-	return calls
-}
-
-// UpdateListeners calls UpdateListenersFunc.
-func (mock *ManagerServiceMock) UpdateListeners(contextMoqParam context.Context, n int64) error {
-	if mock.UpdateListenersFunc == nil {
-		panic("ManagerServiceMock.UpdateListenersFunc: method is nil but ManagerService.UpdateListeners was just called")
-	}
-	callInfo := struct {
-		ContextMoqParam context.Context
-		N               int64
-	}{
-		ContextMoqParam: contextMoqParam,
-		N:               n,
-	}
-	mock.lockUpdateListeners.Lock()
-	mock.calls.UpdateListeners = append(mock.calls.UpdateListeners, callInfo)
-	mock.lockUpdateListeners.Unlock()
-	return mock.UpdateListenersFunc(contextMoqParam, n)
-}
-
-// UpdateListenersCalls gets all the calls that were made to UpdateListeners.
-// Check the length with:
-//
-//	len(mockedManagerService.UpdateListenersCalls())
-func (mock *ManagerServiceMock) UpdateListenersCalls() []struct {
-	ContextMoqParam context.Context
-	N               int64
-} {
-	var calls []struct {
-		ContextMoqParam context.Context
-		N               int64
-	}
-	mock.lockUpdateListeners.RLock()
-	calls = mock.calls.UpdateListeners
-	mock.lockUpdateListeners.RUnlock()
-	return calls
-}
-
-// UpdateSong calls UpdateSongFunc.
-func (mock *ManagerServiceMock) UpdateSong(contextMoqParam context.Context, songUpdate *radio.SongUpdate) error {
-	if mock.UpdateSongFunc == nil {
-		panic("ManagerServiceMock.UpdateSongFunc: method is nil but ManagerService.UpdateSong was just called")
-	}
-	callInfo := struct {
-		ContextMoqParam context.Context
-		SongUpdate      *radio.SongUpdate
-	}{
-		ContextMoqParam: contextMoqParam,
-		SongUpdate:      songUpdate,
-	}
-	mock.lockUpdateSong.Lock()
-	mock.calls.UpdateSong = append(mock.calls.UpdateSong, callInfo)
-	mock.lockUpdateSong.Unlock()
-	return mock.UpdateSongFunc(contextMoqParam, songUpdate)
-}
-
-// UpdateSongCalls gets all the calls that were made to UpdateSong.
-// Check the length with:
-//
-//	len(mockedManagerService.UpdateSongCalls())
-func (mock *ManagerServiceMock) UpdateSongCalls() []struct {
-	ContextMoqParam context.Context
-	SongUpdate      *radio.SongUpdate
-} {
-	var calls []struct {
-		ContextMoqParam context.Context
-		SongUpdate      *radio.SongUpdate
-	}
-	mock.lockUpdateSong.RLock()
-	calls = mock.calls.UpdateSong
-	mock.lockUpdateSong.RUnlock()
-	return calls
-}
-
-// UpdateThread calls UpdateThreadFunc.
-func (mock *ManagerServiceMock) UpdateThread(contextMoqParam context.Context, s string) error {
-	if mock.UpdateThreadFunc == nil {
-		panic("ManagerServiceMock.UpdateThreadFunc: method is nil but ManagerService.UpdateThread was just called")
-	}
-	callInfo := struct {
-		ContextMoqParam context.Context
-		S               string
-	}{
-		ContextMoqParam: contextMoqParam,
-		S:               s,
-	}
-	mock.lockUpdateThread.Lock()
-	mock.calls.UpdateThread = append(mock.calls.UpdateThread, callInfo)
-	mock.lockUpdateThread.Unlock()
-	return mock.UpdateThreadFunc(contextMoqParam, s)
-}
-
-// UpdateThreadCalls gets all the calls that were made to UpdateThread.
-// Check the length with:
-//
-//	len(mockedManagerService.UpdateThreadCalls())
-func (mock *ManagerServiceMock) UpdateThreadCalls() []struct {
-	ContextMoqParam context.Context
-	S               string
-} {
-	var calls []struct {
-		ContextMoqParam context.Context
-		S               string
-	}
-	mock.lockUpdateThread.RLock()
-	calls = mock.calls.UpdateThread
-	mock.lockUpdateThread.RUnlock()
-	return calls
-}
-
-// UpdateUser calls UpdateUserFunc.
-func (mock *ManagerServiceMock) UpdateUser(contextMoqParam context.Context, user *radio.User) error {
-	if mock.UpdateUserFunc == nil {
-		panic("ManagerServiceMock.UpdateUserFunc: method is nil but ManagerService.UpdateUser was just called")
-	}
-	callInfo := struct {
-		ContextMoqParam context.Context
-		User            *radio.User
-	}{
-		ContextMoqParam: contextMoqParam,
-		User:            user,
-	}
-	mock.lockUpdateUser.Lock()
-	mock.calls.UpdateUser = append(mock.calls.UpdateUser, callInfo)
-	mock.lockUpdateUser.Unlock()
-	return mock.UpdateUserFunc(contextMoqParam, user)
-}
-
-// UpdateUserCalls gets all the calls that were made to UpdateUser.
-// Check the length with:
-//
-//	len(mockedManagerService.UpdateUserCalls())
-func (mock *ManagerServiceMock) UpdateUserCalls() []struct {
-	ContextMoqParam context.Context
-	User            *radio.User
-} {
-	var calls []struct {
-		ContextMoqParam context.Context
-		User            *radio.User
-	}
-	mock.lockUpdateUser.RLock()
-	calls = mock.calls.UpdateUser
-	mock.lockUpdateUser.RUnlock()
-	return calls
-}
-
-// Ensure, that SearchServiceMock does implement radio.SearchService.
+// Ensure, that StatusStorageMock does implement radio.StatusStorage.
 // If this is not the case, regenerate this file with moq.
-var _ radio.SearchService = &SearchServiceMock{}
+var _ radio.StatusStorage = &StatusStorageMock{}
 
-// SearchServiceMock is a mock implementation of radio.SearchService.
+// StatusStorageMock is a mock implementation of radio.StatusStorage.
 //
-//	func TestSomethingThatUsesSearchService(t *testing.T) {
+//	func TestSomethingThatUsesStatusStorage(t *testing.T) {
 //
-//		// make and configure a mocked radio.SearchService
-//		mockedSearchService := &SearchServiceMock{
-//			DeleteFunc: func(contextMoqParam context.Context, trackIDs ...radio.TrackID) error {
+//		// make and configure a mocked radio.StatusStorage
+//		mockedStatusStorage := &StatusStorageMock{
+//			LoadFunc: func() (*radio.Status, error) {
+//				panic("mock out the Load method")
+//			},
+//			StoreFunc: func(status radio.Status) error {
+//				panic("mock out the Store method")
+//			},
+//		}
+//
+//		// use mockedStatusStorage in code that requires radio.StatusStorage
+//		// and then make assertions.
+//
+//	}
+type StatusStorageMock struct {
+	// LoadFunc mocks the Load method.
+	LoadFunc func() (*radio.Status, error)
+
+	// StoreFunc mocks the Store method.
+	StoreFunc func(status radio.Status) error
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// Load holds details about calls to the Load method.
+		Load []struct {
+		}
+		// Store holds details about calls to the Store method.
+		Store []struct {
+			// Status is the status argument value.
+			Status radio.Status
+		}
+	}
+	lockLoad  sync.RWMutex
+	lockStore sync.RWMutex
+}
+
+// Load calls LoadFunc.
+func (mock *StatusStorageMock) Load() (*radio.Status, error) {
+	if mock.LoadFunc == nil {
+		panic("StatusStorageMock.LoadFunc: method is nil but StatusStorage.Load was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockLoad.Lock()
+	mock.calls.Load = append(mock.calls.Load, callInfo)
+	mock.lockLoad.Unlock()
+	return mock.LoadFunc()
+}
+
+// LoadCalls gets all the calls that were made to Load.
+// Check the length with:
+//
+//	len(mockedStatusStorage.LoadCalls())
+func (mock *StatusStorageMock) LoadCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockLoad.RLock()
+	calls = mock.calls.Load
+	mock.lockLoad.RUnlock()
+	return calls
+}
+
+// Store calls StoreFunc.
+func (mock *StatusStorageMock) Store(status radio.Status) error {
+	if mock.StoreFunc == nil {
+		panic("StatusStorageMock.StoreFunc: method is nil but StatusStorage.Store was just called")
+	}
+	callInfo := struct {
+		Status radio.Status
+	}{
+		Status: status,
+	}
+	mock.lockStore.Lock()
+	mock.calls.Store = append(mock.calls.Store, callInfo)
+	mock.lockStore.Unlock()
+	return mock.StoreFunc(status)
+}
+
+// StoreCalls gets all the calls that were made to Store.
+// Check the length with:
+//
+//	len(mockedStatusStorage.StoreCalls())
+func (mock *StatusStorageMock) StoreCalls() []struct {
+	Status radio.Status
+} {
+	var calls []struct {
+		Status radio.Status
+	}
+	mock.lockStore.RLock()
+	calls = mock.calls.Store
+	mock.lockStore.RUnlock()
+	return calls
+}
+
+// Ensure, that NewsStorageServiceMock does implement radio.NewsStorageService.
+// If this is not the case, regenerate this file with moq.
+var _ radio.NewsStorageService = &NewsStorageServiceMock{}
+
+// NewsStorageServiceMock is a mock implementation of radio.NewsStorageService.
+//
+//	func TestSomethingThatUsesNewsStorageService(t *testing.T) {
+//
+//		// make and configure a mocked radio.NewsStorageService
+//		mockedNewsStorageService := &NewsStorageServiceMock{
+//			NewsFunc: func(contextMoqParam context.Context) radio.NewsStorage {
+//				panic("mock out the News method")
+//			},
+//			NewsTxFunc: func(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.NewsStorage, radio.StorageTx, error) {
+//				panic("mock out the NewsTx method")
+//			},
+//		}
+//
+//		// use mockedNewsStorageService in code that requires radio.NewsStorageService
+//		// and then make assertions.
+//
+//	}
+type NewsStorageServiceMock struct {
+	// NewsFunc mocks the News method.
+	NewsFunc func(contextMoqParam context.Context) radio.NewsStorage
+
+	// NewsTxFunc mocks the NewsTx method.
+	NewsTxFunc func(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.NewsStorage, radio.StorageTx, error)
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// News holds details about calls to the News method.
+		News []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+		}
+		// NewsTx holds details about calls to the NewsTx method.
+		NewsTx []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+			// StorageTx is the storageTx argument value.
+			StorageTx radio.StorageTx
+		}
+	}
+	lockNews   sync.RWMutex
+	lockNewsTx sync.RWMutex
+}
+
+// News calls NewsFunc.
+func (mock *NewsStorageServiceMock) News(contextMoqParam context.Context) radio.NewsStorage {
+	if mock.NewsFunc == nil {
+		panic("NewsStorageServiceMock.NewsFunc: method is nil but NewsStorageService.News was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+	}{
+		ContextMoqParam: contextMoqParam,
+	}
+	mock.lockNews.Lock()
+	mock.calls.News = append(mock.calls.News, callInfo)
+	mock.lockNews.Unlock()
+	return mock.NewsFunc(contextMoqParam)
+}
+
+// NewsCalls gets all the calls that were made to News.
+// Check the length with:
+//
+//	len(mockedNewsStorageService.NewsCalls())
+func (mock *NewsStorageServiceMock) NewsCalls() []struct {
+	ContextMoqParam context.Context
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+	}
+	mock.lockNews.RLock()
+	calls = mock.calls.News
+	mock.lockNews.RUnlock()
+	return calls
+}
+
+// NewsTx calls NewsTxFunc.
+func (mock *NewsStorageServiceMock) NewsTx(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.NewsStorage, radio.StorageTx, error) {
+	if mock.NewsTxFunc == nil {
+		panic("NewsStorageServiceMock.NewsTxFunc: method is nil but NewsStorageService.NewsTx was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+		StorageTx       radio.StorageTx
+	}{
+		ContextMoqParam: contextMoqParam,
+		StorageTx:       storageTx,
+	}
+	mock.lockNewsTx.Lock()
+	mock.calls.NewsTx = append(mock.calls.NewsTx, callInfo)
+	mock.lockNewsTx.Unlock()
+	return mock.NewsTxFunc(contextMoqParam, storageTx)
+}
+
+// NewsTxCalls gets all the calls that were made to NewsTx.
+// Check the length with:
+//
+//	len(mockedNewsStorageService.NewsTxCalls())
+func (mock *NewsStorageServiceMock) NewsTxCalls() []struct {
+	ContextMoqParam context.Context
+	StorageTx       radio.StorageTx
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+		StorageTx       radio.StorageTx
+	}
+	mock.lockNewsTx.RLock()
+	calls = mock.calls.NewsTx
+	mock.lockNewsTx.RUnlock()
+	return calls
+}
+
+// Ensure, that NewsStorageMock does implement radio.NewsStorage.
+// If this is not the case, regenerate this file with moq.
+var _ radio.NewsStorage = &NewsStorageMock{}
+
+// NewsStorageMock is a mock implementation of radio.NewsStorage.
+//
+//	func TestSomethingThatUsesNewsStorage(t *testing.T) {
+//
+//		// make and configure a mocked radio.NewsStorage
+//		mockedNewsStorage := &NewsStorageMock{
+//			CommentsFunc: func(newsPostID radio.NewsPostID) ([]radio.NewsComment, error) {
+//				panic("mock out the Comments method")
+//			},
+//			CreateFunc: func(newsPost radio.NewsPost) (radio.NewsPostID, error) {
+//				panic("mock out the Create method")
+//			},
+//			DeleteFunc: func(newsPostID radio.NewsPostID) error {
 //				panic("mock out the Delete method")
 //			},
-//			SearchFunc: func(ctx context.Context, query string, limit int64, offset int64) (*radio.SearchResult, error) {
-//				panic("mock out the Search method")
+//			GetFunc: func(newsPostID radio.NewsPostID) (*radio.NewsPost, error) {
+//				panic("mock out the Get method")
 //			},
-//			UpdateFunc: func(contextMoqParam context.Context, songs ...radio.Song) error {
+//			ListFunc: func(limit int64, offset int64) (radio.NewsList, error) {
+//				panic("mock out the List method")
+//			},
+//			ListPublicFunc: func(limit int64, offset int64) (radio.NewsList, error) {
+//				panic("mock out the ListPublic method")
+//			},
+//			UpdateFunc: func(newsPost radio.NewsPost) error {
 //				panic("mock out the Update method")
 //			},
 //		}
 //
-//		// use mockedSearchService in code that requires radio.SearchService
+//		// use mockedNewsStorage in code that requires radio.NewsStorage
 //		// and then make assertions.
 //
 //	}
-type SearchServiceMock struct {
-	// DeleteFunc mocks the Delete method.
-	DeleteFunc func(contextMoqParam context.Context, trackIDs ...radio.TrackID) error
+type NewsStorageMock struct {
+	// CommentsFunc mocks the Comments method.
+	CommentsFunc func(newsPostID radio.NewsPostID) ([]radio.NewsComment, error)
 
-	// SearchFunc mocks the Search method.
-	SearchFunc func(ctx context.Context, query string, limit int64, offset int64) (*radio.SearchResult, error)
+	// CreateFunc mocks the Create method.
+	CreateFunc func(newsPost radio.NewsPost) (radio.NewsPostID, error)
+
+	// DeleteFunc mocks the Delete method.
+	DeleteFunc func(newsPostID radio.NewsPostID) error
+
+	// GetFunc mocks the Get method.
+	GetFunc func(newsPostID radio.NewsPostID) (*radio.NewsPost, error)
+
+	// ListFunc mocks the List method.
+	ListFunc func(limit int64, offset int64) (radio.NewsList, error)
+
+	// ListPublicFunc mocks the ListPublic method.
+	ListPublicFunc func(limit int64, offset int64) (radio.NewsList, error)
 
 	// UpdateFunc mocks the Update method.
-	UpdateFunc func(contextMoqParam context.Context, songs ...radio.Song) error
+	UpdateFunc func(newsPost radio.NewsPost) error
 
 	// calls tracks calls to the methods.
 	calls struct {
+		// Comments holds details about calls to the Comments method.
+		Comments []struct {
+			// NewsPostID is the newsPostID argument value.
+			NewsPostID radio.NewsPostID
+		}
+		// Create holds details about calls to the Create method.
+		Create []struct {
+			// NewsPost is the newsPost argument value.
+			NewsPost radio.NewsPost
+		}
 		// Delete holds details about calls to the Delete method.
 		Delete []struct {
-			// ContextMoqParam is the contextMoqParam argument value.
-			ContextMoqParam context.Context
-			// TrackIDs is the trackIDs argument value.
-			TrackIDs []radio.TrackID
+			// NewsPostID is the newsPostID argument value.
+			NewsPostID radio.NewsPostID
 		}
-		// Search holds details about calls to the Search method.
-		Search []struct {
-			// Ctx is the ctx argument value.
-			Ctx context.Context
-			// Query is the query argument value.
-			Query string
+		// Get holds details about calls to the Get method.
+		Get []struct {
+			// NewsPostID is the newsPostID argument value.
+			NewsPostID radio.NewsPostID
+		}
+		// List holds details about calls to the List method.
+		List []struct {
+			// Limit is the limit argument value.
+			Limit int64
+			// Offset is the offset argument value.
+			Offset int64
+		}
+		// ListPublic holds details about calls to the ListPublic method.
+		ListPublic []struct {
 			// Limit is the limit argument value.
 			Limit int64
 			// Offset is the offset argument value.
@@ -3062,46 +5563,108 @@ type SearchServiceMock struct {
 		}
 		// Update holds details about calls to the Update method.
 		Update []struct {
-			// ContextMoqParam is the contextMoqParam argument value.
-			ContextMoqParam context.Context
-			// Songs is the songs argument value.
-			Songs []radio.Song
+			// NewsPost is the newsPost argument value.
+			NewsPost radio.NewsPost
 		}
 	}
-	lockDelete sync.RWMutex
-	lockSearch sync.RWMutex
-	lockUpdate sync.RWMutex
+	lockComments   sync.RWMutex
+	lockCreate     sync.RWMutex
+	lockDelete     sync.RWMutex
+	lockGet        sync.RWMutex
+	lockList       sync.RWMutex
+	lockListPublic sync.RWMutex
+	lockUpdate     sync.RWMutex
+}
+
+// Comments calls CommentsFunc.
+func (mock *NewsStorageMock) Comments(newsPostID radio.NewsPostID) ([]radio.NewsComment, error) {
+	if mock.CommentsFunc == nil {
+		panic("NewsStorageMock.CommentsFunc: method is nil but NewsStorage.Comments was just called")
+	}
+	callInfo := struct {
+		NewsPostID radio.NewsPostID
+	}{
+		NewsPostID: newsPostID,
+	}
+	mock.lockComments.Lock()
+	mock.calls.Comments = append(mock.calls.Comments, callInfo)
+	mock.lockComments.Unlock()
+	return mock.CommentsFunc(newsPostID)
+}
+
+// CommentsCalls gets all the calls that were made to Comments.
+// Check the length with:
+//
+//	len(mockedNewsStorage.CommentsCalls())
+func (mock *NewsStorageMock) CommentsCalls() []struct {
+	NewsPostID radio.NewsPostID
+} {
+	var calls []struct {
+		NewsPostID radio.NewsPostID
+	}
+	mock.lockComments.RLock()
+	calls = mock.calls.Comments
+	mock.lockComments.RUnlock()
+	return calls
+}
+
+// Create calls CreateFunc.
+func (mock *NewsStorageMock) Create(newsPost radio.NewsPost) (radio.NewsPostID, error) {
+	if mock.CreateFunc == nil {
+		panic("NewsStorageMock.CreateFunc: method is nil but NewsStorage.Create was just called")
+	}
+	callInfo := struct {
+		NewsPost radio.NewsPost
+	}{
+		NewsPost: newsPost,
+	}
+	mock.lockCreate.Lock()
+	mock.calls.Create = append(mock.calls.Create, callInfo)
+	mock.lockCreate.Unlock()
+	return mock.CreateFunc(newsPost)
+}
+
+// CreateCalls gets all the calls that were made to Create.
+// Check the length with:
+//
+//	len(mockedNewsStorage.CreateCalls())
+func (mock *NewsStorageMock) CreateCalls() []struct {
+	NewsPost radio.NewsPost
+} {
+	var calls []struct {
+		NewsPost radio.NewsPost
+	}
+	mock.lockCreate.RLock()
+	calls = mock.calls.Create
+	mock.lockCreate.RUnlock()
+	return calls
 }
 
 // Delete calls DeleteFunc.
-func (mock *SearchServiceMock) Delete(contextMoqParam context.Context, trackIDs ...radio.TrackID) error {
+func (mock *NewsStorageMock) Delete(newsPostID radio.NewsPostID) error {
 	if mock.DeleteFunc == nil {
-		panic("SearchServiceMock.DeleteFunc: method is nil but SearchService.Delete was just called")
+		panic("NewsStorageMock.DeleteFunc: method is nil but NewsStorage.Delete was just called")
 	}
 	callInfo := struct {
-		ContextMoqParam context.Context
-		TrackIDs        []radio.TrackID
+		NewsPostID radio.NewsPostID
 	}{
-		ContextMoqParam: contextMoqParam,
-		TrackIDs:        trackIDs,
+		NewsPostID: newsPostID,
 	}
 	mock.lockDelete.Lock()
 	mock.calls.Delete = append(mock.calls.Delete, callInfo)
 	mock.lockDelete.Unlock()
-	return mock.DeleteFunc(contextMoqParam, trackIDs...)
+	return mock.DeleteFunc(newsPostID)
 }
 
 // DeleteCalls gets all the calls that were made to Delete.
 // Check the length with:
 //
-//	len(mockedSearchService.DeleteCalls())
-func (mock *SearchServiceMock) DeleteCalls() []struct {
-	ContextMoqParam context.Context
-	TrackIDs        []radio.TrackID
+//	len(mockedNewsStorage.DeleteCalls())
+func (mock *NewsStorageMock) DeleteCalls() []struct {
+	NewsPostID radio.NewsPostID
 } {
 	var calls []struct {
-		ContextMoqParam context.Context
-		TrackIDs        []radio.TrackID
+		NewsPostID radio.NewsPostID
 	}
 	mock.lockDelete.RLock()
 	calls = mock.calls.Delete
@@ -3109,79 +5672,135 @@ func (mock *SearchServiceMock) DeleteCalls() []struct {
 	return calls
 }
 
-// Search calls SearchFunc.
-func (mock *SearchServiceMock) Search(ctx context.Context, query string, limit int64, offset int64) (*radio.SearchResult, error) {
-	if mock.SearchFunc == nil {
-		panic("SearchServiceMock.SearchFunc: method is nil but SearchService.Search was just called")
+// Get calls GetFunc.
+func (mock *NewsStorageMock) Get(newsPostID radio.NewsPostID) (*radio.NewsPost, error) {
+	if mock.GetFunc == nil {
+		panic("NewsStorageMock.GetFunc: method is nil but NewsStorage.Get was just called")
 	}
 	callInfo := struct {
-		Ctx    context.Context
-		Query  string
+		NewsPostID radio.NewsPostID
+	}{
+		NewsPostID: newsPostID,
+	}
+	mock.lockGet.Lock()
+	mock.calls.Get = append(mock.calls.Get, callInfo)
+	mock.lockGet.Unlock()
+	return mock.GetFunc(newsPostID)
+}
+
+// GetCalls gets all the calls that were made to Get.
+// Check the length with:
+//
+//	len(mockedNewsStorage.GetCalls())
+func (mock *NewsStorageMock) GetCalls() []struct {
+	NewsPostID radio.NewsPostID
+} {
+	var calls []struct {
+		NewsPostID radio.NewsPostID
+	}
+	mock.lockGet.RLock()
+	calls = mock.calls.Get
+	mock.lockGet.RUnlock()
+	return calls
+}
+
+// List calls ListFunc.
+func (mock *NewsStorageMock) List(limit int64, offset int64) (radio.NewsList, error) {
+	if mock.ListFunc == nil {
+		panic("NewsStorageMock.ListFunc: method is nil but NewsStorage.List was just called")
+	}
+	callInfo := struct {
 		Limit  int64
 		Offset int64
 	}{
-		Ctx:    ctx,
-		Query:  query,
 		Limit:  limit,
 		Offset: offset,
 	}
-	mock.lockSearch.Lock()
-	mock.calls.Search = append(mock.calls.Search, callInfo)
-	mock.lockSearch.Unlock()
-	return mock.SearchFunc(ctx, query, limit, offset)
+	mock.lockList.Lock()
+	mock.calls.List = append(mock.calls.List, callInfo)
+	mock.lockList.Unlock()
+	return mock.ListFunc(limit, offset)
 }
 
-// SearchCalls gets all the calls that were made to Search.
+// ListCalls gets all the calls that were made to List.
 // Check the length with:
 //
-//	len(mockedSearchService.SearchCalls())
-func (mock *SearchServiceMock) SearchCalls() []struct {
-	Ctx    context.Context
-	Query  string
+//	len(mockedNewsStorage.ListCalls())
+func (mock *NewsStorageMock) ListCalls() []struct {
 	Limit  int64
 	Offset int64
 } {
 	var calls []struct {
-		Ctx    context.Context
-		Query  string
 		Limit  int64
 		Offset int64
 	}
-	mock.lockSearch.RLock()
-	calls = mock.calls.Search
-	mock.lockSearch.RUnlock()
+	mock.lockList.RLock()
+	calls = mock.calls.List
+	mock.lockList.RUnlock()
+	return calls
+}
+
+// ListPublic calls ListPublicFunc.
+func (mock *NewsStorageMock) ListPublic(limit int64, offset int64) (radio.NewsList, error) {
+	if mock.ListPublicFunc == nil {
+		panic("NewsStorageMock.ListPublicFunc: method is nil but NewsStorage.ListPublic was just called")
+	}
+	callInfo := struct {
+		Limit  int64
+		Offset int64
+	}{
+		Limit:  limit,
+		Offset: offset,
+	}
+	mock.lockListPublic.Lock()
+	mock.calls.ListPublic = append(mock.calls.ListPublic, callInfo)
+	mock.lockListPublic.Unlock()
+	return mock.ListPublicFunc(limit, offset)
+}
+
+// ListPublicCalls gets all the calls that were made to ListPublic.
+// Check the length with:
+//
+//	len(mockedNewsStorage.ListPublicCalls())
+func (mock *NewsStorageMock) ListPublicCalls() []struct {
+	Limit  int64
+	Offset int64
+} {
+	var calls []struct {
+		Limit  int64
+		Offset int64
+	}
+	mock.lockListPublic.RLock()
+	calls = mock.calls.ListPublic
+	mock.lockListPublic.RUnlock()
 	return calls
 }
 
 // Update calls UpdateFunc.
-func (mock *SearchServiceMock) Update(contextMoqParam context.Context, songs ...radio.Song) error {
+func (mock *NewsStorageMock) Update(newsPost radio.NewsPost) error {
 	if mock.UpdateFunc == nil {
-		panic("SearchServiceMock.UpdateFunc: method is nil but SearchService.Update was just called")
+		panic("NewsStorageMock.UpdateFunc: method is nil but NewsStorage.Update was just called")
 	}
 	callInfo := struct {
-		ContextMoqParam context.Context
-		Songs           []radio.Song
+		NewsPost radio.NewsPost
 	}{
-		ContextMoqParam: contextMoqParam,
-		Songs:           songs,
+		NewsPost: newsPost,
 	}
 	mock.lockUpdate.Lock()
 	mock.calls.Update = append(mock.calls.Update, callInfo)
 	mock.lockUpdate.Unlock()
-	return mock.UpdateFunc(contextMoqParam, songs...)
+	return mock.UpdateFunc(newsPost)
 }
 
 // UpdateCalls gets all the calls that were made to Update.
 // Check the length with:
 //
-//	len(mockedSearchService.UpdateCalls())
-func (mock *SearchServiceMock) UpdateCalls() []struct {
-	ContextMoqParam context.Context
-	Songs           []radio.Song
+//	len(mockedNewsStorage.UpdateCalls())
+func (mock *NewsStorageMock) UpdateCalls() []struct {
+	NewsPost radio.NewsPost
 } {
 	var calls []struct {
-		ContextMoqParam context.Context
-		Songs           []radio.Song
+		NewsPost radio.NewsPost
 	}
 	mock.lockUpdate.RLock()
 	calls = mock.calls.Update
@@ -3189,112 +5808,979 @@ func (mock *SearchServiceMock) UpdateCalls() []struct {
 	return calls
 }
 
-// Ensure, that RequestStorageMock does implement radio.RequestStorage.
+// Ensure, that SubmissionStorageServiceMock does implement radio.SubmissionStorageService.
 // If this is not the case, regenerate this file with moq.
-var _ radio.RequestStorage = &RequestStorageMock{}
+var _ radio.SubmissionStorageService = &SubmissionStorageServiceMock{}
 
-// RequestStorageMock is a mock implementation of radio.RequestStorage.
+// SubmissionStorageServiceMock is a mock implementation of radio.SubmissionStorageService.
 //
-//	func TestSomethingThatUsesRequestStorage(t *testing.T) {
+//	func TestSomethingThatUsesSubmissionStorageService(t *testing.T) {
 //
-//		// make and configure a mocked radio.RequestStorage
-//		mockedRequestStorage := &RequestStorageMock{
-//			LastRequestFunc: func(identifier string) (time.Time, error) {
-//				panic("mock out the LastRequest method")
+//		// make and configure a mocked radio.SubmissionStorageService
+//		mockedSubmissionStorageService := &SubmissionStorageServiceMock{
+//			SubmissionsFunc: func(contextMoqParam context.Context) radio.SubmissionStorage {
+//				panic("mock out the Submissions method")
 //			},
-//			UpdateLastRequestFunc: func(identifier string) error {
-//				panic("mock out the UpdateLastRequest method")
+//			SubmissionsTxFunc: func(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.SubmissionStorage, radio.StorageTx, error) {
+//				panic("mock out the SubmissionsTx method")
 //			},
 //		}
 //
-//		// use mockedRequestStorage in code that requires radio.RequestStorage
+//		// use mockedSubmissionStorageService in code that requires radio.SubmissionStorageService
 //		// and then make assertions.
 //
 //	}
-type RequestStorageMock struct {
-	// LastRequestFunc mocks the LastRequest method.
-	LastRequestFunc func(identifier string) (time.Time, error)
+type SubmissionStorageServiceMock struct {
+	// SubmissionsFunc mocks the Submissions method.
+	SubmissionsFunc func(contextMoqParam context.Context) radio.SubmissionStorage
 
-	// UpdateLastRequestFunc mocks the UpdateLastRequest method.
-	UpdateLastRequestFunc func(identifier string) error
+	// SubmissionsTxFunc mocks the SubmissionsTx method.
+	SubmissionsTxFunc func(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.SubmissionStorage, radio.StorageTx, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
-		// LastRequest holds details about calls to the LastRequest method.
-		LastRequest []struct {
-			// Identifier is the identifier argument value.
-			Identifier string
+		// Submissions holds details about calls to the Submissions method.
+		Submissions []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
 		}
-		// UpdateLastRequest holds details about calls to the UpdateLastRequest method.
-		UpdateLastRequest []struct {
-			// Identifier is the identifier argument value.
-			Identifier string
+		// SubmissionsTx holds details about calls to the SubmissionsTx method.
+		SubmissionsTx []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+			// StorageTx is the storageTx argument value.
+			StorageTx radio.StorageTx
 		}
 	}
-	lockLastRequest       sync.RWMutex
-	lockUpdateLastRequest sync.RWMutex
+	lockSubmissions   sync.RWMutex
+	lockSubmissionsTx sync.RWMutex
 }
 
-// LastRequest calls LastRequestFunc.
-func (mock *RequestStorageMock) LastRequest(identifier string) (time.Time, error) {
-	if mock.LastRequestFunc == nil {
-		panic("RequestStorageMock.LastRequestFunc: method is nil but RequestStorage.LastRequest was just called")
+// Submissions calls SubmissionsFunc.
+func (mock *SubmissionStorageServiceMock) Submissions(contextMoqParam context.Context) radio.SubmissionStorage {
+	if mock.SubmissionsFunc == nil {
+		panic("SubmissionStorageServiceMock.SubmissionsFunc: method is nil but SubmissionStorageService.Submissions was just called")
 	}
 	callInfo := struct {
-		Identifier string
+		ContextMoqParam context.Context
 	}{
-		Identifier: identifier,
+		ContextMoqParam: contextMoqParam,
 	}
-	mock.lockLastRequest.Lock()
-	mock.calls.LastRequest = append(mock.calls.LastRequest, callInfo)
-	mock.lockLastRequest.Unlock()
-	return mock.LastRequestFunc(identifier)
+	mock.lockSubmissions.Lock()
+	mock.calls.Submissions = append(mock.calls.Submissions, callInfo)
+	mock.lockSubmissions.Unlock()
+	return mock.SubmissionsFunc(contextMoqParam)
 }
 
-// LastRequestCalls gets all the calls that were made to LastRequest.
+// SubmissionsCalls gets all the calls that were made to Submissions.
 // Check the length with:
 //
-//	len(mockedRequestStorage.LastRequestCalls())
-func (mock *RequestStorageMock) LastRequestCalls() []struct {
-	Identifier string
+//	len(mockedSubmissionStorageService.SubmissionsCalls())
+func (mock *SubmissionStorageServiceMock) SubmissionsCalls() []struct {
+	ContextMoqParam context.Context
 } {
 	var calls []struct {
-		Identifier string
+		ContextMoqParam context.Context
 	}
-	mock.lockLastRequest.RLock()
-	calls = mock.calls.LastRequest
-	mock.lockLastRequest.RUnlock()
+	mock.lockSubmissions.RLock()
+	calls = mock.calls.Submissions
+	mock.lockSubmissions.RUnlock()
 	return calls
 }
 
-// UpdateLastRequest calls UpdateLastRequestFunc.
-func (mock *RequestStorageMock) UpdateLastRequest(identifier string) error {
-	if mock.UpdateLastRequestFunc == nil {
-		panic("RequestStorageMock.UpdateLastRequestFunc: method is nil but RequestStorage.UpdateLastRequest was just called")
+// SubmissionsTx calls SubmissionsTxFunc.
+func (mock *SubmissionStorageServiceMock) SubmissionsTx(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.SubmissionStorage, radio.StorageTx, error) {
+	if mock.SubmissionsTxFunc == nil {
+		panic("SubmissionStorageServiceMock.SubmissionsTxFunc: method is nil but SubmissionStorageService.SubmissionsTx was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+		StorageTx       radio.StorageTx
+	}{
+		ContextMoqParam: contextMoqParam,
+		StorageTx:       storageTx,
+	}
+	mock.lockSubmissionsTx.Lock()
+	mock.calls.SubmissionsTx = append(mock.calls.SubmissionsTx, callInfo)
+	mock.lockSubmissionsTx.Unlock()
+	return mock.SubmissionsTxFunc(contextMoqParam, storageTx)
+}
+
+// SubmissionsTxCalls gets all the calls that were made to SubmissionsTx.
+// Check the length with:
+//
+//	len(mockedSubmissionStorageService.SubmissionsTxCalls())
+func (mock *SubmissionStorageServiceMock) SubmissionsTxCalls() []struct {
+	ContextMoqParam context.Context
+	StorageTx       radio.StorageTx
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+		StorageTx       radio.StorageTx
+	}
+	mock.lockSubmissionsTx.RLock()
+	calls = mock.calls.SubmissionsTx
+	mock.lockSubmissionsTx.RUnlock()
+	return calls
+}
+
+// Ensure, that SubmissionStorageMock does implement radio.SubmissionStorage.
+// If this is not the case, regenerate this file with moq.
+var _ radio.SubmissionStorage = &SubmissionStorageMock{}
+
+// SubmissionStorageMock is a mock implementation of radio.SubmissionStorage.
+//
+//	func TestSomethingThatUsesSubmissionStorage(t *testing.T) {
+//
+//		// make and configure a mocked radio.SubmissionStorage
+//		mockedSubmissionStorage := &SubmissionStorageMock{
+//			AllFunc: func() ([]radio.PendingSong, error) {
+//				panic("mock out the All method")
+//			},
+//			GetSubmissionFunc: func(submissionID radio.SubmissionID) (*radio.PendingSong, error) {
+//				panic("mock out the GetSubmission method")
+//			},
+//			InsertPostPendingFunc: func(pendingSong radio.PendingSong) error {
+//				panic("mock out the InsertPostPending method")
+//			},
+//			InsertSubmissionFunc: func(pendingSong radio.PendingSong) error {
+//				panic("mock out the InsertSubmission method")
+//			},
+//			LastSubmissionTimeFunc: func(identifier string) (time.Time, error) {
+//				panic("mock out the LastSubmissionTime method")
+//			},
+//			RemoveSubmissionFunc: func(submissionID radio.SubmissionID) error {
+//				panic("mock out the RemoveSubmission method")
+//			},
+//			SubmissionStatsFunc: func(identifier string) (radio.SubmissionStats, error) {
+//				panic("mock out the SubmissionStats method")
+//			},
+//			UpdateSubmissionTimeFunc: func(identifier string) error {
+//				panic("mock out the UpdateSubmissionTime method")
+//			},
+//		}
+//
+//		// use mockedSubmissionStorage in code that requires radio.SubmissionStorage
+//		// and then make assertions.
+//
+//	}
+type SubmissionStorageMock struct {
+	// AllFunc mocks the All method.
+	AllFunc func() ([]radio.PendingSong, error)
+
+	// GetSubmissionFunc mocks the GetSubmission method.
+	GetSubmissionFunc func(submissionID radio.SubmissionID) (*radio.PendingSong, error)
+
+	// InsertPostPendingFunc mocks the InsertPostPending method.
+	InsertPostPendingFunc func(pendingSong radio.PendingSong) error
+
+	// InsertSubmissionFunc mocks the InsertSubmission method.
+	InsertSubmissionFunc func(pendingSong radio.PendingSong) error
+
+	// LastSubmissionTimeFunc mocks the LastSubmissionTime method.
+	LastSubmissionTimeFunc func(identifier string) (time.Time, error)
+
+	// RemoveSubmissionFunc mocks the RemoveSubmission method.
+	RemoveSubmissionFunc func(submissionID radio.SubmissionID) error
+
+	// SubmissionStatsFunc mocks the SubmissionStats method.
+	SubmissionStatsFunc func(identifier string) (radio.SubmissionStats, error)
+
+	// UpdateSubmissionTimeFunc mocks the UpdateSubmissionTime method.
+	UpdateSubmissionTimeFunc func(identifier string) error
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// All holds details about calls to the All method.
+		All []struct {
+		}
+		// GetSubmission holds details about calls to the GetSubmission method.
+		GetSubmission []struct {
+			// SubmissionID is the submissionID argument value.
+			SubmissionID radio.SubmissionID
+		}
+		// InsertPostPending holds details about calls to the InsertPostPending method.
+		InsertPostPending []struct {
+			// PendingSong is the pendingSong argument value.
+			PendingSong radio.PendingSong
+		}
+		// InsertSubmission holds details about calls to the InsertSubmission method.
+		InsertSubmission []struct {
+			// PendingSong is the pendingSong argument value.
+			PendingSong radio.PendingSong
+		}
+		// LastSubmissionTime holds details about calls to the LastSubmissionTime method.
+		LastSubmissionTime []struct {
+			// Identifier is the identifier argument value.
+			Identifier string
+		}
+		// RemoveSubmission holds details about calls to the RemoveSubmission method.
+		RemoveSubmission []struct {
+			// SubmissionID is the submissionID argument value.
+			SubmissionID radio.SubmissionID
+		}
+		// SubmissionStats holds details about calls to the SubmissionStats method.
+		SubmissionStats []struct {
+			// Identifier is the identifier argument value.
+			Identifier string
+		}
+		// UpdateSubmissionTime holds details about calls to the UpdateSubmissionTime method.
+		UpdateSubmissionTime []struct {
+			// Identifier is the identifier argument value.
+			Identifier string
+		}
+	}
+	lockAll                  sync.RWMutex
+	lockGetSubmission        sync.RWMutex
+	lockInsertPostPending    sync.RWMutex
+	lockInsertSubmission     sync.RWMutex
+	lockLastSubmissionTime   sync.RWMutex
+	lockRemoveSubmission     sync.RWMutex
+	lockSubmissionStats      sync.RWMutex
+	lockUpdateSubmissionTime sync.RWMutex
+}
+
+// All calls AllFunc.
+func (mock *SubmissionStorageMock) All() ([]radio.PendingSong, error) {
+	if mock.AllFunc == nil {
+		panic("SubmissionStorageMock.AllFunc: method is nil but SubmissionStorage.All was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockAll.Lock()
+	mock.calls.All = append(mock.calls.All, callInfo)
+	mock.lockAll.Unlock()
+	return mock.AllFunc()
+}
+
+// AllCalls gets all the calls that were made to All.
+// Check the length with:
+//
+//	len(mockedSubmissionStorage.AllCalls())
+func (mock *SubmissionStorageMock) AllCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockAll.RLock()
+	calls = mock.calls.All
+	mock.lockAll.RUnlock()
+	return calls
+}
+
+// GetSubmission calls GetSubmissionFunc.
+func (mock *SubmissionStorageMock) GetSubmission(submissionID radio.SubmissionID) (*radio.PendingSong, error) {
+	if mock.GetSubmissionFunc == nil {
+		panic("SubmissionStorageMock.GetSubmissionFunc: method is nil but SubmissionStorage.GetSubmission was just called")
+	}
+	callInfo := struct {
+		SubmissionID radio.SubmissionID
+	}{
+		SubmissionID: submissionID,
+	}
+	mock.lockGetSubmission.Lock()
+	mock.calls.GetSubmission = append(mock.calls.GetSubmission, callInfo)
+	mock.lockGetSubmission.Unlock()
+	return mock.GetSubmissionFunc(submissionID)
+}
+
+// GetSubmissionCalls gets all the calls that were made to GetSubmission.
+// Check the length with:
+//
+//	len(mockedSubmissionStorage.GetSubmissionCalls())
+func (mock *SubmissionStorageMock) GetSubmissionCalls() []struct {
+	SubmissionID radio.SubmissionID
+} {
+	var calls []struct {
+		SubmissionID radio.SubmissionID
+	}
+	mock.lockGetSubmission.RLock()
+	calls = mock.calls.GetSubmission
+	mock.lockGetSubmission.RUnlock()
+	return calls
+}
+
+// InsertPostPending calls InsertPostPendingFunc.
+func (mock *SubmissionStorageMock) InsertPostPending(pendingSong radio.PendingSong) error {
+	if mock.InsertPostPendingFunc == nil {
+		panic("SubmissionStorageMock.InsertPostPendingFunc: method is nil but SubmissionStorage.InsertPostPending was just called")
+	}
+	callInfo := struct {
+		PendingSong radio.PendingSong
+	}{
+		PendingSong: pendingSong,
+	}
+	mock.lockInsertPostPending.Lock()
+	mock.calls.InsertPostPending = append(mock.calls.InsertPostPending, callInfo)
+	mock.lockInsertPostPending.Unlock()
+	return mock.InsertPostPendingFunc(pendingSong)
+}
+
+// InsertPostPendingCalls gets all the calls that were made to InsertPostPending.
+// Check the length with:
+//
+//	len(mockedSubmissionStorage.InsertPostPendingCalls())
+func (mock *SubmissionStorageMock) InsertPostPendingCalls() []struct {
+	PendingSong radio.PendingSong
+} {
+	var calls []struct {
+		PendingSong radio.PendingSong
+	}
+	mock.lockInsertPostPending.RLock()
+	calls = mock.calls.InsertPostPending
+	mock.lockInsertPostPending.RUnlock()
+	return calls
+}
+
+// InsertSubmission calls InsertSubmissionFunc.
+func (mock *SubmissionStorageMock) InsertSubmission(pendingSong radio.PendingSong) error {
+	if mock.InsertSubmissionFunc == nil {
+		panic("SubmissionStorageMock.InsertSubmissionFunc: method is nil but SubmissionStorage.InsertSubmission was just called")
+	}
+	callInfo := struct {
+		PendingSong radio.PendingSong
+	}{
+		PendingSong: pendingSong,
+	}
+	mock.lockInsertSubmission.Lock()
+	mock.calls.InsertSubmission = append(mock.calls.InsertSubmission, callInfo)
+	mock.lockInsertSubmission.Unlock()
+	return mock.InsertSubmissionFunc(pendingSong)
+}
+
+// InsertSubmissionCalls gets all the calls that were made to InsertSubmission.
+// Check the length with:
+//
+//	len(mockedSubmissionStorage.InsertSubmissionCalls())
+func (mock *SubmissionStorageMock) InsertSubmissionCalls() []struct {
+	PendingSong radio.PendingSong
+} {
+	var calls []struct {
+		PendingSong radio.PendingSong
+	}
+	mock.lockInsertSubmission.RLock()
+	calls = mock.calls.InsertSubmission
+	mock.lockInsertSubmission.RUnlock()
+	return calls
+}
+
+// LastSubmissionTime calls LastSubmissionTimeFunc.
+func (mock *SubmissionStorageMock) LastSubmissionTime(identifier string) (time.Time, error) {
+	if mock.LastSubmissionTimeFunc == nil {
+		panic("SubmissionStorageMock.LastSubmissionTimeFunc: method is nil but SubmissionStorage.LastSubmissionTime was just called")
 	}
 	callInfo := struct {
 		Identifier string
 	}{
 		Identifier: identifier,
 	}
-	mock.lockUpdateLastRequest.Lock()
-	mock.calls.UpdateLastRequest = append(mock.calls.UpdateLastRequest, callInfo)
-	mock.lockUpdateLastRequest.Unlock()
-	return mock.UpdateLastRequestFunc(identifier)
+	mock.lockLastSubmissionTime.Lock()
+	mock.calls.LastSubmissionTime = append(mock.calls.LastSubmissionTime, callInfo)
+	mock.lockLastSubmissionTime.Unlock()
+	return mock.LastSubmissionTimeFunc(identifier)
 }
 
-// UpdateLastRequestCalls gets all the calls that were made to UpdateLastRequest.
+// LastSubmissionTimeCalls gets all the calls that were made to LastSubmissionTime.
 // Check the length with:
 //
-//	len(mockedRequestStorage.UpdateLastRequestCalls())
-func (mock *RequestStorageMock) UpdateLastRequestCalls() []struct {
+//	len(mockedSubmissionStorage.LastSubmissionTimeCalls())
+func (mock *SubmissionStorageMock) LastSubmissionTimeCalls() []struct {
 	Identifier string
 } {
 	var calls []struct {
 		Identifier string
 	}
-	mock.lockUpdateLastRequest.RLock()
-	calls = mock.calls.UpdateLastRequest
-	mock.lockUpdateLastRequest.RUnlock()
+	mock.lockLastSubmissionTime.RLock()
+	calls = mock.calls.LastSubmissionTime
+	mock.lockLastSubmissionTime.RUnlock()
+	return calls
+}
+
+// RemoveSubmission calls RemoveSubmissionFunc.
+func (mock *SubmissionStorageMock) RemoveSubmission(submissionID radio.SubmissionID) error {
+	if mock.RemoveSubmissionFunc == nil {
+		panic("SubmissionStorageMock.RemoveSubmissionFunc: method is nil but SubmissionStorage.RemoveSubmission was just called")
+	}
+	callInfo := struct {
+		SubmissionID radio.SubmissionID
+	}{
+		SubmissionID: submissionID,
+	}
+	mock.lockRemoveSubmission.Lock()
+	mock.calls.RemoveSubmission = append(mock.calls.RemoveSubmission, callInfo)
+	mock.lockRemoveSubmission.Unlock()
+	return mock.RemoveSubmissionFunc(submissionID)
+}
+
+// RemoveSubmissionCalls gets all the calls that were made to RemoveSubmission.
+// Check the length with:
+//
+//	len(mockedSubmissionStorage.RemoveSubmissionCalls())
+func (mock *SubmissionStorageMock) RemoveSubmissionCalls() []struct {
+	SubmissionID radio.SubmissionID
+} {
+	var calls []struct {
+		SubmissionID radio.SubmissionID
+	}
+	mock.lockRemoveSubmission.RLock()
+	calls = mock.calls.RemoveSubmission
+	mock.lockRemoveSubmission.RUnlock()
+	return calls
+}
+
+// SubmissionStats calls SubmissionStatsFunc.
+func (mock *SubmissionStorageMock) SubmissionStats(identifier string) (radio.SubmissionStats, error) {
+	if mock.SubmissionStatsFunc == nil {
+		panic("SubmissionStorageMock.SubmissionStatsFunc: method is nil but SubmissionStorage.SubmissionStats was just called")
+	}
+	callInfo := struct {
+		Identifier string
+	}{
+		Identifier: identifier,
+	}
+	mock.lockSubmissionStats.Lock()
+	mock.calls.SubmissionStats = append(mock.calls.SubmissionStats, callInfo)
+	mock.lockSubmissionStats.Unlock()
+	return mock.SubmissionStatsFunc(identifier)
+}
+
+// SubmissionStatsCalls gets all the calls that were made to SubmissionStats.
+// Check the length with:
+//
+//	len(mockedSubmissionStorage.SubmissionStatsCalls())
+func (mock *SubmissionStorageMock) SubmissionStatsCalls() []struct {
+	Identifier string
+} {
+	var calls []struct {
+		Identifier string
+	}
+	mock.lockSubmissionStats.RLock()
+	calls = mock.calls.SubmissionStats
+	mock.lockSubmissionStats.RUnlock()
+	return calls
+}
+
+// UpdateSubmissionTime calls UpdateSubmissionTimeFunc.
+func (mock *SubmissionStorageMock) UpdateSubmissionTime(identifier string) error {
+	if mock.UpdateSubmissionTimeFunc == nil {
+		panic("SubmissionStorageMock.UpdateSubmissionTimeFunc: method is nil but SubmissionStorage.UpdateSubmissionTime was just called")
+	}
+	callInfo := struct {
+		Identifier string
+	}{
+		Identifier: identifier,
+	}
+	mock.lockUpdateSubmissionTime.Lock()
+	mock.calls.UpdateSubmissionTime = append(mock.calls.UpdateSubmissionTime, callInfo)
+	mock.lockUpdateSubmissionTime.Unlock()
+	return mock.UpdateSubmissionTimeFunc(identifier)
+}
+
+// UpdateSubmissionTimeCalls gets all the calls that were made to UpdateSubmissionTime.
+// Check the length with:
+//
+//	len(mockedSubmissionStorage.UpdateSubmissionTimeCalls())
+func (mock *SubmissionStorageMock) UpdateSubmissionTimeCalls() []struct {
+	Identifier string
+} {
+	var calls []struct {
+		Identifier string
+	}
+	mock.lockUpdateSubmissionTime.RLock()
+	calls = mock.calls.UpdateSubmissionTime
+	mock.lockUpdateSubmissionTime.RUnlock()
+	return calls
+}
+
+// Ensure, that RelayStorageMock does implement radio.RelayStorage.
+// If this is not the case, regenerate this file with moq.
+var _ radio.RelayStorage = &RelayStorageMock{}
+
+// RelayStorageMock is a mock implementation of radio.RelayStorage.
+//
+//	func TestSomethingThatUsesRelayStorage(t *testing.T) {
+//
+//		// make and configure a mocked radio.RelayStorage
+//		mockedRelayStorage := &RelayStorageMock{
+//			AllFunc: func() ([]radio.Relay, error) {
+//				panic("mock out the All method")
+//			},
+//			UpdateFunc: func(r radio.Relay) error {
+//				panic("mock out the Update method")
+//			},
+//		}
+//
+//		// use mockedRelayStorage in code that requires radio.RelayStorage
+//		// and then make assertions.
+//
+//	}
+type RelayStorageMock struct {
+	// AllFunc mocks the All method.
+	AllFunc func() ([]radio.Relay, error)
+
+	// UpdateFunc mocks the Update method.
+	UpdateFunc func(r radio.Relay) error
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// All holds details about calls to the All method.
+		All []struct {
+		}
+		// Update holds details about calls to the Update method.
+		Update []struct {
+			// R is the r argument value.
+			R radio.Relay
+		}
+	}
+	lockAll    sync.RWMutex
+	lockUpdate sync.RWMutex
+}
+
+// All calls AllFunc.
+func (mock *RelayStorageMock) All() ([]radio.Relay, error) {
+	if mock.AllFunc == nil {
+		panic("RelayStorageMock.AllFunc: method is nil but RelayStorage.All was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockAll.Lock()
+	mock.calls.All = append(mock.calls.All, callInfo)
+	mock.lockAll.Unlock()
+	return mock.AllFunc()
+}
+
+// AllCalls gets all the calls that were made to All.
+// Check the length with:
+//
+//	len(mockedRelayStorage.AllCalls())
+func (mock *RelayStorageMock) AllCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockAll.RLock()
+	calls = mock.calls.All
+	mock.lockAll.RUnlock()
+	return calls
+}
+
+// Update calls UpdateFunc.
+func (mock *RelayStorageMock) Update(r radio.Relay) error {
+	if mock.UpdateFunc == nil {
+		panic("RelayStorageMock.UpdateFunc: method is nil but RelayStorage.Update was just called")
+	}
+	callInfo := struct {
+		R radio.Relay
+	}{
+		R: r,
+	}
+	mock.lockUpdate.Lock()
+	mock.calls.Update = append(mock.calls.Update, callInfo)
+	mock.lockUpdate.Unlock()
+	return mock.UpdateFunc(r)
+}
+
+// UpdateCalls gets all the calls that were made to Update.
+// Check the length with:
+//
+//	len(mockedRelayStorage.UpdateCalls())
+func (mock *RelayStorageMock) UpdateCalls() []struct {
+	R radio.Relay
+} {
+	var calls []struct {
+		R radio.Relay
+	}
+	mock.lockUpdate.RLock()
+	calls = mock.calls.Update
+	mock.lockUpdate.RUnlock()
+	return calls
+}
+
+// Ensure, that RelayStorageServiceMock does implement radio.RelayStorageService.
+// If this is not the case, regenerate this file with moq.
+var _ radio.RelayStorageService = &RelayStorageServiceMock{}
+
+// RelayStorageServiceMock is a mock implementation of radio.RelayStorageService.
+//
+//	func TestSomethingThatUsesRelayStorageService(t *testing.T) {
+//
+//		// make and configure a mocked radio.RelayStorageService
+//		mockedRelayStorageService := &RelayStorageServiceMock{
+//			RelayFunc: func(contextMoqParam context.Context) radio.RelayStorage {
+//				panic("mock out the Relay method")
+//			},
+//			RelayTxFunc: func(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.RelayStorage, radio.StorageTx, error) {
+//				panic("mock out the RelayTx method")
+//			},
+//		}
+//
+//		// use mockedRelayStorageService in code that requires radio.RelayStorageService
+//		// and then make assertions.
+//
+//	}
+type RelayStorageServiceMock struct {
+	// RelayFunc mocks the Relay method.
+	RelayFunc func(contextMoqParam context.Context) radio.RelayStorage
+
+	// RelayTxFunc mocks the RelayTx method.
+	RelayTxFunc func(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.RelayStorage, radio.StorageTx, error)
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// Relay holds details about calls to the Relay method.
+		Relay []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+		}
+		// RelayTx holds details about calls to the RelayTx method.
+		RelayTx []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+			// StorageTx is the storageTx argument value.
+			StorageTx radio.StorageTx
+		}
+	}
+	lockRelay   sync.RWMutex
+	lockRelayTx sync.RWMutex
+}
+
+// Relay calls RelayFunc.
+func (mock *RelayStorageServiceMock) Relay(contextMoqParam context.Context) radio.RelayStorage {
+	if mock.RelayFunc == nil {
+		panic("RelayStorageServiceMock.RelayFunc: method is nil but RelayStorageService.Relay was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+	}{
+		ContextMoqParam: contextMoqParam,
+	}
+	mock.lockRelay.Lock()
+	mock.calls.Relay = append(mock.calls.Relay, callInfo)
+	mock.lockRelay.Unlock()
+	return mock.RelayFunc(contextMoqParam)
+}
+
+// RelayCalls gets all the calls that were made to Relay.
+// Check the length with:
+//
+//	len(mockedRelayStorageService.RelayCalls())
+func (mock *RelayStorageServiceMock) RelayCalls() []struct {
+	ContextMoqParam context.Context
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+	}
+	mock.lockRelay.RLock()
+	calls = mock.calls.Relay
+	mock.lockRelay.RUnlock()
+	return calls
+}
+
+// RelayTx calls RelayTxFunc.
+func (mock *RelayStorageServiceMock) RelayTx(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.RelayStorage, radio.StorageTx, error) {
+	if mock.RelayTxFunc == nil {
+		panic("RelayStorageServiceMock.RelayTxFunc: method is nil but RelayStorageService.RelayTx was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+		StorageTx       radio.StorageTx
+	}{
+		ContextMoqParam: contextMoqParam,
+		StorageTx:       storageTx,
+	}
+	mock.lockRelayTx.Lock()
+	mock.calls.RelayTx = append(mock.calls.RelayTx, callInfo)
+	mock.lockRelayTx.Unlock()
+	return mock.RelayTxFunc(contextMoqParam, storageTx)
+}
+
+// RelayTxCalls gets all the calls that were made to RelayTx.
+// Check the length with:
+//
+//	len(mockedRelayStorageService.RelayTxCalls())
+func (mock *RelayStorageServiceMock) RelayTxCalls() []struct {
+	ContextMoqParam context.Context
+	StorageTx       radio.StorageTx
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+		StorageTx       radio.StorageTx
+	}
+	mock.lockRelayTx.RLock()
+	calls = mock.calls.RelayTx
+	mock.lockRelayTx.RUnlock()
+	return calls
+}
+
+// Ensure, that ScheduleStorageServiceMock does implement radio.ScheduleStorageService.
+// If this is not the case, regenerate this file with moq.
+var _ radio.ScheduleStorageService = &ScheduleStorageServiceMock{}
+
+// ScheduleStorageServiceMock is a mock implementation of radio.ScheduleStorageService.
+//
+//	func TestSomethingThatUsesScheduleStorageService(t *testing.T) {
+//
+//		// make and configure a mocked radio.ScheduleStorageService
+//		mockedScheduleStorageService := &ScheduleStorageServiceMock{
+//			ScheduleFunc: func(contextMoqParam context.Context) radio.ScheduleStorage {
+//				panic("mock out the Schedule method")
+//			},
+//			ScheduleTxFunc: func(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.ScheduleStorage, radio.StorageTx, error) {
+//				panic("mock out the ScheduleTx method")
+//			},
+//		}
+//
+//		// use mockedScheduleStorageService in code that requires radio.ScheduleStorageService
+//		// and then make assertions.
+//
+//	}
+type ScheduleStorageServiceMock struct {
+	// ScheduleFunc mocks the Schedule method.
+	ScheduleFunc func(contextMoqParam context.Context) radio.ScheduleStorage
+
+	// ScheduleTxFunc mocks the ScheduleTx method.
+	ScheduleTxFunc func(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.ScheduleStorage, radio.StorageTx, error)
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// Schedule holds details about calls to the Schedule method.
+		Schedule []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+		}
+		// ScheduleTx holds details about calls to the ScheduleTx method.
+		ScheduleTx []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+			// StorageTx is the storageTx argument value.
+			StorageTx radio.StorageTx
+		}
+	}
+	lockSchedule   sync.RWMutex
+	lockScheduleTx sync.RWMutex
+}
+
+// Schedule calls ScheduleFunc.
+func (mock *ScheduleStorageServiceMock) Schedule(contextMoqParam context.Context) radio.ScheduleStorage {
+	if mock.ScheduleFunc == nil {
+		panic("ScheduleStorageServiceMock.ScheduleFunc: method is nil but ScheduleStorageService.Schedule was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+	}{
+		ContextMoqParam: contextMoqParam,
+	}
+	mock.lockSchedule.Lock()
+	mock.calls.Schedule = append(mock.calls.Schedule, callInfo)
+	mock.lockSchedule.Unlock()
+	return mock.ScheduleFunc(contextMoqParam)
+}
+
+// ScheduleCalls gets all the calls that were made to Schedule.
+// Check the length with:
+//
+//	len(mockedScheduleStorageService.ScheduleCalls())
+func (mock *ScheduleStorageServiceMock) ScheduleCalls() []struct {
+	ContextMoqParam context.Context
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+	}
+	mock.lockSchedule.RLock()
+	calls = mock.calls.Schedule
+	mock.lockSchedule.RUnlock()
+	return calls
+}
+
+// ScheduleTx calls ScheduleTxFunc.
+func (mock *ScheduleStorageServiceMock) ScheduleTx(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.ScheduleStorage, radio.StorageTx, error) {
+	if mock.ScheduleTxFunc == nil {
+		panic("ScheduleStorageServiceMock.ScheduleTxFunc: method is nil but ScheduleStorageService.ScheduleTx was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+		StorageTx       radio.StorageTx
+	}{
+		ContextMoqParam: contextMoqParam,
+		StorageTx:       storageTx,
+	}
+	mock.lockScheduleTx.Lock()
+	mock.calls.ScheduleTx = append(mock.calls.ScheduleTx, callInfo)
+	mock.lockScheduleTx.Unlock()
+	return mock.ScheduleTxFunc(contextMoqParam, storageTx)
+}
+
+// ScheduleTxCalls gets all the calls that were made to ScheduleTx.
+// Check the length with:
+//
+//	len(mockedScheduleStorageService.ScheduleTxCalls())
+func (mock *ScheduleStorageServiceMock) ScheduleTxCalls() []struct {
+	ContextMoqParam context.Context
+	StorageTx       radio.StorageTx
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+		StorageTx       radio.StorageTx
+	}
+	mock.lockScheduleTx.RLock()
+	calls = mock.calls.ScheduleTx
+	mock.lockScheduleTx.RUnlock()
+	return calls
+}
+
+// Ensure, that ScheduleStorageMock does implement radio.ScheduleStorage.
+// If this is not the case, regenerate this file with moq.
+var _ radio.ScheduleStorage = &ScheduleStorageMock{}
+
+// ScheduleStorageMock is a mock implementation of radio.ScheduleStorage.
+//
+//	func TestSomethingThatUsesScheduleStorage(t *testing.T) {
+//
+//		// make and configure a mocked radio.ScheduleStorage
+//		mockedScheduleStorage := &ScheduleStorageMock{
+//			HistoryFunc: func(day radio.ScheduleDay, limit int64, offset int64) ([]radio.ScheduleEntry, error) {
+//				panic("mock out the History method")
+//			},
+//			LatestFunc: func() ([]*radio.ScheduleEntry, error) {
+//				panic("mock out the Latest method")
+//			},
+//			UpdateFunc: func(scheduleEntry radio.ScheduleEntry) error {
+//				panic("mock out the Update method")
+//			},
+//		}
+//
+//		// use mockedScheduleStorage in code that requires radio.ScheduleStorage
+//		// and then make assertions.
+//
+//	}
+type ScheduleStorageMock struct {
+	// HistoryFunc mocks the History method.
+	HistoryFunc func(day radio.ScheduleDay, limit int64, offset int64) ([]radio.ScheduleEntry, error)
+
+	// LatestFunc mocks the Latest method.
+	LatestFunc func() ([]*radio.ScheduleEntry, error)
+
+	// UpdateFunc mocks the Update method.
+	UpdateFunc func(scheduleEntry radio.ScheduleEntry) error
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// History holds details about calls to the History method.
+		History []struct {
+			// Day is the day argument value.
+			Day radio.ScheduleDay
+			// Limit is the limit argument value.
+			Limit int64
+			// Offset is the offset argument value.
+			Offset int64
+		}
+		// Latest holds details about calls to the Latest method.
+		Latest []struct {
+		}
+		// Update holds details about calls to the Update method.
+		Update []struct {
+			// ScheduleEntry is the scheduleEntry argument value.
+			ScheduleEntry radio.ScheduleEntry
+		}
+	}
+	lockHistory sync.RWMutex
+	lockLatest  sync.RWMutex
+	lockUpdate  sync.RWMutex
+}
+
+// History calls HistoryFunc.
+func (mock *ScheduleStorageMock) History(day radio.ScheduleDay, limit int64, offset int64) ([]radio.ScheduleEntry, error) {
+	if mock.HistoryFunc == nil {
+		panic("ScheduleStorageMock.HistoryFunc: method is nil but ScheduleStorage.History was just called")
+	}
+	callInfo := struct {
+		Day    radio.ScheduleDay
+		Limit  int64
+		Offset int64
+	}{
+		Day:    day,
+		Limit:  limit,
+		Offset: offset,
+	}
+	mock.lockHistory.Lock()
+	mock.calls.History = append(mock.calls.History, callInfo)
+	mock.lockHistory.Unlock()
+	return mock.HistoryFunc(day, limit, offset)
+}
+
+// HistoryCalls gets all the calls that were made to History.
+// Check the length with:
+//
+//	len(mockedScheduleStorage.HistoryCalls())
+func (mock *ScheduleStorageMock) HistoryCalls() []struct {
+	Day    radio.ScheduleDay
+	Limit  int64
+	Offset int64
+} {
+	var calls []struct {
+		Day    radio.ScheduleDay
+		Limit  int64
+		Offset int64
+	}
+	mock.lockHistory.RLock()
+	calls = mock.calls.History
+	mock.lockHistory.RUnlock()
+	return calls
+}
+
+// Latest calls LatestFunc.
+func (mock *ScheduleStorageMock) Latest() ([]*radio.ScheduleEntry, error) {
+	if mock.LatestFunc == nil {
+		panic("ScheduleStorageMock.LatestFunc: method is nil but ScheduleStorage.Latest was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockLatest.Lock()
+	mock.calls.Latest = append(mock.calls.Latest, callInfo)
+	mock.lockLatest.Unlock()
+	return mock.LatestFunc()
+}
+
+// LatestCalls gets all the calls that were made to Latest.
+// Check the length with:
+//
+//	len(mockedScheduleStorage.LatestCalls())
+func (mock *ScheduleStorageMock) LatestCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockLatest.RLock()
+	calls = mock.calls.Latest
+	mock.lockLatest.RUnlock()
+	return calls
+}
+
+// Update calls UpdateFunc.
+func (mock *ScheduleStorageMock) Update(scheduleEntry radio.ScheduleEntry) error {
+	if mock.UpdateFunc == nil {
+		panic("ScheduleStorageMock.UpdateFunc: method is nil but ScheduleStorage.Update was just called")
+	}
+	callInfo := struct {
+		ScheduleEntry radio.ScheduleEntry
+	}{
+		ScheduleEntry: scheduleEntry,
+	}
+	mock.lockUpdate.Lock()
+	mock.calls.Update = append(mock.calls.Update, callInfo)
+	mock.lockUpdate.Unlock()
+	return mock.UpdateFunc(scheduleEntry)
+}
+
+// UpdateCalls gets all the calls that were made to Update.
+// Check the length with:
+//
+//	len(mockedScheduleStorage.UpdateCalls())
+func (mock *ScheduleStorageMock) UpdateCalls() []struct {
+	ScheduleEntry radio.ScheduleEntry
+} {
+	var calls []struct {
+		ScheduleEntry radio.ScheduleEntry
+	}
+	mock.lockUpdate.RLock()
+	calls = mock.calls.Update
+	mock.lockUpdate.RUnlock()
 	return calls
 }
