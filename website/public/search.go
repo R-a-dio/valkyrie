@@ -78,6 +78,18 @@ func NewSearchSharedInput(s radio.SearchService, rs radio.RequestStorage, r *htt
 
 	cd, ok := radio.CalculateCooldown(requestDelay, lastRequest)
 
+	// we also use this input if we're making a request, in which case our url
+	// will be something other than /search that we can't use for the pagination
+	// logic. We can detect this by looking for a trackid argument and changing
+	// the url to the expected /search path
+	uri := r.URL
+	if r.URL.Query().Has("trackid") {
+		query := uri.Query()
+		query.Del("trackid")
+		uri.RawQuery = query.Encode()
+		uri.Path = "/search"
+	}
+
 	return &SearchSharedInput{
 		CSRFTokenInput:  csrf.TemplateField(r),
 		Query:           query,
@@ -86,7 +98,7 @@ func NewSearchSharedInput(s radio.SearchService, rs radio.RequestStorage, r *htt
 		RequestCooldown: cd,
 		Page: shared.NewPagination(
 			page, shared.PageCount(int64(searchResult.TotalHits), searchPageSize),
-			r.URL,
+			uri,
 		),
 	}, nil
 }
