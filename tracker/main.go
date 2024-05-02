@@ -4,28 +4,19 @@ import (
 	"context"
 	"time"
 
+	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/rs/zerolog"
 )
+
+var UpdateListenersTickrate = time.Second * 10
 
 func Execute(ctx context.Context, cfg config.Config) error {
 	manager := cfg.Conf().Manager.Client()
 
 	var recorder = NewRecorder()
-	go func() {
-		ticker := time.NewTicker(time.Second * 10)
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				err := manager.UpdateListeners(ctx, recorder.ListenerAmount())
-				if err != nil {
-					zerolog.Ctx(ctx).Error().Err(err).Msg("failed update listeners")
-				}
-			}
-		}
-	}()
+
+	go PeriodicallyUpdateListeners(ctx, manager, recorder)
 
 	srv := NewServer(ctx, ":9999", recorder)
 
@@ -39,5 +30,22 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		return srv.Close()
 	case err := <-errCh:
 		return err
+	}
+}
+
+func PeriodicallyUpdateListeners(ctx context.Context, manager radio.ManagerService, recorder *Recorder) {
+	ticker := time.NewTicker(UpdateListenersTickrate)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			err := manager.UpdateListeners(ctx, recorder.ListenerAmount())
+			if err != nil {
+				zerolog.Ctx(ctx).Error().Err(err).Msg("failed update listeners")
+			}
+		}
 	}
 }

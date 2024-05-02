@@ -11,14 +11,16 @@ import (
 	"github.com/rs/zerolog/hlog"
 )
 
+const (
+	ICECAST_AUTH_HEADER         = "icecast-auth-user"
+	ICECAST_CLIENTID_FIELD_NAME = "client"
+)
+
 func ListenerAdd(ctx context.Context, recorder *Recorder) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("icecast-auth-user", "1")
-		w.WriteHeader(http.StatusOK)
-
 		_ = r.ParseForm()
 
-		id := r.FormValue("client")
+		id := r.FormValue(ICECAST_CLIENTID_FIELD_NAME)
 		if id == "" {
 			// icecast send us no client id somehow, this is broken and
 			// we can't record this listener
@@ -33,17 +35,23 @@ func ListenerAdd(ctx context.Context, recorder *Recorder) http.HandlerFunc {
 			return
 		}
 
+		// only return OK if we got the required ID from icecast
+		w.Header().Set(ICECAST_AUTH_HEADER, "1")
+		w.WriteHeader(http.StatusOK)
+
 		go recorder.ListenerAdd(ctx, cid, r)
 	}
 }
 
 func ListenerRemove(ctx context.Context, recorder *Recorder) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// always return OK because it doesn't really matter if the
+		// rest of the request is broken
 		w.WriteHeader(http.StatusOK)
 
 		_ = r.ParseForm()
 
-		id := r.FormValue("client")
+		id := r.FormValue(ICECAST_CLIENTID_FIELD_NAME)
 		if id == "" {
 			// icecast send us no client id somehow, this is broken and
 			// we can't record this listener

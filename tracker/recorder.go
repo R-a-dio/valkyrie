@@ -23,6 +23,10 @@ func ParseClientID(s string) (ClientID, error) {
 	return ClientID(id), err
 }
 
+func (c ClientID) String() string {
+	return strconv.FormatUint(uint64(c), 10)
+}
+
 type Listener struct {
 	span trace.Span
 
