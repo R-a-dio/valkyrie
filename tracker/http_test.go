@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -95,5 +96,25 @@ func TestListenerAddAndRemove(t *testing.T) {
 			// but it should not have the OK header
 			require.Zero(t, resp.Header.Get(ICECAST_AUTH_HEADER))
 		})
+	}
+}
+
+func BenchmarkListenerAdd(b *testing.B) {
+	recorder := NewRecorder()
+	ctx := context.Background()
+
+	handler := ListenerAdd(ctx, recorder)
+
+	values := url.Values{
+		ICECAST_CLIENTID_FIELD_NAME: []string{ClientID(50).String()},
+	}
+	body := strings.NewReader(values.Encode())
+	req := httptest.NewRequest(http.MethodPost, "/listener_joined", body)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	w.Body = nil
+
+	for i := 0; i < b.N; i++ {
+		handler.ServeHTTP(w, req)
 	}
 }

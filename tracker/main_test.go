@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand/v2"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -20,12 +21,16 @@ func TestPeriodicallyUpdateListeners(t *testing.T) {
 	recorder := NewRecorder()
 	var last atomic.Int64
 	var count int
+	var closeOnce sync.Once
 
 	manager := &mocks.ManagerServiceMock{
 		UpdateListenersFunc: func(contextMoqParam context.Context, new int64) error {
 			// we're done after 10 updates
 			if count++; count > 10 {
-				close(done)
+				closeOnce.Do(func() {
+					close(done)
+				})
+				return nil
 			}
 			// every 5 updates return an error
 			if count%5 == 0 {
@@ -34,7 +39,10 @@ func TestPeriodicallyUpdateListeners(t *testing.T) {
 
 			// otherwise our new value should equal what we set it to previously
 			if !assert.Equal(t, last.Load(), new) {
-				close(done)
+				closeOnce.Do(func() {
+					close(done)
+				})
+				return nil
 			}
 
 			adjustment := rand.Int64()
@@ -47,7 +55,22 @@ func TestPeriodicallyUpdateListeners(t *testing.T) {
 
 	// set the tickrate a bit higher for testing purposes
 	UpdateListenersTickrate = time.Millisecond * 10
-	go PeriodicallyUpdateListeners(ctx, manager, recorder)
+	finished := make(chan struct{})
+	go func() {
+		defer close(finished)
+		PeriodicallyUpdateListeners(ctx, manager, recorder)
+	}()
 
+	// wait for the 10 updates
 	<-done
+
+	// cancel the context we gave the function, it should clean
+	// itself up
+	cancel()
+
+	select {
+	case <-finished:
+	case <-time.After(eventuallyDelay):
+		t.Error("failed to cleanup")
+	}
 }
