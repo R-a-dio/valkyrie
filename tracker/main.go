@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/R-a-dio/valkyrie/config"
+	"github.com/rs/zerolog"
 )
 
 func Execute(ctx context.Context, cfg config.Config) error {
@@ -18,7 +19,10 @@ func Execute(ctx context.Context, cfg config.Config) error {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				manager.UpdateListeners(ctx, recorder.ListenerAmount.Load())
+				err := manager.UpdateListeners(ctx, recorder.ListenerAmount())
+				if err != nil {
+					zerolog.Ctx(ctx).Error().Err(err).Msg("failed update listeners")
+				}
 			}
 		}
 	}()

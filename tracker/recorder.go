@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -15,11 +16,18 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+type ClientID uint64
+
+func ParseClientID(s string) (ClientID, error) {
+	id, err := strconv.ParseUint(s, 10, 64)
+	return ClientID(id), err
+}
+
 type Listener struct {
 	span trace.Span
 
 	// ID is the identifier icecast is using for this client
-	ID string
+	ID ClientID
 	// Start is the time this listener started listening
 	Start time.Time
 	// Info is the information icecast sends us through the POST form values
@@ -28,17 +36,23 @@ type Listener struct {
 
 func NewRecorder() *Recorder {
 	return &Recorder{
-		Listeners: make(map[string]*Listener),
+		pendingRemoval: make(map[ClientID]time.Time),
+		listeners:      make(map[ClientID]*Listener),
 	}
 }
 
 type Recorder struct {
 	mu             sync.Mutex
-	Listeners      map[string]*Listener
-	ListenerAmount atomic.Int64
+	pendingRemoval map[ClientID]time.Time
+	listeners      map[ClientID]*Listener
+	listenerAmount atomic.Int64
 }
 
-func (r *Recorder) ListenerAdd(ctx context.Context, id string, req *http.Request) {
+func (r *Recorder) ListenerAmount() int64 {
+	return r.listenerAmount.Load()
+}
+
+func (r *Recorder) ListenerAdd(ctx context.Context, id ClientID, req *http.Request) {
 	_, span := otel.Tracer("listener-tracker").Start(ctx, "listener",
 		trace.WithNewRoot(),
 		trace.WithAttributes(requestToOtelAttributes(req)...),
@@ -51,22 +65,35 @@ func (r *Recorder) ListenerAdd(ctx context.Context, id string, req *http.Request
 		Info:  req.PostForm,
 	}
 
+	var ok bool
 	r.mu.Lock()
-	r.Listeners[listener.ID] = &listener
+	if _, ok = r.pendingRemoval[listener.ID]; !ok {
+		r.listeners[listener.ID] = &listener
+	} else {
+		delete(r.pendingRemoval, listener.ID)
+	}
 	r.mu.Unlock()
 
-	r.ListenerAmount.Add(1)
+	if !ok {
+		r.listenerAmount.Add(1)
+	}
 }
 
-func (r *Recorder) ListenerRemove(ctx context.Context, id string, req *http.Request) {
+func (r *Recorder) ListenerRemove(ctx context.Context, id ClientID, req *http.Request) {
+	var listener *Listener
+	var ok bool
+
 	r.mu.Lock()
-	listener, ok := r.Listeners[id]
-	delete(r.Listeners, id)
+	if listener, ok = r.listeners[id]; ok {
+		delete(r.listeners, id)
+	} else {
+		r.pendingRemoval[id] = time.Now()
+	}
 	r.mu.Unlock()
 
 	if ok {
 		listener.span.End()
-		r.ListenerAmount.Add(-1)
+		r.listenerAmount.Add(-1)
 	}
 }
 
