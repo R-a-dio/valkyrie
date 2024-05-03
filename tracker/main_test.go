@@ -18,7 +18,7 @@ func TestPeriodicallyUpdateListeners(t *testing.T) {
 	defer cancel()
 	done := make(chan struct{})
 
-	recorder := NewRecorder()
+	recorder := NewRecorder(ctx)
 	var last atomic.Int64
 	var count int
 	var closeOnce sync.Once
@@ -53,12 +53,10 @@ func TestPeriodicallyUpdateListeners(t *testing.T) {
 		},
 	}
 
-	// set the tickrate a bit higher for testing purposes
-	UpdateListenersTickrate = time.Millisecond * 10
 	finished := make(chan struct{})
 	go func() {
 		defer close(finished)
-		PeriodicallyUpdateListeners(ctx, manager, recorder)
+		PeriodicallyUpdateListeners(ctx, manager, recorder, time.Millisecond*10)
 	}()
 
 	// wait for the 10 updates

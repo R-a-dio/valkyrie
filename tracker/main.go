@@ -9,14 +9,18 @@ import (
 	"github.com/rs/zerolog"
 )
 
-var UpdateListenersTickrate = time.Second * 10
+const (
+	UpdateListenersTickrate    = time.Second * 10
+	RemoveStalePendingTickrate = time.Hour * 24
+	RemoveStalePendingPeriod   = time.Minute * 5
+)
 
 func Execute(ctx context.Context, cfg config.Config) error {
 	manager := cfg.Conf().Manager.Client()
 
-	var recorder = NewRecorder()
+	var recorder = NewRecorder(ctx)
 
-	go PeriodicallyUpdateListeners(ctx, manager, recorder)
+	go PeriodicallyUpdateListeners(ctx, manager, recorder, UpdateListenersTickrate)
 
 	srv := NewServer(ctx, ":9999", recorder)
 
@@ -33,8 +37,12 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	}
 }
 
-func PeriodicallyUpdateListeners(ctx context.Context, manager radio.ManagerService, recorder *Recorder) {
-	ticker := time.NewTicker(UpdateListenersTickrate)
+func PeriodicallyUpdateListeners(ctx context.Context,
+	manager radio.ManagerService,
+	recorder *Recorder,
+	tickrate time.Duration,
+) {
+	ticker := time.NewTicker(tickrate)
 	defer ticker.Stop()
 
 	for {

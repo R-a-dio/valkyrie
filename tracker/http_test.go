@@ -13,9 +13,10 @@ import (
 )
 
 func TestListenerAddAndRemove(t *testing.T) {
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	recorder := NewRecorder()
+	recorder := NewRecorder(ctx)
 	dummy := NewServer(ctx, "", recorder)
 
 	srv := httptest.NewServer(dummy.Handler)
@@ -100,8 +101,10 @@ func TestListenerAddAndRemove(t *testing.T) {
 }
 
 func BenchmarkListenerAdd(b *testing.B) {
-	recorder := NewRecorder()
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	recorder := NewRecorder(ctx)
 
 	handler := ListenerAdd(ctx, recorder)
 

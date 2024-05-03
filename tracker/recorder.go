@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/R-a-dio/valkyrie/telemetry"
+	"github.com/rs/zerolog"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -38,11 +39,13 @@ type Listener struct {
 	Info url.Values
 }
 
-func NewRecorder() *Recorder {
-	return &Recorder{
+func NewRecorder(ctx context.Context) *Recorder {
+	r := &Recorder{
 		pendingRemoval: make(map[ClientID]time.Time),
 		listeners:      make(map[ClientID]*Listener),
 	}
+	go r.PeriodicallyRemoveStalePending(ctx, RemoveStalePendingTickrate)
+	return r
 }
 
 type Recorder struct {
@@ -50,6 +53,37 @@ type Recorder struct {
 	pendingRemoval map[ClientID]time.Time
 	listeners      map[ClientID]*Listener
 	listenerAmount atomic.Int64
+}
+
+func (r *Recorder) PeriodicallyRemoveStalePending(ctx context.Context, tickrate time.Duration) {
+	ticker := time.NewTicker(tickrate)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			stale := r.removeStalePending()
+			if stale > 0 {
+				zerolog.Ctx(ctx).Error().Int("amount", stale).Msg("found stale pending removals")
+			}
+		}
+	}
+}
+
+func (r *Recorder) removeStalePending() (found_stale int) {
+	deadline := time.Now().Add(-RemoveStalePendingPeriod)
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for k, v := range r.pendingRemoval {
+		if v.Before(deadline) {
+			delete(r.pendingRemoval, k)
+			found_stale++
+		}
+	}
+	return found_stale
 }
 
 func (r *Recorder) ListenerAmount() int64 {
