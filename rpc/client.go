@@ -198,7 +198,7 @@ func (s StreamerClientRPC) Queue(ctx context.Context) ([]radio.QueueEntry, error
 
 	var queue = make([]radio.QueueEntry, len(resp.Entries))
 	for i := range resp.Entries {
-		queue[i] = *fromProtoQueueEntry(resp.Entries[i])
+		queue[i] = fromProtoQueueEntry(resp.Entries[i])
 	}
 
 	return queue, nil
@@ -235,7 +235,8 @@ func (q QueueClientRPC) ReserveNext(ctx context.Context) (*radio.QueueEntry, err
 		return nil, err
 	}
 
-	return fromProtoQueueEntry(resp), nil
+	entry := fromProtoQueueEntry(resp)
+	return &entry, nil
 }
 
 func (q QueueClientRPC) ResetReserved(ctx context.Context) error {
@@ -262,7 +263,7 @@ func (q QueueClientRPC) Entries(ctx context.Context) ([]radio.QueueEntry, error)
 
 	var queue = make([]radio.QueueEntry, len(resp.Entries))
 	for _, entry := range resp.Entries {
-		queue = append(queue, *fromProtoQueueEntry(entry))
+		queue = append(queue, fromProtoQueueEntry(entry))
 	}
 	return queue, nil
 }

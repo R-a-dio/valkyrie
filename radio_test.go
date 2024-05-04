@@ -98,6 +98,21 @@ func TestParseUserID(t *testing.T) {
 	testParseAndString(t, ParseUserID)
 }
 
+func TestParseSongHash(t *testing.T) {
+	a := arbitrary.DefaultArbitraries()
+
+	p := gopter.NewProperties(nil)
+	// roundtrips should always succeed
+	p.Property("roundtrip", a.ForAll(func(in SongHash) bool {
+		out, err := ParseSongHash(in.String())
+		if err != nil {
+			return false
+		}
+		return in == out
+	}))
+	p.TestingRun(t)
+}
+
 type stringAndComparable interface {
 	fmt.Stringer
 	constraints.Integer

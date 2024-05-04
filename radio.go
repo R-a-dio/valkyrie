@@ -461,6 +461,13 @@ func (s SongID) String() string {
 // SongHash is a sha1 hash
 type SongHash [sha1.Size]byte
 
+// ParseSongHash reverts SongHash.String
+func ParseSongHash(s string) (SongHash, error) {
+	var hash SongHash
+	_, err := hex.Decode(hash[:], []byte(s))
+	return hash, err
+}
+
 // NewSongHash generates a new SongHash for the metadata passed in
 func NewSongHash(metadata string) SongHash {
 	metadata = strings.TrimSpace(strings.ToLower(metadata))

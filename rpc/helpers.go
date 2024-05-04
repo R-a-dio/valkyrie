@@ -1,7 +1,6 @@
 package rpc
 
 import (
-	"encoding/hex"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -20,6 +19,10 @@ func t(x *timestamppb.Timestamp) time.Time {
 
 // ptrt is a pointer version of t
 func ptrt(x *timestamppb.Timestamp) *time.Time {
+	if x == nil {
+		return nil
+	}
+
 	tmp := t(x)
 	return &tmp
 }
@@ -81,17 +84,19 @@ func toProtoStatus(s radio.Status) *StatusResponse {
 
 func toProtoSong(s radio.Song) *Song {
 	song := &Song{
-		Id:         int32(s.ID),
-		Hash:       s.Hash.String(),
-		Metadata:   s.Metadata,
-		Length:     dp(s.Length),
-		LastPlayed: tp(s.LastPlayed),
-		SyncTime:   tp(s.SyncTime),
+		Id:           uint64(s.ID),
+		Hash:         s.Hash.String(),
+		HashLink:     s.HashLink.String(),
+		Metadata:     s.Metadata,
+		Length:       dp(s.Length),
+		LastPlayed:   tp(s.LastPlayed),
+		LastPlayedBy: toProtoUser(s.LastPlayedBy),
+		SyncTime:     tp(s.SyncTime),
 	}
 
 	if s.HasTrack() {
 		// track fields
-		song.TrackId = int32(s.TrackID)
+		song.TrackId = uint64(s.TrackID)
 		song.Artist = s.Artist
 		song.Title = s.Title
 		song.Album = s.Album
@@ -103,39 +108,43 @@ func toProtoSong(s radio.Song) *Song {
 		song.Usable = s.Usable
 		song.LastRequested = tp(s.LastRequested)
 		song.RequestCount = int32(s.RequestCount)
+		song.NeedReplacement = s.NeedReplacement
 	}
 
 	return song
 }
 
 func fromProtoSong(s *Song) radio.Song {
-	var hash radio.SongHash
-	hex.Decode(hash[:], []byte(s.Hash))
+	hash, _ := radio.ParseSongHash(s.Hash)
+	hashlink, _ := radio.ParseSongHash(s.HashLink)
 
 	var track *radio.DatabaseTrack
 	if s.TrackId != 0 {
 		track = &radio.DatabaseTrack{
-			TrackID:       radio.TrackID(s.TrackId),
-			Artist:        s.Artist,
-			Title:         s.Title,
-			Album:         s.Album,
-			FilePath:      s.FilePath,
-			Tags:          s.Tags,
-			Acceptor:      s.Acceptor,
-			LastEditor:    s.LastEditor,
-			Priority:      int(s.Priority),
-			Usable:        s.Usable,
-			LastRequested: t(s.LastRequested),
-			RequestCount:  int(s.RequestCount),
+			TrackID:         radio.TrackID(s.TrackId),
+			Artist:          s.Artist,
+			Title:           s.Title,
+			Album:           s.Album,
+			FilePath:        s.FilePath,
+			Tags:            s.Tags,
+			Acceptor:        s.Acceptor,
+			LastEditor:      s.LastEditor,
+			Priority:        int(s.Priority),
+			Usable:          s.Usable,
+			LastRequested:   t(s.LastRequested),
+			RequestCount:    int(s.RequestCount),
+			NeedReplacement: s.NeedReplacement,
 		}
 	}
 
 	return radio.Song{
 		ID:            radio.SongID(s.Id),
 		Hash:          hash,
+		HashLink:      hashlink,
 		Metadata:      s.Metadata,
 		Length:        d(s.Length),
 		LastPlayed:    t(s.LastPlayed),
+		LastPlayedBy:  fromProtoUser(s.LastPlayedBy),
 		DatabaseTrack: track,
 		SyncTime:      t(s.SyncTime),
 	}
@@ -158,6 +167,9 @@ func fromProtoSongInfo(i *SongInfo) radio.SongInfo {
 }
 
 func toProtoSongUpdate(s *radio.SongUpdate) *SongUpdate {
+	if s == nil {
+		return nil
+	}
 	return &SongUpdate{
 		Song: toProtoSong(s.Song),
 		Info: toProtoSongInfo(s.Info),
@@ -165,6 +177,9 @@ func toProtoSongUpdate(s *radio.SongUpdate) *SongUpdate {
 }
 
 func fromProtoSongUpdate(s *SongUpdate) *radio.SongUpdate {
+	if s == nil {
+		return nil
+	}
 	return &radio.SongUpdate{
 		Song: fromProtoSong(s.Song),
 		Info: fromProtoSongInfo(s.Info),
@@ -181,12 +196,12 @@ func toProtoQueueEntry(entry radio.QueueEntry) *QueueEntry {
 	}
 }
 
-func fromProtoQueueEntry(entry *QueueEntry) *radio.QueueEntry {
-	if entry == nil || entry.Song == nil {
-		return nil
+func fromProtoQueueEntry(entry *QueueEntry) radio.QueueEntry {
+	if entry == nil {
+		return radio.QueueEntry{}
 	}
 
-	return &radio.QueueEntry{
+	return radio.QueueEntry{
 		QueueID:           fromProtoQueueID(entry.QueueId),
 		Song:              fromProtoSong(entry.Song),
 		IsUserRequest:     entry.IsUserRequest,
@@ -219,18 +234,20 @@ func toProtoUser(u *radio.User) *User {
 		return nil
 	}
 	return &User{
-		Id:        int32(u.ID),
-		Username:  u.Username,
-		Ip:        u.IP,
-		UpdatedAt: ptrtp(u.UpdatedAt),
-		DeletedAt: ptrtp(u.DeletedAt),
-		CreatedAt: tp(u.CreatedAt),
-		Dj:        toProtoDJ(u.DJ),
+		Id:              int32(u.ID),
+		Username:        u.Username,
+		Ip:              u.IP,
+		UpdatedAt:       ptrtp(u.UpdatedAt),
+		DeletedAt:       ptrtp(u.DeletedAt),
+		CreatedAt:       tp(u.CreatedAt),
+		Dj:              toProtoDJ(u.DJ),
+		UserPermissions: toProtoUserPermissions(u.UserPermissions),
 		// These are disabled because they should probably never be used by a component
 		// that doesn't have direct-access to the database
 		//Password: 	 u.Password,
 		//Email:		 u.Email,
 		//RememberToken: u.RememberToken,
+		//UserPermissions: u.UserPermissions,
 	}
 }
 
@@ -239,24 +256,48 @@ func fromProtoUser(u *User) *radio.User {
 		return nil
 	}
 	return &radio.User{
-		ID:        radio.UserID(u.Id),
-		Username:  u.Username,
-		IP:        u.Ip,
-		UpdatedAt: ptrt(u.UpdatedAt),
-		DeletedAt: ptrt(u.DeletedAt),
-		CreatedAt: t(u.CreatedAt),
-		DJ:        fromProtoDJ(u.Dj),
+		ID:              radio.UserID(u.Id),
+		Username:        u.Username,
+		IP:              u.Ip,
+		UpdatedAt:       ptrt(u.UpdatedAt),
+		DeletedAt:       ptrt(u.DeletedAt),
+		CreatedAt:       t(u.CreatedAt),
+		DJ:              fromProtoDJ(u.Dj),
+		UserPermissions: fromProtoUserPermissions(u.UserPermissions),
 		// These are disabled because they should probably never be used by a component
 		// that doesn't have direct-access to the database
 		//Password:      u.Password,
 		//Email:         u.Email,
 		//RememberToken: u.RememberToken,
+		//UserPermissions: u.UserPermissions,
 	}
+}
+
+func toProtoUserPermissions(up radio.UserPermissions) []string {
+	if up == nil {
+		return nil
+	}
+	res := make([]string, 0, len(up))
+	for perm := range up {
+		res = append(res, string(perm))
+	}
+	return res
+}
+
+func fromProtoUserPermissions(up []string) radio.UserPermissions {
+	if up == nil {
+		return nil
+	}
+	res := make(radio.UserPermissions, len(up))
+	for _, perm := range up {
+		res[radio.UserPermission(perm)] = struct{}{}
+	}
+	return res
 }
 
 func toProtoDJ(d radio.DJ) *DJ {
 	return &DJ{
-		Id:       int32(d.ID),
+		Id:       uint64(d.ID),
 		Name:     d.Name,
 		Regex:    d.Regex,
 		Text:     d.Text,
@@ -291,7 +332,7 @@ func fromProtoDJ(d *DJ) radio.DJ {
 
 func toProtoTheme(t radio.Theme) *Theme {
 	return &Theme{
-		Id:          int32(t.ID),
+		Id:          uint64(t.ID),
 		Name:        t.Name,
 		DisplayName: t.DisplayName,
 		Author:      t.Author,

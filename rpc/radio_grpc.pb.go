@@ -1119,3 +1119,93 @@ var Queue_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "radio.proto",
 }
+
+const (
+	ListenerTracker_ListClients_FullMethodName = "/radio.ListenerTracker/ListClients"
+)
+
+// ListenerTrackerClient is the client API for ListenerTracker service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type ListenerTrackerClient interface {
+	ListClients(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*Listeners, error)
+}
+
+type listenerTrackerClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewListenerTrackerClient(cc grpc.ClientConnInterface) ListenerTrackerClient {
+	return &listenerTrackerClient{cc}
+}
+
+func (c *listenerTrackerClient) ListClients(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*Listeners, error) {
+	out := new(Listeners)
+	err := c.cc.Invoke(ctx, ListenerTracker_ListClients_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ListenerTrackerServer is the server API for ListenerTracker service.
+// All implementations must embed UnimplementedListenerTrackerServer
+// for forward compatibility
+type ListenerTrackerServer interface {
+	ListClients(context.Context, *emptypb.Empty) (*Listeners, error)
+	mustEmbedUnimplementedListenerTrackerServer()
+}
+
+// UnimplementedListenerTrackerServer must be embedded to have forward compatible implementations.
+type UnimplementedListenerTrackerServer struct {
+}
+
+func (UnimplementedListenerTrackerServer) ListClients(context.Context, *emptypb.Empty) (*Listeners, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListClients not implemented")
+}
+func (UnimplementedListenerTrackerServer) mustEmbedUnimplementedListenerTrackerServer() {}
+
+// UnsafeListenerTrackerServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to ListenerTrackerServer will
+// result in compilation errors.
+type UnsafeListenerTrackerServer interface {
+	mustEmbedUnimplementedListenerTrackerServer()
+}
+
+func RegisterListenerTrackerServer(s grpc.ServiceRegistrar, srv ListenerTrackerServer) {
+	s.RegisterService(&ListenerTracker_ServiceDesc, srv)
+}
+
+func _ListenerTracker_ListClients_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ListenerTrackerServer).ListClients(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ListenerTracker_ListClients_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ListenerTrackerServer).ListClients(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// ListenerTracker_ServiceDesc is the grpc.ServiceDesc for ListenerTracker service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var ListenerTracker_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "radio.ListenerTracker",
+	HandlerType: (*ListenerTrackerServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListClients",
+			Handler:    _ListenerTracker_ListClients_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "radio.proto",
+}

@@ -9,7 +9,7 @@ import "google/protobuf/timestamp.proto";
 
 message Song {
     // song identifier (esong.id)
-    int32 id = 1;
+    uint64 id = 1;
     // sha1 hexdigest of metadata contents
     string hash = 2;
     // short metadata
@@ -18,9 +18,12 @@ message Song {
     google.protobuf.Duration length = 4;
     // last time this song was played
     google.protobuf.Timestamp last_played = 5;
+    string hash_link = 6;
+    // the user that last played this song
+    radio.User last_played_by = 7;
 
     // DatabaseTrack fields
-    int32 track_id = 16;
+    uint64 track_id = 16;
     string artist = 17;
     string title = 18;
     string album = 19;
@@ -31,6 +34,7 @@ message Song {
     string last_editor = 23;
     int32 priority = 24;
     bool usable = 25;
+    bool need_replacement = 29;
 
     google.protobuf.Timestamp last_requested = 26;
     int32 request_count = 27;
@@ -108,11 +112,12 @@ message User {
     google.protobuf.Timestamp created_at = 9;
 
     DJ dj = 10;
+    repeated string user_permissions = 11;
 }
 
 message DJ {
     // DJ fields
-    int32 id = 1;
+    uint64 id = 1;
     string name = 2;
     string regex = 3;
     string text = 4;
@@ -127,7 +132,7 @@ message DJ {
 }
 
 message Theme {
-    int32 id = 1;
+    uint64 id = 1;
     string name = 2;
     string display_name = 3;
     string author = 4;
@@ -222,3 +227,17 @@ message Error {
     string error = 7;
 }
 
+service ListenerTracker {
+    rpc ListClients(google.protobuf.Empty) returns (Listeners);
+}
+
+message Listeners {
+    repeated Listener entries = 1;
+}
+
+message Listener {
+    uint64 id = 1;
+    string address = 2;
+    string user_agent = 3;
+    google.protobuf.Timestamp start = 4;
+}
