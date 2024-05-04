@@ -96,6 +96,10 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 			vmiddleware.RequirePermission(radio.PermNews, s.PostNewsEntry))
 		r.Post("/news/render",
 			vmiddleware.RequirePermission(radio.PermNews, s.PostNewsRender))
+		r.Get("/queue", // TODO: change permission to queue specific
+			vmiddleware.RequirePermission(radio.PermAdmin, s.GetQueue))
+		r.Get("/schedule", // TODO: change permission to schedule specific
+			vmiddleware.RequirePermission(radio.PermAdmin, s.GetSchedule))
 
 		// proxy to the grafana host
 		grafana, _ := url.Parse("http://localhost:3000")
