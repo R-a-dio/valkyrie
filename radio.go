@@ -330,6 +330,28 @@ type Thread = string
 
 type Listeners = int64
 
+type ListenerClientID uint64
+
+func ParseListenerClientID(s string) (ListenerClientID, error) {
+	id, err := strconv.ParseUint(s, 10, 64)
+	return ListenerClientID(id), err
+}
+
+func (c ListenerClientID) String() string {
+	return strconv.FormatUint(uint64(c), 10)
+}
+
+type Listener struct {
+	ID        ListenerClientID
+	UserAgent string
+	IP        string
+	Start     time.Time
+}
+
+type ListenerTrackerService interface {
+	ListClients(context.Context) ([]Listener, error)
+}
+
 type ManagerService interface {
 	CurrentUser(context.Context) (eventstream.Stream[*User], error)
 	UpdateUser(context.Context, *User) error

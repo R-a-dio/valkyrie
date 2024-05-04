@@ -4,12 +4,12 @@ import (
 	"context"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/telemetry"
 	"github.com/rs/zerolog"
 	"go.opentelemetry.io/otel"
@@ -17,22 +17,11 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-type ClientID uint64
-
-func ParseClientID(s string) (ClientID, error) {
-	id, err := strconv.ParseUint(s, 10, 64)
-	return ClientID(id), err
-}
-
-func (c ClientID) String() string {
-	return strconv.FormatUint(uint64(c), 10)
-}
-
 type Listener struct {
 	span trace.Span
 
 	// ID is the identifier icecast is using for this client
-	ID ClientID
+	ID radio.ListenerClientID
 	// Start is the time this listener started listening
 	Start time.Time
 	// Info is the information icecast sends us through the POST form values
@@ -41,8 +30,8 @@ type Listener struct {
 
 func NewRecorder(ctx context.Context) *Recorder {
 	r := &Recorder{
-		pendingRemoval: make(map[ClientID]time.Time),
-		listeners:      make(map[ClientID]*Listener),
+		pendingRemoval: make(map[radio.ListenerClientID]time.Time),
+		listeners:      make(map[radio.ListenerClientID]*Listener),
 	}
 	go r.PeriodicallyRemoveStalePending(ctx, RemoveStalePendingTickrate)
 	return r
@@ -50,8 +39,8 @@ func NewRecorder(ctx context.Context) *Recorder {
 
 type Recorder struct {
 	mu             sync.Mutex
-	pendingRemoval map[ClientID]time.Time
-	listeners      map[ClientID]*Listener
+	pendingRemoval map[radio.ListenerClientID]time.Time
+	listeners      map[radio.ListenerClientID]*Listener
 	listenerAmount atomic.Int64
 }
 
@@ -90,7 +79,7 @@ func (r *Recorder) ListenerAmount() int64 {
 	return r.listenerAmount.Load()
 }
 
-func (r *Recorder) ListenerAdd(ctx context.Context, id ClientID, req *http.Request) {
+func (r *Recorder) ListenerAdd(ctx context.Context, id radio.ListenerClientID, req *http.Request) {
 	_, span := otel.Tracer("listener-tracker").Start(ctx, "listener",
 		trace.WithNewRoot(),
 		trace.WithAttributes(requestToOtelAttributes(req)...),
@@ -117,7 +106,7 @@ func (r *Recorder) ListenerAdd(ctx context.Context, id ClientID, req *http.Reque
 	}
 }
 
-func (r *Recorder) ListenerRemove(ctx context.Context, id ClientID, req *http.Request) {
+func (r *Recorder) ListenerRemove(ctx context.Context, id radio.ListenerClientID, req *http.Request) {
 	var listener *Listener
 	var ok bool
 

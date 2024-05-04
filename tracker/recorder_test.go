@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	radio "github.com/R-a-dio/valkyrie"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -23,7 +24,7 @@ func TestListenerAddAndRemoval(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 
-	count := ClientID(200)
+	count := radio.ListenerClientID(200)
 	for i := range count {
 		go r.ListenerAdd(ctx, i, req)
 	}
@@ -53,7 +54,7 @@ func TestListenerAddAndRemovalOutOfOrder(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 
 	count := int64(200)
-	for i := range ClientID(count) {
+	for i := range radio.ListenerClientID(count) {
 		if i%2 == 0 {
 			go r.ListenerAdd(ctx, i, req)
 		} else {
@@ -74,7 +75,7 @@ func TestListenerAddAndRemovalOutOfOrder(t *testing.T) {
 	}, eventuallyDelay, eventuallyTick)
 
 	// now do the inverse and we should end up with nothing
-	for i := range ClientID(count) {
+	for i := range radio.ListenerClientID(count) {
 		if i%2 != 0 {
 			go r.ListenerAdd(ctx, i, req)
 		} else {
@@ -122,7 +123,7 @@ func TestRecorderRemoveStalePending(t *testing.T) {
 		ctx := testCtx(t)
 		r := NewRecorder(ctx)
 
-		id := ClientID(10)
+		id := radio.ListenerClientID(10)
 		r.mu.Lock()
 		r.pendingRemoval[id] = time.Now().Add(-RemoveStalePendingPeriod)
 		r.mu.Unlock()
@@ -138,7 +139,7 @@ func TestRecorderRemoveStalePending(t *testing.T) {
 
 		count := RemoveStalePendingPeriod / time.Second * 2
 		r.mu.Lock()
-		for i := range ClientID(count) {
+		for i := range radio.ListenerClientID(count) {
 			r.pendingRemoval[i] = time.Now().Add(-time.Second * time.Duration(i))
 		}
 		r.mu.Unlock()
@@ -152,7 +153,7 @@ func TestRecorderRemoveStalePending(t *testing.T) {
 		ctx := testCtx(t)
 		r := NewRecorder(ctx)
 
-		id := ClientID(10)
+		id := radio.ListenerClientID(10)
 		r.mu.Lock()
 		r.pendingRemoval[id] = time.Now().Add(-RemoveStalePendingPeriod)
 		r.mu.Unlock()

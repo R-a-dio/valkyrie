@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	radio "github.com/R-a-dio/valkyrie"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -24,7 +25,7 @@ func TestListenerAddAndRemove(t *testing.T) {
 	client := srv.Client()
 
 	t.Run("join then leave", func(t *testing.T) {
-		id := ClientID(500)
+		id := radio.ListenerClientID(500)
 
 		// ========================
 		// Do a normal join request
@@ -109,7 +110,7 @@ func BenchmarkListenerAdd(b *testing.B) {
 	handler := ListenerAdd(ctx, recorder)
 
 	values := url.Values{
-		ICECAST_CLIENTID_FIELD_NAME: []string{ClientID(50).String()},
+		ICECAST_CLIENTID_FIELD_NAME: []string{radio.ListenerClientID(50).String()},
 	}
 	body := strings.NewReader(values.Encode())
 	req := httptest.NewRequest(http.MethodPost, "/listener_joined", body)

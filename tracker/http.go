@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/website"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
@@ -28,7 +29,7 @@ func ListenerAdd(ctx context.Context, recorder *Recorder) http.HandlerFunc {
 			return
 		}
 
-		cid, err := ParseClientID(id)
+		cid, err := radio.ParseListenerClientID(id)
 		if err != nil {
 			// icecast send us a client id that isn't an integer
 			hlog.FromRequest(r).WithLevel(zerolog.PanicLevel).Msg("received icecast client with non-int id")
@@ -59,7 +60,7 @@ func ListenerRemove(ctx context.Context, recorder *Recorder) http.HandlerFunc {
 			return
 		}
 
-		cid, err := ParseClientID(id)
+		cid, err := radio.ParseListenerClientID(id)
 		if err != nil {
 			// icecast send us a client id that isn't an integer
 			hlog.FromRequest(r).WithLevel(zerolog.PanicLevel).Msg("received icecast client with non-int id")
