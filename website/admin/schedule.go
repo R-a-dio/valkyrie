@@ -36,7 +36,7 @@ func NewScheduleInput(ss radio.ScheduleStorage, us radio.UserStorage, r *http.Re
 	}
 	// filter users down to just djs
 	users = slices.DeleteFunc(users, func(u radio.User) bool {
-		return u.UserPermissions.Has(radio.PermDJ)
+		return !u.UserPermissions.Has(radio.PermDJ)
 	})
 
 	return &ScheduleInput{
