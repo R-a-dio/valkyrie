@@ -562,6 +562,9 @@ func (pf *ProfileForm) Update(form url.Values) {
 	if form.Has("dj.theme.name") {
 		pf.DJ.Theme.Name = form.Get("dj.theme.name")
 	}
+	if form.Has("dj.text") {
+		pf.DJ.Text = form.Get("dj.text")
+	}
 
 	// password handling
 	pf.PasswordChangeForm.Current = form.Get("password.current")
@@ -592,6 +595,9 @@ func (pf *ProfileForm) ToValues() url.Values {
 		}
 		if pf.DJ.Name != "" {
 			values.Set("dj.name", pf.DJ.Name)
+		}
+		if pf.DJ.Text != "" {
+			values.Set("dj.text", pf.DJ.Text)
 		}
 		values.Set("dj.priority", strconv.FormatInt(int64(pf.DJ.Priority), 10))
 		values.Set("dj.regex", pf.DJ.Regex)
