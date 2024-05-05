@@ -424,3 +424,21 @@ func fromProtoError(stack []*Error) error {
 
 	return top
 }
+
+func toProtoListener(l radio.Listener) *Listener {
+	return &Listener{
+		UserAgent: l.UserAgent,
+		Address:   l.IP,
+		Id:        uint64(l.ID),
+		Start:     tp(l.Start),
+	}
+}
+
+func fromProtoListener(l *Listener) radio.Listener {
+	return radio.Listener{
+		UserAgent: l.UserAgent,
+		IP:        l.Address,
+		ID:        radio.ListenerClientID(l.Id),
+		Start:     t(l.Start),
+	}
+}

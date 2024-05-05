@@ -251,3 +251,33 @@ func (q QueueShim) Entries(ctx context.Context, _ *emptypb.Empty) (*QueueInfo, e
 		Entries: queue,
 	}, nil
 }
+
+func NewListenerTracker(lt radio.ListenerTrackerService) ListenerTrackerServer {
+	return ListenerTrackerShim{tracker: lt}
+}
+
+// ListenerTrackerShim implements ListenerTracker
+type ListenerTrackerShim struct {
+	UnimplementedListenerTrackerServer
+	tracker radio.ListenerTrackerService
+}
+
+func (lt ListenerTrackerShim) ListClients(ctx context.Context, _ *emptypb.Empty) (*Listeners, error) {
+	entries, err := lt.tracker.ListClients(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	listeners := make([]*Listener, len(entries))
+	for i := range entries {
+		listeners[i] = toProtoListener(entries[i])
+	}
+
+	return &Listeners{
+		Entries: listeners,
+	}, nil
+}
+
+func (lt ListenerTrackerShim) RemoveClient(ctx context.Context) (*emptypb.Empty, error) {
+	return nil, nil
+}

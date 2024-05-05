@@ -29,6 +29,36 @@ func PrepareConn(addr string) *grpc.ClientConn {
 	return conn
 }
 
+func NewListenerTrackerService(c *grpc.ClientConn) radio.ListenerTrackerService {
+	return ListenerTrackerClientRPC{
+		rpc: NewListenerTrackerClient(c),
+	}
+}
+
+type ListenerTrackerClientRPC struct {
+	rpc ListenerTrackerClient
+}
+
+var _ radio.ListenerTrackerService = ListenerTrackerClientRPC{}
+
+func (lt ListenerTrackerClientRPC) ListClients(ctx context.Context) ([]radio.Listener, error) {
+	resp, err := lt.rpc.ListClients(ctx, new(emptypb.Empty))
+	if err != nil {
+		return nil, err
+	}
+
+	listeners := make([]radio.Listener, len(resp.Entries))
+	for i := range resp.Entries {
+		listeners[i] = fromProtoListener(resp.Entries[i])
+	}
+
+	return listeners, nil
+}
+
+func (lt ListenerTrackerClientRPC) RemoveClient(ctx context.Context, id radio.ListenerClientID) error {
+	return nil
+}
+
 // NewAnnouncerService returns a new client implementing radio.AnnounceService
 func NewAnnouncerService(c *grpc.ClientConn) radio.AnnounceService {
 	return AnnouncerClientRPC{

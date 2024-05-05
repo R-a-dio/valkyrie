@@ -102,6 +102,11 @@ func TestRoundtrip(tt *testing.T) {
 
 		return assert.EqualExportedValues(tt, in, out)
 	}))
+	p.Property("listener", a.ForAll(func(in radio.Listener) bool {
+		out := fromProtoListener(toProtoListener(in))
+
+		return assert.EqualExportedValues(tt, in, out)
+	}))
 
 	p.TestingRun(tt)
 }

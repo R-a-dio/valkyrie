@@ -328,19 +328,25 @@ type SongUpdate struct {
 
 type Thread = string
 
+// Listeners is a dedicated type for an amount of listeners
 type Listeners = int64
 
+// ListenerClientID is an identifier unique to each listener
 type ListenerClientID uint64
 
+// ParseListenerClientID parses a string as a ListenerClientID, input
+// is expected to be like the output of ListenerClientID.String
 func ParseListenerClientID(s string) (ListenerClientID, error) {
 	id, err := strconv.ParseUint(s, 10, 64)
 	return ListenerClientID(id), err
 }
 
+// String returns the ListenerClientID as a string
 func (c ListenerClientID) String() string {
 	return strconv.FormatUint(uint64(c), 10)
 }
 
+// Listener is a listener of the stream
 type Listener struct {
 	ID        ListenerClientID
 	UserAgent string
@@ -349,7 +355,11 @@ type Listener struct {
 }
 
 type ListenerTrackerService interface {
+	// ListClients lists all listeners currently connected
+	// to the stream
 	ListClients(context.Context) ([]Listener, error)
+	// RemoveClient kicks a listener from the stream
+	RemoveClient(context.Context, ListenerClientID) error
 }
 
 type ManagerService interface {

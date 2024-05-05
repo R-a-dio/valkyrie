@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -120,6 +121,24 @@ func (r *Recorder) ListenerRemove(ctx context.Context, id radio.ListenerClientID
 		listener.span.End()
 		r.listenerAmount.Add(-1)
 	}
+}
+
+func (r *Recorder) ListClients(ctx context.Context) ([]radio.Listener, error) {
+	r.mu.Lock()
+	res := make([]radio.Listener, 0, len(r.listeners))
+	for _, v := range r.listeners {
+		res = append(res, v.Listener)
+	}
+	r.mu.Unlock()
+
+	slices.SortFunc(res, func(a, b radio.Listener) int {
+		return a.Start.Compare(b.Start)
+	})
+	return res, nil
+}
+
+func (r *Recorder) RemoveClient(ctx context.Context, id radio.ListenerClientID) error {
+	return nil
 }
 
 func requestToOtelAttributes(req *http.Request) []attribute.KeyValue {
