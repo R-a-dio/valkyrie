@@ -96,6 +96,7 @@ func (r *Recorder) ListenerAdd(ctx context.Context, id radio.ListenerClientID, r
 	if _, ok = r.pendingRemoval[listener.ID]; !ok {
 		r.listeners[listener.ID] = &listener
 	} else {
+		span.End() // close the span since we're not adding ourselves
 		delete(r.pendingRemoval, listener.ID)
 	}
 	r.mu.Unlock()
@@ -138,6 +139,7 @@ func (r *Recorder) ListClients(ctx context.Context) ([]radio.Listener, error) {
 }
 
 func (r *Recorder) RemoveClient(ctx context.Context, id radio.ListenerClientID) error {
+	// TODO: implement this
 	return nil
 }
 
