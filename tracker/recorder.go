@@ -2,8 +2,8 @@ package tracker
 
 import (
 	"context"
+	"net"
 	"net/http"
-	"net/url"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -20,12 +20,7 @@ import (
 type Listener struct {
 	span trace.Span
 
-	// ID is the identifier icecast is using for this client
-	ID radio.ListenerClientID
-	// Start is the time this listener started listening
-	Start time.Time
-	// Info is the information icecast sends us through the POST form values
-	Info url.Values
+	radio.Listener
 }
 
 func NewRecorder(ctx context.Context) *Recorder {
@@ -86,10 +81,13 @@ func (r *Recorder) ListenerAdd(ctx context.Context, id radio.ListenerClientID, r
 	)
 
 	listener := Listener{
-		ID:    id,
-		span:  span,
-		Start: time.Now(),
-		Info:  req.PostForm,
+		span: span,
+		Listener: radio.Listener{
+			ID:        id,
+			UserAgent: req.PostFormValue("agent"), // passed by icecast
+			Start:     time.Now(),
+			IP:        IcecastRealIP(req),
+		},
 	}
 
 	var ok bool
@@ -130,4 +128,34 @@ func requestToOtelAttributes(req *http.Request) []attribute.KeyValue {
 		res = append(res, attribute.StringSlice(strings.ToLower(name), value))
 	}
 	return res
+}
+
+const prefix = "client."
+
+var xForwardedFor = strings.ToLower(prefix + "X-Forwarded-For")
+var xRealIP = strings.ToLower(prefix + "X-Real-IP")
+var trueClientIP = strings.ToLower(prefix + "True-Client-IP")
+
+// icecastRealIP recovers the clients real ip address from the request
+//
+// This looks for X-Forwarded-For, X-Real-IP and True-Client-IP
+func IcecastRealIP(r *http.Request) string {
+	var ip string
+
+	if tcip := r.PostForm.Get(trueClientIP); tcip != "" {
+		ip = tcip
+	} else if xrip := r.PostForm.Get(xRealIP); xrip != "" {
+		ip = xrip
+	} else if xff := r.PostForm.Get(xForwardedFor); xff != "" {
+		i := strings.Index(xff, ",")
+		if i == -1 {
+			i = len(xff)
+		}
+		ip = xff[:i]
+	}
+	if ip == "" || net.ParseIP(ip) == nil {
+		return ""
+	}
+	return ip
+
 }

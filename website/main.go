@@ -218,7 +218,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 
 // RedirectLegacyStream redirects a request to the (new) icecast stream url
 func RedirectLegacyStream(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Location", "//stream.r-a-d.io/main")
+	w.Header().Set("Location", "//stream.r-a-d.io/main.mp3")
 	w.WriteHeader(http.StatusMovedPermanently)
 }
 

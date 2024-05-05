@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -165,5 +167,80 @@ func TestRecorderRemoveStalePending(t *testing.T) {
 		assert.Eventually(t, func() bool {
 			return testPendingLength(t, r, 0)
 		}, eventuallyDelay, eventuallyTick)
+	})
+}
+
+func TestIcecastRealIP(t *testing.T) {
+	t.Run(xForwardedFor, func(t *testing.T) {
+		ctx := testCtx(t)
+		r := NewRecorder(ctx)
+		id := radio.ListenerClientID(50)
+		ip := "192.168.1.1"
+		values := url.Values{}
+		values.Add(xForwardedFor, ip)
+
+		body := strings.NewReader(values.Encode())
+		req := httptest.NewRequest(http.MethodPost, "/listener_add", body)
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+		r.ListenerAdd(ctx, id, req)
+
+		r.mu.Lock()
+		assert.Equal(t, ip, r.listeners[id].IP)
+		r.mu.Unlock()
+	})
+	t.Run(xForwardedFor+"/multiple", func(t *testing.T) {
+		ctx := testCtx(t)
+		r := NewRecorder(ctx)
+		id := radio.ListenerClientID(50)
+		ip := "192.168.1.1, 203.0.113.195, 70.41.3.18, 150.172.238.178"
+		values := url.Values{}
+		values.Add(xForwardedFor, ip)
+
+		body := strings.NewReader(values.Encode())
+		req := httptest.NewRequest(http.MethodPost, "/listener_add", body)
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+		r.ListenerAdd(ctx, id, req)
+
+		r.mu.Lock()
+		assert.Equal(t, "192.168.1.1", r.listeners[id].IP)
+		r.mu.Unlock()
+	})
+	t.Run(trueClientIP, func(t *testing.T) {
+		ctx := testCtx(t)
+		r := NewRecorder(ctx)
+		id := radio.ListenerClientID(50)
+		ip := "192.168.1.1"
+		values := url.Values{}
+		values.Add(trueClientIP, ip)
+
+		body := strings.NewReader(values.Encode())
+		req := httptest.NewRequest(http.MethodPost, "/listener_add", body)
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+		r.ListenerAdd(ctx, id, req)
+
+		r.mu.Lock()
+		assert.Equal(t, ip, r.listeners[id].IP)
+		r.mu.Unlock()
+	})
+	t.Run(xRealIP, func(t *testing.T) {
+		ctx := testCtx(t)
+		r := NewRecorder(ctx)
+		id := radio.ListenerClientID(50)
+		ip := "192.168.1.1"
+		values := url.Values{}
+		values.Add(xRealIP, ip)
+
+		body := strings.NewReader(values.Encode())
+		req := httptest.NewRequest(http.MethodPost, "/listener_add", body)
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+		r.ListenerAdd(ctx, id, req)
+
+		r.mu.Lock()
+		assert.Equal(t, ip, r.listeners[id].IP)
+		r.mu.Unlock()
 	})
 }

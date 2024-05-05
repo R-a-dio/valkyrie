@@ -76,6 +76,7 @@ func (s State) GetFaves(w http.ResponseWriter, r *http.Request) {
 		err := json.NewEncoder(w).Encode(NewFaveDownload(input.Faves))
 		if err != nil {
 			s.errorHandler(w, r, err)
+			return
 		}
 		return
 	}

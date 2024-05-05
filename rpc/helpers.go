@@ -247,7 +247,6 @@ func toProtoUser(u *radio.User) *User {
 		//Password: 	 u.Password,
 		//Email:		 u.Email,
 		//RememberToken: u.RememberToken,
-		//UserPermissions: u.UserPermissions,
 	}
 }
 
@@ -269,7 +268,6 @@ func fromProtoUser(u *User) *radio.User {
 		//Password:      u.Password,
 		//Email:         u.Email,
 		//RememberToken: u.RememberToken,
-		//UserPermissions: u.UserPermissions,
 	}
 }
 
