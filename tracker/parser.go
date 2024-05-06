@@ -48,10 +48,10 @@ func ParseListClients(r io.Reader) ([]radio.Listener, error) {
 
 	// here we do our sanity check on the icecast table header
 	if len(expectedColumns) != len(columns) {
-		// warning: invalid column count found in listclients
+		return nil, fmt.Errorf("wrong amount of columns found: %d != %d", len(expectedColumns), len(columns))
 	}
 	if slices.Compare(expectedColumns, columns) != 0 {
-		// warning: different column names in listclients
+		return nil, fmt.Errorf("column names are different than expected, found: %v", columns)
 	}
 
 	// now we continue with the table body, this will have one row per
@@ -78,8 +78,8 @@ func ParseListClients(r io.Reader) ([]radio.Listener, error) {
 		}
 
 		// sanity check that we got 4 columns worth of data
-		if len(data) != 4 {
-			return nil
+		if len(data) != len(expectedColumns) {
+			return fmt.Errorf("expected %d columns in table body found %d", len(expectedColumns), len(data))
 		}
 
 		// parse our listener id from the final column
