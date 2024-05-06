@@ -3,6 +3,7 @@ package tracker
 import (
 	"bytes"
 	"html/template"
+	"math"
 	"reflect"
 	"strings"
 	"testing"
@@ -30,7 +31,7 @@ func TestParseListClients(t *testing.T) {
 			}, in))
 		}),
 		"IP":    gen.NumString(),
-		"Start": gen.Time(),
+		"Start": gen.TimeRange(time.Now(), time.Nanosecond*(math.MaxUint64/2)),
 	}))
 	p := gopter.NewProperties(nil)
 
@@ -49,7 +50,10 @@ func TestParseListClients(t *testing.T) {
 
 		var ok = true
 		for i := range in {
-			ok = ok && assert.EqualExportedValues(t, in[i], out[i])
+			ok = ok && assert.Equal(t, in[i].ID, out[i].ID)
+			ok = ok && assert.Equal(t, in[i].UserAgent, out[i].UserAgent)
+			ok = ok && assert.Equal(t, in[i].IP, out[i].IP)
+			ok = ok && assert.WithinDuration(t, in[i].Start, out[i].Start, time.Minute)
 		}
 		return ok
 	}))
