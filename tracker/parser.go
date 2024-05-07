@@ -10,10 +10,6 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 )
 
-var (
-	expectedColumns = []string{"ip", "sec. connected", "user agent", "action"}
-)
-
 type Icestats struct {
 	XMLName xml.Name `xml:"icestats"`
 	Text    string   `xml:",chardata"`

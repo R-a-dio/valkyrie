@@ -40,7 +40,9 @@ func ListenerAdd(ctx context.Context, recorder *Recorder) http.HandlerFunc {
 		w.Header().Set(ICECAST_AUTH_HEADER, "1")
 		w.WriteHeader(http.StatusOK)
 
-		go recorder.ListenerAdd(ctx, cid, r)
+		go func() {
+			recorder.ListenerAdd(ctx, NewListener(cid, r))
+		}()
 	}
 }
 
@@ -67,7 +69,7 @@ func ListenerRemove(ctx context.Context, recorder *Recorder) http.HandlerFunc {
 			return
 		}
 
-		go recorder.ListenerRemove(ctx, cid, r)
+		go recorder.ListenerRemove(ctx, cid)
 	}
 }
 

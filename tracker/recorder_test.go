@@ -28,7 +28,7 @@ func TestListenerAddAndRemoval(t *testing.T) {
 
 	count := radio.ListenerClientID(200)
 	for i := range count {
-		go r.ListenerAdd(ctx, i, req)
+		go r.ListenerAdd(ctx, NewListener(i, req))
 	}
 
 	assert.Eventually(t, func() bool {
@@ -36,15 +36,32 @@ func TestListenerAddAndRemoval(t *testing.T) {
 	}, eventuallyDelay, eventuallyTick)
 
 	for i := range count {
-		go r.ListenerRemove(ctx, i, req)
+		go r.ListenerRemove(ctx, i)
 	}
 
 	assert.Eventually(t, func() bool {
 		return 0 == r.ListenerAmount()
 	}, eventuallyDelay, eventuallyTick)
 
-	assert.Len(t, r.listeners, 0)
-	assert.Len(t, r.pendingRemoval, 0)
+	testRecorderLengths(t, r, 0, 0)
+}
+
+func BenchmarkRecorderAddAndRemove(b *testing.B) {
+	ctx := context.Background()
+	r := NewRecorder(ctx)
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	const idle = 1500
+	for i := range radio.ListenerClientID(idle) {
+		r.ListenerAdd(ctx, NewListener(i, req))
+	}
+
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		id := radio.ListenerClientID(n)
+		r.ListenerAdd(ctx, NewListener(id+idle, req))
+		r.ListenerRemove(ctx, id)
+	}
+	testRecorderLengths(b, r, idle, 0)
 }
 
 func TestListenerAddAndRemovalOutOfOrder(t *testing.T) {
@@ -58,53 +75,62 @@ func TestListenerAddAndRemovalOutOfOrder(t *testing.T) {
 	count := int64(200)
 	for i := range radio.ListenerClientID(count) {
 		if i%2 == 0 {
-			go r.ListenerAdd(ctx, i, req)
+			go r.ListenerAdd(ctx, NewListener(i, req))
 		} else {
-			go r.ListenerRemove(ctx, i, req)
+			go r.ListenerRemove(ctx, i)
 		}
 	}
 
 	assert.Eventually(t, func() bool {
 		// half should have been added normally
 		return assert.Equal(t, count/2, r.ListenerAmount()) &&
-			testListenerLength(t, r, int(count/2))
-	}, eventuallyDelay, eventuallyTick)
-	assert.Eventually(t, func() bool {
-		// half should have been removed early
-		r.mu.Lock()
-		defer r.mu.Unlock()
-		return assert.Len(t, r.pendingRemoval, int(count/2))
+			testRecorderLengths(t, r, int(count/2), int(count/2))
 	}, eventuallyDelay, eventuallyTick)
 
 	// now do the inverse and we should end up with nothing
 	for i := range radio.ListenerClientID(count) {
 		if i%2 != 0 {
-			go r.ListenerAdd(ctx, i, req)
+			go r.ListenerAdd(ctx, NewListener(i, req))
 		} else {
-			go r.ListenerRemove(ctx, i, req)
+			go r.ListenerRemove(ctx, i)
 		}
 	}
 
 	assert.Eventually(t, func() bool {
 		return assert.Zero(t, r.ListenerAmount()) &&
-			testListenerLength(t, r, 0)
-	}, eventuallyDelay, eventuallyTick)
-
-	assert.Eventually(t, func() bool {
-		return testPendingLength(t, r, 0)
+			testRecorderLengths(t, r, 0, 0)
 	}, eventuallyDelay, eventuallyTick)
 }
 
-func testListenerLength(t *testing.T, r *Recorder, expected int) bool {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return assert.Len(t, r.listeners, expected)
+func testListenerLength(t testing.TB, r *Recorder, expected int) bool {
+	active, _ := getRecorderLength(r)
+
+	return assert.Equal(t, expected, active)
 }
 
-func testPendingLength(t *testing.T, r *Recorder, expected int) bool {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return assert.Len(t, r.pendingRemoval, expected)
+func testRecorderLengths(t testing.TB, r *Recorder, expectedActive, expectedRemoved int) bool {
+	active, removed := getRecorderLength(r)
+
+	return assert.Equal(t, expectedActive, active) &&
+		assert.Equal(t, expectedRemoved, removed)
+}
+
+func testPendingLength(t testing.TB, r *Recorder, expected int) bool {
+	_, removed := getRecorderLength(r)
+
+	return assert.Equal(t, expected, removed)
+}
+
+func getRecorderLength(r *Recorder) (active, removed int) {
+	r.listeners.Range(func(key radio.ListenerClientID, value *Listener) bool {
+		if value.Removed {
+			removed++
+		} else {
+			active++
+		}
+		return true
+	})
+	return active, removed
 }
 
 func testCtx(t *testing.T, ctxx ...context.Context) (ctx context.Context) {
@@ -126,9 +152,11 @@ func TestRecorderRemoveStalePending(t *testing.T) {
 		r := NewRecorder(ctx)
 
 		id := radio.ListenerClientID(10)
-		r.mu.Lock()
-		r.pendingRemoval[id] = time.Now().Add(-RemoveStalePendingPeriod)
-		r.mu.Unlock()
+
+		r.listeners.Store(id, &Listener{
+			Removed:     true,
+			RemovedTime: time.Now().Add(-RemoveStalePendingPeriod),
+		})
 
 		found := r.removeStalePending()
 		assert.Equal(t, 1, found)
@@ -140,11 +168,13 @@ func TestRecorderRemoveStalePending(t *testing.T) {
 		r := NewRecorder(ctx)
 
 		count := RemoveStalePendingPeriod / time.Second * 2
-		r.mu.Lock()
+
 		for i := range radio.ListenerClientID(count) {
-			r.pendingRemoval[i] = time.Now().Add(-time.Second * time.Duration(i))
+			r.listeners.Store(i, &Listener{
+				Removed:     true,
+				RemovedTime: time.Now().Add(-time.Second * time.Duration(i)),
+			})
 		}
-		r.mu.Unlock()
 
 		testPendingLength(t, r, int(count))
 		found := r.removeStalePending()
@@ -156,9 +186,11 @@ func TestRecorderRemoveStalePending(t *testing.T) {
 		r := NewRecorder(ctx)
 
 		id := radio.ListenerClientID(10)
-		r.mu.Lock()
-		r.pendingRemoval[id] = time.Now().Add(-RemoveStalePendingPeriod)
-		r.mu.Unlock()
+
+		r.listeners.Store(id, &Listener{
+			Removed:     true,
+			RemovedTime: time.Now().Add(-RemoveStalePendingPeriod),
+		})
 
 		// launch an extra period goroutine, since the one we create
 		// in NewRecorder is very slow
@@ -166,14 +198,12 @@ func TestRecorderRemoveStalePending(t *testing.T) {
 
 		assert.Eventually(t, func() bool {
 			return testPendingLength(t, r, 0)
-		}, eventuallyDelay, eventuallyTick)
+		}, eventuallyDelay, eventuallyTick*2)
 	})
 }
 
 func TestIcecastRealIP(t *testing.T) {
 	t.Run(xForwardedFor, func(t *testing.T) {
-		ctx := testCtx(t)
-		r := NewRecorder(ctx)
 		id := radio.ListenerClientID(50)
 		ip := "192.168.1.1"
 		values := url.Values{}
@@ -183,15 +213,10 @@ func TestIcecastRealIP(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "/listener_add", body)
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-		r.ListenerAdd(ctx, id, req)
-
-		r.mu.Lock()
-		assert.Equal(t, ip, r.listeners[id].IP)
-		r.mu.Unlock()
+		ln := NewListener(id, req)
+		assert.Equal(t, ip, ln.IP)
 	})
 	t.Run(xForwardedFor+"/multiple", func(t *testing.T) {
-		ctx := testCtx(t)
-		r := NewRecorder(ctx)
 		id := radio.ListenerClientID(50)
 		ip := "192.168.1.1, 203.0.113.195, 70.41.3.18, 150.172.238.178"
 		values := url.Values{}
@@ -201,15 +226,10 @@ func TestIcecastRealIP(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "/listener_add", body)
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-		r.ListenerAdd(ctx, id, req)
-
-		r.mu.Lock()
-		assert.Equal(t, "192.168.1.1", r.listeners[id].IP)
-		r.mu.Unlock()
+		ln := NewListener(id, req)
+		assert.Equal(t, "192.168.1.1", ln.IP)
 	})
 	t.Run(trueClientIP, func(t *testing.T) {
-		ctx := testCtx(t)
-		r := NewRecorder(ctx)
 		id := radio.ListenerClientID(50)
 		ip := "192.168.1.1"
 		values := url.Values{}
@@ -219,15 +239,10 @@ func TestIcecastRealIP(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "/listener_add", body)
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-		r.ListenerAdd(ctx, id, req)
-
-		r.mu.Lock()
-		assert.Equal(t, ip, r.listeners[id].IP)
-		r.mu.Unlock()
+		ln := NewListener(id, req)
+		assert.Equal(t, ip, ln.IP)
 	})
 	t.Run(xRealIP, func(t *testing.T) {
-		ctx := testCtx(t)
-		r := NewRecorder(ctx)
 		id := radio.ListenerClientID(50)
 		ip := "192.168.1.1"
 		values := url.Values{}
@@ -237,10 +252,7 @@ func TestIcecastRealIP(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "/listener_add", body)
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-		r.ListenerAdd(ctx, id, req)
-
-		r.mu.Lock()
-		assert.Equal(t, ip, r.listeners[id].IP)
-		r.mu.Unlock()
+		ln := NewListener(id, req)
+		assert.Equal(t, ip, ln.IP)
 	})
 }

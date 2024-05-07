@@ -6,37 +6,38 @@ import (
 	"net/http"
 	"slices"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
-	"github.com/R-a-dio/valkyrie/telemetry"
+	"github.com/R-a-dio/valkyrie/util"
 	"github.com/rs/zerolog"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
 )
 
-type Listener struct {
-	span trace.Span
-
-	radio.Listener
-}
-
 func NewRecorder(ctx context.Context) *Recorder {
-	r := &Recorder{
-		pendingRemoval: make(map[radio.ListenerClientID]time.Time),
-		listeners:      make(map[radio.ListenerClientID]*Listener),
-	}
+	r := &Recorder{}
+
 	go r.PeriodicallyRemoveStalePending(ctx, RemoveStalePendingTickrate)
 	return r
 }
 
+func NewListener(id radio.ListenerClientID, req *http.Request) radio.Listener {
+	return radio.Listener{
+		ID:        id,
+		UserAgent: req.PostFormValue("agent"), // passed by icecast
+		Start:     time.Now(),
+		IP:        IcecastRealIP(req), // grab real IP from the POST form data
+	}
+}
+
+type Listener struct {
+	radio.Listener
+	Removed     bool
+	RemovedTime time.Time
+}
+
 type Recorder struct {
-	mu             sync.Mutex
-	pendingRemoval map[radio.ListenerClientID]time.Time
-	listeners      map[radio.ListenerClientID]*Listener
+	listeners      util.Map[radio.ListenerClientID, *Listener]
 	listenerAmount atomic.Int64
 }
 
@@ -60,14 +61,15 @@ func (r *Recorder) PeriodicallyRemoveStalePending(ctx context.Context, tickrate 
 func (r *Recorder) removeStalePending() (found_stale int) {
 	deadline := time.Now().Add(-RemoveStalePendingPeriod)
 
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	for k, v := range r.pendingRemoval {
-		if v.Before(deadline) {
-			delete(r.pendingRemoval, k)
+	r.listeners.Range(func(key radio.ListenerClientID, value *Listener) bool {
+		if value.Removed && value.RemovedTime.Before(deadline) {
+			// deadline exceeded, remove the entry
+			r.listeners.Delete(key)
 			found_stale++
 		}
-	}
+		return true
+	})
+
 	return found_stale
 }
 
@@ -75,63 +77,42 @@ func (r *Recorder) ListenerAmount() int64 {
 	return r.listenerAmount.Load()
 }
 
-func (r *Recorder) ListenerAdd(ctx context.Context, id radio.ListenerClientID, req *http.Request) {
-	_, span := otel.Tracer("listener-tracker").Start(ctx, "listener",
-		trace.WithNewRoot(),
-		trace.WithAttributes(requestToOtelAttributes(req)...),
-	)
-
-	listener := Listener{
-		span: span,
-		Listener: radio.Listener{
-			ID:        id,
-			UserAgent: req.PostFormValue("agent"), // passed by icecast
-			Start:     time.Now(),
-			IP:        IcecastRealIP(req),
-		},
-	}
-
-	var ok bool
-	r.mu.Lock()
-	if _, ok = r.pendingRemoval[listener.ID]; !ok {
-		r.listeners[listener.ID] = &listener
+func (r *Recorder) ListenerAdd(ctx context.Context, listener radio.Listener) {
+	entry, loaded := r.listeners.LoadOrStore(listener.ID, &Listener{Listener: listener})
+	if loaded && entry.Removed {
+		// if we are here it means ListenerRemove was called before us and we should
+		// just remove ourselves
+		r.listeners.Delete(listener.ID)
 	} else {
-		span.End() // close the span since we're not adding ourselves
-		delete(r.pendingRemoval, listener.ID)
-	}
-	r.mu.Unlock()
-
-	if !ok {
 		r.listenerAmount.Add(1)
 	}
 }
 
-func (r *Recorder) ListenerRemove(ctx context.Context, id radio.ListenerClientID, req *http.Request) {
-	var listener *Listener
-	var ok bool
-
-	r.mu.Lock()
-	if listener, ok = r.listeners[id]; ok {
-		delete(r.listeners, id)
-	} else {
-		r.pendingRemoval[id] = time.Now()
-	}
-	r.mu.Unlock()
-
-	if ok {
-		listener.span.End()
+func (r *Recorder) ListenerRemove(ctx context.Context, id radio.ListenerClientID) {
+	_, loaded := r.listeners.LoadOrStore(id, &Listener{
+		Removed:     true,
+		RemovedTime: time.Now(),
+	})
+	if loaded {
+		// if we loaded it means there was an entry added by ListenerAdd so we
+		// now want to delete that entry
+		r.listeners.Delete(id)
 		r.listenerAmount.Add(-1)
 	}
 }
 
 func (r *Recorder) ListClients(ctx context.Context) ([]radio.Listener, error) {
-	r.mu.Lock()
-	res := make([]radio.Listener, 0, len(r.listeners))
-	for _, v := range r.listeners {
-		res = append(res, v.Listener)
-	}
-	r.mu.Unlock()
+	res := make([]radio.Listener, 0, r.ListenerAmount())
+	r.listeners.Range(func(key radio.ListenerClientID, value *Listener) bool {
+		if value.Removed {
+			// skip removed entries
+			return true
+		}
+		res = append(res, value.Listener)
+		return true
+	})
 
+	// sort the entries by their start time
 	slices.SortFunc(res, func(a, b radio.Listener) int {
 		return a.Start.Compare(b.Start)
 	})
@@ -141,14 +122,6 @@ func (r *Recorder) ListClients(ctx context.Context) ([]radio.Listener, error) {
 func (r *Recorder) RemoveClient(ctx context.Context, id radio.ListenerClientID) error {
 	// TODO: implement this
 	return nil
-}
-
-func requestToOtelAttributes(req *http.Request) []attribute.KeyValue {
-	res := telemetry.HeadersToAttributes(req.Header)
-	for name, value := range req.PostForm {
-		res = append(res, attribute.StringSlice(strings.ToLower(name), value))
-	}
-	return res
 }
 
 const prefix = "client."

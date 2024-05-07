@@ -16,3 +16,11 @@ func HeadersToAttributes(headers http.Header) []attribute.KeyValue {
 	}
 	return res
 }
+
+func requestToOtelAttributes(req *http.Request) []attribute.KeyValue {
+	res := HeadersToAttributes(req.Header)
+	for name, value := range req.PostForm {
+		res = append(res, attribute.StringSlice(strings.ToLower(name), value))
+	}
+	return res
+}
