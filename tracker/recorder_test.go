@@ -91,7 +91,7 @@ func TestListenerMultiRemove(t *testing.T) {
 				t.Log("active", active, "removed", removed, "listener-count", r.ListenerAmount())
 			}
 			// remove all entries marked removed
-			r.removeStalePending(0)
+			r.removeStale(0)
 			// make sure we're back to 0 listeners and 0 removed entries
 			testRecorderLengths(t, r, 0, 0)
 		}
@@ -209,7 +209,7 @@ func testRecorderLengths(t testing.TB, r *Recorder, expectedActive, expectedRemo
 		assert.Equal(t, expectedRemoved, removed, "removed mismatch")
 }
 
-func testPendingLength(t testing.TB, r *Recorder, expected int) bool {
+func testRemovedLength(t testing.TB, r *Recorder, expected int) bool {
 	_, removed := getRecorderLength(r)
 
 	return assert.Equal(t, expected, removed)
@@ -249,19 +249,19 @@ func TestRecorderRemoveStalePending(t *testing.T) {
 
 		r.listeners.Store(id, &Listener{
 			Removed:     true,
-			RemovedTime: time.Now().Add(-RemoveStalePendingPeriod),
+			RemovedTime: time.Now().Add(-RemoveStalePeriod),
 		})
 
-		found := r.removeStalePending(RemoveStalePendingPeriod)
+		found := r.removeStale(RemoveStalePeriod)
 		assert.Equal(t, 1, found)
 
-		testPendingLength(t, r, 0)
+		testRemovedLength(t, r, 0)
 	})
 	t.Run("many removal", func(t *testing.T) {
 		ctx := testCtx(t)
 		r := NewRecorder(ctx)
 
-		count := RemoveStalePendingPeriod / time.Second * 2
+		count := RemoveStalePeriod / time.Second * 2
 
 		for i := range radio.ListenerClientID(count) {
 			r.listeners.Store(i, &Listener{
@@ -270,9 +270,9 @@ func TestRecorderRemoveStalePending(t *testing.T) {
 			})
 		}
 
-		testPendingLength(t, r, int(count))
-		found := r.removeStalePending(RemoveStalePendingPeriod)
-		testPendingLength(t, r, int(count/2))
+		testRemovedLength(t, r, int(count))
+		found := r.removeStale(RemoveStalePeriod)
+		testRemovedLength(t, r, int(count/2))
 		assert.Equal(t, int(count/2), found)
 	})
 	t.Run("removal by periodic goroutine", func(t *testing.T) {
@@ -283,15 +283,15 @@ func TestRecorderRemoveStalePending(t *testing.T) {
 
 		r.listeners.Store(id, &Listener{
 			Removed:     true,
-			RemovedTime: time.Now().Add(-RemoveStalePendingPeriod),
+			RemovedTime: time.Now().Add(-RemoveStalePeriod),
 		})
 
 		// launch an extra period goroutine, since the one we create
 		// in NewRecorder is very slow
-		go r.PeriodicallyRemoveStalePending(ctx, eventuallyTick)
+		go r.PeriodicallyRemoveStale(ctx, eventuallyTick)
 
 		assert.Eventually(t, func() bool {
-			return testPendingLength(t, r, 0)
+			return testRemovedLength(t, r, 0)
 		}, eventuallyDelay, eventuallyTick*2)
 	})
 }

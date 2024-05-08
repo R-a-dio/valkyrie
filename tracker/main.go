@@ -20,8 +20,8 @@ const (
 	// SyncListenersTickrate is the period between two sync operations
 	SyncListenersTickrate = time.Minute * 10
 
-	RemoveStalePendingTickrate = time.Hour * 24
-	RemoveStalePendingPeriod   = time.Minute * 5
+	RemoveStaleTickrate = time.Hour * 24
+	RemoveStalePeriod   = time.Minute * 5
 )
 
 func NewGRPCServer(lts radio.ListenerTrackerService) *grpc.Server {
@@ -111,6 +111,9 @@ func PeriodicallySyncListeners(ctx context.Context, cfg config.Config,
 
 func periodicallySyncListeners(ctx context.Context, cfg config.Config, recorder *Recorder) error {
 	const op errors.Op = "tracker/periodicallySyncListeners"
+
+	recorder.syncing.Store(true)
+	defer recorder.syncing.Store(false)
 
 	ctx, cancel := context.WithTimeout(ctx, time.Second*5)
 	defer cancel()

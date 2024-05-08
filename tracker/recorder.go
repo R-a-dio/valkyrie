@@ -18,7 +18,7 @@ import (
 func NewRecorder(ctx context.Context) *Recorder {
 	r := &Recorder{}
 
-	go r.PeriodicallyRemoveStalePending(ctx, RemoveStalePendingTickrate)
+	go r.PeriodicallyRemoveStale(ctx, RemoveStaleTickrate)
 	return r
 }
 
@@ -40,9 +40,10 @@ type Listener struct {
 type Recorder struct {
 	listeners      util.Map[radio.ListenerClientID, *Listener]
 	listenerAmount atomic.Int64
+	syncing        atomic.Bool
 }
 
-func (r *Recorder) PeriodicallyRemoveStalePending(ctx context.Context, tickrate time.Duration) {
+func (r *Recorder) PeriodicallyRemoveStale(ctx context.Context, tickrate time.Duration) {
 	ticker := time.NewTicker(tickrate)
 	defer ticker.Stop()
 
@@ -51,7 +52,7 @@ func (r *Recorder) PeriodicallyRemoveStalePending(ctx context.Context, tickrate 
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			stale := r.removeStalePending(RemoveStalePendingPeriod)
+			stale := r.removeStale(RemoveStalePeriod)
 			if stale > 0 {
 				zerolog.Ctx(ctx).Error().Int("amount", stale).Msg("found stale pending removals")
 			}
@@ -59,14 +60,15 @@ func (r *Recorder) PeriodicallyRemoveStalePending(ctx context.Context, tickrate 
 	}
 }
 
-func (r *Recorder) removeStalePending(period time.Duration) (found_stale int) {
+func (r *Recorder) removeStale(period time.Duration) (found_stale int) {
 	deadline := time.Now().Add(-period)
 
 	r.listeners.Range(func(key radio.ListenerClientID, value *Listener) bool {
 		if value.Removed && value.RemovedTime.Before(deadline) {
 			// deadline exceeded, remove the entry
-			r.listeners.Delete(key)
-			found_stale++
+			if r.listeners.CompareAndDelete(key, value) {
+				found_stale++
+			}
 		}
 		return true
 	})
@@ -100,8 +102,22 @@ func (r *Recorder) ListenerRemove(ctx context.Context, id radio.ListenerClientID
 	if loaded {
 		// if we loaded it means there was an entry added by ListenerAdd so we
 		// now want to delete that entry
-		deleted := r.listeners.CompareAndDelete(id, entry)
+		var deleted bool
+		if r.syncing.Load() {
+			// if we're in the process of syncing we might have listeners
+			// added back by the process, guard against that by inserting
+			// a Removed listener
+			deleted = r.listeners.CompareAndSwap(id, entry, &Listener{
+				Removed:     true,
+				RemovedTime: time.Now(),
+			})
+		} else {
+			// otherwise just do a normal delete
+			deleted = r.listeners.CompareAndDelete(id, entry)
+		}
 		if !entry.Removed && deleted {
+			// only remove a listener count if the entry wasn't marked as
+			// Removed already and if we actually deleted an entry
 			r.listenerAmount.Add(-1)
 		}
 	}
