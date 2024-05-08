@@ -47,7 +47,7 @@ func TestListenerAddAndRemoval(t *testing.T) {
 	testRecorderLengths(t, r, 0, 0)
 }
 
-func TestListenerAddAndManyRemoval(t *testing.T) {
+func TestListenerMultiRemove(t *testing.T) {
 	// test if multiple calls to ListenerRemove can desync our
 	// internal state somehow
 	fn := func(removalCount int) func(t *testing.T) {
@@ -95,6 +95,45 @@ func TestListenerAddAndManyRemoval(t *testing.T) {
 	}
 	for removeCount := 1; removeCount < 12; removeCount++ {
 		t.Run("MultiRemove"+strconv.Itoa(removeCount), fn(removeCount))
+	}
+}
+
+func TestListenerMultiAdd(t *testing.T) {
+	// test if multiple calls to ListenerRemove can desync our
+	// internal state somehow
+	fn := func(addCount int) func(t *testing.T) {
+		return func(t *testing.T) {
+			t.Parallel()
+
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			r := NewRecorder(ctx)
+
+			req := httptest.NewRequest(http.MethodGet, "/test", nil)
+
+			count := radio.ListenerClientID(200)
+			for i := range count {
+				for range addCount {
+					go r.ListenerAdd(ctx, NewListener(i, req))
+				}
+			}
+
+			// wait for the goroutines to finish running
+			ok := assert.Eventually(t, func() bool {
+				return int64(count) == r.ListenerAmount()
+			}, eventuallyDelay, eventuallyTick)
+			if !ok {
+				active, removed := getRecorderLength(r)
+				t.Log("active", active, "removed", removed, "listener-count", r.ListenerAmount())
+			}
+
+			// make sure we're back to `count` listeners and 0 removed entries
+			testRecorderLengths(t, r, int(count), 0)
+		}
+	}
+	for addCount := 1; addCount < 12; addCount++ {
+		t.Run("MultiAdd"+strconv.Itoa(addCount), fn(addCount))
 	}
 }
 
