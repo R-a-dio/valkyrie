@@ -86,7 +86,7 @@ func (r *Recorder) ListenerAdd(ctx context.Context, listener radio.Listener) {
 		if entry.Removed {
 			// we loaded and received an entry with the Removed flag set, this means
 			// ListenerRemove was called on this ID and we should not exist
-			r.listeners.Delete(listener.ID)
+			r.listeners.CompareAndDelete(listener.ID, entry)
 		}
 	} else {
 		// only add to the listener count if we actually did a store
