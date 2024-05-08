@@ -7,6 +7,7 @@ import (
 	"math"
 	"math/big"
 	"math/rand"
+	"net/url"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -71,6 +72,14 @@ var defaultConfig = config{
 		Addr:         ":1337",
 		MasterServer: "http://source:hackme@127.0.0.1:8000",
 	},
+	Tracker: tracker{
+		RPCAddr:        ":4949",
+		ListenAddr:     ":9999",
+		MasterServer:   "http://127.0.0.1:8000",
+		MasterUsername: "admin",
+		MasterPassword: "hackme",
+		MountName:      "/main.mp3",
+	},
 	Telemetry: telemetry{
 		Use:                false,
 		Endpoint:           ":4317",
@@ -106,8 +115,25 @@ type config struct {
 	Elastic  elasticsearch
 	Balancer balancer
 	Proxy    proxy
+	Tracker  tracker
 
 	Telemetry telemetry
+}
+
+type tracker struct {
+	// RPCAddr is the address to use for RPC client connections to this
+	// component or the listening address for the RPC server
+	RPCAddr string
+	// ListenAddr is the address the http endpoint will be listening on
+	// this would be the one you use in icecast config
+	ListenAddr string
+	// MasterServer is the address of the master icecast server
+	MasterServer URL
+	// MasterUsername is the admin username for the master icecast
+	MasterUsername string
+	// MasterPassword is the admin password for the master icecast
+	MasterPassword string
+	MountName      string
 }
 
 type proxy struct {
@@ -417,6 +443,26 @@ func (d *Duration) UnmarshalText(text []byte) error {
 	n, err := time.ParseDuration(string(text))
 	*d = Duration(n)
 	return err
+}
+
+type URL string
+
+func (u URL) URL() *url.URL {
+	uri, _ := url.Parse(string(u))
+	return uri
+}
+
+func (u URL) MarshalText() ([]byte, error) {
+	return []byte(u), nil
+}
+
+func (u *URL) UnmarshalText(text []byte) error {
+	_, err := url.Parse(string(text))
+	if err != nil {
+		return err
+	}
+	*u = URL(text)
+	return nil
 }
 
 // NewRand returns a fresh *rand.Rand seeded with either a crypto random seed or the

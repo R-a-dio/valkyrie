@@ -18,9 +18,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestParseListClients(t *testing.T) {
-	a := arbitrary.DefaultArbitraries()
-	a.RegisterGen(gen.Struct(reflect.TypeFor[radio.Listener](), map[string]gopter.Gen{
+func genListener(a *arbitrary.Arbitraries) gopter.Gen {
+	return gen.Struct(reflect.TypeFor[radio.Listener](), map[string]gopter.Gen{
 		"ID": a.GenForType(reflect.TypeFor[radio.ListenerClientID]()),
 		"UserAgent": gen.AnyString().Map(func(in string) string {
 			return strings.TrimSpace(strings.Map(func(r rune) rune {
@@ -32,7 +31,12 @@ func TestParseListClients(t *testing.T) {
 		}),
 		"IP":    gen.NumString(),
 		"Start": gen.TimeRange(time.Now(), time.Nanosecond*(math.MaxUint64/2)),
-	}))
+	})
+}
+
+func TestParseListClients(t *testing.T) {
+	a := arbitrary.DefaultArbitraries()
+	a.RegisterGen(genListener(a))
 	p := gopter.NewProperties(nil)
 
 	var buf bytes.Buffer

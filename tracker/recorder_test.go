@@ -11,7 +11,10 @@ import (
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/arbitrary"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -346,4 +349,38 @@ func TestIcecastRealIP(t *testing.T) {
 		ln := NewListener(id, req)
 		assert.Equal(t, ip, ln.IP)
 	})
+}
+
+func TestRecorderListClients(t *testing.T) {
+	a := arbitrary.DefaultArbitraries()
+	a.RegisterGen(genListener(a))
+	p := gopter.NewProperties(nil)
+
+	ctx := context.Background()
+
+	p.Property(t.Name(), a.ForAll(func(in []radio.Listener) bool {
+		// sort entries, this is what we will expect later
+		sortListeners(in)
+
+		r := NewRecorder(ctx)
+		// add our input by using a sync call
+		r.Sync(ctx, in)
+		// make sure they got added
+		require.Equal(t, int64(len(in)), r.ListenerAmount(), "wrong length after sync")
+
+		// then ask for the list of clients, these should be sorted with sortListeners
+		// so we can then compare them easily
+		out, err := r.ListClients(ctx)
+		require.NoError(t, err)
+
+		var ok = true
+		for i := range in {
+			ok = ok && assert.Equal(t, in[i].ID, out[i].ID, "mismatching ID")
+			ok = ok && assert.Equal(t, in[i].UserAgent, out[i].UserAgent, "mismatching useragent")
+			ok = ok && assert.Equal(t, in[i].IP, out[i].IP, "mismatching IP")
+			ok = ok && assert.WithinDuration(t, in[i].Start, out[i].Start, time.Minute, "mismatching start time")
+		}
+		return ok
+	}))
+	p.TestingRun(t)
 }

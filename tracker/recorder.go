@@ -1,6 +1,7 @@
 package tracker
 
 import (
+	"cmp"
 	"context"
 	"net"
 	"net/http"
@@ -108,20 +109,23 @@ func (r *Recorder) ListenerRemove(ctx context.Context, id radio.ListenerClientID
 
 func (r *Recorder) ListClients(ctx context.Context) ([]radio.Listener, error) {
 	res := make([]radio.Listener, 0, r.ListenerAmount())
-	r.listeners.Range(func(key radio.ListenerClientID, value *Listener) bool {
-		if value.Removed {
-			// skip removed entries
-			return true
+	r.listeners.Range(func(_ radio.ListenerClientID, value *Listener) bool {
+		if !value.Removed {
+			res = append(res, value.Listener)
 		}
-		res = append(res, value.Listener)
 		return true
 	})
 
-	// sort the entries by their start time
-	slices.SortFunc(res, func(a, b radio.Listener) int {
-		return a.Start.Compare(b.Start)
-	})
+	// sort the entries
+	sortListeners(res)
 	return res, nil
+}
+
+func sortListeners(in []radio.Listener) {
+	// sort the entries by their ID
+	slices.SortFunc(in, func(a, b radio.Listener) int {
+		return cmp.Compare(a.ID, b.ID)
+	})
 }
 
 func (r *Recorder) RemoveClient(ctx context.Context, id radio.ListenerClientID) error {

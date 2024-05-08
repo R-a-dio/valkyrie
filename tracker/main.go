@@ -2,29 +2,60 @@ package tracker
 
 import (
 	"context"
+	"net"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
+	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/R-a-dio/valkyrie/rpc"
 	"github.com/rs/zerolog"
+	"google.golang.org/grpc"
 )
 
 const (
-	UpdateListenersTickrate    = time.Second * 10
+	// UpdateListenersTickrate is the period between two UpdateListeners
+	// calls done to the manager
+	UpdateListenersTickrate = time.Second * 10
+	// SyncListenersTickrate is the period between two sync operations
+	SyncListenersTickrate = time.Minute * 10
+
 	RemoveStalePendingTickrate = time.Hour * 24
 	RemoveStalePendingPeriod   = time.Minute * 5
 )
 
+func NewGRPCServer(lts radio.ListenerTrackerService) *grpc.Server {
+	gs := rpc.NewGrpcServer()
+	rpc.RegisterListenerTrackerServer(gs, rpc.NewListenerTracker(lts))
+	return gs
+}
+
 func Execute(ctx context.Context, cfg config.Config) error {
 	manager := cfg.Conf().Manager.Client()
 
+	// setup recorder
 	var recorder = NewRecorder(ctx)
 
+	// setup periodic task to update the manager of our listener count
 	go PeriodicallyUpdateListeners(ctx, manager, recorder, UpdateListenersTickrate)
+	// setup periodic task to keep recorder state in sync with icecast
+	go PeriodicallySyncListeners(ctx, cfg, recorder, SyncListenersTickrate)
 
-	srv := NewServer(ctx, ":9999", recorder)
+	// setup the HTTP server that icecast will be poking
+	srv := NewServer(ctx, cfg.Conf().Tracker.ListenAddr, recorder)
 
-	errCh := make(chan error, 1)
+	// setup the GRPC server that the rest will be poking
+	grpcSrv := NewGRPCServer(recorder)
+	// and a listener for the GRPC server
+	ln, err := net.Listen("tcp", cfg.Conf().Tracker.RPCAddr)
+	if err != nil {
+		return err
+	}
+
+	errCh := make(chan error, 2)
+	go func() {
+		errCh <- grpcSrv.Serve(ln)
+	}()
 	go func() {
 		errCh <- srv.ListenAndServe()
 	}()
@@ -56,4 +87,39 @@ func PeriodicallyUpdateListeners(ctx context.Context,
 			}
 		}
 	}
+}
+
+func PeriodicallySyncListeners(ctx context.Context, cfg config.Config,
+	recorder *Recorder,
+	tickrate time.Duration,
+) {
+	ticker := time.NewTicker(tickrate)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			err := periodicallySyncListeners(ctx, cfg, recorder)
+			if err != nil {
+				zerolog.Ctx(ctx).Error().Err(err).Msg("failed sync listeners")
+			}
+		}
+	}
+}
+
+func periodicallySyncListeners(ctx context.Context, cfg config.Config, recorder *Recorder) error {
+	const op errors.Op = "tracker/periodicallySyncListeners"
+
+	ctx, cancel := context.WithTimeout(ctx, time.Second*5)
+	defer cancel()
+
+	list, err := GetIcecastListClients(ctx, cfg)
+	if err != nil {
+		return errors.E(op, err)
+	}
+
+	recorder.Sync(ctx, list)
+	return nil
 }
