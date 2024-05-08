@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -44,6 +45,57 @@ func TestListenerAddAndRemoval(t *testing.T) {
 	}, eventuallyDelay, eventuallyTick)
 
 	testRecorderLengths(t, r, 0, 0)
+}
+
+func TestListenerAddAndManyRemoval(t *testing.T) {
+	// test if multiple calls to ListenerRemove can desync our
+	// internal state somehow
+	fn := func(removalCount int) func(t *testing.T) {
+		return func(t *testing.T) {
+			t.Parallel()
+
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			r := NewRecorder(ctx)
+
+			req := httptest.NewRequest(http.MethodGet, "/test", nil)
+
+			count := radio.ListenerClientID(200)
+			for i := range count {
+				go r.ListenerAdd(ctx, NewListener(i, req))
+			}
+
+			// wait for all the goroutines above to actually have added
+			// their listener
+			assert.Eventually(t, func() bool {
+				return int64(count) == r.ListenerAmount()
+			}, eventuallyDelay, eventuallyTick)
+
+			for i := range count {
+				// now remove listeners multiple times
+				for range removalCount {
+					go r.ListenerRemove(ctx, i)
+				}
+			}
+
+			// wait for the goroutines to finish running
+			ok := assert.Eventually(t, func() bool {
+				return 0 == r.ListenerAmount()
+			}, eventuallyDelay, eventuallyTick)
+			if !ok {
+				active, removed := getRecorderLength(r)
+				t.Log("active", active, "removed", removed, "listener-count", r.ListenerAmount())
+			}
+			// remove all entries marked removed
+			r.removeStalePending(0)
+			// make sure we're back to 0 listeners and 0 removed entries
+			testRecorderLengths(t, r, 0, 0)
+		}
+	}
+	for removeCount := 1; removeCount < 12; removeCount++ {
+		t.Run("MultiRemove"+strconv.Itoa(removeCount), fn(removeCount))
+	}
 }
 
 func BenchmarkRecorderAddAndRemove(b *testing.B) {
@@ -111,8 +163,8 @@ func testListenerLength(t testing.TB, r *Recorder, expected int) bool {
 func testRecorderLengths(t testing.TB, r *Recorder, expectedActive, expectedRemoved int) bool {
 	active, removed := getRecorderLength(r)
 
-	return assert.Equal(t, expectedActive, active) &&
-		assert.Equal(t, expectedRemoved, removed)
+	return assert.Equal(t, expectedActive, active, "active mismatch") &&
+		assert.Equal(t, expectedRemoved, removed, "removed mismatch")
 }
 
 func testPendingLength(t testing.TB, r *Recorder, expected int) bool {
@@ -158,7 +210,7 @@ func TestRecorderRemoveStalePending(t *testing.T) {
 			RemovedTime: time.Now().Add(-RemoveStalePendingPeriod),
 		})
 
-		found := r.removeStalePending()
+		found := r.removeStalePending(RemoveStalePendingPeriod)
 		assert.Equal(t, 1, found)
 
 		testPendingLength(t, r, 0)
@@ -177,7 +229,7 @@ func TestRecorderRemoveStalePending(t *testing.T) {
 		}
 
 		testPendingLength(t, r, int(count))
-		found := r.removeStalePending()
+		found := r.removeStalePending(RemoveStalePendingPeriod)
 		testPendingLength(t, r, int(count/2))
 		assert.Equal(t, int(count/2), found)
 	})

@@ -50,7 +50,7 @@ func (r *Recorder) PeriodicallyRemoveStalePending(ctx context.Context, tickrate 
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			stale := r.removeStalePending()
+			stale := r.removeStalePending(RemoveStalePendingPeriod)
 			if stale > 0 {
 				zerolog.Ctx(ctx).Error().Int("amount", stale).Msg("found stale pending removals")
 			}
@@ -58,8 +58,8 @@ func (r *Recorder) PeriodicallyRemoveStalePending(ctx context.Context, tickrate 
 	}
 }
 
-func (r *Recorder) removeStalePending() (found_stale int) {
-	deadline := time.Now().Add(-RemoveStalePendingPeriod)
+func (r *Recorder) removeStalePending(period time.Duration) (found_stale int) {
+	deadline := time.Now().Add(-period)
 
 	r.listeners.Range(func(key radio.ListenerClientID, value *Listener) bool {
 		if value.Removed && value.RemovedTime.Before(deadline) {
@@ -79,25 +79,30 @@ func (r *Recorder) ListenerAmount() int64 {
 
 func (r *Recorder) ListenerAdd(ctx context.Context, listener radio.Listener) {
 	entry, loaded := r.listeners.LoadOrStore(listener.ID, &Listener{Listener: listener})
-	if loaded && entry.Removed {
-		// if we are here it means ListenerRemove was called before us and we should
-		// just remove ourselves
-		r.listeners.Delete(listener.ID)
+	if loaded {
+		if entry.Removed {
+			// we loaded and received an entry with the Removed flag set, this means
+			// ListenerRemove was called on this ID and we should not exist
+			r.listeners.Delete(listener.ID)
+		}
 	} else {
+		// only add to the listener count if we actually did a store
 		r.listenerAmount.Add(1)
 	}
 }
 
 func (r *Recorder) ListenerRemove(ctx context.Context, id radio.ListenerClientID) {
-	_, loaded := r.listeners.LoadOrStore(id, &Listener{
+	entry, loaded := r.listeners.LoadOrStore(id, &Listener{
 		Removed:     true,
 		RemovedTime: time.Now(),
 	})
 	if loaded {
 		// if we loaded it means there was an entry added by ListenerAdd so we
 		// now want to delete that entry
-		r.listeners.Delete(id)
-		r.listenerAmount.Add(-1)
+		deleted := r.listeners.CompareAndDelete(id, entry)
+		if !entry.Removed && deleted {
+			r.listenerAmount.Add(-1)
+		}
 	}
 }
 
