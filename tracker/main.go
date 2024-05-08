@@ -34,7 +34,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	manager := cfg.Conf().Manager.Client()
 
 	// setup recorder
-	var recorder = NewRecorder(ctx)
+	var recorder = NewRecorder(ctx, cfg)
 
 	// setup periodic task to update the manager of our listener count
 	go PeriodicallyUpdateListeners(ctx, manager, recorder, UpdateListenersTickrate)

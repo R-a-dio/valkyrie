@@ -63,6 +63,7 @@ func GetIcecastListClients(ctx context.Context, cfg config.Config) ([]radio.List
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		return nil, errors.E(op, http.StatusText(resp.StatusCode))
 	}
@@ -72,4 +73,35 @@ func GetIcecastListClients(ctx context.Context, cfg config.Config) ([]radio.List
 		return nil, errors.E(op, err)
 	}
 	return res, nil
+}
+
+func RemoveIcecastClient(ctx context.Context, cfg config.Config, id radio.ListenerClientID) error {
+	const op errors.Op = "tracker/RemoveIcecastClient"
+	conf := cfg.Conf()
+
+	uri := conf.Tracker.MasterServer.URL()
+	uri.Path = "/admin/killclient"
+	query := uri.Query()
+	query.Add("mount", cfg.Conf().Tracker.MountName)
+	query.Add("id", id.String())
+	uri.RawQuery = query.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri.String(), nil)
+	if err != nil {
+		return errors.E(op, err)
+	}
+	req.SetBasicAuth(conf.Tracker.MasterUsername, conf.Tracker.MasterPassword)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return errors.E(op, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return errors.E(op, http.StatusText(resp.StatusCode))
+	}
+
+	// we get back an XML response, but we can probably just assume it
+	// was a success.
+	return nil
 }

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/mocks"
 	"github.com/stretchr/testify/assert"
 )
@@ -16,9 +17,11 @@ import (
 func TestPeriodicallyUpdateListeners(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	cfg, _ := config.LoadFile()
+
 	done := make(chan struct{})
 
-	recorder := NewRecorder(ctx)
+	recorder := NewRecorder(ctx, cfg)
 	var last atomic.Int64
 	var count int
 	var closeOnce sync.Once

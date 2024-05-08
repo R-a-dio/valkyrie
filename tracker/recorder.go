@@ -11,12 +11,15 @@ import (
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/util"
 	"github.com/rs/zerolog"
 )
 
-func NewRecorder(ctx context.Context) *Recorder {
-	r := &Recorder{}
+func NewRecorder(ctx context.Context, cfg config.Config) *Recorder {
+	r := &Recorder{
+		cfg: cfg,
+	}
 
 	go r.PeriodicallyRemoveStale(ctx, RemoveStaleTickrate)
 	return r
@@ -38,6 +41,7 @@ type Listener struct {
 }
 
 type Recorder struct {
+	cfg            config.Config
 	listeners      util.Map[radio.ListenerClientID, *Listener]
 	listenerAmount atomic.Int64
 	syncing        atomic.Bool
@@ -145,8 +149,10 @@ func sortListeners(in []radio.Listener) {
 }
 
 func (r *Recorder) RemoveClient(ctx context.Context, id radio.ListenerClientID) error {
-	// TODO: implement this
-	return nil
+	ctx, cancel := context.WithTimeout(ctx, time.Second*5)
+	defer cancel()
+
+	return RemoveIcecastClient(ctx, r.cfg, id)
 }
 
 const prefix = "client."

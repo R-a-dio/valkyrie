@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -16,8 +17,9 @@ import (
 func TestListenerAddAndRemove(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	cfg, _ := config.LoadFile()
 
-	recorder := NewRecorder(ctx)
+	recorder := NewRecorder(ctx, cfg)
 	dummy := NewServer(ctx, "", recorder)
 
 	srv := httptest.NewServer(dummy.Handler)
@@ -104,8 +106,9 @@ func TestListenerAddAndRemove(t *testing.T) {
 func BenchmarkListenerAdd(b *testing.B) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	cfg, _ := config.LoadFile()
 
-	recorder := NewRecorder(ctx)
+	recorder := NewRecorder(ctx, cfg)
 
 	handler := ListenerAdd(ctx, recorder)
 

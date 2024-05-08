@@ -11,6 +11,7 @@ import (
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/config"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/arbitrary"
 	"github.com/stretchr/testify/assert"
@@ -25,8 +26,9 @@ const (
 func TestListenerAddAndRemoval(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	cfg, _ := config.LoadFile()
 
-	r := NewRecorder(ctx)
+	r := NewRecorder(ctx, cfg)
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 
@@ -59,9 +61,9 @@ func TestListenerMultiRemove(t *testing.T) {
 
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
+			cfg, _ := config.LoadFile()
 
-			r := NewRecorder(ctx)
-
+			r := NewRecorder(ctx, cfg)
 			req := httptest.NewRequest(http.MethodGet, "/test", nil)
 
 			count := radio.ListenerClientID(200)
@@ -110,8 +112,9 @@ func TestListenerMultiAdd(t *testing.T) {
 
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
+			cfg, _ := config.LoadFile()
 
-			r := NewRecorder(ctx)
+			r := NewRecorder(ctx, cfg)
 
 			req := httptest.NewRequest(http.MethodGet, "/test", nil)
 
@@ -142,7 +145,8 @@ func TestListenerMultiAdd(t *testing.T) {
 
 func BenchmarkRecorderAddAndRemove(b *testing.B) {
 	ctx := context.Background()
-	r := NewRecorder(ctx)
+	cfg, _ := config.LoadFile()
+	r := NewRecorder(ctx, cfg)
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	const idle = 1500
 	for i := range radio.ListenerClientID(idle) {
@@ -161,8 +165,9 @@ func BenchmarkRecorderAddAndRemove(b *testing.B) {
 func TestListenerAddAndRemovalOutOfOrder(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	cfg, _ := config.LoadFile()
 
-	r := NewRecorder(ctx)
+	r := NewRecorder(ctx, cfg)
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 
@@ -243,7 +248,8 @@ func TestRecorderRemoveStalePending(t *testing.T) {
 
 	t.Run("simple removal", func(t *testing.T) {
 		ctx := testCtx(t)
-		r := NewRecorder(ctx)
+		cfg, _ := config.LoadFile()
+		r := NewRecorder(ctx, cfg)
 
 		id := radio.ListenerClientID(10)
 
@@ -259,7 +265,8 @@ func TestRecorderRemoveStalePending(t *testing.T) {
 	})
 	t.Run("many removal", func(t *testing.T) {
 		ctx := testCtx(t)
-		r := NewRecorder(ctx)
+		cfg, _ := config.LoadFile()
+		r := NewRecorder(ctx, cfg)
 
 		count := RemoveStalePeriod / time.Second * 2
 
@@ -277,7 +284,8 @@ func TestRecorderRemoveStalePending(t *testing.T) {
 	})
 	t.Run("removal by periodic goroutine", func(t *testing.T) {
 		ctx := testCtx(t)
-		r := NewRecorder(ctx)
+		cfg, _ := config.LoadFile()
+		r := NewRecorder(ctx, cfg)
 
 		id := radio.ListenerClientID(10)
 
@@ -357,12 +365,13 @@ func TestRecorderListClients(t *testing.T) {
 	p := gopter.NewProperties(nil)
 
 	ctx := context.Background()
+	cfg, _ := config.LoadFile()
 
 	p.Property(t.Name(), a.ForAll(func(in []radio.Listener) bool {
 		// sort entries, this is what we will expect later
 		sortListeners(in)
 
-		r := NewRecorder(ctx)
+		r := NewRecorder(ctx, cfg)
 		// add our input by using a sync call
 		r.Sync(ctx, in)
 		// make sure they got added
