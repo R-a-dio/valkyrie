@@ -17,8 +17,8 @@ func (QueueInput) TemplateBundle() string {
 	return "queue"
 }
 
-func NewQueueInput(s radio.StreamerService, r *http.Request) (*QueueInput, error) {
-	queue, err := s.Queue(r.Context())
+func NewQueueInput(qs radio.QueueService, r *http.Request) (*QueueInput, error) {
+	queue, err := qs.Entries(r.Context())
 	if err != nil {
 		return nil, err
 	}
@@ -30,7 +30,7 @@ func NewQueueInput(s radio.StreamerService, r *http.Request) (*QueueInput, error
 }
 
 func (s State) getQueue(w http.ResponseWriter, r *http.Request) error {
-	input, err := NewQueueInput(s.Streamer, r)
+	input, err := NewQueueInput(s.Queue(), r)
 	if err != nil {
 		return err
 	}
