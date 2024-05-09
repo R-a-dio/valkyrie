@@ -38,7 +38,7 @@ func NewTrackerInput(lts radio.ListenerTrackerService, r *http.Request) (*Tracke
 }
 
 func (s *State) GetListeners(w http.ResponseWriter, r *http.Request) {
-	input, err := NewTrackerInput(nil, r)
+	input, err := NewTrackerInput(s.Tracker, r)
 	if err != nil {
 		s.errorHandler(w, r, err, "")
 		return
@@ -58,7 +58,7 @@ func (s *State) PostRemoveListener(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = radio.ListenerTrackerService(nil).RemoveClient(r.Context(), id)
+	err = s.Tracker.RemoveClient(r.Context(), id)
 	if err != nil {
 		s.errorHandler(w, r, err, "")
 		return
