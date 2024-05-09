@@ -69,6 +69,7 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 		r = r.With(
 			s.Authentication.LoginMiddleware,
 		)
+		p := vmiddleware.RequirePermission
 		r.Handle("/set-theme", templates.SetThemeHandler(
 			templates.ThemeAdminCookieName,
 			s.Templates.ResolveThemeName,
@@ -76,41 +77,34 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 		r.HandleFunc("/", s.GetHome)
 		r.Get("/profile", s.GetProfile)
 		r.Post("/profile", s.PostProfile)
-		r.Get("/pending",
-			vmiddleware.RequirePermission(radio.PermPendingView, s.GetPending))
-		r.Post("/pending",
-			vmiddleware.RequirePermission(radio.PermPendingEdit, s.PostPending))
-		r.Get("/pending-song/{SubmissionID:[0-9]+}",
-			vmiddleware.RequirePermission(radio.PermPendingView, s.GetPendingSong))
-		r.Get("/songs",
-			vmiddleware.RequirePermission(radio.PermDatabaseView, s.GetSongs))
-		r.Post("/songs",
-			vmiddleware.RequirePermission(radio.PermDatabaseEdit, s.PostSongs))
-		r.Get("/users",
-			vmiddleware.RequirePermission(radio.PermAdmin, s.GetUsersList))
-		r.Get("/news",
-			vmiddleware.RequirePermission(radio.PermNews, s.GetNews))
-		r.Get("/news/{NewsID:[0-9]+|new}",
-			vmiddleware.RequirePermission(radio.PermNews, s.GetNewsEntry))
-		r.Post("/news/{NewsID:[0-9]+|new}",
-			vmiddleware.RequirePermission(radio.PermNews, s.PostNewsEntry))
-		r.Post("/news/render",
-			vmiddleware.RequirePermission(radio.PermNews, s.PostNewsRender))
+		r.Get("/pending", p(radio.PermPendingView, s.GetPending))
+		r.Post("/pending", p(radio.PermPendingEdit, s.PostPending))
+		r.Get("/pending-song/{SubmissionID:[0-9]+}", p(radio.PermPendingView, s.GetPendingSong))
+		r.Get("/songs", p(radio.PermDatabaseView, s.GetSongs))
+		r.Post("/songs", p(radio.PermDatabaseEdit, s.PostSongs))
+		r.Get("/users", p(radio.PermAdmin, s.GetUsersList))
+		r.Get("/news", p(radio.PermNews, s.GetNews))
+		r.Get("/news/{NewsID:[0-9]+|new}", p(radio.PermNews, s.GetNewsEntry))
+		r.Post("/news/{NewsID:[0-9]+|new}", p(radio.PermNews, s.PostNewsEntry))
+		r.Post("/news/render", p(radio.PermNews, s.PostNewsRender))
 		r.Get("/queue", // TODO: change permission to queue specific
-			vmiddleware.RequirePermission(radio.PermAdmin, s.GetQueue))
+			p(radio.PermAdmin, s.GetQueue))
+		r.Post("/queue/remove", p(radio.PermAdmin, s.PostQueueRemove))
 		r.Get("/schedule", // TODO: change permission to schedule specific
-			vmiddleware.RequirePermission(radio.PermAdmin, s.GetSchedule))
-		r.Get("/listeners", // TODO: change permissions to listener specific
-			vmiddleware.RequirePermission(radio.PermAdmin, s.GetListeners))
+			p(radio.PermAdmin, s.GetSchedule))
+		r.Get("/tracker", // TODO: change permissions to listener specific
+			p(radio.PermAdmin, s.GetListeners))
+		r.Post("/tracker/remove", // TODO: change permissions to listener specific
+			p(radio.PermAdmin, s.PostRemoveListener))
 
 		// proxy to the grafana host
 		grafana, _ := url.Parse("http://localhost:3000")
 		proxy := httputil.NewSingleHostReverseProxy(grafana)
-		r.Handle("/grafana/*", vmiddleware.RequirePermission(radio.PermDev, proxy.ServeHTTP))
+		r.Handle("/grafana/*", p(radio.PermDev, proxy.ServeHTTP))
 
 		// debug handlers, might not be needed later
-		r.Post("/api/streamer/stop", vmiddleware.RequirePermission(radio.PermAdmin, s.PostStreamerStop))
-		r.Post("/api/website/reload-templates", vmiddleware.RequirePermission(radio.PermAdmin, s.PostReloadTemplates))
+		r.Post("/api/streamer/stop", p(radio.PermAdmin, s.PostStreamerStop))
+		r.Post("/api/website/reload-templates", p(radio.PermAdmin, s.PostReloadTemplates))
 	}
 }
 

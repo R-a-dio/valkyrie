@@ -10,36 +10,35 @@ import (
 	"github.com/gorilla/csrf"
 )
 
-type QueueInput struct {
+type TrackerInput struct {
 	middleware.Input
 	CSRFTokenInput template.HTML
 
-	Queue []radio.QueueEntry
+	Listeners []radio.Listener
 }
 
-func (QueueInput) TemplateBundle() string {
-	return "queue"
+func (TrackerInput) TemplateBundle() string {
+	return "tracker"
 }
 
-// TODO: make this use radio.QueueService
-func NewQueueInput(qs radio.StreamerService, r *http.Request) (*QueueInput, error) {
-	const op errors.Op = "website/admin.NewQueueInput"
+func NewTrackerInput(lts radio.ListenerTrackerService, r *http.Request) (*TrackerInput, error) {
+	const op errors.Op = "website/admin.NewTrackerInput"
 
-	queue, err := qs.Queue(r.Context())
+	listeners, err := lts.ListClients(r.Context())
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
 
-	input := &QueueInput{
+	input := &TrackerInput{
 		Input:          middleware.InputFromRequest(r),
 		CSRFTokenInput: csrf.TemplateField(r),
-		Queue:          queue,
+		Listeners:      listeners,
 	}
 	return input, nil
 }
 
-func (s *State) GetQueue(w http.ResponseWriter, r *http.Request) {
-	input, err := NewQueueInput(s.Conf().Streamer.Client(), r)
+func (s *State) GetListeners(w http.ResponseWriter, r *http.Request) {
+	input, err := NewTrackerInput(nil, r)
 	if err != nil {
 		s.errorHandler(w, r, err, "")
 		return
@@ -52,21 +51,18 @@ func (s *State) GetQueue(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *State) PostQueueRemove(w http.ResponseWriter, r *http.Request) {
-	// TODO: populate this
-	var qs radio.QueueService
-
-	id, err := radio.ParseQueueID(r.FormValue("id"))
+func (s *State) PostRemoveListener(w http.ResponseWriter, r *http.Request) {
+	id, err := radio.ParseListenerClientID(r.FormValue("id"))
 	if err != nil {
 		s.errorHandler(w, r, err, "")
 		return
 	}
 
-	_, err = qs.Remove(r.Context(), id)
+	err = radio.ListenerTrackerService(nil).RemoveClient(r.Context(), id)
 	if err != nil {
 		s.errorHandler(w, r, err, "")
 		return
 	}
 
-	s.GetQueue(w, r)
+	s.GetListeners(w, r)
 }

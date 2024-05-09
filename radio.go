@@ -391,6 +391,15 @@ type QueueID struct {
 	xid.ID
 }
 
+func ParseQueueID(s string) (QueueID, error) {
+	id, err := xid.FromString(s)
+	return QueueID{id}, err
+}
+
+func (qid QueueID) String() string {
+	return qid.ID.String()
+}
+
 // QueueEntry is a Song used in the QueueService
 type QueueEntry struct {
 	// QueueID is a unique identifier for this queue entry
