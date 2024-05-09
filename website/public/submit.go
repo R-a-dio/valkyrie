@@ -42,7 +42,8 @@ func NewSubmitInput(storage radio.SubmissionStorageService, r *http.Request, for
 	const op errors.Op = "website.NewSubmitInput"
 
 	if form == nil {
-		form = new(SubmissionForm)
+		tmp := newSubmissionForm(r, nil)
+		form = &tmp
 	}
 
 	identifier, _ := getIdentifier(r)
@@ -319,8 +320,6 @@ func NewSubmissionForm(tempdir string, r *http.Request) (*SubmissionForm, error)
 	const op errors.Op = "public.NewSubmissionForm"
 
 	sf := newSubmissionForm(r, nil)
-
-	sf.CSRFTokenInput = csrf.TemplateField(r)
 
 	mr, err := r.MultipartReader()
 	if err != nil {

@@ -161,7 +161,7 @@ var xForwardedFor = strings.ToLower(prefix + "X-Forwarded-For")
 var xRealIP = strings.ToLower(prefix + "X-Real-IP")
 var trueClientIP = strings.ToLower(prefix + "True-Client-IP")
 
-// icecastRealIP recovers the clients real ip address from the request
+// IcecastRealIP recovers the clients real ip address from the request
 //
 // This looks for X-Forwarded-For, X-Real-IP and True-Client-IP
 func IcecastRealIP(r *http.Request) string {
