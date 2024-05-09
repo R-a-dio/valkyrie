@@ -31,13 +31,11 @@ func NewGRPCServer(lts radio.ListenerTrackerService) *grpc.Server {
 }
 
 func Execute(ctx context.Context, cfg config.Config) error {
-	manager := cfg.Manager()
-
 	// setup recorder
 	var recorder = NewRecorder(ctx, cfg)
 
 	// setup periodic task to update the manager of our listener count
-	go PeriodicallyUpdateListeners(ctx, manager, recorder, UpdateListenersTickrate)
+	go PeriodicallyUpdateListeners(ctx, cfg.Manager, recorder, UpdateListenersTickrate)
 	// setup periodic task to keep recorder state in sync with icecast
 	go PeriodicallySyncListeners(ctx, cfg, recorder, SyncListenersTickrate)
 

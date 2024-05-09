@@ -269,11 +269,11 @@ type Config struct {
 
 	// RPC helpers, call these to get an RPC interface to
 	// the named component
-	Streamer func() radio.StreamerService
-	Manager  func() radio.ManagerService
-	Tracker  func() radio.ListenerTrackerService
-	Queue    func() radio.QueueService
-	IRC      func() radio.AnnounceService
+	Streamer radio.StreamerService
+	Manager  radio.ManagerService
+	Tracker  radio.ListenerTrackerService
+	Queue    radio.QueueService
+	IRC      radio.AnnounceService
 }
 
 type reload struct {
@@ -292,21 +292,11 @@ func newConfig(c config) Config {
 	})
 
 	// TODO: handle reloads by closing rpc connections
-	cfg.Streamer = Value(cfg, func(c Config) radio.StreamerService {
-		return rpc.NewStreamerService(streamerConn())
-	})
-	cfg.Manager = Value(cfg, func(c Config) radio.ManagerService {
-		return rpc.NewManagerService(rpc.PrepareConn(cfg.Conf().Manager.Addr))
-	})
-	cfg.Tracker = Value(cfg, func(c Config) radio.ListenerTrackerService {
-		return rpc.NewListenerTrackerService(rpc.PrepareConn(cfg.Conf().Tracker.RPCAddr))
-	})
-	cfg.Queue = Value(cfg, func(c Config) radio.QueueService {
-		return rpc.NewQueueService(streamerConn())
-	})
-	cfg.IRC = Value(cfg, func(c Config) radio.AnnounceService {
-		return rpc.NewAnnouncerService(rpc.PrepareConn(cfg.Conf().IRC.Addr))
-	})
+	cfg.Streamer = newStreamerService(cfg, streamerConn)
+	cfg.Manager = newManagerService(cfg)
+	cfg.Tracker = newTrackerService(cfg)
+	cfg.Queue = newQueueService(cfg, streamerConn)
+	cfg.IRC = newIRCService(cfg)
 
 	cfg.StoreConf(c)
 	return cfg

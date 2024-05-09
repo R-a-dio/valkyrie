@@ -57,8 +57,8 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		return errors.E(op, err)
 	}
 	// RPC clients
-	streamer := cfg.Streamer()
-	manager := cfg.Manager()
+	streamer := cfg.Streamer
+	manager := cfg.Manager
 
 	// RPC values
 	statusValue := util.StreamValue(ctx, manager.CurrentStatus)

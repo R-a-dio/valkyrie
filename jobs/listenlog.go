@@ -16,7 +16,7 @@ func ExecuteListenerLog(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 
-	m := cfg.Manager()
+	m := cfg.Manager
 
 	status, err := util.OneOff(ctx, m.CurrentStatus)
 	if err != nil {

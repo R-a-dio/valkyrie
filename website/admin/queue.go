@@ -39,7 +39,7 @@ func NewQueueInput(qs radio.QueueService, r *http.Request) (*QueueInput, error) 
 }
 
 func (s *State) GetQueue(w http.ResponseWriter, r *http.Request) {
-	input, err := NewQueueInput(s.Queue(), r)
+	input, err := NewQueueInput(s.Queue, r)
 	if err != nil {
 		s.errorHandler(w, r, err, "")
 		return
@@ -59,7 +59,7 @@ func (s *State) PostQueueRemove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = s.Queue().Remove(r.Context(), id)
+	_, err = s.Queue.Remove(r.Context(), id)
 	if err != nil {
 		s.errorHandler(w, r, err, "")
 		return

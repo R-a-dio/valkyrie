@@ -22,7 +22,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	if err != nil {
 		return errors.E(op, err)
 	}
-	m := cfg.Manager()
+	m := cfg.Manager
 
 	srv, err := NewServer(ctx, cfg, m, storage)
 	if err != nil {
