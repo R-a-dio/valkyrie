@@ -12,6 +12,7 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/alexedwards/scs/v2"
+	"github.com/go-chi/httprate"
 	"github.com/gorilla/csrf"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
@@ -103,6 +104,13 @@ func (a authentication) UserMiddleware(next http.Handler) http.Handler {
 func (a authentication) LoginMiddleware(next http.Handler) http.Handler {
 	const op errors.Op = "admin/authentication.LoginMiddleware"
 
+	// setup ratelimiting to the POST handler
+	postHandler := httprate.Limit(
+		3,             // the amount per period
+		1*time.Minute, // period of the limit
+		httprate.WithKeyFuncs(httprate.KeyByIP),
+	)(http.HandlerFunc(a.PostLogin))
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		username := a.sessions.GetString(ctx, usernameKey)
@@ -111,7 +119,7 @@ func (a authentication) LoginMiddleware(next http.Handler) http.Handler {
 		if username == "" {
 			if r.Method == http.MethodPost {
 				// if it's a POST try and see if they're trying to login
-				a.PostLogin(w, r)
+				postHandler.ServeHTTP(w, r)
 			} else {
 				// otherwise send them to the login form
 				a.GetLogin(w, r)
