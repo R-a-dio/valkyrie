@@ -31,7 +31,7 @@ func NewGRPCServer(lts radio.ListenerTrackerService) *grpc.Server {
 }
 
 func Execute(ctx context.Context, cfg config.Config) error {
-	manager := cfg.Conf().Manager.Client()
+	manager := cfg.Manager()
 
 	// setup recorder
 	var recorder = NewRecorder(ctx, cfg)

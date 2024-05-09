@@ -292,8 +292,8 @@ func (q QueueClientRPC) Entries(ctx context.Context) ([]radio.QueueEntry, error)
 	}
 
 	var queue = make([]radio.QueueEntry, len(resp.Entries))
-	for _, entry := range resp.Entries {
-		queue = append(queue, fromProtoQueueEntry(entry))
+	for i, entry := range resp.Entries {
+		queue[i] = fromProtoQueueEntry(entry)
 	}
 	return queue, nil
 }

@@ -28,6 +28,7 @@ func NewHTTPServer(cfg config.Config, storage radio.StorageService,
 
 	gs := rpc.NewGrpcServer()
 	rpc.RegisterStreamerServer(gs, rpc.NewStreamer(s))
+	rpc.RegisterQueueServer(gs, rpc.NewQueue(queue))
 
 	return gs, nil
 }

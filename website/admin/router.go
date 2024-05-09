@@ -109,7 +109,7 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 }
 
 func (s *State) PostStreamerStop(w http.ResponseWriter, r *http.Request) {
-	s.Conf().Streamer.Client().Stop(r.Context(), false)
+	s.Streamer().Stop(r.Context(), false)
 }
 
 func (s *State) errorHandler(w http.ResponseWriter, r *http.Request, err error, msg string) {

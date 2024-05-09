@@ -16,6 +16,7 @@ import (
 	"github.com/BurntSushi/toml"
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/rpc"
+	"google.golang.org/grpc"
 )
 
 // defaultConfig is the default configuration for this project
@@ -192,11 +193,6 @@ type streamer struct {
 	RequestsEnabled bool
 }
 
-// Client returns an usable client to the streamer
-func (s streamer) Client() radio.StreamerService {
-	return rpc.NewStreamerService(rpc.PrepareConn(s.Addr))
-}
-
 // irc contains all the fields only relevant to the irc bot
 type irc struct {
 	// Addr is the address for the HTTP API
@@ -224,11 +220,6 @@ type irc struct {
 	AnnouncePeriod Duration
 }
 
-// Client returns an usable client to the irc (announcer) service
-func (i irc) Client() radio.AnnounceService {
-	return rpc.NewAnnouncerService(rpc.PrepareConn(i.Addr))
-}
-
 // manager contains all fields relevant to the manager
 type manager struct {
 	// Addr is the address for the HTTP API
@@ -240,11 +231,6 @@ type manager struct {
 	// FallbackNames is a list of strings that indicate an icecast stream is playing a
 	// fallback stream
 	FallbackNames []string
-}
-
-// Client returns an usable client to the manager service
-func (m manager) Client() radio.ManagerService {
-	return rpc.NewManagerService(rpc.PrepareConn(m.Addr))
 }
 
 type elasticsearch struct {
@@ -280,6 +266,14 @@ type Config struct {
 	config *atomic.Value
 
 	reloader *reload
+
+	// RPC helpers, call these to get an RPC interface to
+	// the named component
+	Streamer func() radio.StreamerService
+	Manager  func() radio.ManagerService
+	Tracker  func() radio.ListenerTrackerService
+	Queue    func() radio.QueueService
+	IRC      func() radio.AnnounceService
 }
 
 type reload struct {
@@ -288,12 +282,34 @@ type reload struct {
 }
 
 func newConfig(c config) Config {
-	ac := Config{
+	cfg := Config{
 		config:   new(atomic.Value),
 		reloader: new(reload),
 	}
-	ac.StoreConf(c)
-	return ac
+
+	streamerConn := Value(cfg, func(c Config) *grpc.ClientConn {
+		return rpc.PrepareConn(cfg.Conf().Streamer.Addr)
+	})
+
+	// TODO: handle reloads by closing rpc connections
+	cfg.Streamer = Value(cfg, func(c Config) radio.StreamerService {
+		return rpc.NewStreamerService(streamerConn())
+	})
+	cfg.Manager = Value(cfg, func(c Config) radio.ManagerService {
+		return rpc.NewManagerService(rpc.PrepareConn(cfg.Conf().Manager.Addr))
+	})
+	cfg.Tracker = Value(cfg, func(c Config) radio.ListenerTrackerService {
+		return rpc.NewListenerTrackerService(rpc.PrepareConn(cfg.Conf().Tracker.RPCAddr))
+	})
+	cfg.Queue = Value(cfg, func(c Config) radio.QueueService {
+		return rpc.NewQueueService(streamerConn())
+	})
+	cfg.IRC = Value(cfg, func(c Config) radio.AnnounceService {
+		return rpc.NewAnnouncerService(rpc.PrepareConn(cfg.Conf().IRC.Addr))
+	})
+
+	cfg.StoreConf(c)
+	return cfg
 }
 
 // Loader is a typed function that returns a Config, used to pass in a pre-set Load or

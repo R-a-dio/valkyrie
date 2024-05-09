@@ -40,7 +40,6 @@ func NewBalancer(ctx context.Context, cfg config.Config) (*Balancer, error) {
 	br := &Balancer{
 		Config:  cfg,
 		storage: ss,
-		manager: c.Manager.Client(),
 	}
 
 	br.c = current.NewCurrent(c.Balancer.Fallback)

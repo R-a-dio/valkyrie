@@ -82,7 +82,7 @@ func NewManager(ctx context.Context, cfg config.Config) (*Manager, error) {
 	m.listenerStream = eventstream.NewEventStream(radio.Listeners(old.Listeners))
 	m.statusStream = eventstream.NewEventStream(*old)
 
-	m.client.streamer = cfg.Conf().Streamer.Client()
+	m.client.streamer = cfg.Streamer()
 	return &m, nil
 }
 

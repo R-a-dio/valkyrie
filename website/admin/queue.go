@@ -22,10 +22,10 @@ func (QueueInput) TemplateBundle() string {
 }
 
 // TODO: make this use radio.QueueService
-func NewQueueInput(qs radio.StreamerService, r *http.Request) (*QueueInput, error) {
+func NewQueueInput(qs radio.QueueService, r *http.Request) (*QueueInput, error) {
 	const op errors.Op = "website/admin.NewQueueInput"
 
-	queue, err := qs.Queue(r.Context())
+	queue, err := qs.Entries(r.Context())
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
@@ -39,7 +39,7 @@ func NewQueueInput(qs radio.StreamerService, r *http.Request) (*QueueInput, erro
 }
 
 func (s *State) GetQueue(w http.ResponseWriter, r *http.Request) {
-	input, err := NewQueueInput(s.Conf().Streamer.Client(), r)
+	input, err := NewQueueInput(s.Queue(), r)
 	if err != nil {
 		s.errorHandler(w, r, err, "")
 		return
@@ -53,16 +53,13 @@ func (s *State) GetQueue(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *State) PostQueueRemove(w http.ResponseWriter, r *http.Request) {
-	// TODO: populate this
-	var qs radio.QueueService
-
 	id, err := radio.ParseQueueID(r.FormValue("id"))
 	if err != nil {
 		s.errorHandler(w, r, err, "")
 		return
 	}
 
-	_, err = qs.Remove(r.Context(), id)
+	_, err = s.Queue().Remove(r.Context(), id)
 	if err != nil {
 		s.errorHandler(w, r, err, "")
 		return

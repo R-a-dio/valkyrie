@@ -32,8 +32,6 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	// setup our announce service
 	announce := NewAnnounceService(b.Config, b.Storage, b)
 
-	manager := cfg.Conf().Manager.Client()
-
 	// setup a http server for our RPC API
 	srv, err := NewHTTPServer(announce)
 	if err != nil {
@@ -45,13 +43,14 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 
-	b.StatusValue = util.StreamValue(ctx, manager.CurrentStatus, func(ctx context.Context, s radio.Status) {
+	// TODO: make correct use of the config reload mechanism
+	b.StatusValue = util.StreamValue(ctx, cfg.Manager().CurrentStatus, func(ctx context.Context, s radio.Status) {
 		err := announce.AnnounceSong(ctx, s)
 		if err != nil {
 			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to announce")
 		}
 	})
-	b.ListenersValue = util.StreamValue(ctx, manager.CurrentListeners)
+	b.ListenersValue = util.StreamValue(ctx, cfg.Manager().CurrentListeners)
 
 	errCh := make(chan error, 2)
 	go func() {
@@ -108,8 +107,6 @@ func NewBot(ctx context.Context, cfg config.Config) (*Bot, error) {
 	b := &Bot{
 		Config:   cfg,
 		Storage:  store,
-		Manager:  c.Manager.Client(),
-		Streamer: c.Streamer.Client(),
 		Searcher: ss,
 		c:        girc.New(ircConf),
 	}
