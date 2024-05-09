@@ -179,7 +179,7 @@ func IcecastRealIP(r *http.Request) string {
 		ip = xff[:i]
 	}
 	if ip == "" || net.ParseIP(ip) == nil {
-		return r.RemoteAddr
+		return r.PostForm.Get("ip")
 	}
 	return ip
 
