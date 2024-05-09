@@ -321,81 +321,88 @@ func NewSubmissionForm(tempdir string, r *http.Request) (*SubmissionForm, error)
 
 	sf := newSubmissionForm(r, nil)
 
-	mr, err := r.MultipartReader()
+	err := r.ParseMultipartForm(formMaxSize)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
 
-	for i := 0; i < formMaxMIMEParts; i++ {
-		part, err := mr.NextPart()
-		if errors.IsE(err, io.EOF) {
-			// finished reading parts
-			return &sf, nil
+	getValue := func(req *http.Request, name string) string {
+		if req.MultipartForm == nil || req.MultipartForm.Value == nil {
+			return ""
 		}
+
+		v := req.MultipartForm.Value[name]
+		if len(v) > 0 {
+			return v[0]
+		}
+		return ""
+	}
+
+	sf.Comment = getValue(r, "comment")
+	sf.Daypass = getValue(r, "daypass")
+
+	if replacement := getValue(r, "replacement"); replacement != "" {
+		tid, err := radio.ParseTrackID(replacement)
 		if err != nil {
-			return nil, errors.E(op, err, errors.InternalServer)
+			return nil, errors.E(op, err)
+		}
+		sf.Replacement = &tid
+	}
+
+	// now handle the uploaded file
+	tracks := r.MultipartForm.File["track"]
+	if len(tracks) != 1 {
+		return nil, errors.E(op, errors.InvalidForm)
+	}
+	track := tracks[0]
+
+	// wrapped into a function for easier temporary file cleanup if
+	// something goes wrong.
+	err = func() error {
+		// we want to use the extension given by the user as our extension
+		// on the server, but we can't trust it yet. Run clean on it and
+		// then check if we allow this extension
+		path := filepath.Clean("/" + track.Filename)
+		ext := filepath.Ext(path)
+		if !AllowedExtension(ext) {
+			return errors.E(op, errors.InvalidForm, "extension not allowed", errors.Info(ext))
+		}
+		// remove any * because CreateTemp uses them for the random replacement
+		ext = strings.ReplaceAll(ext, "*", "")
+
+		// create the resting place for the uploaded file
+		f, err := os.CreateTemp(tempdir, "pending-*"+ext)
+		if err != nil {
+			return errors.E(op, err, errors.Info("failed to create temp file"))
+		}
+		defer f.Close()
+
+		// open the uploaded file for copying
+		uploaded, err := track.Open()
+		if err != nil {
+			return errors.E(op, err, errors.Info("failed to open multipart file"))
+		}
+		defer uploaded.Close()
+
+		// copy over the uploaded file to the resting place
+		n, err := io.CopyN(f, uploaded, formMaxFileLength)
+		if err != nil && !errors.IsE(err, io.EOF) {
+			os.Remove(f.Name())
+			return errors.E(op, err, errors.Info("copying to temp file failed"))
+		}
+		if n >= formMaxFileLength {
+			os.Remove(f.Name())
+			return errors.E(op, err)
 		}
 
-		switch part.FormName() {
-		case "track": // audio file that is being submitted
-			err = func() error {
-				// clean the extension from the user
-				path := filepath.Clean("/" + part.FileName())
-				ext := filepath.Ext(path)
-				if !AllowedExtension(ext) {
-					return errors.E(op, errors.InvalidForm, "extension not allowed", errors.Info(ext))
-				}
-				// remove any * because CreateTemp uses them for the random replacement
-				ext = strings.ReplaceAll(ext, "*", "")
-
-				f, err := os.CreateTemp(tempdir, "pending-*"+ext)
-				if err != nil {
-					return errors.E(op, err, errors.Info("failed to create temp file"))
-				}
-				defer f.Close()
-
-				n, err := io.CopyN(f, part, formMaxFileLength)
-				if err != nil && !errors.IsE(err, io.EOF) {
-					os.Remove(f.Name())
-					return errors.E(op, err, errors.Info("copying to temp file failed"))
-				}
-				if n >= formMaxFileLength {
-					os.Remove(f.Name())
-					return errors.E(op, err)
-				}
-				sf.OriginalFilename = part.FileName()
-				sf.File = f.Name()
-				return nil
-			}()
-			if err != nil {
-				return nil, errors.E(op, err)
-			}
-		case "comment": // comment to be shown on the pending admin panel
-			s, err := readString(part, formMaxCommentLength)
-			if err != nil {
-				return nil, errors.E(op, err)
-			}
-			sf.Comment = s
-		case "daypass": // a daypass
-			s, err := readString(part, formMaxDaypassLength)
-			if err != nil {
-				return nil, errors.E(op, err)
-			}
-			sf.Daypass = s
-		case "replacement": // replacement track identifier
-			s, err := readString(part, formMaxReplacementLength)
-			if err != nil {
-				return nil, errors.E(op, err)
-			}
-			tid, err := radio.ParseTrackID(s)
-			if err != nil {
-				return nil, errors.E(op, err)
-			}
-			sf.Replacement = &tid
-		default:
-			// unknown form field, we just cancel everything and return
-			return nil, errors.E(op, errors.InvalidForm)
-		}
+		// record the filename the user supplied
+		sf.OriginalFilename = track.Filename
+		// and the filename of the resting place
+		sf.File = f.Name()
+		return nil
+	}()
+	if err != nil {
+		return nil, err
 	}
 
 	return &sf, nil
