@@ -1121,7 +1121,8 @@ var Queue_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	ListenerTracker_ListClients_FullMethodName = "/radio.ListenerTracker/ListClients"
+	ListenerTracker_ListClients_FullMethodName  = "/radio.ListenerTracker/ListClients"
+	ListenerTracker_RemoveClient_FullMethodName = "/radio.ListenerTracker/RemoveClient"
 )
 
 // ListenerTrackerClient is the client API for ListenerTracker service.
@@ -1129,6 +1130,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ListenerTrackerClient interface {
 	ListClients(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*Listeners, error)
+	RemoveClient(ctx context.Context, in *TrackerRemoveClientRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type listenerTrackerClient struct {
@@ -1148,11 +1150,21 @@ func (c *listenerTrackerClient) ListClients(ctx context.Context, in *emptypb.Emp
 	return out, nil
 }
 
+func (c *listenerTrackerClient) RemoveClient(ctx context.Context, in *TrackerRemoveClientRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, ListenerTracker_RemoveClient_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ListenerTrackerServer is the server API for ListenerTracker service.
 // All implementations must embed UnimplementedListenerTrackerServer
 // for forward compatibility
 type ListenerTrackerServer interface {
 	ListClients(context.Context, *emptypb.Empty) (*Listeners, error)
+	RemoveClient(context.Context, *TrackerRemoveClientRequest) (*emptypb.Empty, error)
 	mustEmbedUnimplementedListenerTrackerServer()
 }
 
@@ -1162,6 +1174,9 @@ type UnimplementedListenerTrackerServer struct {
 
 func (UnimplementedListenerTrackerServer) ListClients(context.Context, *emptypb.Empty) (*Listeners, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListClients not implemented")
+}
+func (UnimplementedListenerTrackerServer) RemoveClient(context.Context, *TrackerRemoveClientRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RemoveClient not implemented")
 }
 func (UnimplementedListenerTrackerServer) mustEmbedUnimplementedListenerTrackerServer() {}
 
@@ -1194,6 +1209,24 @@ func _ListenerTracker_ListClients_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ListenerTracker_RemoveClient_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TrackerRemoveClientRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ListenerTrackerServer).RemoveClient(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ListenerTracker_RemoveClient_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ListenerTrackerServer).RemoveClient(ctx, req.(*TrackerRemoveClientRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ListenerTracker_ServiceDesc is the grpc.ServiceDesc for ListenerTracker service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1204,6 +1237,10 @@ var ListenerTracker_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListClients",
 			Handler:    _ListenerTracker_ListClients_Handler,
+		},
+		{
+			MethodName: "RemoveClient",
+			Handler:    _ListenerTracker_RemoveClient_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

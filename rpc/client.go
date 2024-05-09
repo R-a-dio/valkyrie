@@ -56,6 +56,12 @@ func (lt ListenerTrackerClientRPC) ListClients(ctx context.Context) ([]radio.Lis
 }
 
 func (lt ListenerTrackerClientRPC) RemoveClient(ctx context.Context, id radio.ListenerClientID) error {
+	_, err := lt.rpc.RemoveClient(ctx, &TrackerRemoveClientRequest{
+		Id: uint64(id),
+	})
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

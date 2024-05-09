@@ -278,6 +278,10 @@ func (lt ListenerTrackerShim) ListClients(ctx context.Context, _ *emptypb.Empty)
 	}, nil
 }
 
-func (lt ListenerTrackerShim) RemoveClient(ctx context.Context) (*emptypb.Empty, error) {
-	return nil, nil
+func (lt ListenerTrackerShim) RemoveClient(ctx context.Context, req *TrackerRemoveClientRequest) (*emptypb.Empty, error) {
+	err := lt.tracker.RemoveClient(ctx, radio.ListenerClientID(req.Id))
+	if err != nil {
+		return nil, err
+	}
+	return new(emptypb.Empty), nil
 }
