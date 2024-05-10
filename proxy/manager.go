@@ -16,6 +16,7 @@ import (
 type ProxyManager struct {
 	ctx          context.Context
 	cfg          config.Config
+	events       *EventHandler
 	reloadConfig chan config.Config
 
 	// metaMu protects metaStore
@@ -27,10 +28,11 @@ type ProxyManager struct {
 	cleanup  map[string]*time.Timer
 }
 
-func NewProxyManager(ctx context.Context, cfg config.Config) (*ProxyManager, error) {
+func NewProxyManager(ctx context.Context, cfg config.Config, eh *EventHandler) (*ProxyManager, error) {
 	m := &ProxyManager{
 		ctx:          ctx,
 		cfg:          cfg,
+		events:       eh,
 		reloadConfig: make(chan config.Config),
 		metaStore:    make(map[Identifier]*Metadata),
 		mounts:       make(map[string]*Mount),
@@ -90,7 +92,7 @@ func (pm *ProxyManager) AddSourceClient(source *SourceClient) error {
 
 	mount, ok := pm.mounts[source.MountName]
 	if !ok { // if it didn't exist create one
-		mount = NewMount(pm.ctx, pm.cfg, pm, source.MountName, source.ContentType, nil)
+		mount = NewMount(pm.ctx, pm.cfg, pm, pm.events, source.MountName, source.ContentType, nil)
 		pm.mounts[source.MountName] = mount
 	}
 

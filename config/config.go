@@ -70,8 +70,9 @@ var defaultConfig = config{
 		Fallback: "https://relay0.r-a-d.io/main.mp3",
 	},
 	Proxy: proxy{
-		Addr:         ":1337",
-		MasterServer: "http://source:hackme@127.0.0.1:8000",
+		Addr:             ":1337",
+		MasterServer:     "http://source:hackme@127.0.0.1:8000",
+		PrimaryMountName: "/main.mp3",
 	},
 	Tracker: tracker{
 		RPCAddr:        ":4949",

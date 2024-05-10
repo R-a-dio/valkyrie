@@ -124,12 +124,14 @@ func TestMountRemoveSource(t *testing.T) {
 	cfg, err := config.LoadFile()
 	require.NoError(t, err)
 
+	eh := NewEventHandler(ctx, cfg)
+
 	mountName := "/test.mp3"
 	contentType := "audio/mpeg"
 
 	conn1, conn2 := net.Pipe()
 
-	mount := NewMount(ctx, cfg, nil, mountName, contentType, nil)
+	mount := NewMount(ctx, cfg, nil, eh, mountName, contentType, nil)
 
 	user := newTestUser("test", "test")
 	req := httptest.NewRequest("PUT", mountName, conn2)

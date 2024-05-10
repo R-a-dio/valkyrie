@@ -40,7 +40,8 @@ func zerologLoggerFunc(r *http.Request, status, size int, duration time.Duration
 func NewServer(ctx context.Context, cfg config.Config, manager radio.ManagerService, storage radio.UserStorageService) (*Server, error) {
 	const op errors.Op = "proxy.NewServer"
 
-	pm, err := NewProxyManager(ctx, cfg)
+	eh := NewEventHandler(ctx, cfg)
+	pm, err := NewProxyManager(ctx, cfg, eh)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}

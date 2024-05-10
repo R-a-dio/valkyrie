@@ -80,6 +80,7 @@ func TestServer(t *testing.T) {
 			sourceConnections.Add(1)
 			// if it's a PUT it should be an audio stream so just discard everything
 			io.Copy(io.Discard, r.Body)
+			return
 		}
 
 		if r.Method == http.MethodGet && r.URL.Path == "/admin/metadata" {

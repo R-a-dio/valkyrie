@@ -26,6 +26,7 @@ type Mount struct {
 	logger zerolog.Logger
 	cfg    config.Config
 	pm     *ProxyManager
+	events *EventHandler
 
 	backOff backoff.BackOff
 	// ContentType of this mount, this can only be set during creation and all
@@ -43,7 +44,14 @@ type Mount struct {
 	Sources   []*MountSourceClient
 }
 
-func NewMount(ctx context.Context, cfg config.Config, pm *ProxyManager, name string, ct string, conn net.Conn) *Mount {
+func NewMount(ctx context.Context,
+	cfg config.Config,
+	pm *ProxyManager,
+	eh *EventHandler,
+	name string, // name of the mount
+	contentType string, // content-type of the new mount
+	conn net.Conn, // optional connection to the master server to re-use
+) *Mount {
 	logger := zerolog.Ctx(ctx).With().Str("mount", name).Logger()
 
 	bo := config.NewConnectionBackoff(ctx)
@@ -53,7 +61,7 @@ func NewMount(ctx context.Context, cfg config.Config, pm *ProxyManager, name str
 		cfg:         cfg,
 		pm:          pm,
 		backOff:     bo,
-		ContentType: ct,
+		ContentType: contentType,
 		Name:        name,
 		Conn:        util.NewTypedValue(conn),
 		SourcesMu:   new(sync.RWMutex),
@@ -174,7 +182,7 @@ func (m *Mount) readSelf(ctx context.Context, cfg config.Config, src *net.UnixCo
 
 	zerolog.Ctx(ctx).Debug().Any("wireMount", wm).Msg("resume")
 
-	newmount := NewMount(ctx, cfg, m.pm, wm.Name, wm.ContentType, conn)
+	newmount := NewMount(ctx, cfg, m.pm, m.pm.events, wm.Name, wm.ContentType, conn)
 	*m = *newmount
 
 	if wm.SourceCount == 0 {
@@ -330,6 +338,8 @@ func (m *Mount) liveSourceSwap(ctx context.Context) {
 	if next != nil {
 		// let the next client go live
 		next.GoLive(ctx, m)
+		// send event that we went live
+		m.events.LiveSourceSwap(ctx, next.Source)
 		return
 	}
 
