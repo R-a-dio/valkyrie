@@ -138,8 +138,9 @@ type tracker struct {
 }
 
 type proxy struct {
-	Addr         string
-	MasterServer string
+	Addr             string
+	MasterServer     URL
+	PrimaryMountName string
 }
 
 type telemetry struct {
@@ -454,7 +455,14 @@ func (d *Duration) UnmarshalText(text []byte) error {
 type URL string
 
 func (u URL) URL() *url.URL {
-	uri, _ := url.Parse(string(u))
+	// any file-based configuration will go through UnmarshalText
+	// for the URL type, and the defaults are tested in the
+	// roundtrip test, so there should be no way for a URL value
+	// to be a string that doesn't url.Parse correctly.
+	uri, err := url.Parse(string(u))
+	if err != nil {
+		panic("unreachable: unless you did something stupid")
+	}
 	return uri
 }
 

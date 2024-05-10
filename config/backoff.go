@@ -1,9 +1,10 @@
 package config
 
 import (
+	"context"
 	"time"
 
-	"github.com/cenkalti/backoff"
+	"github.com/cenkalti/backoff/v4"
 )
 
 const initialInterval = time.Millisecond * 250
@@ -18,43 +19,47 @@ const (
 )
 
 // NewConnectionBackoff returns a new backoff set to the intended configuration
-// for local connection retrying, for connections going to non-local addresses
-// don't use this
-func NewConnectionBackoff() *backoff.ExponentialBackOff {
-	b := &backoff.ExponentialBackOff{
-		RandomizationFactor: backoff.DefaultRandomizationFactor,
-		Multiplier:          backoff.DefaultMultiplier,
-		Clock:               backoff.SystemClock,
-		// fields we use non-default
-		InitialInterval: initialInterval,
-		MaxInterval:     ConnectionRetryMaxInterval,
-		MaxElapsedTime:  ConnectionRetryMaxElapsedTime,
+// for connection retrying
+func NewConnectionBackoff(ctx context.Context) BackOff {
+	b := backoff.NewExponentialBackOff(
+		backoff.WithInitialInterval(initialInterval),
+		backoff.WithMaxInterval(ConnectionRetryMaxInterval),
+		backoff.WithMaxElapsedTime(ConnectionRetryMaxElapsedTime),
+	)
+
+	return _backoff{
+		expo: b,
+		ctx:  backoff.WithContext(b, ctx),
 	}
-	b.Reset()
-	return b
 }
 
-const (
-	// DatabaseRetryMaxInterval indicates the maximum interval between database
-	// call retries after an error occurs
-	DatabaseRetryMaxInterval = time.Second * 5
-	// DatabaseRetryMaxElapsedTime indicates how long to try again before
-	// erroring out. Set to 0 means it never errors out
-	DatabaseRetryMaxElapsedTime = time.Second * 0
-)
+type BackOff interface {
+	backoff.BackOffContext
+	GetElapsedTime() time.Duration
+}
 
-// NewDatabaseBackoff returns a new backoff set to the intended configuration
-// for database retrying
-func NewDatabaseBackoff() backoff.BackOff {
-	b := &backoff.ExponentialBackOff{
-		RandomizationFactor: backoff.DefaultRandomizationFactor,
-		Multiplier:          backoff.DefaultMultiplier,
-		Clock:               backoff.SystemClock,
-		// fields we use non-default
-		InitialInterval: initialInterval,
-		MaxInterval:     DatabaseRetryMaxInterval,
-		MaxElapsedTime:  DatabaseRetryMaxElapsedTime,
-	}
-	b.Reset()
-	return b
+type _backoff struct {
+	expo *backoff.ExponentialBackOff
+	ctx  backoff.BackOffContext
+}
+
+// Context implements BackOff.
+func (b _backoff) Context() context.Context {
+	return b.ctx.Context()
+}
+
+// NextBackOff implements BackOff.
+func (b _backoff) NextBackOff() time.Duration {
+	return b.ctx.NextBackOff()
+}
+
+// Reset implements BackOff.
+func (b _backoff) Reset() {
+	b.ctx.Reset()
+}
+
+// GetElapsedTime returns the elapsed time since the
+// last call to Reset
+func (b _backoff) GetElapsedTime() time.Duration {
+	return b.expo.GetElapsedTime()
 }

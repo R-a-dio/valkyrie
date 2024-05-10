@@ -46,8 +46,7 @@ type Mount struct {
 func NewMount(ctx context.Context, cfg config.Config, pm *ProxyManager, name string, ct string, conn net.Conn) *Mount {
 	logger := zerolog.Ctx(ctx).With().Str("mount", name).Logger()
 
-	var bo backoff.BackOff = config.NewConnectionBackoff()
-	bo = backoff.WithContext(bo, ctx)
+	bo := config.NewConnectionBackoff(ctx)
 
 	mount := &Mount{
 		logger:      logger,
@@ -67,11 +66,7 @@ func (m *Mount) newConn() (net.Conn, error) {
 	var err error
 	var conn net.Conn
 	err = backoff.Retry(func() error {
-		uri, err := m.masterURL()
-		if err != nil {
-			m.logger.Error().Err(err).Msg("failed to parse master server url")
-			return err
-		}
+		uri := m.masterURL()
 
 		m.logger.Info().Str("url", uri.Redacted()).Msg("dialing icecast")
 		conn, err = icecast.DialURL(context.TODO(), uri, icecast.ContentType(m.ContentType))
@@ -88,23 +83,14 @@ func (m *Mount) newConn() (net.Conn, error) {
 	return conn, nil
 }
 
-func (m *Mount) masterURL() (*url.URL, error) {
-	master, err := url.Parse(m.cfg.Conf().Proxy.MasterServer)
-	if err != nil {
-		return nil, err
-	}
-
+func (m *Mount) masterURL() *url.URL {
+	master := m.cfg.Conf().Proxy.MasterServer.URL()
 	master.Path = m.Name
-	return master, nil
+	return master
 }
 
 func (m *Mount) sendMetadata(ctx context.Context, meta string) error {
-	uri, err := m.masterURL()
-	if err != nil {
-		return err
-	}
-
-	return icecast.MetadataURL(uri)(ctx, meta)
+	return icecast.MetadataURL(m.masterURL())(ctx, meta)
 }
 
 func (m *Mount) Write(b []byte) (n int, err error) {

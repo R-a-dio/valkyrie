@@ -83,7 +83,7 @@ type wireServer struct {
 
 func (srv *Server) writeSelf(dst *net.UnixConn) error {
 	var ws wireServer
-	ws.MasterServer = srv.cfg.Conf().Proxy.MasterServer
+	ws.MasterServer = string(srv.cfg.Conf().Proxy.MasterServer)
 
 	srv.listenerMu.Lock()
 	fd, err := getFile(srv.listener)

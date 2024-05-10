@@ -18,11 +18,13 @@ type ProxyManager struct {
 	cfg          config.Config
 	reloadConfig chan config.Config
 
+	// metaMu protects metaStore
 	metaMu    sync.Mutex
 	metaStore map[Identifier]*Metadata
-	mountsMu  sync.Mutex
-	mounts    map[string]*Mount
-	cleanup   map[string]*time.Timer
+	// mountsMu protects mounts and cleanup
+	mountsMu sync.Mutex
+	mounts   map[string]*Mount
+	cleanup  map[string]*time.Timer
 }
 
 func NewProxyManager(ctx context.Context, cfg config.Config) (*ProxyManager, error) {

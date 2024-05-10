@@ -91,7 +91,7 @@ func TestServer(t *testing.T) {
 
 	// configure the fake as the master server
 	c := cfg.Conf()
-	c.Proxy.MasterServer = icecastsrv.URL
+	c.Proxy.MasterServer = config.URL(icecastsrv.URL)
 	cfg.StoreConf(c)
 
 	// and then our proxy server

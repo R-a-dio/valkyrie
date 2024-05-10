@@ -507,8 +507,7 @@ func (s *Streamer) streamToIcecast(task streamerTask) error {
 		conn = c // move c to method scope if no error occured
 		return nil
 	}
-	var backOff backoff.BackOff = config.NewConnectionBackoff()
-	backOff = backoff.WithContext(backOff, task.Context)
+	backOff := config.NewConnectionBackoff(task.Context)
 
 	for {
 		select {
@@ -581,8 +580,7 @@ func (s *Streamer) metadataToIcecast(task streamerTask) error {
 	}
 
 	// for retrying the metadata request
-	var boff backoff.BackOff = config.NewConnectionBackoff()
-	boff = backoff.WithContext(boff, task.Context)
+	var boff = config.NewConnectionBackoff(task.Context)
 
 	var boffCh <-chan time.Time
 	var retrying bool

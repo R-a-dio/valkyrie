@@ -147,8 +147,7 @@ func (b *Bot) runClient(ctx context.Context) error {
 		b.c.Close()
 	}()
 
-	cb := config.NewConnectionBackoff()
-	cbctx := backoff.WithContext(cb, ctx)
+	cb := config.NewConnectionBackoff(ctx)
 
 	doConnect := func() error {
 		const op errors.Op = "irc/Bot.runClient.doConnect"
@@ -168,7 +167,7 @@ func (b *Bot) runClient(ctx context.Context) error {
 		return err
 	}
 
-	return backoff.Retry(doConnect, cbctx)
+	return backoff.Retry(doConnect, cb)
 }
 
 // syncConfiguration tries to keep the irc client state in sync with what is
