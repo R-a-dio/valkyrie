@@ -221,6 +221,8 @@ func (s *Stream) run() {
 	}
 }
 
+// sub subscribes to the event stream and returns a channel that
+// will receive all messages
 func (s *Stream) sub() chan message {
 	ch := make(chan message, 2)
 	select {
@@ -231,6 +233,8 @@ func (s *Stream) sub() chan message {
 	return ch
 }
 
+// leave sends a LEAVE command for the channel given, the channel
+// should be a channel returned by sub
 func (s *Stream) leave(ch chan message) {
 	select {
 	case s.reqs <- request{cmd: LEAVE, ch: ch}:
@@ -292,6 +296,7 @@ type request struct {
 
 type message map[string][]byte
 
+// NowPlaying is for what is currently playing on the home page
 type NowPlaying radio.Status
 
 func (NowPlaying) TemplateName() string {
@@ -302,6 +307,7 @@ func (NowPlaying) TemplateBundle() string {
 	return "home"
 }
 
+// LastPlayed is for the lastplayed listing on the home page
 type LastPlayed []radio.Song
 
 func (LastPlayed) TemplateName() string {
@@ -312,6 +318,7 @@ func (LastPlayed) TemplateBundle() string {
 	return "home"
 }
 
+// Queue is for the queue listing on the home page
 type Queue []radio.QueueEntry
 
 func (Queue) TemplateName() string {
@@ -322,6 +329,7 @@ func (Queue) TemplateBundle() string {
 	return "home"
 }
 
+// Streamer is for the DJ indicator on the home page
 type Streamer radio.User
 
 func (Streamer) TemplateName() string {
@@ -332,6 +340,7 @@ func (Streamer) TemplateBundle() string {
 	return "home"
 }
 
+// Listeners is for the listener amount indicator on the home page
 type Listeners radio.Listeners
 
 func (Listeners) TemplateName() string {

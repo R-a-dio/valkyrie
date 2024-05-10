@@ -105,7 +105,15 @@ func AbsoluteDate(t time.Time) string {
 }
 
 func HumanDuration(d time.Duration) string {
-	return d.Truncate(time.Second).String()
+	const day = time.Hour * 24
+
+	d = d.Truncate(time.Second)
+
+	days := d / day
+	if days > 0 {
+		return fmt.Sprintf("%dd%s", days, d%day)
+	}
+	return d.String()
 }
 
 func MediaDuration(d time.Duration) string {
