@@ -21,7 +21,7 @@ func (r *Recorder) Sync(ctx context.Context, other []radio.Listener) {
 	// first remove any entries that exist in our current live data, but not
 	// in the sync data
 	r.listeners.Range(func(id radio.ListenerClientID, value *Listener) bool {
-		if id >= highestID {
+		if id > highestID {
 			// if the entry ID is above the highest sync ID it probably means
 			// a new listener has appeared between us getting the sync data and
 			// this range loop starting, so skip them
