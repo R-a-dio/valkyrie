@@ -221,6 +221,11 @@ func (s *State) PostNewsEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// and after an update we need to re-render any markdown that
+	// was stored in the cache, so clear the cache and the next
+	// thing requesting the post will prompt a re-render
+	s.News.Empty(post)
+
 	if isNew {
 		// redirect to the newly created post with htmx
 		w.Header().Set("Hx-Replace-Url", "/admin/news/"+nid.String())

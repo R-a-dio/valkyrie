@@ -226,16 +226,6 @@ func (s State) postSubmit(w http.ResponseWriter, r *http.Request) (SubmissionFor
 	return *form, nil
 }
 
-// readString reads a string from r no longer than maxSize
-func readString(r io.Reader, maxSize int64) (string, error) {
-	r = io.LimitReader(r, maxSize)
-	if b, err := io.ReadAll(r); err != nil {
-		return "", err
-	} else {
-		return string(b), nil
-	}
-}
-
 // PendingFromProbe runs ffprobe on the given filename and constructs
 // a PendingSong with the information found
 func PendingFromProbe(filename string) (*radio.PendingSong, error) {
