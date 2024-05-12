@@ -134,6 +134,8 @@ func (pm *ProxyManager) SendMetadata(ctx context.Context, metadata *Metadata) er
 	if metadata == nil {
 		panic("nil metadata in SendMetadata")
 	}
+	// event handler
+	pm.events.eventMetadataUpdate(ctx, metadata)
 
 	pm.mountsMu.Lock()
 	mount, ok := pm.mounts[metadata.MountName]

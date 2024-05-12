@@ -60,6 +60,7 @@ func NewMount(ctx context.Context,
 		logger:      logger,
 		cfg:         cfg,
 		pm:          pm,
+		events:      eh,
 		backOff:     bo,
 		ContentType: contentType,
 		Name:        name,
@@ -98,6 +99,7 @@ func (m *Mount) masterURL() *url.URL {
 }
 
 func (m *Mount) sendMetadata(ctx context.Context, meta string) error {
+	m.events.eventLiveMetadataUpdate(ctx, m.Name, meta)
 	return icecast.MetadataURL(m.masterURL())(ctx, meta)
 }
 
@@ -294,6 +296,11 @@ func (m *Mount) AddSource(ctx context.Context, source *SourceClient) {
 	msc.Priority = leastPriority(m.Sources)
 	m.Sources = append(m.Sources, msc)
 	go m.RunMountSourceClient(ctx, msc)
+
+	// send an event that we connected
+	m.events.eventSourceConnect(ctx, source)
+	// check if this is our first source, if it is we can bump them
+	// live right away
 	if len(m.Sources) == 1 {
 		msc.GoLive(ctx, m)
 	}
@@ -328,6 +335,9 @@ func (m *Mount) RemoveSource(ctx context.Context, id SourceID) {
 		// and swap to another source if possible
 		m.liveSourceSwap(ctx)
 	}
+
+	// send an event that we disconnected
+	m.events.eventSourceDisconnect(ctx, removed.Source)
 }
 
 // liveSourceSwap moves the live-ness flag to the highest priority source
@@ -339,10 +349,12 @@ func (m *Mount) liveSourceSwap(ctx context.Context) {
 		// let the next client go live
 		next.GoLive(ctx, m)
 		// send event that we went live
-		m.events.LiveSourceSwap(ctx, next.Source)
+		m.events.eventNewLiveSource(ctx, m.Name, next.Source)
 		return
 	}
 
+	// nobody to swap with, so that means we're empty send a nil event
+	m.events.eventNewLiveSource(ctx, m.Name, nil)
 	// nobody here, clean ourselves up
 	if m.pm != nil {
 		m.pm.RemoveMount(m)
