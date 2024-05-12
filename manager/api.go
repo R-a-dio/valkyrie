@@ -8,7 +8,6 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/rpc"
 	"github.com/R-a-dio/valkyrie/util/eventstream"
-	"github.com/rs/zerolog"
 	"go.opentelemetry.io/otel"
 	"google.golang.org/grpc"
 )
@@ -67,9 +66,9 @@ func (m *Manager) UpdateUser(ctx context.Context, u *radio.User) error {
 
 	m.mu.Unlock()
 	if u != nil {
-		zerolog.Ctx(ctx).Info().Str("username", u.Username).Msg("updating stream user")
+		m.logger.Info().Str("username", u.Username).Msg("updating stream user")
 	} else {
-		zerolog.Ctx(ctx).Info().Str("username", "Fallback").Msg("updating stream user")
+		m.logger.Info().Str("username", "Fallback").Msg("updating stream user")
 	}
 	return nil
 }
@@ -98,7 +97,7 @@ func (m *Manager) UpdateSong(ctx context.Context, update *radio.SongUpdate) erro
 
 	// check if we're on a fallback stream
 	if info.IsFallback {
-		zerolog.Ctx(ctx).Info().Str("fallback", new.Metadata).Msg("fallback engaged")
+		m.logger.Info().Str("fallback", new.Metadata).Msg("fallback engaged")
 		// if we have a robot user we want to start the automated streamer, but only if
 		// there isn't already a timer running
 		if isRobot {
@@ -176,7 +175,7 @@ func (m *Manager) UpdateSong(ctx context.Context, update *radio.SongUpdate) erro
 		listenerCountDiff = &diff
 	}
 
-	zerolog.Ctx(ctx).Info().Str("metadata", song.Metadata).Dur("song_length", song.Length).Msg("updating stream song")
+	m.logger.Info().Str("metadata", song.Metadata).Dur("song_length", song.Length).Msg("updating stream song")
 
 	// send an event out
 	m.songStream.Send(&radio.SongUpdate{Song: *song, Info: info})
