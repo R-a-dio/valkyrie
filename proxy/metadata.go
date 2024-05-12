@@ -195,9 +195,9 @@ func IdentifierMiddleware(next http.Handler) http.Handler {
 func GetMountpoint(r *http.Request) string {
 	if r.URL.Path == "/admin/metadata" || r.URL.Path == "/admin/listclients" {
 		// but if it's one of the above routes we get the mountpoint from a GET parameter
-		return r.URL.Query().Get("mount")
+		return strings.ToLower(r.URL.Query().Get("mount"))
 	}
-	return r.URL.Path
+	return strings.ToLower(r.URL.Path)
 }
 
 func GetAudioFormat(r *http.Request) string {
