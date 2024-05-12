@@ -11,7 +11,7 @@ import (
 	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
-var GrpcDial = grpc.Dial
+var GrpcDial = grpc.NewClient
 
 func PrepareConn(addr string) *grpc.ClientConn {
 	if len(addr) == 0 {

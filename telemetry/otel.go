@@ -235,5 +235,5 @@ func GrpcDial(addr string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
 	opts = append(opts,
 		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 	)
-	return grpc.Dial(addr, opts...)
+	return grpc.NewClient(addr, opts...)
 }
