@@ -24,7 +24,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	ExecuteListener(ctx, cfg, m)
 
 	// setup a http server for our RPC API
-	srv, err := NewHTTPServer(m)
+	srv, err := NewGRPCServer(ctx, m)
 	if err != nil {
 		return err
 	}

@@ -12,7 +12,44 @@ import (
 	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
-var NewGrpcServer = grpc.NewServer
+var NewGrpcServer = newServer
+
+// workaround for issue #7228 for grpc-go
+type mergedCtx struct {
+	context.Context
+	valCtx context.Context
+}
+
+func (m *mergedCtx) Value(i interface{}) interface{} {
+	if v := m.Context.Value(i); v != nil {
+		return v
+	}
+	return m.valCtx.Value(i)
+}
+
+type mergedStream struct {
+	grpc.ServerStream
+	ctx mergedCtx
+}
+
+func (s *mergedStream) Context() context.Context {
+	return &s.ctx
+}
+
+func newServer(ctx context.Context, opts ...grpc.ServerOption) *grpc.Server {
+	unaryInterceptor := func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		return handler(&mergedCtx{Context: ctx, valCtx: ctx}, req)
+	}
+	streamInterceptor := func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+		return handler(srv, &mergedStream{
+			ServerStream: ss,
+			ctx:          mergedCtx{Context: ss.Context(), valCtx: ctx},
+		})
+	}
+	return grpc.NewServer(grpc.ChainUnaryInterceptor(unaryInterceptor), grpc.ChainStreamInterceptor(streamInterceptor))
+}
+
+// end of workaround
 
 // NewAnnouncer returns a new shim around the service given
 func NewAnnouncer(a radio.AnnounceService) AnnouncerServer {

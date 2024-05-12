@@ -226,14 +226,18 @@ func DatabaseConnect(ctx context.Context, driverName string, dataSourceName stri
 	return sqlx.NewDb(db, driverName), nil
 }
 
-func NewGrpcServer(opts ...grpc.ServerOption) *grpc.Server {
+var originalNewGrpcServer = rpc.NewGrpcServer
+
+func NewGrpcServer(ctx context.Context, opts ...grpc.ServerOption) *grpc.Server {
 	opts = append(opts, grpc.StatsHandler(otelgrpc.NewServerHandler()))
-	return grpc.NewServer(opts...)
+	return originalNewGrpcServer(ctx, opts...)
 }
+
+var originalGrpcDial = rpc.GrpcDial
 
 func GrpcDial(addr string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
 	opts = append(opts,
 		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 	)
-	return grpc.NewClient(addr, opts...)
+	return originalGrpcDial(addr, opts...)
 }

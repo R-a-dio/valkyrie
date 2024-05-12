@@ -33,7 +33,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	announce := NewAnnounceService(b.Config, b.Storage, b)
 
 	// setup a http server for our RPC API
-	srv, err := NewHTTPServer(announce)
+	srv, err := NewGRPCServer(ctx, announce)
 	if err != nil {
 		return err
 	}

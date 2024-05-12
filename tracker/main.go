@@ -24,8 +24,8 @@ const (
 	RemoveStalePeriod   = time.Minute * 5
 )
 
-func NewGRPCServer(lts radio.ListenerTrackerService) *grpc.Server {
-	gs := rpc.NewGrpcServer()
+func NewGRPCServer(ctx context.Context, lts radio.ListenerTrackerService) *grpc.Server {
+	gs := rpc.NewGrpcServer(ctx)
 	rpc.RegisterListenerTrackerServer(gs, rpc.NewListenerTracker(lts))
 	return gs
 }
@@ -43,7 +43,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	srv := NewServer(ctx, cfg.Conf().Tracker.ListenAddr, recorder)
 
 	// setup the GRPC server that the rest will be poking
-	grpcSrv := NewGRPCServer(recorder)
+	grpcSrv := NewGRPCServer(ctx, recorder)
 	// and a listener for the GRPC server
 	ln, err := net.Listen("tcp", cfg.Conf().Tracker.RPCAddr)
 	if err != nil {

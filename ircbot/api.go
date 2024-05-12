@@ -15,8 +15,8 @@ import (
 	"google.golang.org/grpc"
 )
 
-func NewHTTPServer(service radio.AnnounceService) (*grpc.Server, error) {
-	gs := rpc.NewGrpcServer()
+func NewGRPCServer(ctx context.Context, service radio.AnnounceService) (*grpc.Server, error) {
+	gs := rpc.NewGrpcServer(ctx)
 	rpc.RegisterAnnouncerServer(gs, rpc.NewAnnouncer(service))
 
 	return gs, nil

@@ -13,9 +13,9 @@ import (
 	"google.golang.org/grpc"
 )
 
-// NewHTTPServer sets up a net/http server ready to serve RPC requests
-func NewHTTPServer(m *Manager) (*grpc.Server, error) {
-	gs := rpc.NewGrpcServer()
+// NewGRPCServer sets up a net/http server ready to serve RPC requests
+func NewGRPCServer(ctx context.Context, m *Manager) (*grpc.Server, error) {
+	gs := rpc.NewGrpcServer(ctx)
 	rpc.RegisterManagerServer(gs, rpc.NewManager(m))
 
 	return gs, nil

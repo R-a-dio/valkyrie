@@ -22,7 +22,9 @@ func PrepareConn(addr string) *grpc.ClientConn {
 		addr = "localhost" + addr
 	}
 
-	conn, err := GrpcDial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := GrpcDial(addr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
 	if err != nil {
 		panic("failed to setup grpc client: " + err.Error())
 	}

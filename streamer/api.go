@@ -13,8 +13,8 @@ import (
 	"google.golang.org/grpc"
 )
 
-// NewHTTPServer returns a http server with RPC API handler and debug handlers
-func NewHTTPServer(cfg config.Config, storage radio.StorageService,
+// NewGRPCServer returns a http server with RPC API handler and debug handlers
+func NewGRPCServer(ctx context.Context, cfg config.Config, storage radio.StorageService,
 	queue radio.QueueService, announce radio.AnnounceService,
 	streamer *Streamer) (*grpc.Server, error) {
 
@@ -26,7 +26,7 @@ func NewHTTPServer(cfg config.Config, storage radio.StorageService,
 		streamer: streamer,
 	}
 
-	gs := rpc.NewGrpcServer()
+	gs := rpc.NewGrpcServer(ctx)
 	rpc.RegisterStreamerServer(gs, rpc.NewStreamer(s))
 	rpc.RegisterQueueServer(gs, rpc.NewQueue(queue))
 
