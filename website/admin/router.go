@@ -88,19 +88,19 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 		r.Post("/news/{NewsID:[0-9]+|new}", p(radio.PermNews, s.PostNewsEntry))
 		r.Post("/news/render", p(radio.PermNews, s.PostNewsRender))
 		r.Get("/queue", // TODO: change permission to queue specific
-			p(radio.PermAdmin, s.GetQueue))
-		r.Post("/queue/remove", p(radio.PermAdmin, s.PostQueueRemove))
+			p(radio.PermQueueEdit, s.GetQueue))
+		r.Post("/queue/remove", p(radio.PermQueueEdit, s.PostQueueRemove))
 		r.Get("/schedule", // TODO: change permission to schedule specific
-			p(radio.PermAdmin, s.GetSchedule))
+			p(radio.PermScheduleEdit, s.GetSchedule))
 		r.Get("/tracker", // TODO: change permissions to listener specific
-			p(radio.PermAdmin, s.GetListeners))
+			p(radio.PermListenerView, s.GetListeners))
 		r.Post("/tracker/remove", // TODO: change permissions to listener specific
-			p(radio.PermAdmin, s.PostRemoveListener))
+			p(radio.PermListenerKick, s.PostRemoveListener))
 
 		// proxy to the grafana host
 		grafana, _ := url.Parse("http://localhost:3000")
 		proxy := httputil.NewSingleHostReverseProxy(grafana)
-		r.Handle("/grafana/*", p(radio.PermDev, proxy.ServeHTTP))
+		r.Handle("/grafana/*", p(radio.PermGrafanaView, proxy.ServeHTTP))
 
 		// debug handlers, might not be needed later
 		r.Post("/api/streamer/stop", p(radio.PermAdmin, s.PostStreamerStop))

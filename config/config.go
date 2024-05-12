@@ -316,6 +316,10 @@ func TestConfig() Config {
 	cfg.Tracker = nil
 	cfg.Queue = nil
 	cfg.IRC = nil
+
+	c := cfg.Conf()
+	c.Database.DSN = ""
+	cfg.StoreConf(c)
 	return cfg
 }
 

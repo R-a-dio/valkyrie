@@ -200,6 +200,13 @@ func AllUserPermissions() []UserPermission {
 		PermDatabaseView,
 		PermPendingEdit,
 		PermPendingView,
+		PermQueueEdit,
+		PermRobot,
+		PermScheduleEdit,
+		PermListenerView,
+		PermListenerKick,
+		PermProxyKick,
+		PermGrafanaView,
 	}
 }
 
@@ -215,6 +222,13 @@ const (
 	PermDatabaseView   = "database_view"   // User can view the track database
 	PermPendingEdit    = "pending_edit"    // User can edit the pending track queue
 	PermPendingView    = "pending_view"    // User can view the pending track queue
+	PermQueueEdit      = "queue_edit"      // User can edit the streamer queue
+	PermRobot          = "robot"           // User is not human
+	PermScheduleEdit   = "schedule_edit"   // User can edit the schedule
+	PermListenerView   = "listener_view"   // User can view the listener list
+	PermListenerKick   = "listener_kick"   // User can kick listeners
+	PermProxyKick      = "proxy_kick"      // User can kick streamers
+	PermGrafanaView    = "grafana_view"    // User can view grafana
 )
 
 // User is an user account in the database
