@@ -22,8 +22,7 @@ import (
 
 func TestPostSubmit(t *testing.T) {
 	ctx := context.Background()
-	cfg, err := config.LoadFile()
-	require.NoError(t, err)
+	cfg := config.TestConfig()
 
 	c := cfg.Conf()
 	c.MusicPath = t.TempDir()

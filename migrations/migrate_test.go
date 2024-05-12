@@ -25,8 +25,7 @@ func TestCheckVersion(t *testing.T) {
 	)
 	require.NoError(t, err, "failed setting up container")
 
-	cfg, err := config.LoadFile()
-	require.NoError(t, err)
+	cfg := config.TestConfig()
 
 	dsn, err := container.ConnectionString(ctx)
 	require.NoError(t, err)

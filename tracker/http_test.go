@@ -17,7 +17,7 @@ import (
 func TestListenerAddAndRemove(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	cfg, _ := config.LoadFile()
+	cfg := config.TestConfig()
 
 	recorder := NewRecorder(ctx, cfg)
 	dummy := NewServer(ctx, "", recorder)
@@ -106,7 +106,7 @@ func TestListenerAddAndRemove(t *testing.T) {
 func BenchmarkListenerAdd(b *testing.B) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	cfg, _ := config.LoadFile()
+	cfg := config.TestConfig()
 
 	recorder := NewRecorder(ctx, cfg)
 

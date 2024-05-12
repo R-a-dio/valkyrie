@@ -10,7 +10,6 @@ import (
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/rs/xid"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestLeastPriority(t *testing.T) {
@@ -121,8 +120,7 @@ func TestMostPriority(t *testing.T) {
 
 func TestMountRemoveSource(t *testing.T) {
 	ctx := context.Background()
-	cfg, err := config.LoadFile()
-	require.NoError(t, err)
+	cfg := config.TestConfig()
 
 	eh := NewEventHandler(ctx, cfg)
 

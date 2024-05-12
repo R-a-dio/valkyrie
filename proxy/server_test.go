@@ -53,14 +53,20 @@ func TestServer(t *testing.T) {
 	ctx := context.Background()
 	ctx = zerolog.New(os.Stdout).WithContext(ctx)
 
-	cfg, err := config.LoadFile()
-	require.NoError(t, err)
+	cfg := config.TestConfig()
 
 	username, pw := "test", "hackme"
 	mountName := "/main.mp3"
 	contentType := "audio/mpeg"
 
-	manager := &mocks.ManagerServiceMock{}
+	manager := &mocks.ManagerServiceMock{
+		UpdateSongFunc: func(contextMoqParam context.Context, songUpdate *radio.SongUpdate) error {
+			return nil
+		},
+		UpdateUserFunc: func(contextMoqParam context.Context, user *radio.User) error {
+			return nil
+		},
+	}
 	storage := &mocks.StorageServiceMock{
 		UserFunc: func(contextMoqParam context.Context) radio.UserStorage {
 			return &mocks.UserStorageMock{
@@ -70,6 +76,7 @@ func TestServer(t *testing.T) {
 			}
 		},
 	}
+	cfg.Manager = manager
 
 	var sourceConnections atomic.Int64
 	var latestMetadata util.TypedValue[string]

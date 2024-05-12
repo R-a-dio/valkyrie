@@ -76,10 +76,7 @@ func (setup *MariaDBSetup) CreateStorage(ctx context.Context, name string) (radi
 	// create the database
 	setup.db.MustExecContext(ctx, "CREATE DATABASE "+name+";")
 	// update our config to connect to the container
-	cfg, err := config.LoadFile()
-	if err != nil {
-		return nil, err
-	}
+	cfg := config.TestConfig()
 
 	dsn, err := setup.container.ConnectionString(ctx)
 	if err != nil {

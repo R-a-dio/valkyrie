@@ -39,8 +39,7 @@ func newTestAPI(t *testing.T) (*testAPI, *API) {
 	ctx := context.Background()
 	api.ctx = zerolog.New(os.Stdout).WithContext(ctx)
 
-	cfg, err := config.LoadFile()
-	require.NoError(t, err)
+	cfg := config.TestConfig()
 
 	songSecret, err := secret.NewSecret(secret.SongLength)
 	require.NoError(t, err)

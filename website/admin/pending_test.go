@@ -206,8 +206,7 @@ func TestPostPending(t *testing.T) {
 			}
 
 			// setup a config file
-			cfg, err := config.LoadFile()
-			require.NoError(t, err)
+			cfg := config.TestConfig()
 
 			// setup a fake filesystem
 			path := pendingPath(cfg)

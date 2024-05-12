@@ -26,7 +26,7 @@ const (
 func TestListenerAddAndRemoval(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	cfg, _ := config.LoadFile()
+	cfg := config.TestConfig()
 
 	r := NewRecorder(ctx, cfg)
 
@@ -61,7 +61,7 @@ func TestListenerMultiRemove(t *testing.T) {
 
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			cfg, _ := config.LoadFile()
+			cfg := config.TestConfig()
 
 			r := NewRecorder(ctx, cfg)
 			req := httptest.NewRequest(http.MethodGet, "/test", nil)
@@ -112,7 +112,7 @@ func TestListenerMultiAdd(t *testing.T) {
 
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			cfg, _ := config.LoadFile()
+			cfg := config.TestConfig()
 
 			r := NewRecorder(ctx, cfg)
 
@@ -145,7 +145,7 @@ func TestListenerMultiAdd(t *testing.T) {
 
 func BenchmarkRecorderAddAndRemove(b *testing.B) {
 	ctx := context.Background()
-	cfg, _ := config.LoadFile()
+	cfg := config.TestConfig()
 	r := NewRecorder(ctx, cfg)
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	const idle = 1500
@@ -165,7 +165,7 @@ func BenchmarkRecorderAddAndRemove(b *testing.B) {
 func TestListenerAddAndRemovalOutOfOrder(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	cfg, _ := config.LoadFile()
+	cfg := config.TestConfig()
 
 	r := NewRecorder(ctx, cfg)
 
@@ -248,7 +248,7 @@ func TestRecorderRemoveStalePending(t *testing.T) {
 
 	t.Run("simple removal", func(t *testing.T) {
 		ctx := testCtx(t)
-		cfg, _ := config.LoadFile()
+		cfg := config.TestConfig()
 		r := NewRecorder(ctx, cfg)
 
 		id := radio.ListenerClientID(10)
@@ -265,7 +265,7 @@ func TestRecorderRemoveStalePending(t *testing.T) {
 	})
 	t.Run("many removal", func(t *testing.T) {
 		ctx := testCtx(t)
-		cfg, _ := config.LoadFile()
+		cfg := config.TestConfig()
 		r := NewRecorder(ctx, cfg)
 
 		count := RemoveStalePeriod / time.Second * 2
@@ -284,7 +284,7 @@ func TestRecorderRemoveStalePending(t *testing.T) {
 	})
 	t.Run("removal by periodic goroutine", func(t *testing.T) {
 		ctx := testCtx(t)
-		cfg, _ := config.LoadFile()
+		cfg := config.TestConfig()
 		r := NewRecorder(ctx, cfg)
 
 		id := radio.ListenerClientID(10)
@@ -365,7 +365,7 @@ func TestRecorderListClients(t *testing.T) {
 	p := gopter.NewProperties(nil)
 
 	ctx := context.Background()
-	cfg, _ := config.LoadFile()
+	cfg := config.TestConfig()
 
 	p.Property(t.Name(), a.ForAll(func(in []radio.Listener) bool {
 		// sort entries, this is what we will expect later

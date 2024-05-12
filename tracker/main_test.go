@@ -17,7 +17,7 @@ import (
 func TestPeriodicallyUpdateListeners(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	cfg, _ := config.LoadFile()
+	cfg := config.TestConfig()
 
 	done := make(chan struct{})
 

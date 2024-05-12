@@ -110,8 +110,7 @@ func TestNewSongsForm(t *testing.T) {
 
 func TestPostSongs(t *testing.T) {
 	//ctx := context.Background()
-	cfg, err := config.LoadFile()
-	require.NoError(t, err)
+	cfg := config.TestConfig()
 
 	filename := util.AbsolutePath(cfg.Conf().MusicPath, "testfile.mp3")
 	var testSong = &radio.Song{DatabaseTrack: &radio.DatabaseTrack{

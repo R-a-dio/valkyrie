@@ -24,8 +24,7 @@ func TestGetIcecastListClients(t *testing.T) {
 	var buf bytes.Buffer
 
 	ctx := testCtx(t)
-	cfg, err := config.LoadFile()
-	require.NoError(t, err)
+	cfg := config.TestConfig()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/admin/listclients", r.URL.Path)

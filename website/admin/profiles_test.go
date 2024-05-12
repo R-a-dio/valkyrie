@@ -372,8 +372,7 @@ func TestPostProfile(t *testing.T) {
 			}
 
 			// setup config and state
-			cfg, err := config.LoadFile()
-			require.NoError(t, err)
+			cfg := config.TestConfig()
 
 			state := &State{
 				Storage: storage,

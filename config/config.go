@@ -304,6 +304,21 @@ func newConfig(c config) Config {
 	return cfg
 }
 
+// TestConfig returns default config with RPC services disabled
+func TestConfig() Config {
+	cfg, err := LoadFile()
+	if err != nil {
+		panic("failed to load config: " + err.Error())
+	}
+
+	cfg.Streamer = nil
+	cfg.Manager = nil
+	cfg.Tracker = nil
+	cfg.Queue = nil
+	cfg.IRC = nil
+	return cfg
+}
+
 // Loader is a typed function that returns a Config, used to pass in a pre-set Load or
 // LoadFile call from a closure
 type Loader func() (Config, error)
