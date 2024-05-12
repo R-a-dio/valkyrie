@@ -303,6 +303,8 @@ func (m *Mount) AddSource(ctx context.Context, source *SourceClient) {
 	// live right away
 	if len(m.Sources) == 1 {
 		msc.GoLive(ctx, m)
+		// send event that we went live
+		m.events.eventNewLiveSource(ctx, m.Name, source)
 	}
 }
 
