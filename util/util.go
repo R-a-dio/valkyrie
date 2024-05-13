@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -227,4 +228,38 @@ type Value[T any] struct {
 
 func (v *Value[T]) Latest() T {
 	return *v.last.Load()
+}
+
+type TimerCallback struct {
+	fn func()
+
+	mu    sync.Mutex
+	timer *time.Timer
+}
+
+func NewCallbackTimer(callback func()) *TimerCallback {
+	return &TimerCallback{
+		fn: callback,
+	}
+}
+
+// Start starts a timer with the timeout given, if a timer
+// is already running it is stopped and a new timer is created
+func (tc *TimerCallback) Start(timeout time.Duration) {
+	tc.mu.Lock()
+	defer tc.mu.Unlock()
+	if tc.timer != nil {
+		tc.timer.Stop()
+	}
+	tc.timer = time.AfterFunc(timeout, tc.fn)
+}
+
+// Stop stops the current timer if one exists
+func (tc *TimerCallback) Stop() bool {
+	tc.mu.Lock()
+	defer tc.mu.Unlock()
+	if tc.timer != nil {
+		return tc.timer.Stop()
+	}
+	return true
 }

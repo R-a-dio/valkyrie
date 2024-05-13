@@ -48,6 +48,7 @@ var defaultConfig = config{
 		ListenAddr:      ":4545",
 		StreamURL:       "",
 		RequestsEnabled: true,
+		ConnectTimeout:  Duration(time.Second * 30),
 	},
 	IRC: irc{
 		Addr:           ":4444",
@@ -193,6 +194,9 @@ type streamer struct {
 	StreamURL URL
 	// RequestsEnabled indicates if requests are enabled currently
 	RequestsEnabled bool
+	// ConnectTimeout is how long to wait before connecting if the
+	// proxy has no streamer. Set to 0 to disable
+	ConnectTimeout Duration
 }
 
 // irc contains all the fields only relevant to the irc bot

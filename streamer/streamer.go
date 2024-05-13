@@ -45,6 +45,7 @@ type Streamer struct {
 	queue radio.QueueService
 	// Format of the PCM audio data
 	AudioFormat audio.AudioFormat
+	startTimer  *util.CallbackTimer
 
 	// sync primitives
 	wg sync.WaitGroup
@@ -75,7 +76,10 @@ func NewStreamer(ctx context.Context, cfg config.Config, qs radio.QueueService, 
 
 	// user value to tell us who is streaming according to the proxy
 	s.userValue = util.StreamValue(ctx, cfg.Manager.CurrentUser, s.userChange)
-
+	// timer we use for starting the streamer if nobody is on
+	s.startTimer = util.NewCallbackTimer(func() {
+		s.Start(ctx)
+	})
 	// and grab the user from the streamurl so we can compare it later for
 	// request enabling.
 	user, err := us.Get(cfg.Conf().Streamer.StreamURL.URL().User.Username())
@@ -87,10 +91,15 @@ func NewStreamer(ctx context.Context, cfg config.Config, qs radio.QueueService, 
 }
 
 func (s *Streamer) userChange(ctx context.Context, user *radio.User) {
+	// nobody is streaming
 	if user == nil {
-		s.Start(context.WithoutCancel(ctx))
-		return
+		// we are allowed to connect after a timeout if one is set
+		if timeout := s.Conf().Streamer.ConnectTimeout; timeout > 0 {
+			s.startTimer.Start(time.Duration(timeout))
+			return
+		}
 	}
+	// if we are supposed to be streaming, we can connect
 	if user.ID == s.StreamUser.ID {
 		s.Start(context.WithoutCancel(ctx))
 		return
