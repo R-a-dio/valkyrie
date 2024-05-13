@@ -4,6 +4,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"math"
 	"strconv"
 	"time"
 
@@ -57,7 +58,7 @@ func ParseListClientsXML(r io.Reader) ([]radio.Listener, error) {
 		if err != nil {
 			return nil, err
 		}
-		if div > 9223372036 {
+		if div > math.MaxInt64/int64(time.Second) {
 			return nil, fmt.Errorf("connected duration out of range")
 		}
 		start := now.Add(-time.Duration(div) * time.Second)
