@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"net/url"
 	"runtime/debug"
 	"sync"
 	"sync/atomic"
@@ -66,20 +65,20 @@ func NewStreamer(ctx context.Context, cfg config.Config, qs radio.QueueService, 
 		queue:  qs,
 	}
 
+	// the expected audio format for the stream, this is basically
+	// static so we just define it here
 	s.AudioFormat = audio.AudioFormat{
 		ChannelCount:   2,
 		BytesPerSample: 2,
 		SampleRate:     44100,
 	}
 
+	// user value to tell us who is streaming according to the proxy
 	s.userValue = util.StreamValue(ctx, cfg.Manager.CurrentUser, s.userChange)
 
-	uri, err := url.Parse(cfg.Conf().Streamer.StreamURL)
-	if err != nil {
-		return nil, errors.E(op, err)
-	}
-
-	user, err := us.Get(uri.User.Username())
+	// and grab the user from the streamurl so we can compare it later for
+	// request enabling.
+	user, err := us.Get(cfg.Conf().Streamer.StreamURL.URL().User.Username())
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
@@ -512,8 +511,8 @@ func (s *Streamer) encodeToMP3(task streamerTask) error {
 	}
 }
 
-func (s *Streamer) newIcecastConn(streamurl string) (conn net.Conn, err error) {
-	return icecast.Dial(context.TODO(), streamurl,
+func (s *Streamer) newIcecastConn(streamurl config.URL) (conn net.Conn, err error) {
+	return icecast.DialURL(context.TODO(), streamurl.URL(),
 		icecast.ContentType("audio/mpeg"),
 		icecast.UserAgent(s.Conf().UserAgent),
 	)
@@ -601,12 +600,9 @@ func (s *Streamer) streamToIcecast(task streamerTask) error {
 }
 
 func (s *Streamer) metadataToIcecast(task streamerTask) error {
-	metaFn, err := icecast.Metadata(s.Conf().Streamer.StreamURL,
+	metaFn := icecast.MetadataURL(s.Conf().Streamer.StreamURL.URL(),
 		icecast.UserAgent(s.Conf().UserAgent),
 	)
-	if err != nil {
-		return err
-	}
 
 	// for retrying the metadata request
 	var boff = config.NewConnectionBackoff(task.Context)
@@ -645,7 +641,7 @@ func (s *Streamer) metadataToIcecast(task streamerTask) error {
 
 		// use a timeout so we don't hang on a request for ages
 		ctx, cancel := context.WithTimeout(task.Context, time.Second*30)
-		err = metaFn(ctx, track.track.Metadata)
+		err := metaFn(ctx, track.track.Metadata)
 		cancel()
 		if err != nil {
 			s.logger.Error().Err(err).Msg("failed to send metadata")

@@ -190,7 +190,7 @@ type streamer struct {
 	ListenAddr string
 	// StreamURL is the full URL to the streamer endpoint, including any
 	// authorization parameters required to connect.
-	StreamURL string
+	StreamURL URL
 	// RequestsEnabled indicates if requests are enabled currently
 	RequestsEnabled bool
 }
