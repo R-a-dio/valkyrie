@@ -419,6 +419,17 @@ func TestScheduleDayString(t *testing.T) {
 	assert.Equal(t, "Unknown", ScheduleDay(100).String())
 }
 
+func TestParseScheduleDay(t *testing.T) {
+	assert.Equal(t, Monday, ParseScheduleDay(Monday.String()))
+	assert.Equal(t, Tuesday, ParseScheduleDay(Tuesday.String()))
+	assert.Equal(t, Wednesday, ParseScheduleDay(Wednesday.String()))
+	assert.Equal(t, Thursday, ParseScheduleDay(Thursday.String()))
+	assert.Equal(t, Friday, ParseScheduleDay(Friday.String()))
+	assert.Equal(t, Saturday, ParseScheduleDay(Saturday.String()))
+	assert.Equal(t, Sunday, ParseScheduleDay(Sunday.String()))
+	assert.Equal(t, UnknownDay, ParseScheduleDay("garbage"))
+}
+
 func TestPasswordFunctions(t *testing.T) {
 	// change the cost to the minimum so tests run faster, we're not testing
 	// bcrypt itself here, just that our wrappers around whatever crypto lib

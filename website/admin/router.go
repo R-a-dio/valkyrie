@@ -87,15 +87,12 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 		r.Get("/news/{NewsID:[0-9]+|new}", p(radio.PermNews, s.GetNewsEntry))
 		r.Post("/news/{NewsID:[0-9]+|new}", p(radio.PermNews, s.PostNewsEntry))
 		r.Post("/news/render", p(radio.PermNews, s.PostNewsRender))
-		r.Get("/queue", // TODO: change permission to queue specific
-			p(radio.PermQueueEdit, s.GetQueue))
+		r.Get("/queue", p(radio.PermQueueEdit, s.GetQueue))
 		r.Post("/queue/remove", p(radio.PermQueueEdit, s.PostQueueRemove))
-		r.Get("/schedule", // TODO: change permission to schedule specific
-			p(radio.PermScheduleEdit, s.GetSchedule))
-		r.Get("/tracker", // TODO: change permissions to listener specific
-			p(radio.PermListenerView, s.GetListeners))
-		r.Post("/tracker/remove", // TODO: change permissions to listener specific
-			p(radio.PermListenerKick, s.PostRemoveListener))
+		r.Get("/schedule", p(radio.PermScheduleEdit, s.GetSchedule))
+		r.Post("/schedule", p(radio.PermScheduleEdit, s.PostSchedule))
+		r.Get("/tracker", p(radio.PermListenerView, s.GetListeners))
+		r.Post("/tracker/remove", p(radio.PermListenerKick, s.PostRemoveListener))
 
 		// proxy to the grafana host
 		grafana, _ := url.Parse("http://localhost:3000")

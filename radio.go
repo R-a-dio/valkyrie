@@ -1268,7 +1268,28 @@ const (
 	Friday
 	Saturday
 	Sunday
+	UnknownDay = 255
 )
+
+func ParseScheduleDay(s string) ScheduleDay {
+	switch s {
+	case "Monday":
+		return Monday
+	case "Tuesday":
+		return Tuesday
+	case "Wednesday":
+		return Wednesday
+	case "Thursday":
+		return Thursday
+	case "Friday":
+		return Friday
+	case "Saturday":
+		return Saturday
+	case "Sunday":
+		return Sunday
+	}
+	return UnknownDay
+}
 
 func (day ScheduleDay) String() string {
 	switch day {

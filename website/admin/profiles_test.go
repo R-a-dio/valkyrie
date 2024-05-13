@@ -504,10 +504,11 @@ func TestProfileFormRoundTrip(t *testing.T) {
 			"Name":     gen.AnyString(),
 			"Priority": gen.Int(),
 			"Regex":    gen.AnyString(),
+			"Text":     gen.AnyString(),
 		}),
 	})
 
-	p.Property("form should roundtrip", prop.ForAll(
+	p.Property("profile form should roundtrip", prop.ForAll(
 		func(u radio.User) bool {
 			in := ProfileForm{
 				User: u,
