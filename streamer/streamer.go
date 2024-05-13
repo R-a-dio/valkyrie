@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/url"
 	"runtime/debug"
 	"sync"
 	"sync/atomic"
@@ -38,6 +39,9 @@ type Streamer struct {
 	config.Config
 	logger *zerolog.Logger
 
+	userValue *util.Value[*radio.User]
+	// StreamUser is the user that we are logged in as when streaming
+	StreamUser radio.User
 	// queue used by the streamer
 	queue radio.QueueService
 	// Format of the PCM audio data
@@ -53,11 +57,13 @@ type Streamer struct {
 }
 
 // NewStreamer returns a new streamer using the state given
-func NewStreamer(ctx context.Context, cfg config.Config, queue radio.QueueService) (*Streamer, error) {
+func NewStreamer(ctx context.Context, cfg config.Config, qs radio.QueueService, us radio.UserStorage) (*Streamer, error) {
+	const op errors.Op = "streamer.NewStreamer"
+
 	var s = &Streamer{
 		Config: cfg,
 		logger: zerolog.Ctx(ctx),
-		queue:  queue,
+		queue:  qs,
 	}
 
 	s.AudioFormat = audio.AudioFormat{
@@ -66,7 +72,30 @@ func NewStreamer(ctx context.Context, cfg config.Config, queue radio.QueueServic
 		SampleRate:     44100,
 	}
 
+	s.userValue = util.StreamValue(ctx, cfg.Manager.CurrentUser, s.userChange)
+
+	uri, err := url.Parse(cfg.Conf().Streamer.StreamURL)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	user, err := us.Get(uri.User.Username())
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+	s.StreamUser = *user
 	return s, nil
+}
+
+func (s *Streamer) userChange(ctx context.Context, user *radio.User) {
+	if user == nil {
+		s.Start(context.WithoutCancel(ctx))
+		return
+	}
+	if user.ID == s.StreamUser.ID {
+		s.Start(context.WithoutCancel(ctx))
+		return
+	}
 }
 
 // Start starts the streamer with the context given, Start is a noop if

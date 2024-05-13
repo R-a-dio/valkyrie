@@ -44,9 +44,9 @@ type streamerService struct {
 }
 
 // Start implements radio.StreamerService
-func (s *streamerService) Start(_ context.Context) error {
+func (s *streamerService) Start(ctx context.Context) error {
 	// don't use the passed ctx here as it will cancel once we return
-	s.streamer.Start(context.Background())
+	s.streamer.Start(context.WithoutCancel(ctx))
 	return nil
 }
 

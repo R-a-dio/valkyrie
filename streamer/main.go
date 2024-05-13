@@ -20,17 +20,14 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 
-	streamer, err := NewStreamer(ctx, cfg, queue)
+	streamer, err := NewStreamer(ctx, cfg, queue, store.User(ctx))
 	if err != nil {
 		return err
 	}
 	defer streamer.ForceStop(context.Background())
 
-	// announcement service
-	announce := cfg.IRC
-
 	// setup a http server for our RPC API
-	srv, err := NewGRPCServer(ctx, cfg, store, queue, announce, streamer)
+	srv, err := NewGRPCServer(ctx, cfg, store, queue, cfg.IRC, streamer)
 	if err != nil {
 		return err
 	}
