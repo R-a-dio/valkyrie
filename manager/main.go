@@ -21,8 +21,6 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 
-	ExecuteListener(ctx, cfg, m)
-
 	// setup a http server for our RPC API
 	srv, err := NewGRPCServer(ctx, m)
 	if err != nil {
@@ -48,9 +46,6 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 }
-
-// ExecuteListener is an alias for NewListener
-var ExecuteListener = NewListener
 
 // NewManager returns a manager ready for use
 func NewManager(ctx context.Context, cfg config.Config) (*Manager, error) {
