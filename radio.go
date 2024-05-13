@@ -1259,7 +1259,7 @@ const (
 	Friday
 	Saturday
 	Sunday
-	UnknownDay = 255
+	UnknownDay ScheduleDay = 255
 )
 
 func ParseScheduleDay(s string) ScheduleDay {

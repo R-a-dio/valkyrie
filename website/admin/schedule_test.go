@@ -40,6 +40,14 @@ func TestScheduleForm(t *testing.T) {
 			assert.Equal(t, getByDJIDRet.DJ.ID, dJID)
 			return getByDJIDRet, nil
 		},
+		AllFunc: func() ([]radio.User, error) {
+			if getByDJIDRet == nil {
+				return []radio.User{}, nil
+			}
+			return []radio.User{
+				*getByDJIDRet,
+			}, nil
+		},
 	}
 
 	p.Property("schedule form should roundtrip", prop.ForAll(

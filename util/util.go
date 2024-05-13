@@ -230,22 +230,22 @@ func (v *Value[T]) Latest() T {
 	return *v.last.Load()
 }
 
-type TimerCallback struct {
+type CallbackTimer struct {
 	fn func()
 
 	mu    sync.Mutex
 	timer *time.Timer
 }
 
-func NewCallbackTimer(callback func()) *TimerCallback {
-	return &TimerCallback{
+func NewCallbackTimer(callback func()) *CallbackTimer {
+	return &CallbackTimer{
 		fn: callback,
 	}
 }
 
 // Start starts a timer with the timeout given, if a timer
 // is already running it is stopped and a new timer is created
-func (tc *TimerCallback) Start(timeout time.Duration) {
+func (tc *CallbackTimer) Start(timeout time.Duration) {
 	tc.mu.Lock()
 	defer tc.mu.Unlock()
 	if tc.timer != nil {
@@ -255,7 +255,7 @@ func (tc *TimerCallback) Start(timeout time.Duration) {
 }
 
 // Stop stops the current timer if one exists
-func (tc *TimerCallback) Stop() bool {
+func (tc *CallbackTimer) Stop() bool {
 	tc.mu.Lock()
 	defer tc.mu.Unlock()
 	if tc.timer != nil {
