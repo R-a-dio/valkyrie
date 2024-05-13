@@ -53,9 +53,12 @@ func ParseListClientsXML(r io.Reader) ([]radio.Listener, error) {
 			return nil, err
 		}
 
-		div, err := strconv.ParseUint(raw[i].Connected, 10, 64)
+		div, err := strconv.ParseInt(raw[i].Connected, 10, 64)
 		if err != nil {
 			return nil, err
+		}
+		if div > 9223372036 {
+			return nil, fmt.Errorf("connected duration out of range")
 		}
 		start := now.Add(-time.Duration(div) * time.Second)
 
