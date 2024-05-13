@@ -22,7 +22,7 @@ func NowPlaying(e Event) error {
 
 	status := e.Bot.StatusValue.Latest()
 
-	if status.SongInfo.IsFallback {
+	if e.Bot.UserValue.Latest() == nil {
 		e.EchoPublic("Stream is currently down.")
 		return nil
 	}

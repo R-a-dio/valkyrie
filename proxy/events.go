@@ -105,8 +105,7 @@ func (eh *EventHandler) eventLiveMetadataUpdate(ctx context.Context, mountName s
 			err := eh.cfg.Manager.UpdateSong(ctx, &radio.SongUpdate{
 				Song: radio.NewSong(metadata),
 				Info: radio.SongInfo{
-					Start:      instant,
-					IsFallback: false,
+					Start: instant,
 				},
 			})
 			if err != nil {

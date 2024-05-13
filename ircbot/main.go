@@ -51,6 +51,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		}
 	})
 	b.ListenersValue = util.StreamValue(ctx, cfg.Manager.CurrentListeners)
+	b.UserValue = util.StreamValue(ctx, cfg.Manager.CurrentUser)
 
 	errCh := make(chan error, 2)
 	go func() {
@@ -134,6 +135,7 @@ type Bot struct {
 	// Values used by commands
 	StatusValue    *util.Value[radio.Status]
 	ListenersValue *util.Value[radio.Listeners]
+	UserValue      *util.Value[*radio.User]
 
 	c *girc.Client
 }

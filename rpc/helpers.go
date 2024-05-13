@@ -152,17 +152,15 @@ func fromProtoSong(s *Song) radio.Song {
 
 func toProtoSongInfo(i radio.SongInfo) *SongInfo {
 	return &SongInfo{
-		StartTime:  tp(i.Start),
-		EndTime:    tp(i.End),
-		IsFallback: i.IsFallback,
+		StartTime: tp(i.Start),
+		EndTime:   tp(i.End),
 	}
 }
 
 func fromProtoSongInfo(i *SongInfo) radio.SongInfo {
 	return radio.SongInfo{
-		Start:      t(i.StartTime),
-		End:        t(i.EndTime),
-		IsFallback: i.IsFallback,
+		Start: t(i.StartTime),
+		End:   t(i.EndTime),
 	}
 }
 

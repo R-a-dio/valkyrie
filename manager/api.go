@@ -56,6 +56,8 @@ func (m *Manager) UpdateUser(ctx context.Context, u *radio.User) error {
 
 	m.userStream.Send(u)
 
+	// only update status if we get a non-nil user, this leaves the status
+	// data with the last known DJ so that we can display something
 	if u != nil {
 		m.mu.Lock()
 		m.status.StreamerName = u.DJ.Name
@@ -84,15 +86,7 @@ func (m *Manager) UpdateSong(ctx context.Context, update *radio.SongUpdate) erro
 	// first we check if this is the same song as the previous one we received to
 	// avoid double announcement or drifting start/end timings
 	m.mu.Lock()
-	if m.status.Song.Metadata == new.Metadata && !info.IsFallback {
-		m.mu.Unlock()
-		return nil
-	}
-
-	// check if we're on a fallback stream
-	if info.IsFallback {
-		m.logger.Info().Str("fallback", new.Metadata).Msg("fallback engaged")
-		m.status.SongInfo.IsFallback = info.IsFallback
+	if m.status.Song.Metadata == new.Metadata {
 		m.mu.Unlock()
 		return nil
 	}
