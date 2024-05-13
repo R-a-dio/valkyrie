@@ -77,7 +77,6 @@ func NewManager(ctx context.Context, cfg config.Config) (*Manager, error) {
 	m.listenerStream = eventstream.NewEventStream(radio.Listeners(old.Listeners))
 	m.statusStream = eventstream.NewEventStream(*old)
 
-	m.client.streamer = cfg.Streamer
 	return &m, nil
 }
 
@@ -88,14 +87,9 @@ type Manager struct {
 
 	Storage radio.StorageService
 
-	// Other components
-	client struct {
-		streamer radio.StreamerService
-	}
 	// mu protects the fields below and their contents
-	mu                sync.Mutex
-	status            radio.Status
-	autoStreamerTimer *time.Timer
+	mu     sync.Mutex
+	status radio.Status
 	// listener count at the start of a song
 	songStartListenerCount radio.Listeners
 
@@ -109,45 +103,37 @@ type Manager struct {
 
 // updateStreamStatus is a legacy layer to keep supporting streamstatus table usage
 // in the website.
-func (m *Manager) updateStreamStatus(send bool) {
-	go func() {
-		m.mu.Lock()
-		status := m.status.Copy()
-		m.mu.Unlock()
+func (m *Manager) updateStreamStatus(send bool, status radio.Status) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
+	defer cancel()
 
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
-		defer cancel()
+	// do some minor adjustments so that we can safely pass the status object
+	// straight to the Exec
+	if !status.Song.HasTrack() {
+		status.Song.DatabaseTrack = &radio.DatabaseTrack{}
+	}
+	// streamstatus can be empty and we set a start time of now if it's zero
+	if status.SongInfo.Start.IsZero() {
+		status.SongInfo.Start = time.Now()
+	}
+	// streamstatus expects an end equal to start if it's unknown
+	if status.SongInfo.End.IsZero() {
+		status.SongInfo.End = status.SongInfo.Start
+	}
 
-		ss := m.Storage.Status(ctx)
+	if send {
+		m.statusStream.Send(status)
+	}
 
-		// do some minor adjustments so that we can safely pass the status object
-		// straight to the Exec
-		if !status.Song.HasTrack() {
-			status.Song.DatabaseTrack = &radio.DatabaseTrack{}
-		}
-		// streamstatus can be empty and we set a start time of now if it's zero
-		if status.SongInfo.Start.IsZero() {
-			status.SongInfo.Start = time.Now()
-		}
-		// streamstatus expects an end equal to start if it's unknown
-		if status.SongInfo.End.IsZero() {
-			status.SongInfo.End = status.SongInfo.Start
-		}
-
-		if send {
-			m.statusStream.Send(status)
-		}
-
-		err := ss.Store(status)
-		if err != nil {
-			m.logger.Error().Err(err).Msg("update stream status")
-			return
-		}
-	}()
+	err := m.Storage.Status(ctx).Store(status)
+	if err != nil {
+		m.logger.Error().Err(err).Msg("update stream status")
+		return
+	}
 }
 
-// loadStreamStatus is to load the legacy streamstatus table, we should only do this
-// at startup
+// loadStreamStatus is to load the legacy streamstatus table, we should only
+// do this at startup
 func (m *Manager) loadStreamStatus(ctx context.Context) (*radio.Status, error) {
 	status, err := m.Storage.Status(ctx).Load()
 	if err != nil {
@@ -173,53 +159,4 @@ func (m *Manager) loadStreamStatus(ctx context.Context) (*radio.Status, error) {
 	}
 
 	return status, nil
-}
-
-// tryStartStreamer tries to start the streamer after waiting the timeout period given
-//
-// tryStartStreamer needs to be called with m.mu held
-func (m *Manager) tryStartStreamer(timeout time.Duration) {
-	if m.autoStreamerTimer != nil {
-		return
-	}
-
-	m.logger.Info().Dur("timeout", timeout).Msg("trying to start streamer")
-	m.autoStreamerTimer = time.AfterFunc(timeout, func() {
-		// we lock here to lower the chance of a race between UpdateUser and this
-		// timer firing
-		m.mu.Lock()
-		defer m.mu.Unlock()
-		if m.autoStreamerTimer == nil {
-			// this means we got cancelled before we could run, but a race occurred
-			// between the call to Stop and this function, and we won that race. We
-			// don't want that to happen so cancel the starting
-			return
-		}
-		// reset ourselves
-		m.autoStreamerTimer = nil
-
-		err := m.client.streamer.Start(context.Background())
-		if err != nil {
-			m.logger.Error().Err(err).Msg("failed to start streamer")
-			// if we failed to start, try again with atleast 10 seconds timeout
-			if timeout < time.Second*10 {
-				timeout = time.Second * 10
-			}
-			m.tryStartStreamer(timeout)
-			return
-		}
-	})
-}
-
-// stopStartStreamer stops the timer created by tryStartStreamer and sets the timer to
-// nil again.
-//
-// stopStartStreamer needs to be called with m.mu held
-func (m *Manager) stopStartStreamer() {
-	if m.autoStreamerTimer == nil {
-		return
-	}
-
-	m.autoStreamerTimer.Stop()
-	m.autoStreamerTimer = nil
 }

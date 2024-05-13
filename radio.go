@@ -41,6 +41,11 @@ func CalculateRequestDelay(requestCount int) time.Duration {
 	return time.Duration(time.Duration(dur/2) * time.Second)
 }
 
+// IsRobot indicates if the user has the Robot flag
+func IsRobot(user User) bool {
+	return user.UserPermissions.HasExplicit(PermRobot)
+}
+
 // CalculateCooldown sees if the cooldown given has passed since `last` and returns
 // the remaining time if any and a bool indicating if it has passed since then or
 // not. It always returns true if `last` is zero.
@@ -85,17 +90,6 @@ func (s *Status) IsZero() bool {
 		(!s.Song.HasTrack() || s.Song.TrackID == 0)
 
 	return ok
-}
-
-// Copy makes a deep-copy of the status object
-func (s Status) Copy() Status {
-	c := s
-	if s.Song.HasTrack() {
-		track := *s.Song.DatabaseTrack
-		c.Song.DatabaseTrack = &track
-	}
-
-	return s
 }
 
 // UserID is an identifier corresponding to an user
