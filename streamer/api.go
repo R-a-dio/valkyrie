@@ -78,6 +78,10 @@ func (s *streamerService) Queue(ctx context.Context) ([]radio.QueueEntry, error)
 	return queue, nil
 }
 
+func (s *streamerService) areWeStreaming() bool {
+	return s.streamer.userValue.Latest().ID == s.streamer.StreamUser.ID
+}
+
 // RequestSong implements radio.StreamerService
 //
 // We do not do authentication or authorization checks, this is left to the client. Request can be
@@ -87,6 +91,11 @@ func (s *streamerService) RequestSong(ctx context.Context, song radio.Song, iden
 	const op errors.Op = "streamer/streamerService.RequestSong"
 
 	if !s.Conf().Streamer.RequestsEnabled {
+		return errors.E(op, errors.StreamerNoRequests)
+	}
+
+	// only accept requests if we are streaming
+	if !s.areWeStreaming() {
 		return errors.E(op, errors.StreamerNoRequests)
 	}
 
