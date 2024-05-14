@@ -311,15 +311,15 @@ func main() {
 // executeCommand runs subcommands.Execute and handles OS signals
 //
 // if someone is asking us to shutdown by sending us a SIGINT executeCommand
-// should (and does) return a nil error. Otherwise it should return the error given by
-// subcommands.Execute
+// should (and does) return a nil error. Otherwise it should return the error
+// given by subcommands.Execute
 func executeCommand(ctx context.Context, errCh chan error) error {
 	// setup context that is passed to the command
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	// enable graceful package support, this will handle SIGUSR2 for us
-	go graceful.Setup(ctx)
+	ctx = graceful.SetupGraceful(ctx)
 
 	signalCh := make(chan os.Signal, 2)
 	signal.Notify(signalCh, os.Interrupt, syscall.SIGHUP)

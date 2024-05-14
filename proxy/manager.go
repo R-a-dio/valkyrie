@@ -218,6 +218,7 @@ func (pm *ProxyManager) readSelf(ctx context.Context, cfg config.Config, src *ne
 	mounts := make(map[string]*Mount)
 	for range wp.Mounts {
 		mount := new(Mount)
+		mount.pm = pm
 
 		err = mount.readSelf(ctx, cfg, src)
 		if err != nil {

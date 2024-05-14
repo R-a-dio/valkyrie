@@ -1,6 +1,7 @@
 package graceful
 
 import (
+	"context"
 	"net"
 	"os"
 )
@@ -14,7 +15,20 @@ const (
 // it at startup.
 var originalWD, _ = os.Getwd()
 
-func StartChild() (*net.UnixConn, error) {
+func StartChild(ctx context.Context) (*net.UnixConn, error) {
+	g := get(ctx)
+	if g == nil {
+		return nil, ErrNoGraceful
+	}
+
+	if g.Child != nil {
+		return g.Child, nil
+	}
+
+	return startChild()
+}
+
+func startChild() (*net.UnixConn, error) {
 	left, right, err := SocketPair()
 	if err != nil {
 		return nil, err
@@ -57,7 +71,15 @@ func StartChild() (*net.UnixConn, error) {
 
 // IsChild returns true if this executable was launched
 // by StartChild
-func IsChild() bool {
+func IsChild(ctx context.Context) bool {
+	v := ctx.Value(gracefulKey{})
+	if v == nil {
+		return false
+	}
+	return v.(Graceful).IsChild
+}
+
+func isChild() bool {
 	_, ok := os.LookupEnv(envKey)
 	return ok
 }

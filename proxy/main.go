@@ -30,16 +30,13 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	}
 
 	// check if we're a child of an existing process
-	if graceful.IsChild() {
-		var done func()
-		ctx, done = graceful.WithSync(ctx)
-
+	if graceful.IsChild(ctx) {
 		err := srv.handleResume(ctx, cfg)
 		if err != nil {
 			// resuming failed, just exit and hope someone in charge restarts us
 			return err
 		}
-		done()
+		graceful.Finish(ctx)
 	}
 
 	errCh := make(chan error, 1)
@@ -50,7 +47,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	select {
 	case <-ctx.Done():
 		return srv.Close()
-	case <-graceful.Signal:
+	case <-graceful.Signal(ctx):
 		return srv.handleRestart(ctx, cfg)
 	case err = <-errCh:
 		return err
@@ -58,7 +55,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 }
 
 func (srv *Server) handleResume(ctx context.Context, cfg config.Config) error {
-	parent, err := graceful.FD2Unix(3)
+	parent, err := graceful.Parent(ctx)
 	if err != nil {
 		return err
 	}
@@ -68,7 +65,7 @@ func (srv *Server) handleResume(ctx context.Context, cfg config.Config) error {
 }
 
 func (srv *Server) handleRestart(ctx context.Context, cfg config.Config) error {
-	dst, err := graceful.StartChild()
+	dst, err := graceful.StartChild(ctx)
 	if err != nil {
 		return err
 	}
