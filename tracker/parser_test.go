@@ -19,6 +19,8 @@ import (
 )
 
 func genListener(a *arbitrary.Arbitraries) gopter.Gen {
+	timeRange := time.Nanosecond * (math.MaxInt64 / 2)
+
 	return gen.Struct(reflect.TypeFor[radio.Listener](), map[string]gopter.Gen{
 		"ID": a.GenForType(reflect.TypeFor[radio.ListenerClientID]()),
 		"UserAgent": gen.AnyString().Map(func(in string) string {
@@ -30,7 +32,7 @@ func genListener(a *arbitrary.Arbitraries) gopter.Gen {
 			}, in))
 		}),
 		"IP":    gen.NumString(),
-		"Start": gen.TimeRange(time.Now(), time.Nanosecond*(math.MaxUint64/2)),
+		"Start": gen.TimeRange(time.Now().Add(-timeRange), timeRange),
 	})
 }
 
