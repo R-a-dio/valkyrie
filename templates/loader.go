@@ -189,7 +189,7 @@ func FromDirectory(dir string) (*Site, error) {
 	fsys := os.DirFS(dir)
 	s, err := FromFS(fsys)
 	if err != nil {
-		return nil, errors.E(op, err)
+		return nil, errors.E(op, err, dir)
 	}
 	return s, nil
 }
