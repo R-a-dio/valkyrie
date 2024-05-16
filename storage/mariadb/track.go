@@ -531,6 +531,7 @@ func (ts TrackStorage) Get(id radio.TrackID) (*radio.Song, error) {
 		return nil, errors.E(op, err)
 	}
 
+	song.Hydrate()
 	return &song, nil
 }
 
