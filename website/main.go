@@ -231,20 +231,12 @@ func RedirectLegacyStream(w http.ResponseWriter, r *http.Request) {
 func removePortFromAddress(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.RemoteAddr == "" {
-			panic("removePortFromAddress: empty address")
+			next.ServeHTTP(w, r)
+			return
 		}
+
 		host, _, err := net.SplitHostPort(r.RemoteAddr)
-		if err != nil {
-			// constant used by the net package
-			const missingPort = "missing port in address"
-			aerr, ok := err.(*net.AddrError)
-			if !ok || aerr.Err != missingPort {
-				panic("removePortFromAddress: " + err.Error())
-			}
-		} else {
-			// only set it if there is no error, if there was an error we will
-			// either panic above, or there was no port involved and so we
-			// don't need to touch the RemoteAddr
+		if err == nil {
 			r.RemoteAddr = host
 		}
 		next.ServeHTTP(w, r)

@@ -6,55 +6,41 @@ import (
 )
 
 func TestRemovePortFromAddress(t *testing.T) {
-	attempts := []struct {
-		hostport      string
-		host          string
-		panicExpected bool
+	tests := []struct {
+		hostport string
+		host     string
 	}{
-		{"127.0.0.1:8000", "127.0.0.1", false},
-		{"127.0.0.1", "127.0.0.1", false},
-		{"localhost:65555", "localhost", false},
-		{"", "", true},
+		{"127.0.0.1:8000", "127.0.0.1"},
+		{"127.0.0.1", "127.0.0.1"},
+		{"localhost:65555", "localhost"},
+		{"2001:0db8:85a3:0000:0000:8a2e:0370:7334", "2001:0db8:85a3:0000:0000:8a2e:0370:7334"},
+		{"[2001:0db8:85a3:0000:0000:8a2e:0370:7334]:9000", "2001:0db8:85a3:0000:0000:8a2e:0370:7334"},
+		{"", ""},
 	}
 
-	for _, attempt := range attempts {
+	for _, test := range tests {
 		// setup return value
 		value := ""
 		// setup our call check
 		wasCalled := false
-		panicked := false
 		// next handler so we can check the result
 		next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			value = r.RemoteAddr
 			wasCalled = true
 		})
 
-		// catch panics
-		func() {
-			defer func() {
-				if err := recover(); err != nil {
-					panicked = true
-				}
-			}()
-			removePortFromAddress(next).ServeHTTP(nil, &http.Request{
-				RemoteAddr: attempt.hostport,
-			})
-		}()
+		removePortFromAddress(next).ServeHTTP(nil, &http.Request{
+			RemoteAddr: test.hostport,
+		})
 
-		t.Logf("%s; panicked=%t,wasCalled=%t,value=%s", attempt.hostport, panicked, wasCalled, value)
-		if attempt.panicExpected {
-			if !panicked {
-				t.Fatalf("removePortFromAddress panicked unexpectedly on: %v", attempt)
-			}
-			continue
-		}
+		t.Logf("%s; wasCalled=%t,value=%s", test.hostport, wasCalled, value)
 		if !wasCalled {
-			t.Fatalf("removePortFromAddress did not call next middleware: %v", attempt)
+			t.Fatalf("removePortFromAddress did not call next middleware: %v", test)
 		}
 
-		if value != attempt.host {
+		if value != test.host {
 			t.Errorf("removePortFromAddress did not return expected value: %v != %v",
-				value, attempt.host)
+				value, test.host)
 		}
 	}
 }
