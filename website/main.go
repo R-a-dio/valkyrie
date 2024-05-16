@@ -120,6 +120,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	}
 	// fixes a compatibility issue with the PHP api, see middleware documentation
 	r.Use(phpapi.MoveTokenToHeaderForRequests)
+	r.Use(skipCSRFProtection)
 	r.Use(csrf.Protect(csrfKey,
 		csrf.Secure(false),
 		csrf.Encoding(base62.StdEncoding),
@@ -238,6 +239,15 @@ func removePortFromAddress(next http.Handler) http.Handler {
 		host, _, err := net.SplitHostPort(r.RemoteAddr)
 		if err == nil {
 			r.RemoteAddr = host
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func skipCSRFProtection(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/admin/grafana") {
+			r = csrf.UnsafeSkipCheck(r)
 		}
 		next.ServeHTTP(w, r)
 	})
