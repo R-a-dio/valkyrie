@@ -189,6 +189,7 @@ func AllUserPermissions() []UserPermission {
 		PermDJ,
 		PermDev,
 		PermAdmin,
+		PermStaff,
 		PermDatabaseDelete,
 		PermDatabaseEdit,
 		PermDatabaseView,
@@ -211,6 +212,7 @@ const (
 	PermDJ             = "dj"              // User has access to the icecast proxy
 	PermDev            = "dev"             // User is a developer
 	PermAdmin          = "admin"           // User is an administrator
+	PermStaff          = "staff"           // User is staff, only for display purposes on staff page
 	PermDatabaseDelete = "database_delete" // User can delete from the track database
 	PermDatabaseEdit   = "database_edit"   // User can edit the track database
 	PermDatabaseView   = "database_view"   // User can view the track database
