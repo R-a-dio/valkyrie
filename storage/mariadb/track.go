@@ -501,6 +501,30 @@ type TrackStorage struct {
 	handle handle
 }
 
+var trackNeedReplacementQuery = `
+SELECT
+	tracks.id AS trackid
+FROM
+	tracks
+WHERE
+	tracks.need_reupload = 1;
+`
+
+func (ts TrackStorage) NeedReplacement() ([]radio.TrackID, error) {
+	const op errors.Op = "mariadb/TrackStorage.NeedReplacement"
+	handle, deferFn := ts.handle.span(op)
+	defer deferFn()
+
+	var songs []radio.TrackID
+
+	err := sqlx.Select(handle, &songs, trackNeedReplacementQuery)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	return songs, nil
+}
+
 var trackGetQuery = expand(`
 SELECT
 	{trackColumns},

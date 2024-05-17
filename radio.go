@@ -848,6 +848,8 @@ type TrackStorage interface {
 	Delete(TrackID) error
 	// Unusable returns all tracks that are deemed unusable by the streamer
 	Unusable() ([]Song, error)
+	// NeedReplacement returns the IDs that need a replacement
+	NeedReplacement() ([]TrackID, error)
 	// Insert inserts a new track, errors if ID or TrackID is set
 	Insert(song Song) (TrackID, error)
 	// UpdateMetadata updates track metadata only (artist/title/album/tags/filepath/needreplacement)

@@ -3784,6 +3784,9 @@ var _ radio.TrackStorage = &TrackStorageMock{}
 //			InsertFunc: func(song radio.Song) (radio.TrackID, error) {
 //				panic("mock out the Insert method")
 //			},
+//			NeedReplacementFunc: func() ([]radio.TrackID, error) {
+//				panic("mock out the NeedReplacement method")
+//			},
 //			QueueCandidatesFunc: func() ([]radio.TrackID, error) {
 //				panic("mock out the QueueCandidates method")
 //			},
@@ -3829,6 +3832,9 @@ type TrackStorageMock struct {
 
 	// InsertFunc mocks the Insert method.
 	InsertFunc func(song radio.Song) (radio.TrackID, error)
+
+	// NeedReplacementFunc mocks the NeedReplacement method.
+	NeedReplacementFunc func() ([]radio.TrackID, error)
 
 	// QueueCandidatesFunc mocks the QueueCandidates method.
 	QueueCandidatesFunc func() ([]radio.TrackID, error)
@@ -3881,6 +3887,9 @@ type TrackStorageMock struct {
 			// Song is the song argument value.
 			Song radio.Song
 		}
+		// NeedReplacement holds details about calls to the NeedReplacement method.
+		NeedReplacement []struct {
+		}
 		// QueueCandidates holds details about calls to the QueueCandidates method.
 		QueueCandidates []struct {
 		}
@@ -3921,6 +3930,7 @@ type TrackStorageMock struct {
 	lockDelete                sync.RWMutex
 	lockGet                   sync.RWMutex
 	lockInsert                sync.RWMutex
+	lockNeedReplacement       sync.RWMutex
 	lockQueueCandidates       sync.RWMutex
 	lockUnusable              sync.RWMutex
 	lockUpdateLastPlayed      sync.RWMutex
@@ -4114,6 +4124,33 @@ func (mock *TrackStorageMock) InsertCalls() []struct {
 	mock.lockInsert.RLock()
 	calls = mock.calls.Insert
 	mock.lockInsert.RUnlock()
+	return calls
+}
+
+// NeedReplacement calls NeedReplacementFunc.
+func (mock *TrackStorageMock) NeedReplacement() ([]radio.TrackID, error) {
+	if mock.NeedReplacementFunc == nil {
+		panic("TrackStorageMock.NeedReplacementFunc: method is nil but TrackStorage.NeedReplacement was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockNeedReplacement.Lock()
+	mock.calls.NeedReplacement = append(mock.calls.NeedReplacement, callInfo)
+	mock.lockNeedReplacement.Unlock()
+	return mock.NeedReplacementFunc()
+}
+
+// NeedReplacementCalls gets all the calls that were made to NeedReplacement.
+// Check the length with:
+//
+//	len(mockedTrackStorage.NeedReplacementCalls())
+func (mock *TrackStorageMock) NeedReplacementCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockNeedReplacement.RLock()
+	calls = mock.calls.NeedReplacement
+	mock.lockNeedReplacement.RUnlock()
 	return calls
 }
 
