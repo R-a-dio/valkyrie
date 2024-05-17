@@ -562,6 +562,9 @@ func (ts TrackStorage) All() ([]radio.Song, error) {
 		return nil, errors.E(op, err)
 	}
 
+	for i := range songs {
+		songs[i].Hydrate()
+	}
 	return songs, nil
 }
 
@@ -592,6 +595,9 @@ func (ts TrackStorage) Unusable() ([]radio.Song, error) {
 		return nil, errors.E(op, err)
 	}
 
+	for i := range songs {
+		songs[i].Hydrate()
+	}
 	return songs, nil
 }
 
@@ -910,6 +916,9 @@ func (ts TrackStorage) BeforeLastRequested(before time.Time) ([]radio.Song, erro
 		return nil, errors.E(op, err)
 	}
 
+	for i := range songs {
+		songs[i].Hydrate()
+	}
 	return songs, nil
 }
 
