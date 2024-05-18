@@ -2,6 +2,7 @@ package manager
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -83,6 +84,14 @@ func (m *Manager) UpdateSong(ctx context.Context, update *radio.SongUpdate) erro
 	new := update
 	info := update.Info
 
+	// trim any whitespace on the edges
+	new.Metadata = strings.TrimSpace(new.Metadata)
+
+	// empty metadata, we ignore
+	if new.Metadata == "" {
+		m.logger.Info().Msg("skipping empty metadata")
+		return nil
+	}
 	// first we check if this is the same song as the previous one we received to
 	// avoid double announcement or drifting start/end timings
 	m.mu.Lock()
@@ -141,9 +150,6 @@ func (m *Manager) UpdateSong(ctx context.Context, update *radio.SongUpdate) erro
 	songListenerDiff -= m.status.Listeners
 
 	m.logger.Info().Str("metadata", song.Metadata).Dur("song_length", song.Length).Msg("updating stream song")
-
-	// send an event out
-	m.songStream.Send(&radio.SongUpdate{Song: *song, Info: info})
 	m.mu.Unlock()
 
 	// finish updating extra fields for the previous status
@@ -155,6 +161,9 @@ func (m *Manager) UpdateSong(ctx context.Context, update *radio.SongUpdate) erro
 	if err = tx.Commit(); err != nil {
 		return errors.E(op, errors.TransactionCommit, err, prevStatus)
 	}
+
+	// send an event out
+	m.songStream.Send(&radio.SongUpdate{Song: *song, Info: info})
 	return nil
 }
 
