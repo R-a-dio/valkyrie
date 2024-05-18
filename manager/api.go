@@ -144,7 +144,9 @@ func (m *Manager) UpdateSong(ctx context.Context, update *radio.SongUpdate) erro
 	m.status.Song = *song
 	m.status.SongInfo = info
 	m.songStartListenerCount = m.status.Listeners
-	go m.updateStreamStatus(true, m.status)
+	defer func(status radio.Status) {
+		go m.updateStreamStatus(true, status)
+	}(m.status)
 
 	// calculate the listener diff between start of song and end of song
 	songListenerDiff -= m.status.Listeners
