@@ -74,8 +74,6 @@ func NewStreamer(ctx context.Context, cfg config.Config, qs radio.QueueService, 
 		SampleRate:     44100,
 	}
 
-	// user value to tell us who is streaming according to the proxy
-	s.userValue = util.StreamValue(ctx, cfg.Manager.CurrentUser, s.userChange)
 	// timer we use for starting the streamer if nobody is on
 	s.startTimer = util.NewCallbackTimer(func() {
 		s.Start(ctx)
@@ -89,6 +87,9 @@ func NewStreamer(ctx context.Context, cfg config.Config, qs radio.QueueService, 
 	s.StreamUser = *user
 
 	zerolog.Ctx(ctx).Info().Str("username", user.Username).Msg("this is me")
+
+	// user value to tell us who is streaming according to the proxy
+	s.userValue = util.StreamValue(ctx, cfg.Manager.CurrentUser, s.userChange)
 	return s, nil
 }
 
