@@ -168,3 +168,30 @@ func (suite *Suite) TestTrackUpdateMetadata(t *testing.T) {
 	assert.Equal(t, updatedSong.Album, updated.Album)
 	assert.Equal(t, updatedSong.Title, updated.Title)
 }
+
+func (suite *Suite) TestSongFavoritesOf(t *testing.T) {
+	s := suite.Storage(t)
+	ss := s.Song(suite.ctx)
+
+	var nick = "test"
+	var entries []radio.Song
+	for i := range 1000 {
+		song, err := ss.Create(radio.NewSong(strconv.Itoa(i)))
+		require.NoError(t, err)
+		entries = append(entries, *song)
+	}
+
+	var faveCountExpected = int64(500)
+	for _, song := range entries[:faveCountExpected] {
+		added, err := ss.AddFavorite(song, nick)
+		require.NoError(t, err)
+		require.True(t, added)
+	}
+
+	var limit = 50
+	var offset = 0
+	faves, count, err := ss.FavoritesOf(nick, int64(limit), int64(offset))
+	require.NoError(t, err)
+	require.Len(t, faves, limit)
+	require.Equal(t, faveCountExpected, count)
+}

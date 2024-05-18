@@ -456,7 +456,7 @@ func RandomTrackRequest(e Event) error {
 		}
 
 		// TODO(wessie): this limit is artificial, but no one should hit 100k faves
-		songs, err = e.Storage.Song(e.Ctx).FavoritesOf(nickname, 100000, 0)
+		songs, _, err = e.Storage.Song(e.Ctx).FavoritesOf(nickname, 100000, 0)
 		if err != nil {
 			return errors.E(op, err)
 		}

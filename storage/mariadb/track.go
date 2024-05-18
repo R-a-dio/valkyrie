@@ -338,39 +338,54 @@ func (ss SongStorage) UpdateHashLink(entry radio.SongHash, newLink radio.SongHas
 var songFavoritesOfQuery = expand(`
 SELECT
 	{songColumns},
-	{trackColumns},
+	{maybeTrackColumns},
 	{lastplayedSelect},
 	NOW() AS synctime
 FROM
-	tracks
+	enick
+JOIN
+	efave ON efave.inick = enick.id
+JOIN
+	esong ON esong.id = efave.isong
 LEFT JOIN
-	esong ON tracks.hash = esong.hash
-JOIN
-	efave ON efave.isong = esong.id
-JOIN
-	enick ON efave.inick = enick.id
+	tracks ON tracks.hash = esong.hash
 WHERE
-	tracks.usable = 1
-AND
 	enick.nick = ?
-ORDER BY esong.meta ASC
+ORDER BY efave.id ASC
 LIMIT ? OFFSET ?;
 `)
 
+var songFavoritesOfCountQuery = `
+SELECT 
+	count(*)
+FROM 
+	enick
+JOIN
+	efave ON efave.inick = enick.id
+WHERE
+	enick.nick = ?;
+`
+
 // FavoritesOf implements radio.SongStorage
-func (ss SongStorage) FavoritesOf(nick string, limit, offset int64) ([]radio.Song, error) {
+func (ss SongStorage) FavoritesOf(nick string, limit, offset int64) ([]radio.Song, int64, error) {
 	const op errors.Op = "mariadb/SongStorage.FavoritesOf"
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
 
 	var songs = []radio.Song{}
+	var count int64
 
 	err := sqlx.Select(handle, &songs, songFavoritesOfQuery, nick, limit, offset)
 	if err != nil {
-		return nil, errors.E(op, err)
+		return nil, 0, errors.E(op, err)
 	}
 
-	return songs, nil
+	err = sqlx.Get(handle, &count, songFavoritesOfCountQuery, nick)
+	if err != nil {
+		return nil, 0, errors.E(op, err)
+	}
+
+	return songs, count, nil
 }
 
 // AddFavorite implements radio.SongStorage
@@ -392,7 +407,8 @@ func (ss SongStorage) AddFavorite(song radio.Song, nick string) (bool, error) {
 	FROM 
 		enick
 	WHERE 
-		enick.nick=?;`
+		enick.nick=?
+	UNION SELECT 0 AS id, 0 AS hasfave FROM DUAL;`
 
 	var info = struct {
 		ID      int64

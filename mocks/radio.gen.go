@@ -2980,7 +2980,7 @@ var _ radio.SongStorage = &SongStorageMock{}
 //			FavoritesFunc: func(song radio.Song) ([]string, error) {
 //				panic("mock out the Favorites method")
 //			},
-//			FavoritesOfFunc: func(nick string, limit int64, offset int64) ([]radio.Song, error) {
+//			FavoritesOfFunc: func(nick string, limit int64, offset int64) ([]radio.Song, int64, error) {
 //				panic("mock out the FavoritesOf method")
 //			},
 //			FromHashFunc: func(songHash radio.SongHash) (*radio.Song, error) {
@@ -3030,7 +3030,7 @@ type SongStorageMock struct {
 	FavoritesFunc func(song radio.Song) ([]string, error)
 
 	// FavoritesOfFunc mocks the FavoritesOf method.
-	FavoritesOfFunc func(nick string, limit int64, offset int64) ([]radio.Song, error)
+	FavoritesOfFunc func(nick string, limit int64, offset int64) ([]radio.Song, int64, error)
 
 	// FromHashFunc mocks the FromHash method.
 	FromHashFunc func(songHash radio.SongHash) (*radio.Song, error)
@@ -3334,7 +3334,7 @@ func (mock *SongStorageMock) FavoritesCalls() []struct {
 }
 
 // FavoritesOf calls FavoritesOfFunc.
-func (mock *SongStorageMock) FavoritesOf(nick string, limit int64, offset int64) ([]radio.Song, error) {
+func (mock *SongStorageMock) FavoritesOf(nick string, limit int64, offset int64) ([]radio.Song, int64, error) {
 	if mock.FavoritesOfFunc == nil {
 		panic("SongStorageMock.FavoritesOfFunc: method is nil but SongStorage.FavoritesOf was just called")
 	}

@@ -19,6 +19,7 @@ type FavesInput struct {
 	Nickname    string
 	DownloadURL string
 	Faves       []radio.Song
+	FaveCount   int64
 	Page        *shared.Pagination
 }
 
@@ -39,7 +40,7 @@ func NewFavesInput(ss radio.SongStorage, r *http.Request) (*FavesInput, error) {
 		nickname = r.FormValue("nick")
 	}
 
-	faves, err := ss.FavoritesOf(nickname, favesPageSize, offset)
+	faves, faveCount, err := ss.FavoritesOf(nickname, favesPageSize, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -53,8 +54,9 @@ func NewFavesInput(ss radio.SongStorage, r *http.Request) (*FavesInput, error) {
 		Nickname:    nickname,
 		DownloadURL: dlUrl.String(),
 		Faves:       faves,
+		FaveCount:   faveCount,
 		Page: shared.NewPagination(
-			page, shared.PageCount(int64(len(faves)), favesPageSize),
+			page, shared.PageCount(int64(faveCount), favesPageSize),
 			r.URL,
 		),
 		Input: middleware.InputFromRequest(r),
