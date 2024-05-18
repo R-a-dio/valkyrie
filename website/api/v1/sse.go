@@ -8,11 +8,14 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+	"syscall"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/R-a-dio/valkyrie/util"
+	"github.com/R-a-dio/valkyrie/util/pool"
 	"github.com/R-a-dio/valkyrie/util/sse"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
@@ -66,6 +69,7 @@ func (a *API) sendQueue(ctx context.Context) {
 		return
 	}
 
+	zerolog.Ctx(ctx).Debug().Str("event", EventQueue).Any("value", q).Msg("sending")
 	a.sse.SendQueue(q)
 }
 
@@ -76,6 +80,7 @@ func (a *API) sendLastPlayed(ctx context.Context) {
 		return
 	}
 
+	zerolog.Ctx(ctx).Debug().Str("event", EventLastPlayed).Any("value", lp).Msg("sending")
 	a.sse.SendLastPlayed(lp)
 }
 
@@ -155,8 +160,14 @@ func (s *Stream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mu.RUnlock()
 
 	for _, m := range init {
-		log.Debug().Bytes("value", m[theme]).Msg("send")
-		if _, err := w.Write(m[theme]); err != nil {
+		data, err := m.genFn(r)
+		if err != nil {
+			log.Error().Err(err).Msg("sse init generator error")
+			continue
+		}
+
+		log.Debug().Bytes("value", data).Msg("send")
+		if _, err := w.Write(data); err != nil && !errors.IsE(err, syscall.EPIPE) {
 			log.Error().Err(err).Msg("sse client write error")
 			return
 		}
@@ -166,8 +177,8 @@ func (s *Stream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// start the actual new-event loop
 	log.Debug().Msg("start")
 	for m := range ch {
-		log.Debug().Bytes("value", m[theme]).Msg("send")
-		if _, err := w.Write(m[theme]); err != nil {
+		log.Debug().Bytes("value", m.encoded[theme]).Msg("send")
+		if _, err := w.Write(m.encoded[theme]); err != nil && !errors.IsE(err, syscall.EPIPE) {
 			log.Error().Err(err).Msg("sse client write error")
 			return
 		}
@@ -255,7 +266,7 @@ func (s *Stream) NewMessage(event EventName, data templates.TemplateSelectable) 
 	if err != nil {
 		// TODO: handle error cases better
 		log.Println("failed creating message", err)
-		return nil
+		return message{}
 	}
 
 	// encode template results to server-side-event format
@@ -263,7 +274,29 @@ func (s *Stream) NewMessage(event EventName, data templates.TemplateSelectable) 
 		v = bytes.TrimSpace(v)
 		m[k] = sse.Event{Name: event, Data: v}.Encode()
 	}
-	return m
+	return message{
+		encoded: m,
+		genFn:   s.MessageCache(event, data),
+	}
+}
+
+var bufferPool = pool.NewResetPool(func() *bytes.Buffer { return new(bytes.Buffer) })
+
+func (s *Stream) MessageCache(event EventName, data templates.TemplateSelectable) func(r *http.Request) ([]byte, error) {
+	const op errors.Op = "website/api/v1/Stream.MessageCache"
+
+	return func(r *http.Request) ([]byte, error) {
+		buf := bufferPool.Get()
+		defer bufferPool.Put(buf)
+
+		err := s.templates.Execute(buf, r, data)
+		if err != nil {
+			return nil, errors.E(op, err)
+		}
+
+		data := bytes.TrimSpace(buf.Bytes())
+		return sse.Event{Name: event, Data: data}.Encode(), nil
+	}
 }
 
 func (s *Stream) SendStreamer(data radio.User) {
@@ -294,7 +327,12 @@ type request struct {
 	e   EventName    // SEND only
 }
 
-type message map[string][]byte
+type messageGen func(r *http.Request) ([]byte, error)
+
+type message struct {
+	encoded map[string][]byte
+	genFn   messageGen
+}
 
 // NowPlaying is for what is currently playing on the home page
 type NowPlaying radio.Status
