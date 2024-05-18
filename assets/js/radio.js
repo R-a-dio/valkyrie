@@ -161,7 +161,7 @@ function updateTimes() {
     var n = now() / 1000;
     var nextUpdate = 60;
 
-    document.querySelectorAll("time").forEach((node) => {
+    document.querySelectorAll("time:not(.htmx-settling)").forEach((node) => {
         if (node.dataset.timeset) {
             return
         }
