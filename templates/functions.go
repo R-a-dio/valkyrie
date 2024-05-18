@@ -23,7 +23,7 @@ var fnMap = map[string]any{
 	"Since":                       time.Since,
 	"Now":                         time.Now,
 	"TimeagoDuration":             TimeagoDuration,
-	"PrettyDuration":              TimeagoDuration,
+	"PrettyDuration":              PrettyDuration,
 	"AbsoluteDate":                AbsoluteDate,
 	"HumanDuration":               HumanDuration,
 	"MediaDuration":               MediaDuration,
@@ -92,6 +92,27 @@ func TimeagoDuration(d time.Duration) string {
 			return fmt.Sprintf("%.0f min ago", d.Minutes())
 		}
 		return fmt.Sprintf("%.0f mins ago", d.Minutes())
+	}
+}
+
+func PrettyDuration(d time.Duration) string {
+	if d > 0 { // future duration
+		if d <= time.Minute {
+			return "in less than a minute"
+		}
+		if d < time.Minute*2 {
+			return fmt.Sprintf("in %.0f minute", d.Minutes())
+		}
+		return fmt.Sprintf("in %.0f minutes", d.Minutes())
+	} else { // past duration
+		d = d.Abs()
+		if d <= time.Minute {
+			return "less than a minute ago"
+		}
+		if d < time.Minute*2 {
+			return fmt.Sprintf("%.0f minute ago", d.Minutes())
+		}
+		return fmt.Sprintf("%.0f minutes ago", d.Minutes())
 	}
 }
 

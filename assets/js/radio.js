@@ -105,6 +105,15 @@ htmx.on('htmx:afterSettle', (event) => {
 });
 
 function prettyDuration(d) {
+    if (d < 0) {
+        if (d > -60) {
+            return "less than a minute ago"
+        }
+        return rtf.format(Math.floor(d / 60), "minute")
+    }
+    if (d < 60) {
+        return "in less than a minute"
+    }
     return rtf.format(Math.floor(d / 60), "minute");
 }
 
