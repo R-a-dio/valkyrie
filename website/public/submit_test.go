@@ -45,7 +45,11 @@ func TestPostSubmit(t *testing.T) {
 		}
 	}
 	storage.TrackFunc = func(contextMoqParam context.Context) radio.TrackStorage {
-		return &mocks.TrackStorageMock{}
+		return &mocks.TrackStorageMock{
+			NeedReplacementFunc: func() ([]radio.TrackID, error) {
+				return nil, nil
+			},
+		}
 	}
 	executor := &mocks.ExecutorMock{}
 	executor.ExecuteFunc = func(w io.Writer, r *http.Request, input templates.TemplateSelectable) error {

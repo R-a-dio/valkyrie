@@ -38,16 +38,16 @@ type SubmitInput struct {
 	Stats radio.SubmissionStats
 }
 
-func NewSubmitInput(storage radio.SubmissionStorageService, r *http.Request, form *SubmissionForm) (*SubmitInput, error) {
+func NewSubmitInput(ts radio.TrackStorage, ss radio.SubmissionStorage, r *http.Request, form *SubmissionForm) (*SubmitInput, error) {
 	const op errors.Op = "website.NewSubmitInput"
 
 	if form == nil {
-		tmp := newSubmissionForm(r, nil)
+		tmp := newSubmissionForm(ts, r, nil)
 		form = &tmp
 	}
 
 	identifier, _ := getIdentifier(r)
-	stats, err := storage.Submissions(r.Context()).SubmissionStats(identifier)
+	stats, err := ss.SubmissionStats(identifier)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
@@ -109,7 +109,10 @@ func (s State) GetSubmit(w http.ResponseWriter, r *http.Request) {
 func (s State) getSubmit(w http.ResponseWriter, r *http.Request, form *SubmissionForm) error {
 	const op errors.Op = "website.getSubmit"
 
-	input, err := NewSubmitInput(s.Storage, r, form)
+	ctx := r.Context()
+	input, err := NewSubmitInput(
+		s.Storage.Track(ctx),
+		s.Storage.Submissions(ctx), r, form)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -118,6 +121,8 @@ func (s State) getSubmit(w http.ResponseWriter, r *http.Request, form *Submissio
 }
 
 func (s State) PostSubmit(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
 	// setup response function that differs between htmx/non-htmx request
 	responseFn := func(form SubmissionForm) {
 		var err error
@@ -147,14 +152,15 @@ func (s State) PostSubmit(w http.ResponseWriter, r *http.Request) {
 
 	// success, update the submission time for the identifier
 	identifier, _ := getIdentifier(r)
-	if err = s.Storage.Submissions(r.Context()).UpdateSubmissionTime(identifier); err != nil {
+	err = s.Storage.Submissions(ctx).UpdateSubmissionTime(identifier)
+	if err != nil {
 		hlog.FromRequest(r).Error().Err(err).Msg("")
 		responseFn(form)
 		return
 	}
 
 	// send a new empty form back to the user
-	back := newSubmissionForm(r, nil)
+	back := newSubmissionForm(s.Storage.Track(ctx), r, nil)
 	back.Success = true
 	if form.IsDaypass {
 		// if the submission was with a daypass, prefill the daypass for them again
@@ -171,16 +177,17 @@ func (s State) postSubmit(w http.ResponseWriter, r *http.Request) (SubmissionFor
 	// find out if the client is allowed to upload
 	cooldown, err := s.canSubmitSong(r)
 	if err != nil {
-		return newSubmissionForm(r, map[string]string{
+		return newSubmissionForm(s.Storage.Track(r.Context()), r, map[string]string{
 			"cooldown": strconv.FormatInt(int64(cooldown/time.Second), 10),
 		}), errors.E(op, err)
 	}
 
 	// start parsing the form, it's multipart encoded due to file upload and we manually
 	// handle some details due to reasons described in NewSubmissionForm
-	form, err := NewSubmissionForm(filepath.Join(s.Conf().MusicPath, "pending"), r)
+	form, err := NewSubmissionForm(s.Storage.Track(r.Context()), filepath.Join(s.Conf().MusicPath, "pending"), r)
 	if err != nil {
-		return newSubmissionForm(r, nil), errors.E(op, err, errors.InternalServer)
+		hlog.FromRequest(r).Error().Err(err).Msg("")
+		return newSubmissionForm(s.Storage.Track(r.Context()), r, nil), errors.E(op, err)
 	}
 
 	// ParseForm just saved a temporary file that we want to delete if any other error
@@ -265,10 +272,11 @@ type SubmissionForm struct {
 	//		"cooldown": indicates the user was not permitted to upload yet, they need to wait longer
 	Errors map[string]string
 	// form fields
-	OriginalFilename string         // name="track" The filename of the uploaded file
-	Daypass          string         // name="daypass"
-	Comment          string         // name="comment"
-	Replacement      *radio.TrackID // name="replacement"
+	OriginalFilename    string          // name="track" The filename of the uploaded file
+	Daypass             string          // name="daypass"
+	Comment             string          // name="comment"
+	Replacement         *radio.TrackID  // name="replacement"
+	NeedReplacementList []radio.TrackID // possible values for Replacement field
 
 	// after processing fields
 
@@ -286,11 +294,22 @@ func (SubmissionForm) TemplateName() string {
 	return "form_submit"
 }
 
-func newSubmissionForm(r *http.Request, errors map[string]string) SubmissionForm {
-	return SubmissionForm{
+func newSubmissionForm(ts radio.TrackStorage, r *http.Request, errs map[string]string) SubmissionForm {
+	const op errors.Op = "website/public.newSubmissionForm"
+
+	form := SubmissionForm{
 		CSRFTokenInput: csrf.TemplateField(r),
-		Errors:         errors,
+		Errors:         errs,
 	}
+
+	needReplacement, err := ts.NeedReplacement()
+	if err != nil {
+		hlog.FromRequest(r).Error().Err(err).Msg("")
+		return form
+	}
+
+	form.NeedReplacementList = needReplacement
+	return form
 }
 
 // NewSubmissionForm parses a multipart form into the SubmissionForm
@@ -306,10 +325,10 @@ func newSubmissionForm(r *http.Request, errors map[string]string) SubmissionForm
 //	"replacement":	an TrackID (number) indicating what song to replace in the database with this
 //
 // Any other fields cause an error to be returned and all form parsing to stop.
-func NewSubmissionForm(tempdir string, r *http.Request) (*SubmissionForm, error) {
+func NewSubmissionForm(ts radio.TrackStorage, tempdir string, r *http.Request) (*SubmissionForm, error) {
 	const op errors.Op = "public.NewSubmissionForm"
 
-	sf := newSubmissionForm(r, nil)
+	sf := newSubmissionForm(ts, r, nil)
 
 	err := r.ParseMultipartForm(formMaxSize)
 	if err != nil {
