@@ -195,8 +195,8 @@ func StreamValue[T any](ctx context.Context, fn StreamFn[T], callbackFn ...Strea
 					// retrying, or that was our original error and we exit
 					return
 				case <-time.After(time.Second):
+					continue
 				}
-				continue
 			}
 
 			for {

@@ -87,23 +87,36 @@ func NewStreamer(ctx context.Context, cfg config.Config, qs radio.QueueService, 
 		return nil, errors.E(op, err)
 	}
 	s.StreamUser = *user
+
+	zerolog.Ctx(ctx).Info().Str("username", user.Username).Msg("this is me")
 	return s, nil
 }
 
 func (s *Streamer) userChange(ctx context.Context, user *radio.User) {
 	// nobody is streaming
 	if user == nil {
+		zerolog.Ctx(ctx).Info().Msg("nobody streaming")
+
 		// we are allowed to connect after a timeout if one is set
 		if timeout := s.Conf().Streamer.ConnectTimeout; timeout > 0 {
+			zerolog.Ctx(ctx).Info().
+				Dur("timeout", time.Duration(timeout)).
+				Msg("starting after timeout")
 			s.startTimer.Start(time.Duration(timeout))
 			return
 		}
 	}
 	// if we are supposed to be streaming, we can connect
 	if user.ID == s.StreamUser.ID {
+		zerolog.Ctx(ctx).Info().Msg("starting because (me)")
 		s.Start(context.WithoutCancel(ctx))
 		return
 	}
+
+	zerolog.Ctx(ctx).Info().
+		Str("me", s.StreamUser.Username).
+		Str("user", user.Username).
+		Msg("not starting")
 }
 
 // Start starts the streamer with the context given, Start is a noop if
