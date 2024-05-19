@@ -108,6 +108,8 @@ func NewBot(ctx context.Context, cfg config.Config) (*Bot, error) {
 	b := &Bot{
 		Config:   cfg,
 		Storage:  store,
+		Manager:  cfg.Manager,
+		Streamer: cfg.Streamer,
 		Searcher: ss,
 		c:        girc.New(ircConf),
 	}
