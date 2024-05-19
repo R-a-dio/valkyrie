@@ -80,7 +80,7 @@ type wireServer struct {
 
 func (srv *Server) writeSelf(dst *net.UnixConn) error {
 	var ws wireServer
-	ws.MasterServer = string(srv.cfg.Conf().Proxy.MasterServer)
+	ws.MasterServer = generateMasterURL(srv.cfg, "").String()
 
 	srv.listenerMu.Lock()
 	fd, err := getFile(srv.listener)

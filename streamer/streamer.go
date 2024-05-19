@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/url"
 	"runtime/debug"
 	"sync"
 	"sync/atomic"
@@ -78,9 +79,16 @@ func NewStreamer(ctx context.Context, cfg config.Config, qs radio.QueueService, 
 	s.startTimer = util.NewCallbackTimer(func() {
 		s.Start(ctx)
 	})
+
+	username := cfg.Conf().Streamer.StreamUsername
+	if username == "" {
+		// try to get it from the url instead
+		username = cfg.Conf().Streamer.StreamURL.URL().User.Username()
+	}
+
 	// and grab the user from the streamurl so we can compare it later for
 	// request enabling.
-	user, err := us.Get(cfg.Conf().Streamer.StreamURL.URL().User.Username())
+	user, err := us.Get(username)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
@@ -534,11 +542,15 @@ func (s *Streamer) encodeToMP3(task streamerTask) error {
 	}
 }
 
-func (s *Streamer) newIcecastConn(streamurl config.URL) (conn net.Conn, err error) {
-	return icecast.DialURL(context.TODO(), streamurl.URL(),
-		icecast.ContentType("audio/mpeg"),
-		icecast.UserAgent(s.Conf().UserAgent),
-	)
+func (s *Streamer) streamURL() *url.URL {
+	sCfg := s.Conf().Streamer
+	// grab the configured url
+	uri := sCfg.StreamURL.URL()
+	// replace/add username, password combo if one is configured
+	if username := sCfg.StreamUsername; username != "" {
+		uri.User = url.UserPassword(username, sCfg.StreamPassword)
+	}
+	return uri
 }
 
 func (s *Streamer) streamToIcecast(task streamerTask) error {
@@ -550,7 +562,9 @@ func (s *Streamer) streamToIcecast(task streamerTask) error {
 
 	// setup helpers for backoff handling of the icecast connection
 	var newConn = func() error {
-		c, err := s.newIcecastConn(s.Conf().Streamer.StreamURL)
+		c, err := icecast.DialURL(task.Context, s.streamURL(),
+			icecast.ContentType("audio/mpeg"),
+			icecast.UserAgent(s.Conf().UserAgent))
 		if err != nil {
 			s.logger.Error().Err(err).Msg("newconn failure")
 			return err
@@ -623,7 +637,7 @@ func (s *Streamer) streamToIcecast(task streamerTask) error {
 }
 
 func (s *Streamer) metadataToIcecast(task streamerTask) error {
-	metaFn := icecast.MetadataURL(s.Conf().Streamer.StreamURL.URL(),
+	metaFn := icecast.MetadataURL(s.streamURL(),
 		icecast.UserAgent(s.Conf().UserAgent),
 	)
 

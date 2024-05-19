@@ -46,7 +46,7 @@ var defaultConfig = config{
 	},
 	Streamer: streamer{
 		RPCAddr:         MustParseAddrPort(":4545"),
-		StreamURL:       "",
+		StreamURL:       "http://127.0.0.1:1337/main.mp3",
 		RequestsEnabled: true,
 		ConnectTimeout:  Duration(time.Second * 30),
 	},
@@ -71,7 +71,9 @@ var defaultConfig = config{
 	Proxy: proxy{
 		RPCAddr:          MustParseAddrPort(":5151"),
 		ListenAddr:       MustParseAddrPort(":1337"),
-		MasterServer:     "http://source:hackme@127.0.0.1:8000",
+		MasterServer:     "http://127.0.0.1:8000",
+		MasterUsername:   "source",
+		MasterPassword:   "hackme",
 		PrimaryMountName: "/main.mp3",
 	},
 	Tracker: tracker{
@@ -146,6 +148,10 @@ type proxy struct {
 	ListenAddr AddrPort
 	// MasterServer is the icecast master server URL
 	MasterServer URL
+	// MasterUsername is the username for the master icecast
+	MasterUsername string
+	// MasterPassword is the password for the master icecast
+	MasterPassword string
 	// PrimaryMountName is the mountname to propagate all events for
 	PrimaryMountName string
 }
@@ -188,9 +194,12 @@ type website struct {
 type streamer struct {
 	// RPCAddr is the address for the RPC API
 	RPCAddr AddrPort
-	// StreamURL is the full URL to the streamer endpoint, including any
-	// authorization parameters required to connect.
+	// StreamURL is the URL to the streamer endpoint
 	StreamURL URL
+	// StreamUsername is the username to login with
+	StreamUsername string
+	// StreamPassword is the password for the username above
+	StreamPassword string
 	// RequestsEnabled indicates if requests are enabled currently
 	RequestsEnabled bool
 	// ConnectTimeout is how long to wait before connecting if the

@@ -75,7 +75,7 @@ func (m *Mount) newConn() (net.Conn, error) {
 	var err error
 	var conn net.Conn
 	err = backoff.Retry(func() error {
-		uri := m.masterURL()
+		uri := generateMasterURL(m.cfg, m.Name)
 
 		m.logger.Info().Str("url", uri.Redacted()).Msg("dialing icecast")
 		conn, err = icecast.DialURL(context.TODO(), uri, icecast.ContentType(m.ContentType))
@@ -92,15 +92,22 @@ func (m *Mount) newConn() (net.Conn, error) {
 	return conn, nil
 }
 
-func (m *Mount) masterURL() *url.URL {
-	master := m.cfg.Conf().Proxy.MasterServer.URL()
-	master.Path = m.Name
+func generateMasterURL(c config.Config, mount string) *url.URL {
+	cfg := c.Conf()
+
+	master := cfg.Proxy.MasterServer.URL()
+	if username := cfg.Proxy.MasterUsername; username != "" {
+		master.User = url.UserPassword(username, cfg.Proxy.MasterPassword)
+	}
+	if mount != "" {
+		master.Path = mount
+	}
 	return master
 }
 
 func (m *Mount) sendMetadata(ctx context.Context, meta string) error {
 	m.events.eventLiveMetadataUpdate(ctx, m.Name, meta)
-	return icecast.MetadataURL(m.masterURL())(ctx, meta)
+	return icecast.MetadataURL(generateMasterURL(m.cfg, m.Name))(ctx, meta)
 }
 
 func (m *Mount) Write(b []byte) (n int, err error) {
