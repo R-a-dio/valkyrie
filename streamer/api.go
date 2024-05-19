@@ -103,7 +103,7 @@ func (s *streamerService) RequestSong(ctx context.Context, song radio.Song, iden
 		return errors.E(op, errors.InvalidArgument, errors.Info("identifier"))
 	}
 
-	if !song.HasTrack() && song.ID == 0 {
+	if !song.HasTrack() || song.TrackID == 0 {
 		return errors.E(op, errors.InvalidArgument, errors.Info("song"), song)
 	}
 
