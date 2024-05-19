@@ -22,6 +22,7 @@ var fnMap = map[string]any{
 	"Until":                       time.Until,
 	"Since":                       time.Since,
 	"Now":                         time.Now,
+	"ToSecond":                    func(d time.Duration) int64 { return int64(d.Seconds()) },
 	"TimeagoDuration":             TimeagoDuration,
 	"PrettyDuration":              PrettyDuration,
 	"AbsoluteDate":                AbsoluteDate,
