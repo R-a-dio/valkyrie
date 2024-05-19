@@ -58,7 +58,7 @@ func (eh *EventHandler) eventNewLiveSource(ctx context.Context, mountName string
 		// mount, other mounts it doesn't care about
 		if mountName == eh.primaryMountName() {
 			var user *radio.User
-			if new != nil {
+			if new != nil && new.User.ID != 0 {
 				user = &new.User
 			}
 

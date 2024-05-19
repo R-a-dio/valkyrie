@@ -160,6 +160,10 @@ func (s *Stream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mu.RUnlock()
 
 	for _, m := range init {
+		if m.genFn == nil {
+			continue
+		}
+
 		data, err := m.genFn(r)
 		if err != nil {
 			log.Error().Err(err).Msg("sse init generator error")
