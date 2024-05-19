@@ -102,7 +102,7 @@ func (s *Server) Start(ctx context.Context) error {
 
 	s.listenerMu.Lock()
 	if s.listener == nil {
-		ln, err := compat.Listen(logger, "tcp", s.cfg.Conf().Proxy.Addr)
+		ln, err := compat.Listen(logger, "tcp", s.cfg.Conf().Proxy.ListenAddr.String())
 		if err != nil {
 			s.listenerMu.Unlock()
 			return err

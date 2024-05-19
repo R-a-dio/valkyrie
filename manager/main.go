@@ -27,7 +27,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 
-	ln, err := net.Listen("tcp", cfg.Conf().Manager.ListenAddr)
+	ln, err := net.Listen("tcp", cfg.Conf().Manager.RPCAddr.String())
 	if err != nil {
 		return err
 	}

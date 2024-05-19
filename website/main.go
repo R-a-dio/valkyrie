@@ -194,7 +194,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	// setup the http server
 	conf := cfg.Conf()
 	server := &http.Server{
-		Addr:    conf.Website.WebsiteAddr,
+		Addr:    conf.Website.WebsiteAddr.String(),
 		Handler: r,
 	}
 

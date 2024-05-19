@@ -50,7 +50,7 @@ func GetIcecastListClients(ctx context.Context, cfg config.Config) ([]radio.List
 	uri := conf.Tracker.MasterServer.URL()
 	uri.Path = "/admin/listclients"
 	query := uri.Query()
-	query.Add("mount", cfg.Conf().Tracker.MountName)
+	query.Add("mount", cfg.Conf().Tracker.PrimaryMountName)
 	uri.RawQuery = query.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri.String(), nil)
@@ -82,7 +82,7 @@ func RemoveIcecastClient(ctx context.Context, cfg config.Config, id radio.Listen
 	uri := conf.Tracker.MasterServer.URL()
 	uri.Path = "/admin/killclient"
 	query := uri.Query()
-	query.Add("mount", cfg.Conf().Tracker.MountName)
+	query.Add("mount", cfg.Conf().Tracker.PrimaryMountName)
 	query.Add("id", id.String())
 	uri.RawQuery = query.Encode()
 

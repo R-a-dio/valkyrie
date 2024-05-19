@@ -12,7 +12,7 @@ import (
 func newManagerService(cfg Config) radio.ManagerService {
 	return &managerService{
 		Value(cfg, func(c Config) radio.ManagerService {
-			return rpc.NewManagerService(rpc.PrepareConn(cfg.Conf().Manager.Addr))
+			return rpc.NewManagerService(rpc.PrepareConn(cfg.Conf().Manager.RPCAddr.String()))
 		}),
 	}
 }
@@ -140,7 +140,7 @@ func (q *queueService) ResetReserved(ctx context.Context) error {
 func newTrackerService(cfg Config) radio.ListenerTrackerService {
 	return &trackerService{
 		Value(cfg, func(c Config) radio.ListenerTrackerService {
-			return rpc.NewListenerTrackerService(rpc.PrepareConn(cfg.Conf().Tracker.RPCAddr))
+			return rpc.NewListenerTrackerService(rpc.PrepareConn(cfg.Conf().Tracker.RPCAddr.String()))
 		}),
 	}
 }
@@ -162,7 +162,7 @@ func (t *trackerService) RemoveClient(ctx context.Context, id radio.ListenerClie
 func newIRCService(cfg Config) radio.AnnounceService {
 	return &ircService{
 		Value(cfg, func(c Config) radio.AnnounceService {
-			return rpc.NewAnnouncerService(rpc.PrepareConn(cfg.Conf().IRC.Addr))
+			return rpc.NewAnnouncerService(rpc.PrepareConn(cfg.Conf().IRC.RPCAddr.String()))
 		}),
 	}
 }

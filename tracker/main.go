@@ -40,12 +40,12 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	go PeriodicallySyncListeners(ctx, cfg, recorder, SyncListenersTickrate)
 
 	// setup the HTTP server that icecast will be poking
-	srv := NewServer(ctx, cfg.Conf().Tracker.ListenAddr, recorder)
+	srv := NewServer(ctx, cfg.Conf().Tracker.ListenAddr.String(), recorder)
 
 	// setup the GRPC server that the rest will be poking
 	grpcSrv := NewGRPCServer(ctx, recorder)
 	// and a listener for the GRPC server
-	ln, err := net.Listen("tcp", cfg.Conf().Tracker.RPCAddr)
+	ln, err := net.Listen("tcp", cfg.Conf().Tracker.RPCAddr.String())
 	if err != nil {
 		return err
 	}

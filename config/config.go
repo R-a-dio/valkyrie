@@ -7,8 +7,11 @@ import (
 	"math"
 	"math/big"
 	"math/rand"
+	"net"
+	"net/netip"
 	"net/url"
 	"os"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -36,30 +39,25 @@ var defaultConfig = config{
 		DSN:        "radio@unix(/run/mysqld/mysqld.sock)/radio?parseTime=true",
 	},
 	Website: website{
-		WebsiteAddr:     "localhost:3241",
-		Addr:            ":4747",
-		ListenAddr:      ":4747",
+		WebsiteAddr:     MustParseAddrPort("localhost:3241"),
 		DJImageMaxSize:  10 * 1024 * 1024,
 		DJImagePath:     "/radio/dj-images",
 		PublicStreamURL: "http://localhost:8000/main.mp3",
 	},
 	Streamer: streamer{
-		Addr:            ":4545",
-		ListenAddr:      ":4545",
+		RPCAddr:         MustParseAddrPort(":4545"),
 		StreamURL:       "",
 		RequestsEnabled: true,
 		ConnectTimeout:  Duration(time.Second * 30),
 	},
 	IRC: irc{
-		Addr:           ":4444",
-		ListenAddr:     ":4444",
+		RPCAddr:        MustParseAddrPort(":4444"),
 		AllowFlood:     false,
 		EnableEcho:     true,
 		AnnouncePeriod: Duration(time.Second * 15),
 	},
 	Manager: manager{
-		Addr:          ":4646",
-		ListenAddr:    ":4646",
+		RPCAddr:       MustParseAddrPort(":4646"),
 		StreamURL:     "",
 		FallbackNames: []string{"fallback"},
 	},
@@ -71,17 +69,18 @@ var defaultConfig = config{
 		Fallback: "https://relay0.r-a-d.io/main.mp3",
 	},
 	Proxy: proxy{
-		Addr:             ":1337",
+		RPCAddr:          MustParseAddrPort(":5151"),
+		ListenAddr:       MustParseAddrPort(":1337"),
 		MasterServer:     "http://source:hackme@127.0.0.1:8000",
 		PrimaryMountName: "/main.mp3",
 	},
 	Tracker: tracker{
-		RPCAddr:        ":4949",
-		ListenAddr:     ":9999",
-		MasterServer:   "http://127.0.0.1:8000",
-		MasterUsername: "admin",
-		MasterPassword: "hackme",
-		MountName:      "/main.mp3",
+		RPCAddr:          MustParseAddrPort(":4949"),
+		ListenAddr:       MustParseAddrPort(":9999"),
+		MasterServer:     "http://127.0.0.1:8000",
+		MasterUsername:   "admin",
+		MasterPassword:   "hackme",
+		PrimaryMountName: "/main.mp3",
 	},
 	Telemetry: telemetry{
 		Use:                false,
@@ -126,22 +125,28 @@ type config struct {
 type tracker struct {
 	// RPCAddr is the address to use for RPC client connections to this
 	// component or the listening address for the RPC server
-	RPCAddr string
+	RPCAddr AddrPort
 	// ListenAddr is the address the http endpoint will be listening on
 	// this would be the one you use in icecast config
-	ListenAddr string
+	ListenAddr AddrPort
 	// MasterServer is the address of the master icecast server
 	MasterServer URL
 	// MasterUsername is the admin username for the master icecast
 	MasterUsername string
 	// MasterPassword is the admin password for the master icecast
 	MasterPassword string
-	MountName      string
+	// PrimaryMountName is the mountname to keep track of
+	PrimaryMountName string
 }
 
 type proxy struct {
-	Addr             string
-	MasterServer     URL
+	// RPCAddr is the address to use for the RPC API server
+	RPCAddr AddrPort
+	// ListenAddr is the address to use for the proxy http server
+	ListenAddr AddrPort
+	// MasterServer is the icecast master server URL
+	MasterServer URL
+	// PrimaryMountName is the mountname to propagate all events for
 	PrimaryMountName string
 }
 
@@ -169,12 +174,8 @@ type database struct {
 
 // website contains configuration relevant to the website instance
 type website struct {
-	// Address to bind to for the public-facing website
-	WebsiteAddr string
-	// Addr is the address for the HTTP API
-	Addr string
-	// ListenAddr is the address to listen on for the HTTP API
-	ListenAddr string
+	// WebsiteAddr is the address to bind to for the public-facing website
+	WebsiteAddr AddrPort
 	// DJImageMaxSize is the maximum size of dj images in bytes
 	DJImageMaxSize int64
 	// DJImagePath is the path where to store dj images
@@ -185,10 +186,8 @@ type website struct {
 
 // streamer contains all the fields only relevant to the streamer
 type streamer struct {
-	// Addr is the address for the HTTP API
-	Addr string
-	// ListenAddr is the address to listen on for the HTTP API
-	ListenAddr string
+	// RPCAddr is the address for the RPC API
+	RPCAddr AddrPort
 	// StreamURL is the full URL to the streamer endpoint, including any
 	// authorization parameters required to connect.
 	StreamURL URL
@@ -201,10 +200,8 @@ type streamer struct {
 
 // irc contains all the fields only relevant to the irc bot
 type irc struct {
-	// Addr is the address for the HTTP API
-	Addr string
-	// ListenAddr is the address to listen on for the HTTP API
-	ListenAddr string
+	// RPCAddr is the address for the RPC API
+	RPCAddr AddrPort
 	// BindAddr is the address to bind to when connecting to IRC, this has to resolve
 	// to an IPv4/IPv6 address bindable on the system.
 	BindAddr string
@@ -228,10 +225,8 @@ type irc struct {
 
 // manager contains all fields relevant to the manager
 type manager struct {
-	// Addr is the address for the HTTP API
-	Addr string
-	// ListenAddr is the address to listen on for the HTTP API
-	ListenAddr string
+	// RPCAddr is the address for the RPC API
+	RPCAddr AddrPort
 	// StreamURL is the url to listen to the mp3 stream
 	StreamURL string
 	// FallbackNames is a list of strings that indicate an icecast stream is playing a
@@ -294,7 +289,7 @@ func newConfig(c config) Config {
 	}
 
 	streamerConn := Value(cfg, func(c Config) *grpc.ClientConn {
-		return rpc.PrepareConn(cfg.Conf().Streamer.Addr)
+		return rpc.PrepareConn(cfg.Conf().Streamer.RPCAddr.String())
 	})
 
 	// TODO: handle reloads by closing rpc connections
@@ -500,6 +495,74 @@ func (u *URL) UnmarshalText(text []byte) error {
 		return err
 	}
 	*u = URL(text)
+	return nil
+}
+
+type AddrPort struct {
+	ap netip.AddrPort
+}
+
+func MustParseAddrPort(s string) AddrPort {
+	ap, err := ParseAddrPort(s)
+	if err != nil {
+		panic("MustParseAddrPort: " + err.Error())
+	}
+	return ap
+}
+
+func ParseAddrPort(s string) (AddrPort, error) {
+	host, sPort, err := net.SplitHostPort(s)
+	if err != nil {
+		return AddrPort{}, err
+	}
+
+	if host == "localhost" {
+		host = localAddr.String()
+	}
+
+	var addr = localAddr
+	if host != "" {
+		addr, err = netip.ParseAddr(host)
+		if err != nil {
+			return AddrPort{}, err
+		}
+	}
+
+	port, err := strconv.ParseUint(sPort, 10, 16)
+	if err != nil {
+		return AddrPort{}, err
+	}
+
+	return AddrPort{
+		ap: netip.AddrPortFrom(addr, uint16(port)),
+	}, nil
+}
+
+func (ap AddrPort) String() string {
+	return ap.ap.String()
+}
+
+func (ap AddrPort) Port() uint16 {
+	return ap.ap.Port()
+}
+
+func (ap AddrPort) Addr() netip.Addr {
+	return ap.ap.Addr()
+}
+
+func (ap AddrPort) MarshalText() ([]byte, error) {
+	return ap.ap.MarshalText()
+}
+
+var localAddr = netip.MustParseAddr("127.0.0.1")
+
+func (ap *AddrPort) UnmarshalText(text []byte) error {
+	res, err := ParseAddrPort(string(text))
+	if err != nil {
+		return err
+	}
+	*ap = res
+
 	return nil
 }
 

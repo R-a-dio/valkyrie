@@ -67,7 +67,7 @@ func TestGracefulRestart(t *testing.T) {
 	// touch-up the config with our test container and other settings
 	c := cfg.Conf()
 	c.Database.DSN = dsn
-	c.Proxy.Addr = "127.0.0.1:58643"
+	c.Proxy.ListenAddr = config.MustParseAddrPort("127.0.0.1:58643")
 	c.Proxy.MasterServer = config.URL(icecastsrv.URL)
 	cfg.StoreConf(c)
 

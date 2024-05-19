@@ -28,7 +28,7 @@ func TestGetIcecastListClients(t *testing.T) {
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/admin/listclients", r.URL.Path)
-		assert.Equal(t, cfg.Conf().Tracker.MountName, r.URL.Query().Get("mount"))
+		assert.Equal(t, cfg.Conf().Tracker.PrimaryMountName, r.URL.Query().Get("mount"))
 		user, passwd, ok := r.BasicAuth()
 		assert.True(t, ok, "request should have auth header")
 		assert.Equal(t, cfg.Conf().Tracker.MasterUsername, user)

@@ -33,7 +33,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	}
 	defer srv.Stop()
 
-	ln, err := net.Listen("tcp", cfg.Conf().Streamer.ListenAddr)
+	ln, err := net.Listen("tcp", cfg.Conf().Streamer.RPCAddr.String())
 	if err != nil {
 		return err
 	}
