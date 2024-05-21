@@ -1,3 +1,3 @@
 ALTER TABLE eplay ADD COLUMN IF NOT EXISTS (djs_id INT DEFAULT NULL);
 
-update eplay set djs_id = (SELECT dj FROM listenlog WHERE eplay.dt >= listenlog.time ORDER BY listenlog.time ASC LIMIT 1) where eplay.dt > (SELECT time FROM listenlog ORDER BY time ASC limit 1);
+UPDATE eplay INNER JOIN (select time, IFNULL(lead(time) over (order by time asc), NOW()) AS lead, dj from (select time, dj, IFNULL(lag(dj) over (order by time asc), -1) AS prev FROM listenlog ORDER BY time ASC) AS a WHERE prev <> dj) AS log ON eplay.dt BETWEEN log.time AND log.lead SET eplay.djs_id = log.dj;
