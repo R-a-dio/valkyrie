@@ -2,21 +2,22 @@ package proxy
 
 import (
 	"context"
+	"encoding/json"
 	"maps"
-	"net"
 	"sync"
 	"time"
 
+	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
-	"github.com/R-a-dio/valkyrie/util/graceful"
 	"github.com/rs/zerolog"
-	xmaps "golang.org/x/exp/maps"
 )
 
 type ProxyManager struct {
-	ctx          context.Context
-	cfg          config.Config
-	events       *EventHandler
+	ctx    context.Context
+	cfg    config.Config
+	events *EventHandler
+	uss    radio.UserStorageService
+
 	reloadConfig chan config.Config
 
 	// metaMu protects metaStore
@@ -28,11 +29,12 @@ type ProxyManager struct {
 	cleanup  map[string]*time.Timer
 }
 
-func NewProxyManager(ctx context.Context, cfg config.Config, eh *EventHandler) (*ProxyManager, error) {
+func NewProxyManager(ctx context.Context, cfg config.Config, uss radio.UserStorageService, eh *EventHandler) (*ProxyManager, error) {
 	m := &ProxyManager{
 		ctx:          ctx,
 		cfg:          cfg,
 		events:       eh,
+		uss:          uss,
 		reloadConfig: make(chan config.Config),
 		metaStore:    make(map[Identifier]*Metadata),
 		mounts:       make(map[string]*Mount),
@@ -167,70 +169,32 @@ func (pm *ProxyManager) Metadata(identifier Identifier) *Metadata {
 	return pm.metaStore[identifier]
 }
 
-type wireProxy struct {
-	Mounts   []string
+type storedProxy struct {
 	Metadata map[Identifier]*Metadata
 }
 
-func (pm *ProxyManager) writeSelf(dst *net.UnixConn) error {
-	pm.mountsMu.Lock()
-	mounts := maps.Clone(pm.mounts)
-	pm.mountsMu.Unlock()
-
+func (pm *ProxyManager) MarshalJSON() ([]byte, error) {
 	pm.metaMu.Lock()
 	metadata := maps.Clone(pm.metaStore)
 	pm.metaMu.Unlock()
 
-	wp := wireProxy{
-		Mounts:   xmaps.Keys(mounts),
+	sp := storedProxy{
 		Metadata: metadata,
 	}
 
-	err := graceful.WriteJSON(dst, wp)
-	if err != nil {
-		return err
-	}
-
-	for _, mount := range mounts {
-		err := mount.writeSelf(dst)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return json.Marshal(sp)
 }
 
-func (pm *ProxyManager) readSelf(ctx context.Context, cfg config.Config, src *net.UnixConn) error {
-	var wp wireProxy
+func (pm *ProxyManager) UnmarshalJSON(b []byte) error {
+	pm.metaMu.Lock()
+	defer pm.metaMu.Unlock()
 
-	zerolog.Ctx(ctx).Info().Msg("resume: reading proxy manager data")
-	err := graceful.ReadJSON(src, &wp)
+	var sp storedProxy
+	err := json.Unmarshal(b, &sp)
 	if err != nil {
 		return err
 	}
 
-	zerolog.Ctx(ctx).Info().Any("wire", wp).Msg("resume")
-
-	pm.metaMu.Lock()
-	xmaps.Copy(pm.metaStore, wp.Metadata)
-	pm.metaMu.Unlock()
-
-	mounts := make(map[string]*Mount)
-	for range wp.Mounts {
-		mount := new(Mount)
-		mount.pm = pm
-
-		err = mount.readSelf(ctx, cfg, src)
-		if err != nil {
-			return err
-		}
-
-		mounts[mount.Name] = mount
-	}
-
-	pm.mountsMu.Lock()
-	xmaps.Copy(pm.mounts, mounts)
-	pm.mountsMu.Unlock()
-
+	pm.metaStore = sp.Metadata
 	return nil
 }

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/R-a-dio/valkyrie/proxy/compat"
+	"github.com/Wessie/fdstore"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -15,7 +16,7 @@ func TestGetFileOnCompat(t *testing.T) {
 	defer ln.Close()
 
 	// check if we can get the fd from the listener we get from compat
-	fd, err := getFile(ln)
+	fd, err := ln.(fdstore.Filer).File()
 	if assert.NoError(t, err) {
 		assert.NotNil(t, fd)
 		defer fd.Close()
@@ -30,7 +31,7 @@ func TestGetFileOnCompat(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, conn)
 
-		fd, err = getFile(conn)
+		fd, err = conn.(fdstore.Filer).File()
 		if assert.NoError(t, err) {
 			defer fd.Close()
 			assert.NotNil(t, fd)

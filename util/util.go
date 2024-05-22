@@ -4,8 +4,11 @@ import (
 	"context"
 	"fmt"
 	"mime"
+	"net"
 	"net/http"
 	"net/url"
+	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -14,6 +17,7 @@ import (
 
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/util/eventstream"
+	"github.com/Wessie/fdstore"
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog"
 )
@@ -262,4 +266,41 @@ func (tc *CallbackTimer) Stop() bool {
 		return tc.timer.Stop()
 	}
 	return true
+}
+
+// Signal returns a channel that will receive the signals given as
+// arguments, similar to signal.Notify but creating the channel for you
+// on the fly.
+func Signal(signals ...os.Signal) <-chan os.Signal {
+	signalCh := make(chan os.Signal, len(signals))
+	signal.Notify(signalCh, signals...)
+	return signalCh
+}
+
+// RestoreOrListen tries to restore a listener with the name given from
+// the store given. If any error occurs it instead just calls net.Listen
+// with the provided arguments network and addr
+func RestoreOrListen(store *fdstore.Store, name string, network, addr string) (net.Listener, []byte, error) {
+	lns, err := store.RemoveListener(name)
+	if err != nil || len(lns) == 0 {
+		ln, err := net.Listen(network, addr)
+		return ln, nil, err
+	}
+
+	return lns[0].Listener, lns[0].Data, nil
+}
+
+// TrySendStore combines a call to fdstore.NotifySocket and fdstore.SendStore
+func TrySendStore(ctx context.Context, store *fdstore.Store) {
+	sock, err := fdstore.NotifySocket()
+	if err != nil {
+		zerolog.Ctx(ctx).Error().Err(err).Msg("failed to get socket")
+		return
+	}
+
+	err = fdstore.SendStore(sock, store)
+	if err != nil {
+		zerolog.Ctx(ctx).Error().Err(err).Msg("failed to send fdstore")
+		return
+	}
 }

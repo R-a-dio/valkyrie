@@ -2,16 +2,13 @@ package proxy
 
 import (
 	"context"
-	"fmt"
-	"net"
-	"os"
+	"syscall"
 
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
-	"github.com/R-a-dio/valkyrie/proxy/compat"
 	"github.com/R-a-dio/valkyrie/storage"
-	"github.com/R-a-dio/valkyrie/util/graceful"
-	"github.com/rs/zerolog"
+	"github.com/R-a-dio/valkyrie/util"
+	"github.com/Wessie/fdstore"
 )
 
 func Execute(ctx context.Context, cfg config.Config) error {
@@ -29,113 +26,21 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		return errors.E(op, err)
 	}
 
-	// check if we're a child of an existing process
-	if graceful.IsChild(ctx) {
-		err := srv.handleResume(ctx, cfg)
-		if err != nil {
-			// resuming failed, just exit and hope someone in charge restarts us
-			return err
-		}
-		graceful.Finish(ctx)
-	}
+	fdstorage := fdstore.NewStore(fdstore.ListenFDs())
 
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- srv.Start(ctx)
+		errCh <- srv.Start(ctx, fdstorage)
 	}()
 
 	select {
 	case <-ctx.Done():
 		return srv.Close()
-	case <-graceful.Signal(ctx):
-		return srv.handleRestart(ctx, cfg)
+	case <-util.Signal(syscall.SIGUSR2):
+		srv.storeSelf(ctx, fdstorage)
+		util.TrySendStore(ctx, fdstorage)
+		return srv.Close()
 	case err = <-errCh:
 		return err
-	}
-}
-
-func (srv *Server) handleResume(ctx context.Context, cfg config.Config) error {
-	parent, err := graceful.Parent(ctx)
-	if err != nil {
-		return err
-	}
-	defer parent.Close()
-
-	return srv.readSelf(ctx, cfg, parent)
-}
-
-func (srv *Server) handleRestart(ctx context.Context, cfg config.Config) error {
-	dst, err := graceful.StartChild(ctx)
-	if err != nil {
-		return err
-	}
-	defer dst.Close()
-
-	return srv.writeSelf(dst)
-}
-
-type wireServer struct {
-	MasterServer string
-}
-
-func (srv *Server) writeSelf(dst *net.UnixConn) error {
-	var ws wireServer
-	ws.MasterServer = generateMasterURL(srv.cfg, "").String()
-
-	srv.listenerMu.Lock()
-	fd, err := getFile(srv.listener)
-	srv.listenerMu.Unlock()
-	if err != nil {
-		return fmt.Errorf("fd failure in server: %w", err)
-	}
-	defer fd.Close()
-
-	err = graceful.WriteJSONFile(dst, ws, fd)
-	if err != nil {
-		return err
-	}
-
-	return srv.proxy.writeSelf(dst)
-}
-
-func (srv *Server) readSelf(ctx context.Context, cfg config.Config, src *net.UnixConn) error {
-	var ws wireServer
-
-	zerolog.Ctx(ctx).Info().Msg("resume: reading server data")
-	file, err := graceful.ReadJSONFile(src, &ws)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	zerolog.Ctx(ctx).Info().Any("ws", ws).Msg("resume")
-
-	srv.listenerMu.Lock()
-	srv.listener, err = net.FileListener(file)
-	srv.listenerMu.Unlock()
-	if err != nil {
-		return err
-	}
-
-	return srv.proxy.readSelf(ctx, cfg, src)
-}
-
-func getFile(un any) (*os.File, error) {
-	if un == nil {
-		return nil, errors.New("nil passed to getFile")
-	}
-
-	if f, ok := un.(interface{ File() (*os.File, error) }); ok {
-		return f.File()
-	}
-
-	switch v := un.(type) {
-	case *compat.Listener:
-		return getFile(v.Listener)
-	case *compat.Conn:
-		return getFile(v.Conn)
-	default:
-		fmt.Printf("unknown type in getFile: %#v", un)
-		panic("unknown type")
 	}
 }

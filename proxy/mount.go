@@ -3,7 +3,6 @@ package proxy
 import (
 	"cmp"
 	"context"
-	"fmt"
 	"io"
 	"net"
 	"net/url"
@@ -31,17 +30,17 @@ type Mount struct {
 	backOff backoff.BackOff
 	// ContentType of this mount, this can only be set during creation and all
 	// future clients afterwards will use the same content type
-	ContentType string
+	ContentType string `json:"content-type"`
 	// Name of the mountpoint
-	Name string
+	Name string `json:"name"`
 
 	// Conn is the conn to the icecast server
-	Conn *util.TypedValue[net.Conn]
+	Conn *util.TypedValue[net.Conn] `json:"-"`
 
 	// Sources is the different sources of audio data, the mount
 	// broadcasts the data of the first entry and voids the others
-	SourcesMu *sync.RWMutex
-	Sources   []*MountSourceClient
+	SourcesMu *sync.RWMutex        `json:"-"`
+	Sources   []*MountSourceClient `json:"-"`
 }
 
 func NewMount(ctx context.Context,
@@ -136,80 +135,6 @@ func (m *Mount) Close() error {
 	conn := m.Conn.Swap(nil)
 	if conn != nil {
 		return conn.Close()
-	}
-
-	return nil
-}
-
-type wireMount struct {
-	ContentType string
-	Name        string
-	SourceCount int
-}
-
-func (m *Mount) writeSelf(dst *net.UnixConn) error {
-	m.SourcesMu.RLock()
-	defer m.SourcesMu.RUnlock()
-
-	count := len(m.Sources)
-
-	wm := wireMount{
-		Name:        m.Name,
-		ContentType: m.ContentType,
-		SourceCount: count,
-	}
-
-	fd, err := getFile(m.Conn.Load())
-	if err != nil {
-		return fmt.Errorf("fd failure in mountpoint: %w", err)
-	}
-	defer fd.Close()
-
-	err = graceful.WriteJSONFile(dst, wm, fd)
-	if err != nil {
-		return err
-	}
-
-	for _, msc := range m.Sources {
-		err = msc.Source.writeSelf(dst)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (m *Mount) readSelf(ctx context.Context, cfg config.Config, src *net.UnixConn) error {
-	var wm wireMount
-
-	zerolog.Ctx(ctx).Debug().Msg("resume: reading mount")
-
-	conn, err := graceful.ReadJSONConn(src, &wm)
-	if err != nil {
-		return err
-	}
-
-	zerolog.Ctx(ctx).Debug().Any("wireMount", wm).Msg("resume")
-
-	newmount := NewMount(ctx, cfg, m.pm, m.pm.events, wm.Name, wm.ContentType, conn)
-	*m = *newmount
-
-	if wm.SourceCount == 0 {
-		// this indicates the mount was probably in cleanup state and was gonna
-		// close connections soon, we do the same
-		m.pm.RemoveMount(newmount)
-		return nil
-	}
-
-	for i := 0; i < wm.SourceCount; i++ {
-		source := new(SourceClient)
-
-		err = source.readSelf(ctx, cfg, src)
-		if err != nil {
-			return err
-		}
-
-		m.AddSource(ctx, source)
 	}
 
 	return nil

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/R-a-dio/valkyrie/config"
@@ -22,6 +23,7 @@ import (
 	vmiddleware "github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/R-a-dio/valkyrie/website/public"
 	"github.com/R-a-dio/valkyrie/website/shared"
+	"github.com/Wessie/fdstore"
 	"github.com/gorilla/csrf"
 	"github.com/jxskiss/base62"
 	"github.com/rs/zerolog"
@@ -198,11 +200,19 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		Handler: r,
 	}
 
-	zerolog.Ctx(ctx).Info().Str("address", server.Addr).Msg("website started listening")
-	ln, err := net.Listen("tcp", server.Addr)
+	// read any FDs from a previous process
+	fdstorage := fdstore.NewStore(fdstore.ListenFDs())
+
+	// get a listener for the website server
+	ln, _, err := util.RestoreOrListen(fdstorage, "website", "tcp", server.Addr)
 	if err != nil {
 		return err
 	}
+
+	zerolog.Ctx(ctx).Info().Str("address", server.Addr).Msg("website started listening")
+
+	// add the listener to the storage again for the next time we restart
+	_ = fdstorage.AddListener(ln, "website", []byte(server.Addr))
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -211,6 +221,9 @@ func Execute(ctx context.Context, cfg config.Config) error {
 
 	select {
 	case <-ctx.Done():
+		return server.Close()
+	case <-util.Signal(syscall.SIGUSR2):
+		util.TrySendStore(ctx, fdstorage)
 		return server.Close()
 	case err = <-errCh:
 		return err

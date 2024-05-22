@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"encoding/json"
 	"net"
 	"net/http"
 	"sync"
@@ -10,9 +11,10 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
-	"github.com/R-a-dio/valkyrie/proxy/compat"
+	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/website"
 	"github.com/R-a-dio/valkyrie/website/middleware"
+	"github.com/Wessie/fdstore"
 	"github.com/go-chi/chi/v5"
 	chiware "github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/zerolog"
@@ -37,11 +39,11 @@ func zerologLoggerFunc(r *http.Request, status, size int, duration time.Duration
 		Msg("http request")
 }
 
-func NewServer(ctx context.Context, cfg config.Config, manager radio.ManagerService, storage radio.UserStorageService) (*Server, error) {
+func NewServer(ctx context.Context, cfg config.Config, manager radio.ManagerService, uss radio.UserStorageService) (*Server, error) {
 	const op errors.Op = "proxy.NewServer"
 
 	eh := NewEventHandler(ctx, cfg)
-	pm, err := NewProxyManager(ctx, cfg, eh)
+	pm, err := NewProxyManager(ctx, cfg, uss, eh)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
@@ -49,7 +51,7 @@ func NewServer(ctx context.Context, cfg config.Config, manager radio.ManagerServ
 		cfg:     cfg,
 		proxy:   pm,
 		manager: manager,
-		storage: storage,
+		storage: uss,
 	}
 
 	// older icecast source clients still use the SOURCE method instead of PUT
@@ -72,7 +74,7 @@ func NewServer(ctx context.Context, cfg config.Config, manager radio.ManagerServ
 	)
 	r.Use(chiware.Recoverer)
 	// handle basic authentication
-	r.Use(middleware.BasicAuth(storage))
+	r.Use(middleware.BasicAuth(uss))
 	// and generate an identifier for the user
 	r.Use(IdentifierMiddleware)
 	// metadata route used to update mp3 metadata out-of-bound
@@ -97,22 +99,30 @@ func (s *Server) Close() error {
 	return s.http.Close()
 }
 
-func (s *Server) Start(ctx context.Context) error {
+func (srv *Server) Start(ctx context.Context, fdstorage *fdstore.Store) error {
 	logger := zerolog.Ctx(ctx)
 
-	s.listenerMu.Lock()
-	if s.listener == nil {
-		ln, err := compat.Listen(logger, "tcp", s.cfg.Conf().Proxy.ListenAddr.String())
-		if err != nil {
-			s.listenerMu.Unlock()
-			return err
-		}
+	addr := srv.cfg.Conf().Proxy.ListenAddr.String()
 
-		s.listener = ln
+	ln, state, err := util.RestoreOrListen(fdstorage, "proxy", "tcp", addr)
+	if err != nil {
+		return err
 	}
-	ln := s.listener
-	s.listenerMu.Unlock()
+
+	err = json.Unmarshal(state, srv.proxy)
+	if err != nil {
+		// not a critical error, log it and continue
+		logger.Error().Err(err).Str("json", string(state)).Msg("failed to unmarshal state")
+	}
+
+	srv.listenerMu.Lock()
+	srv.listener = ln
+	srv.listenerMu.Unlock()
+
+	// before we actually start serving we give the manager a chance to recover
+	// its mounts from the fdstorage if any exist
+	srv.proxy.restoreMounts(ctx, fdstorage)
 
 	logger.Info().Str("address", ln.Addr().String()).Msg("proxy started listening")
-	return s.http.Serve(ln)
+	return srv.http.Serve(ln)
 }

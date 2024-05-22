@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -168,31 +167,6 @@ type wireSource struct {
 	Username    string
 	Identifier  Identifier
 	Metadata    *Metadata
-}
-
-func (sc *SourceClient) writeSelf(dst *net.UnixConn) error {
-	ws := wireSource{
-		ID:          sc.ID,
-		UserAgent:   sc.UserAgent,
-		ContentType: sc.ContentType,
-		MountName:   sc.MountName,
-		Username:    sc.User.Username,
-		Identifier:  sc.Identifier,
-		Metadata:    sc.Metadata.Load(),
-	}
-
-	fd, err := getFile(sc.conn)
-	if err != nil {
-		return fmt.Errorf("fd failure in source client: %w", err)
-	}
-	defer fd.Close()
-
-	err = graceful.WriteJSONFile(dst, ws, fd)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func (sc *SourceClient) readSelf(ctx context.Context, cfg config.Config, src *net.UnixConn) error {

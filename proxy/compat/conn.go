@@ -3,6 +3,7 @@ package compat
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"io"
 	"net"
 	"os"
@@ -93,6 +94,14 @@ func (c *Conn) Read(b []byte) (n int, err error) {
 
 func (c *Conn) Close() error {
 	return c.Conn.Close()
+}
+
+func (c *Conn) File() (*os.File, error) {
+	f, ok := c.Conn.(interface{ File() (*os.File, error) })
+	if !ok {
+		return nil, errors.New("unsupported File call")
+	}
+	return f.File()
 }
 
 func isSingleOrNoReader(r io.Reader) bool {
