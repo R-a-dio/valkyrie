@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"runtime/debug"
 	"syscall"
+	"time"
 
 	"github.com/R-a-dio/valkyrie/balancer"
 	"github.com/R-a-dio/valkyrie/config"
@@ -21,8 +22,8 @@ import (
 	_ "github.com/R-a-dio/valkyrie/storage/mariadb" // mariadb storage interface
 	"github.com/R-a-dio/valkyrie/telemetry"
 	"github.com/R-a-dio/valkyrie/tracker"
-	"github.com/R-a-dio/valkyrie/util/graceful"
 	"github.com/R-a-dio/valkyrie/website"
+	"github.com/Wessie/fdstore"
 	"github.com/google/subcommands"
 	"github.com/rs/zerolog"
 	"golang.org/x/term"
@@ -318,16 +319,26 @@ func executeCommand(ctx context.Context, errCh chan error) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	// enable graceful package support, this will handle SIGUSR2 for us
-	ctx = graceful.SetupGraceful(ctx)
-
 	signalCh := make(chan os.Signal, 2)
 	signal.Notify(signalCh, os.Interrupt, syscall.SIGHUP)
+
+	// we want to signal our service manager when we're ready, but for
+	// easy of use we just do it after one second so not every command has
+	// to implement this themselves. Most commands will also just fail early
+	// and return an error if they really can't start and thus stop the timer
+	// before it expires.
+	readyTimer := time.AfterFunc(time.Second, func() {
+		_ = fdstore.Send(nil, fdstore.Ready)
+	})
+	defer func() {
+		_ = fdstore.Send(nil, fdstore.Stopping)
+	}()
 
 	// run our command in another goroutine so we can
 	// do signal handling on the main goroutine
 	go func() {
 		code := subcommands.Execute(ctx, errCh)
+		readyTimer.Stop()
 		// send a fake error over the errCh, this is so subcommands that don't use our
 		// `cmd` type don't hang the process, mostly for internal subcommands we register
 		errCh <- WithStatusCode(nil, int(code))
@@ -351,6 +362,9 @@ func executeCommand(ctx context.Context, errCh chan error) error {
 		case syscall.SIGHUP:
 			zerolog.Ctx(ctx).Info().Msg("SIGHUP received: not implemented")
 			// TODO: implement this
+			if fdstore.Send(nil, fdstore.Reloading) == nil {
+				_ = fdstore.Send(nil, fdstore.Ready)
+			}
 		}
 	}
 }
