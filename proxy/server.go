@@ -109,10 +109,12 @@ func (srv *Server) Start(ctx context.Context, fdstorage *fdstore.Store) error {
 		return err
 	}
 
-	err = json.Unmarshal(state, srv.proxy)
-	if err != nil {
-		// not a critical error, log it and continue
-		logger.Error().Err(err).Str("json", string(state)).Msg("failed to unmarshal state")
+	if state != nil {
+		err = json.Unmarshal(state, srv.proxy)
+		if err != nil {
+			// not a critical error, log it and continue
+			logger.Error().Err(err).Str("json", string(state)).Msg("failed to unmarshal state")
+		}
 	}
 
 	srv.listenerMu.Lock()
