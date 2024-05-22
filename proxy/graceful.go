@@ -102,7 +102,6 @@ func (pm *ProxyManager) restoreMounts(ctx context.Context, store *fdstore.Store)
 
 	for _, entry := range mounts {
 		mount := new(Mount)
-		mount.pm = pm
 
 		err := mount.restoreSelf(ctx, store, entry)
 		if err != nil {
@@ -112,7 +111,15 @@ func (pm *ProxyManager) restoreMounts(ctx context.Context, store *fdstore.Store)
 			continue
 		}
 
-		pm.mounts[mount.Name] = mount
+		pm.mounts[mount.Name] = NewMount(
+			ctx,
+			pm.cfg,
+			pm,
+			pm.events,
+			mount.Name,
+			mount.ContentType,
+			entry.Conn,
+		)
 	}
 
 	pm.mountsMu.Unlock()
@@ -125,7 +132,6 @@ func (m *Mount) restoreSelf(ctx context.Context, store *fdstore.Store, entry fds
 		return err
 	}
 
-	m.Conn.Store(entry.Conn)
 	return nil
 }
 
