@@ -328,10 +328,16 @@ func executeCommand(ctx context.Context, errCh chan error) error {
 	// and return an error if they really can't start and thus stop the timer
 	// before it expires.
 	readyTimer := time.AfterFunc(time.Second, func() {
-		_ = fdstore.Send(nil, fdstore.Ready)
+		err := fdstore.Send(nil, fdstore.Ready)
+		if err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("failed sd_notify ready")
+		}
 	})
 	defer func() {
-		_ = fdstore.Send(nil, fdstore.Stopping)
+		err := fdstore.Send(nil, fdstore.Stopping)
+		if err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("failed sd_notify stopping")
+		}
 	}()
 
 	// run our command in another goroutine so we can
