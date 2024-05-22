@@ -109,6 +109,7 @@ func (pm *ProxyManager) restoreMounts(ctx context.Context, store *fdstore.Store)
 		if err != nil {
 			// might still be able to recover other mounts so keep going
 			zerolog.Ctx(ctx).Error().Err(err).Any("entry", entry).Msg("failed mount restore")
+			entry.Conn.Close()
 			continue
 		}
 
@@ -141,12 +142,14 @@ func (pm *ProxyManager) restoreSources(ctx context.Context, us radio.UserStorage
 		if err != nil {
 			// might still be able to recover other sources if this fails
 			zerolog.Ctx(ctx).Error().Err(err).Any("entry", entry).Msg("failed source restore")
+			entry.Conn.Close()
 			continue
 		}
 
 		err = pm.AddSourceClient(source)
 		if err != nil {
 			zerolog.Ctx(ctx).Error().Err(err).Msg("")
+			entry.Conn.Close()
 			continue
 		}
 	}
