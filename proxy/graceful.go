@@ -99,7 +99,6 @@ func (pm *ProxyManager) restoreMounts(ctx context.Context, store *fdstore.Store)
 	// since we run before any serving is happening this isn't technically
 	// needed, but for the sake of correctness we lock all mutations below
 	pm.mountsMu.Lock()
-	defer pm.mountsMu.Unlock()
 
 	for _, entry := range mounts {
 		mount := new(Mount)
@@ -116,6 +115,7 @@ func (pm *ProxyManager) restoreMounts(ctx context.Context, store *fdstore.Store)
 		pm.mounts[mount.Name] = mount
 	}
 
+	pm.mountsMu.Unlock()
 	return pm.restoreSources(ctx, pm.uss.User(ctx), store)
 }
 
