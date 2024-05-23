@@ -289,18 +289,3 @@ func RestoreOrListen(store *fdstore.Store, name string, network, addr string) (n
 
 	return lns[0].Listener, lns[0].Data, nil
 }
-
-// TrySendStore combines a call to fdstore.NotifySocket and fdstore.SendStore
-func TrySendStore(ctx context.Context, store *fdstore.Store) {
-	sock, err := fdstore.NotifySocket()
-	if err != nil {
-		zerolog.Ctx(ctx).Error().Err(err).Msg("failed to get socket")
-		return
-	}
-
-	err = fdstore.SendStore(sock, store)
-	if err != nil {
-		zerolog.Ctx(ctx).Error().Err(err).Msg("failed to send fdstore")
-		return
-	}
-}

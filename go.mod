@@ -7,7 +7,7 @@ replace github.com/gorilla/csrf => github.com/Wessie/csrf v0.0.0-20240430222011-
 require (
 	github.com/BurntSushi/toml v1.3.2
 	github.com/DATA-DOG/go-sqlmock v1.5.2
-	github.com/Wessie/fdstore v1.0.0
+	github.com/Wessie/fdstore v1.1.0
 	github.com/XSAM/otelsql v0.29.0
 	github.com/agoda-com/opentelemetry-go/otelzerolog v0.0.1
 	github.com/agoda-com/opentelemetry-logs-go v0.4.3

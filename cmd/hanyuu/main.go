@@ -328,13 +328,13 @@ func executeCommand(ctx context.Context, errCh chan error) error {
 	// and return an error if they really can't start and thus stop the timer
 	// before it expires.
 	readyTimer := time.AfterFunc(time.Second, func() {
-		err := fdstore.Send(nil, fdstore.Ready)
+		err := fdstore.Notify(fdstore.Ready)
 		if err != nil {
 			zerolog.Ctx(ctx).Error().Err(err).Msg("failed sd_notify ready")
 		}
 	})
 	defer func() {
-		err := fdstore.Send(nil, fdstore.Stopping)
+		err := fdstore.Notify(fdstore.Stopping)
 		if err != nil {
 			zerolog.Ctx(ctx).Error().Err(err).Msg("failed sd_notify stopping")
 		}
@@ -368,8 +368,8 @@ func executeCommand(ctx context.Context, errCh chan error) error {
 		case syscall.SIGHUP:
 			zerolog.Ctx(ctx).Info().Msg("SIGHUP received: not implemented")
 			// TODO: implement this
-			if fdstore.Send(nil, fdstore.Reloading) == nil {
-				_ = fdstore.Send(nil, fdstore.Ready)
+			if fdstore.Notify(fdstore.Reloading) == nil {
+				_ = fdstore.Notify(fdstore.Ready)
 			}
 		}
 	}

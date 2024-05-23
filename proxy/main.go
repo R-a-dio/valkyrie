@@ -9,6 +9,7 @@ import (
 	"github.com/R-a-dio/valkyrie/storage"
 	"github.com/R-a-dio/valkyrie/util"
 	"github.com/Wessie/fdstore"
+	"github.com/rs/zerolog"
 )
 
 func Execute(ctx context.Context, cfg config.Config) error {
@@ -37,8 +38,12 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	case <-ctx.Done():
 		return srv.Close()
 	case <-util.Signal(syscall.SIGUSR2):
-		srv.storeSelf(ctx, fdstorage)
-		util.TrySendStore(ctx, fdstorage)
+		if err := srv.storeSelf(ctx, fdstorage); err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to store self")
+		}
+		if err := fdstorage.Send(); err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to send store")
+		}
 		return srv.Close()
 	case err = <-errCh:
 		return err

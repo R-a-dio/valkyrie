@@ -223,7 +223,9 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	case <-ctx.Done():
 		return server.Close()
 	case <-util.Signal(syscall.SIGUSR2):
-		util.TrySendStore(ctx, fdstorage)
+		if err := fdstorage.Send(); err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to send store")
+		}
 		return server.Close()
 	case err = <-errCh:
 		return err
