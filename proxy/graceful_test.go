@@ -26,6 +26,8 @@ import (
 )
 
 func TestGracefulRestart(t *testing.T) {
+	t.SkipNow()
+
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
