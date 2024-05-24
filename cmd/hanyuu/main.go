@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime/debug"
+	"sync"
 	"syscall"
 	"time"
 
@@ -327,23 +328,27 @@ func executeCommand(ctx context.Context, errCh chan error) error {
 	// to implement this themselves. Most commands will also just fail early
 	// and return an error if they really can't start and thus stop the timer
 	// before it expires.
-	readyTimer := time.AfterFunc(time.Second, func() {
+	readyFn := sync.OnceFunc(func() {
 		err := fdstore.Notify(fdstore.Ready)
 		if err != nil {
 			zerolog.Ctx(ctx).Error().Err(err).Msg("failed sd_notify ready")
 		}
 	})
+	readyTimer := time.AfterFunc(time.Second, readyFn)
 	defer func() {
+		// send that we're stopping before we quit
 		err := fdstore.Notify(fdstore.Stopping)
 		if err != nil {
 			zerolog.Ctx(ctx).Error().Err(err).Msg("failed sd_notify stopping")
 		}
+		_ = fdstore.WaitBarrier(time.Second)
 	}()
 
 	// run our command in another goroutine so we can
 	// do signal handling on the main goroutine
 	go func() {
 		code := subcommands.Execute(ctx, errCh)
+		// stop the ready timer
 		readyTimer.Stop()
 		// send a fake error over the errCh, this is so subcommands that don't use our
 		// `cmd` type don't hang the process, mostly for internal subcommands we register
@@ -358,6 +363,12 @@ func executeCommand(ctx context.Context, errCh chan error) error {
 		select {
 		case sig = <-signalCh:
 		case err := <-errCh:
+			if err == nil {
+				// if there was no error, and we might exit early the readyTimer
+				// above will never have completed and systemd complaints, so call
+				// ready here too if we were just quick to exit
+				readyFn()
+			}
 			return err
 		}
 
