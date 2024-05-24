@@ -292,10 +292,10 @@ func (ss SongStorage) FavoriteCount(song radio.Song) (int64, error) {
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
 
-	var query = `SELECT count(*) FROM efave WHERE isong=?;`
+	var query = `SELECT count(*) FROM efave JOIN esong ON esong.id = efave.isong WHERE esong.hash_link=?;`
 	var faveCount int64
 
-	err := sqlx.Get(handle, &faveCount, query, song.ID)
+	err := sqlx.Get(handle, &faveCount, query, song.HashLink)
 	if err != nil {
 		return 0, errors.E(op, err)
 	}
@@ -358,33 +358,12 @@ SELECT
 	{lastplayedSelect},
 	NOW() AS synctime
 FROM
-	enick
-JOIN
-	efave ON efave.inick = enick.id
-JOIN
-	esong ON esong.id = efave.isong
-	(esong.hash == esong.hash_link)
-LEFT JOIN
-	tracks ON tracks.hash = esong.hash
-WHERE
-	enick.nick = ?
-ORDER BY efave.id ASC
-LIMIT ? OFFSET ?;
-`)
-
-var songFavoritesOfQuery2 = expand(`
-SELECT
-	{songColumns},
-	{maybeTrackColumns},
-	{lastplayedSelect},
-	NOW() AS synctime
-FROM
 	esong
 LEFT JOIN
-	tracks ON tracks.hash = esong.hash_link
+	tracks ON tracks.hash = esong.hash
 JOIN
-	(SELECT
-		esong.hash
+	(SELECT DISTINCT
+		esong.hash_link
 	FROM
 		enick
 	JOIN
@@ -392,10 +371,10 @@ JOIN
 	JOIN
 		esong ON esong.id = efave.isong
 	WHERE
-		enick.nick = ?
-	AND
-		esong.hash == esong.hash_link) AS truth
-	ON esong.hash_link = truth.hash;
+		enick.nick = ?) AS truth
+	ON esong.hash = truth.hash_link
+ORDER BY efave.id ASC
+LIMIT ? OFFSET ?;
 `)
 
 var songFavoritesOfDatabaseOnlyQuery = expand(`
