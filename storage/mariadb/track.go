@@ -321,14 +321,20 @@ func (ss SongStorage) Favorites(song radio.Song) ([]string, error) {
 	return users, nil
 }
 
-func (ss SongStorage) UpdateHashLink(entry radio.SongHash, newLink radio.SongHash) error {
+func (ss SongStorage) UpdateHashLink(old, new radio.SongHash) error {
 	const op errors.Op = "mariadb/SongStorage.UpdateHashLink"
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
 
 	var query = `UPDATE esong SET hash_link=? WHERE hash=?;`
 
-	_, err := handle.Exec(query, newLink, entry)
+	_, err := handle.Exec(query, new, old)
+	if err != nil {
+		return errors.E(op, err)
+	}
+
+	query = `UPDATE esong SET hash_link=? WHERE hash_link=?;`
+	_, err = handle.Exec(query, new, old)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -649,62 +655,6 @@ func IsDuplicateKeyErr(err error) bool {
 	return mysqlError.Number == 1062
 }
 
-const trackUpdateQuery = `
-UPDATE tracks SET 
-	artist=:artist,
-	track=:title,
-	album=:album,
-	path=:filepath,
-	tags=:tags,
-	priority=:priority,
-	lastplayed=:lastplayed,
-	lastrequested=:lastrequested,
-	usable=:usable,
-	accepter=:acceptor,
-	lasteditor=:lasteditor,
-	hash=:hash,
-	requestcount=:requestcount,
-	need_reupload=:needreplacement
-WHERE
-	id=:trackid;
-`
-
-func (ts TrackStorage) Update(song radio.Song) error {
-	const op errors.Op = "mariadb/TrackStorage.Update"
-	handle, deferFn := ts.handle.span(op)
-	defer deferFn()
-
-	// validate
-	if !song.HasTrack() {
-		return errors.E(op, errors.InvalidArgument, "nil DatabaseTrack", song)
-	}
-
-	if song.TrackID == 0 {
-		return errors.E(op, errors.InvalidArgument, "TrackID was zero", song)
-	}
-
-	// transaction
-	handle, tx, err := requireTx(handle)
-	if err != nil {
-		return errors.E(op, errors.TransactionBegin)
-	}
-	defer tx.Rollback()
-
-	// execute
-	ss := SongStorage{handle}
-	// If the song exists the length won't be updated and instead silently not-updated
-	if _, err = ss.Create(song); err != nil {
-		return errors.E(op, err)
-	}
-
-	_, err = sqlx.NamedExec(handle, trackUpdateQuery, song)
-	if err != nil {
-		return errors.E(op, err)
-	}
-
-	return tx.Commit()
-}
-
 const trackInsertQuery = `
 INSERT INTO
 	tracks (
@@ -792,7 +742,7 @@ WHERE id=:trackid;
 `
 
 func (ts TrackStorage) UpdateMetadata(song radio.Song) error {
-	const op errors.Op = "mariadb/TrackStorage.Update"
+	const op errors.Op = "mariadb/TrackStorage.UpdateMetadata"
 	handle, deferFn := ts.handle.span(op)
 	defer deferFn()
 
@@ -829,7 +779,6 @@ func (ts TrackStorage) UpdateMetadata(song radio.Song) error {
 		song.ID = otherSong.ID
 
 		// update the old song entry's hash link to point to our newly created song
-		// TODO: also update the whole graph
 		err = SongStorage{handle}.UpdateHashLink(oldHash, song.Hash)
 		if err != nil {
 			return errors.E(op, err)

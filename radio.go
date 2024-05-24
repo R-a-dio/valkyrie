@@ -826,7 +826,7 @@ type SongStorage interface {
 	// UpdateLength updates the stored length of the song
 	UpdateLength(Song, time.Duration) error
 	// UpdateHashLink updates the HashLink of the song
-	UpdateHashLink(entry SongHash, hashLink SongHash) error
+	UpdateHashLink(old SongHash, new SongHash) error
 }
 
 // TrackStorageService is a service able to supply a TrackStorage
