@@ -27,7 +27,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		return errors.E(op, err)
 	}
 
-	fdstorage := fdstore.NewStore(fdstore.ListenFDs())
+	fdstorage := fdstore.NewStoreListenFDs()
 
 	errCh := make(chan error, 1)
 	go func() {

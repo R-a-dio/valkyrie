@@ -201,7 +201,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	}
 
 	// read any FDs from a previous process
-	fdstorage := fdstore.NewStore(fdstore.ListenFDs())
+	fdstorage := fdstore.NewStoreListenFDs()
 
 	// get a listener for the website server
 	ln, _, err := util.RestoreOrListen(fdstorage, "website", "tcp", server.Addr)
