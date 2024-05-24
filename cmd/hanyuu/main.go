@@ -23,6 +23,7 @@ import (
 	_ "github.com/R-a-dio/valkyrie/storage/mariadb" // mariadb storage interface
 	"github.com/R-a-dio/valkyrie/telemetry"
 	"github.com/R-a-dio/valkyrie/tracker"
+	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/website"
 	"github.com/Wessie/fdstore"
 	"github.com/google/subcommands"
@@ -35,11 +36,12 @@ type executeFn func(context.Context, config.Loader) error
 type executeConfigFn func(context.Context, config.Config) error
 
 type cmd struct {
-	name     string
-	synopsis string
-	usage    string
-	setFlags func(*flag.FlagSet)
-	execute  executeFn
+	name      string
+	synopsis  string
+	usage     string
+	setFlags  func(*flag.FlagSet)
+	execute   executeFn
+	noSIGUSR2 bool
 }
 
 func (c cmd) Name() string     { return c.name }
@@ -61,7 +63,6 @@ func (c cmd) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{}) 
 	})
 
 	// setup telemetry if wanted
-
 	var telemetryShutdown func()
 	defer func() {
 		if telemetryShutdown != nil {
@@ -86,6 +87,19 @@ func (c cmd) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{}) 
 		}
 
 		return cfg, err
+	}
+
+	// setup handling of SIGUSR2 (our restart signal)
+	if !c.noSIGUSR2 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithCancel(ctx)
+		go func() {
+			select {
+			case <-ctx.Done():
+			case <-util.Signal(syscall.SIGUSR2):
+			}
+			cancel()
+		}()
 	}
 
 	errCh <- c.execute(ctx, loader)
@@ -194,7 +208,8 @@ var websiteCmd = cmd{
 	usage: `website:
 	runs the r/a/dio website
 	`,
-	execute: withConfig(website.Execute),
+	execute:   withConfig(website.Execute),
+	noSIGUSR2: true,
 }
 
 var balancerCmd = cmd{
@@ -212,7 +227,8 @@ var proxyCmd = cmd{
 	usage: `proxy:
 	run the icecast proxy
 	`,
-	execute: withConfig(proxy.Execute),
+	execute:   withConfig(proxy.Execute),
+	noSIGUSR2: true,
 }
 
 var listenerTrackerCmd = cmd{
