@@ -2983,6 +2983,9 @@ var _ radio.SongStorage = &SongStorageMock{}
 //			FavoritesOfFunc: func(nick string, limit int64, offset int64) ([]radio.Song, int64, error) {
 //				panic("mock out the FavoritesOf method")
 //			},
+//			FavoritesOfDatabaseFunc: func(nick string) ([]radio.Song, error) {
+//				panic("mock out the FavoritesOfDatabase method")
+//			},
 //			FromHashFunc: func(songHash radio.SongHash) (*radio.Song, error) {
 //				panic("mock out the FromHash method")
 //			},
@@ -3001,7 +3004,7 @@ var _ radio.SongStorage = &SongStorageMock{}
 //			RemoveFavoriteFunc: func(song radio.Song, nick string) (bool, error) {
 //				panic("mock out the RemoveFavorite method")
 //			},
-//			UpdateHashLinkFunc: func(entry radio.SongHash, hashLink radio.SongHash) error {
+//			UpdateHashLinkFunc: func(old radio.SongHash, new radio.SongHash) error {
 //				panic("mock out the UpdateHashLink method")
 //			},
 //			UpdateLengthFunc: func(song radio.Song, duration time.Duration) error {
@@ -3032,6 +3035,9 @@ type SongStorageMock struct {
 	// FavoritesOfFunc mocks the FavoritesOf method.
 	FavoritesOfFunc func(nick string, limit int64, offset int64) ([]radio.Song, int64, error)
 
+	// FavoritesOfDatabaseFunc mocks the FavoritesOfDatabase method.
+	FavoritesOfDatabaseFunc func(nick string) ([]radio.Song, error)
+
 	// FromHashFunc mocks the FromHash method.
 	FromHashFunc func(songHash radio.SongHash) (*radio.Song, error)
 
@@ -3051,7 +3057,7 @@ type SongStorageMock struct {
 	RemoveFavoriteFunc func(song radio.Song, nick string) (bool, error)
 
 	// UpdateHashLinkFunc mocks the UpdateHashLink method.
-	UpdateHashLinkFunc func(entry radio.SongHash, hashLink radio.SongHash) error
+	UpdateHashLinkFunc func(old radio.SongHash, new radio.SongHash) error
 
 	// UpdateLengthFunc mocks the UpdateLength method.
 	UpdateLengthFunc func(song radio.Song, duration time.Duration) error
@@ -3098,6 +3104,11 @@ type SongStorageMock struct {
 			// Offset is the offset argument value.
 			Offset int64
 		}
+		// FavoritesOfDatabase holds details about calls to the FavoritesOfDatabase method.
+		FavoritesOfDatabase []struct {
+			// Nick is the nick argument value.
+			Nick string
+		}
 		// FromHash holds details about calls to the FromHash method.
 		FromHash []struct {
 			// SongHash is the songHash argument value.
@@ -3132,10 +3143,10 @@ type SongStorageMock struct {
 		}
 		// UpdateHashLink holds details about calls to the UpdateHashLink method.
 		UpdateHashLink []struct {
-			// Entry is the entry argument value.
-			Entry radio.SongHash
-			// HashLink is the hashLink argument value.
-			HashLink radio.SongHash
+			// Old is the old argument value.
+			Old radio.SongHash
+			// New is the new argument value.
+			New radio.SongHash
 		}
 		// UpdateLength holds details about calls to the UpdateLength method.
 		UpdateLength []struct {
@@ -3145,20 +3156,21 @@ type SongStorageMock struct {
 			Duration time.Duration
 		}
 	}
-	lockAddFavorite     sync.RWMutex
-	lockAddPlay         sync.RWMutex
-	lockCreate          sync.RWMutex
-	lockFavoriteCount   sync.RWMutex
-	lockFavorites       sync.RWMutex
-	lockFavoritesOf     sync.RWMutex
-	lockFromHash        sync.RWMutex
-	lockFromMetadata    sync.RWMutex
-	lockLastPlayed      sync.RWMutex
-	lockLastPlayedCount sync.RWMutex
-	lockPlayedCount     sync.RWMutex
-	lockRemoveFavorite  sync.RWMutex
-	lockUpdateHashLink  sync.RWMutex
-	lockUpdateLength    sync.RWMutex
+	lockAddFavorite         sync.RWMutex
+	lockAddPlay             sync.RWMutex
+	lockCreate              sync.RWMutex
+	lockFavoriteCount       sync.RWMutex
+	lockFavorites           sync.RWMutex
+	lockFavoritesOf         sync.RWMutex
+	lockFavoritesOfDatabase sync.RWMutex
+	lockFromHash            sync.RWMutex
+	lockFromMetadata        sync.RWMutex
+	lockLastPlayed          sync.RWMutex
+	lockLastPlayedCount     sync.RWMutex
+	lockPlayedCount         sync.RWMutex
+	lockRemoveFavorite      sync.RWMutex
+	lockUpdateHashLink      sync.RWMutex
+	lockUpdateLength        sync.RWMutex
 }
 
 // AddFavorite calls AddFavoriteFunc.
@@ -3373,6 +3385,38 @@ func (mock *SongStorageMock) FavoritesOfCalls() []struct {
 	return calls
 }
 
+// FavoritesOfDatabase calls FavoritesOfDatabaseFunc.
+func (mock *SongStorageMock) FavoritesOfDatabase(nick string) ([]radio.Song, error) {
+	if mock.FavoritesOfDatabaseFunc == nil {
+		panic("SongStorageMock.FavoritesOfDatabaseFunc: method is nil but SongStorage.FavoritesOfDatabase was just called")
+	}
+	callInfo := struct {
+		Nick string
+	}{
+		Nick: nick,
+	}
+	mock.lockFavoritesOfDatabase.Lock()
+	mock.calls.FavoritesOfDatabase = append(mock.calls.FavoritesOfDatabase, callInfo)
+	mock.lockFavoritesOfDatabase.Unlock()
+	return mock.FavoritesOfDatabaseFunc(nick)
+}
+
+// FavoritesOfDatabaseCalls gets all the calls that were made to FavoritesOfDatabase.
+// Check the length with:
+//
+//	len(mockedSongStorage.FavoritesOfDatabaseCalls())
+func (mock *SongStorageMock) FavoritesOfDatabaseCalls() []struct {
+	Nick string
+} {
+	var calls []struct {
+		Nick string
+	}
+	mock.lockFavoritesOfDatabase.RLock()
+	calls = mock.calls.FavoritesOfDatabase
+	mock.lockFavoritesOfDatabase.RUnlock()
+	return calls
+}
+
 // FromHash calls FromHashFunc.
 func (mock *SongStorageMock) FromHash(songHash radio.SongHash) (*radio.Song, error) {
 	if mock.FromHashFunc == nil {
@@ -3569,21 +3613,21 @@ func (mock *SongStorageMock) RemoveFavoriteCalls() []struct {
 }
 
 // UpdateHashLink calls UpdateHashLinkFunc.
-func (mock *SongStorageMock) UpdateHashLink(entry radio.SongHash, hashLink radio.SongHash) error {
+func (mock *SongStorageMock) UpdateHashLink(old radio.SongHash, new radio.SongHash) error {
 	if mock.UpdateHashLinkFunc == nil {
 		panic("SongStorageMock.UpdateHashLinkFunc: method is nil but SongStorage.UpdateHashLink was just called")
 	}
 	callInfo := struct {
-		Entry    radio.SongHash
-		HashLink radio.SongHash
+		Old radio.SongHash
+		New radio.SongHash
 	}{
-		Entry:    entry,
-		HashLink: hashLink,
+		Old: old,
+		New: new,
 	}
 	mock.lockUpdateHashLink.Lock()
 	mock.calls.UpdateHashLink = append(mock.calls.UpdateHashLink, callInfo)
 	mock.lockUpdateHashLink.Unlock()
-	return mock.UpdateHashLinkFunc(entry, hashLink)
+	return mock.UpdateHashLinkFunc(old, new)
 }
 
 // UpdateHashLinkCalls gets all the calls that were made to UpdateHashLink.
@@ -3591,12 +3635,12 @@ func (mock *SongStorageMock) UpdateHashLink(entry radio.SongHash, hashLink radio
 //
 //	len(mockedSongStorage.UpdateHashLinkCalls())
 func (mock *SongStorageMock) UpdateHashLinkCalls() []struct {
-	Entry    radio.SongHash
-	HashLink radio.SongHash
+	Old radio.SongHash
+	New radio.SongHash
 } {
 	var calls []struct {
-		Entry    radio.SongHash
-		HashLink radio.SongHash
+		Old radio.SongHash
+		New radio.SongHash
 	}
 	mock.lockUpdateHashLink.RLock()
 	calls = mock.calls.UpdateHashLink

@@ -308,12 +308,22 @@ func (ss SongStorage) Favorites(song radio.Song) ([]string, error) {
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
 
-	var query = `SELECT enick.nick FROM efave JOIN enick ON
-	enick.id = efave.inick WHERE efave.isong=?`
+	var query = `
+	SELECT DISTINCT
+		enick.nick
+	FROM
+		efave
+	JOIN
+		enick ON enick.id = efave.inick
+	JOIN
+		esong ON esong.id = efave.isong
+	WHERE
+		esong.hash_link=?;
+	`
 
 	var users []string
 
-	err := sqlx.Select(handle, &users, query, song.ID)
+	err := sqlx.Select(handle, &users, query, song.HashLink)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
@@ -353,12 +363,58 @@ JOIN
 	efave ON efave.inick = enick.id
 JOIN
 	esong ON esong.id = efave.isong
+	(esong.hash == esong.hash_link)
 LEFT JOIN
 	tracks ON tracks.hash = esong.hash
 WHERE
 	enick.nick = ?
 ORDER BY efave.id ASC
 LIMIT ? OFFSET ?;
+`)
+
+var songFavoritesOfQuery2 = expand(`
+SELECT
+	{songColumns},
+	{maybeTrackColumns},
+	{lastplayedSelect},
+	NOW() AS synctime
+FROM
+	esong
+LEFT JOIN
+	tracks ON tracks.hash = esong.hash_link
+JOIN
+	(SELECT
+		esong.hash
+	FROM
+		enick
+	JOIN
+		efave ON efave.inick = enick.id
+	JOIN
+		esong ON esong.id = efave.isong
+	WHERE
+		enick.nick = ?
+	AND
+		esong.hash == esong.hash_link) AS truth
+	ON esong.hash_link = truth.hash;
+`)
+
+var songFavoritesOfDatabaseOnlyQuery = expand(`
+SELECT
+	{songColumns},
+	{maybeTrackColumns},
+	{lastplayedSelect},
+	NOW() AS synctime
+FROM
+	enick
+JOIN
+	efave ON efave.inick = enick.id
+JOIN
+	esong ON esong.id = efave.isong
+JOIN
+	tracks ON tracks.hash = esong.hash_link
+WHERE
+	enick.nick = ?
+ORDER BY efave.id ASC;
 `)
 
 var songFavoritesOfCountQuery = `
@@ -392,6 +448,22 @@ func (ss SongStorage) FavoritesOf(nick string, limit, offset int64) ([]radio.Son
 	}
 
 	return songs, count, nil
+}
+
+// FavoritesOfDatabase implements radio.SongStorage
+func (ss SongStorage) FavoritesOfDatabase(nick string) ([]radio.Song, error) {
+	const op errors.Op = "mariadb/SongStorage.FavoritesOfDatabase"
+	handle, deferFn := ss.handle.span(op)
+	defer deferFn()
+
+	var songs = []radio.Song{}
+
+	err := sqlx.Select(handle, &songs, songFavoritesOfDatabaseOnlyQuery, nick)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	return songs, nil
 }
 
 // AddFavorite implements radio.SongStorage
