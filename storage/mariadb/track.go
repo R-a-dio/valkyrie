@@ -363,7 +363,8 @@ LEFT JOIN
 	tracks ON tracks.hash = esong.hash
 JOIN
 	(SELECT DISTINCT
-		esong.hash_link
+		esong.hash_link,
+		efave.id
 	FROM
 		enick
 	JOIN
@@ -373,7 +374,7 @@ JOIN
 	WHERE
 		enick.nick = ?) AS truth
 	ON esong.hash = truth.hash_link
-ORDER BY efave.id ASC
+ORDER BY truth.id ASC
 LIMIT ? OFFSET ?;
 `)
 
