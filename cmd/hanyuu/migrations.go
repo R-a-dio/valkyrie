@@ -89,6 +89,15 @@ func (m *migrateCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...inter
 		`,
 		execute: withConfig(m.ls),
 	}, "")
+	cmder.Register(cmd{
+		name:     "is-latest",
+		synopsis: "checks if you're on the latest version",
+		usage: `is-latest:
+		checks if the migrations have all been ran and we are on the latest version
+		if we're not we exit with a non-zero exit code
+		`,
+		execute: withConfig(m.isLatest),
+	}, "")
 
 	zerolog.Ctx(ctx).UpdateContext(func(zc zerolog.Context) zerolog.Context {
 		return zc.Str("service", "migrate")
@@ -174,6 +183,10 @@ func (m migrateCmd) forceVersion(ctx context.Context, cfg config.Config) error {
 	}
 
 	return m.migrate.Force(version)
+}
+
+func (m migrateCmd) isLatest(ctx context.Context, cfg config.Config) error {
+	return migrations.CheckVersion(ctx, cfg)
 }
 
 func (m migrateCmd) version(ctx context.Context, cfg config.Config) error {

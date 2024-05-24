@@ -329,18 +329,12 @@ func executeCommand(ctx context.Context, errCh chan error) error {
 	// and return an error if they really can't start and thus stop the timer
 	// before it expires.
 	readyFn := sync.OnceFunc(func() {
-		err := fdstore.Notify(fdstore.Ready)
-		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed sd_notify ready")
-		}
+		_ = fdstore.Notify(fdstore.Ready)
 	})
 	readyTimer := time.AfterFunc(time.Second, readyFn)
 	defer func() {
 		// send that we're stopping before we quit
-		err := fdstore.Notify(fdstore.Stopping)
-		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed sd_notify stopping")
-		}
+		_ = fdstore.Notify(fdstore.Stopping)
 		_ = fdstore.WaitBarrier(time.Second)
 	}()
 
