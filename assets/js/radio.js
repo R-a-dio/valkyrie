@@ -146,7 +146,7 @@ function absoluteTime(d) {
 }
 
 function prettyProgress(d) {
-    d = d / 1000;
+    d = Math.abs(d) / 1000;
     var mins = Math.floor(d / 60), secs = Math.floor(d % 60);
     return String(mins).padStart(2, "0") + ":" + String(secs).padStart(2, "0");
 }
