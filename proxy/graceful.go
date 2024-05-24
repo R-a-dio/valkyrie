@@ -1,8 +1,11 @@
 package proxy
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
+	"net"
+	"slices"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/Wessie/fdstore"
@@ -17,7 +20,7 @@ func (srv *Server) storeSelf(ctx context.Context, store *fdstore.Store) error {
 
 	// store proxy state
 	srv.listenerMu.Lock()
-	store.AddListener(srv.listener, "proxy", state)
+	_ = store.AddListener(srv.listener, "proxy", state)
 	srv.listenerMu.Unlock()
 
 	// store each mount in the proxy
@@ -43,7 +46,7 @@ func (m *Mount) storeSelf(ctx context.Context, store *fdstore.Store) error {
 	if err != nil {
 		return err
 	}
-	store.AddConn(m.Conn.Load(), "mount", state)
+	_ = store.AddConn(m.Conn.Load(), "mount", state)
 
 	return m.storeSources(ctx, store)
 }
@@ -53,7 +56,7 @@ func (m *Mount) storeSources(ctx context.Context, store *fdstore.Store) error {
 	defer m.SourcesMu.Unlock()
 
 	for _, source := range m.Sources {
-		err := source.Source.storeSelf(ctx, store)
+		err := source.storeSelf(ctx, store)
 		if err != nil {
 			zerolog.Ctx(ctx).Error().Err(err).Msg("source store fail")
 		}
@@ -63,23 +66,27 @@ func (m *Mount) storeSources(ctx context.Context, store *fdstore.Store) error {
 
 type storedSource struct {
 	ID          SourceID
+	Priority    uint
 	UserAgent   string
 	ContentType string
 	MountName   string
 	Username    string
 	Identifier  Identifier
 	Metadata    *Metadata
+
+	conn net.Conn
 }
 
-func (sc *SourceClient) storeSelf(ctx context.Context, store *fdstore.Store) error {
+func (msc *MountSourceClient) storeSelf(ctx context.Context, store *fdstore.Store) error {
 	ss := storedSource{
-		ID:          sc.ID,
-		UserAgent:   sc.UserAgent,
-		ContentType: sc.ContentType,
-		MountName:   sc.MountName,
-		Username:    sc.User.Username,
-		Identifier:  sc.Identifier,
-		Metadata:    sc.Metadata.Load(),
+		ID:          msc.Source.ID,
+		Priority:    msc.Priority,
+		UserAgent:   msc.Source.UserAgent,
+		ContentType: msc.Source.ContentType,
+		MountName:   msc.Source.MountName,
+		Username:    msc.Source.User.Username,
+		Identifier:  msc.Source.Identifier,
+		Metadata:    msc.Source.Metadata.Load(),
 	}
 
 	state, err := json.Marshal(ss)
@@ -87,7 +94,7 @@ func (sc *SourceClient) storeSelf(ctx context.Context, store *fdstore.Store) err
 		return err
 	}
 
-	return store.AddConn(sc.conn, "source", state)
+	return store.AddConn(msc.Source.conn, "source", state)
 }
 
 func (pm *ProxyManager) restoreMounts(ctx context.Context, store *fdstore.Store) error {
@@ -103,7 +110,7 @@ func (pm *ProxyManager) restoreMounts(ctx context.Context, store *fdstore.Store)
 	for _, entry := range mounts {
 		mount := new(Mount)
 
-		err := mount.restoreSelf(ctx, store, entry)
+		err := json.Unmarshal(entry.Data, mount)
 		if err != nil {
 			// might still be able to recover other mounts so keep going
 			zerolog.Ctx(ctx).Error().Err(err).Any("entry", entry).Msg("failed mount restore")
@@ -126,66 +133,61 @@ func (pm *ProxyManager) restoreMounts(ctx context.Context, store *fdstore.Store)
 	return pm.restoreSources(ctx, pm.uss.User(ctx), store)
 }
 
-func (m *Mount) restoreSelf(ctx context.Context, store *fdstore.Store, entry fdstore.ConnEntry) error {
-	err := json.Unmarshal(entry.Data, m)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (pm *ProxyManager) restoreSources(ctx context.Context, us radio.UserStorage, store *fdstore.Store) error {
 	sources, err := store.RemoveConn("source")
 	if err != nil {
 		return err
 	}
 
+	var storedSources = make([]*storedSource, 0, len(sources))
 	for _, entry := range sources {
-		source := new(SourceClient)
+		source := new(storedSource)
 
-		err := source.restoreSelf(ctx, us, entry)
+		err := json.Unmarshal(entry.Data, source)
 		if err != nil {
 			// might still be able to recover other sources if this fails
 			zerolog.Ctx(ctx).Error().Err(err).Any("entry", entry).Msg("failed source restore")
 			entry.Conn.Close()
 			continue
 		}
+		source.conn = entry.Conn
 
-		err = pm.AddSourceClient(source)
+		storedSources = append(storedSources, source)
+	}
+
+	// sort sources by their original priority so that every source should get
+	// added in the correct ordering again
+	slices.SortFunc(storedSources, func(a, b *storedSource) int {
+		return cmp.Compare(a.Priority, b.Priority)
+	})
+
+	for _, source := range storedSources {
+		// recover the full user data for this source
+		user, err := us.Get(source.Username)
+		if err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to retrieve user")
+			source.conn.Close()
+			continue
+		}
+
+		new := NewSourceClient(
+			source.ID,
+			source.UserAgent,
+			source.ContentType,
+			source.MountName,
+			source.conn,
+			*user,
+			source.Identifier,
+			source.Metadata,
+		)
+
+		err = pm.AddSourceClient(new)
 		if err != nil {
 			zerolog.Ctx(ctx).Error().Err(err).Msg("")
-			entry.Conn.Close()
+			source.conn.Close()
 			continue
 		}
 	}
 
-	return nil
-}
-
-func (sc *SourceClient) restoreSelf(ctx context.Context, us radio.UserStorage, entry fdstore.ConnEntry) error {
-	var ss storedSource
-
-	err := json.Unmarshal(entry.Data, &ss)
-	if err != nil {
-		return err
-	}
-
-	user, err := us.Get(ss.Username)
-	if err != nil {
-		return err
-	}
-
-	source := NewSourceClient(
-		ss.ID,
-		ss.UserAgent,
-		ss.ContentType,
-		ss.MountName,
-		entry.Conn,
-		*user,
-		ss.Identifier,
-		ss.Metadata,
-	)
-	*sc = *source
 	return nil
 }

@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"context"
 	"io"
 	"net"
 	"net/http"
@@ -9,13 +8,9 @@ import (
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
-	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/proxy/compat"
-	"github.com/R-a-dio/valkyrie/storage"
-	"github.com/R-a-dio/valkyrie/util/graceful"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/rs/xid"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
 )
 
@@ -157,52 +152,4 @@ type SourceClient struct {
 	Identifier Identifier
 	// Metadata is a pointer to the last Metadata received for this client
 	Metadata *atomic.Pointer[Metadata]
-}
-
-type wireSource struct {
-	ID          SourceID
-	UserAgent   string
-	ContentType string
-	MountName   string
-	Username    string
-	Identifier  Identifier
-	Metadata    *Metadata
-}
-
-func (sc *SourceClient) readSelf(ctx context.Context, cfg config.Config, src *net.UnixConn) error {
-	var ws wireSource
-
-	zerolog.Ctx(ctx).Info().Msg("resume: reading source client")
-	conn, err := graceful.ReadJSONConn(src, &ws)
-	if err != nil {
-		return err
-	}
-
-	zerolog.Ctx(ctx).Info().Any("ws", ws).Msg("resume")
-
-	// we only get the username over the wire, so we need to grab the real user struct
-	// from storage
-	ss, err := storage.Open(ctx, cfg)
-	if err != nil {
-		return err
-	}
-
-	user, err := ss.User(ctx).Get(ws.Username)
-	if err != nil {
-		return err
-	}
-
-	// construct the source client with the passed data
-	new := NewSourceClient(
-		ws.ID,
-		ws.UserAgent,
-		ws.ContentType,
-		ws.MountName,
-		conn,
-		*user,
-		ws.Identifier,
-		ws.Metadata,
-	)
-	*sc = *new
-	return nil
 }

@@ -109,7 +109,7 @@ func (srv *Server) Start(ctx context.Context, fdstorage *fdstore.Store) error {
 		return err
 	}
 
-	if state != nil {
+	if len(state) > 0 {
 		err = json.Unmarshal(state, srv.proxy)
 		if err != nil {
 			// not a critical error, log it and continue

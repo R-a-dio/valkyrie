@@ -57,8 +57,8 @@ github.com/Microsoft/hcsshim v0.12.2 h1:AcXy+yfRvrx20g9v7qYaJv5Rh+8GaHOS6b8G6Wx/
 github.com/Microsoft/hcsshim v0.12.2/go.mod h1:RZV12pcHCXQ42XnlQ3pz6FZfmrC1C+R4gaOHhRNML1g=
 github.com/Wessie/csrf v0.0.0-20240430222011-49a3bdf737c0 h1:TDczt7FoXMB3+1ZRig4wp97H3t6DiKfDGa5uGdHQg7Y=
 github.com/Wessie/csrf v0.0.0-20240430222011-49a3bdf737c0/go.mod h1:F1Fj3KG23WYHE6gozCmBAezKookxbIvUJT+121wTuLk=
-github.com/Wessie/fdstore v1.1.0 h1:vlA7RTdTwdM+DQeu67H1Z85MAfPm2XYAdBOn5W8VrRA=
-github.com/Wessie/fdstore v1.1.0/go.mod h1:frhNoClWFmyXHUy6UFrlqwsEIvoypc5K02v3EBET07g=
+github.com/Wessie/fdstore v1.2.1 h1:0vd3rCCLVhiRMi7vvJcMiEZWSt2bmfpds3RbS0D0DlY=
+github.com/Wessie/fdstore v1.2.1/go.mod h1:frhNoClWFmyXHUy6UFrlqwsEIvoypc5K02v3EBET07g=
 github.com/XSAM/otelsql v0.29.0 h1:pEw9YXXs8ZrGRYfDc0cmArIz9lci5b42gmP5+tA1Huc=
 github.com/XSAM/otelsql v0.29.0/go.mod h1:d3/0xGIGC5RVEE+Ld7KotwaLy6zDeaF3fLJHOPpdN2w=
 github.com/agoda-com/opentelemetry-go/otelzerolog v0.0.1 h1:R1FRCOPXI+TefJdE3p6S10vP7R5P45dYJiSfu/xO5oE=
