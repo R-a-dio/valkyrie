@@ -141,9 +141,9 @@ SELECT
 	{lastplayedSelect},
 	NOW() AS synctime
 FROM
-	tracks
-RIGHT JOIN
-	esong ON tracks.hash=esong.hash
+	esong
+LEFT JOIN
+	tracks ON tracks.hash=esong.hash_link
 WHERE
 	esong.hash=?
 LIMIT 1;
@@ -202,7 +202,7 @@ FROM
 RIGHT JOIN
 	eplay ON esong.id = eplay.isong
 LEFT JOIN
-	tracks ON esong.hash = tracks.hash
+	tracks ON esong.hash_link = tracks.hash
 LEFT JOIN
 	djs ON eplay.djs_id = djs.id
 LEFT JOIN
@@ -261,10 +261,19 @@ func (ss SongStorage) PlayedCount(song radio.Song) (int64, error) {
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
 
-	var query = `SELECT count(*) FROM eplay WHERE isong=?;`
+	var query = `
+		SELECT
+			count(*)
+		FROM
+			eplay
+		JOIN
+			esong ON esong.id = eplay.isong
+		WHERE
+			esong.hash_link=?;
+	`
 	var playedCount int64
 
-	err := sqlx.Get(handle, &playedCount, query, song.ID)
+	err := sqlx.Get(handle, &playedCount, query, song.HashLink)
 	if err != nil {
 		return 0, errors.E(op, err)
 	}
@@ -292,7 +301,16 @@ func (ss SongStorage) FavoriteCount(song radio.Song) (int64, error) {
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
 
-	var query = `SELECT count(*) FROM efave JOIN esong ON esong.id = efave.isong WHERE esong.hash_link=?;`
+	var query = `
+		SELECT
+			count(*)
+		FROM
+			efave
+		JOIN
+			esong ON esong.id = efave.isong
+		WHERE
+			esong.hash_link=?;
+	`
 	var faveCount int64
 
 	err := sqlx.Get(handle, &faveCount, query, song.HashLink)
@@ -343,6 +361,7 @@ func (ss SongStorage) UpdateHashLink(old, new radio.SongHash) error {
 		return errors.E(op, err)
 	}
 
+	// update any hash_links pointing to old to the new value
 	query = `UPDATE esong SET hash_link=? WHERE hash_link=?;`
 	_, err = handle.Exec(query, new, old)
 	if err != nil {
@@ -460,7 +479,10 @@ func (ss SongStorage) AddFavorite(song radio.Song, nick string) (bool, error) {
 				efave.id 
 			FROM
 				efave
-			WHERE inick=enick.id AND isong=?
+			JOIN
+				esong ON esong.id = efave.isong
+			WHERE
+				inick=enick.id AND esong.hash_link=?
 		) AS hasfave
 	FROM 
 		enick
@@ -473,7 +495,7 @@ func (ss SongStorage) AddFavorite(song radio.Song, nick string) (bool, error) {
 		HasFave bool
 	}{}
 
-	err := sqlx.Get(handle, &info, query, song.ID, nick)
+	err := sqlx.Get(handle, &info, query, song.HashLink, nick)
 	if err != nil {
 		return false, errors.E(op, err)
 	}
@@ -530,10 +552,20 @@ func (ss SongStorage) RemoveFavorite(song radio.Song, nick string) (bool, error)
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
 
-	var query = `DELETE efave FROM efave JOIN enick ON
-	enick.id = efave.inick WHERE enick.nick=? AND efave.isong=?;`
+	var query = `
+	DELETE
+		efave
+	FROM
+		efave
+	JOIN
+		enick ON enick.id = efave.inick
+	JOIN
+		esong ON efave.isong = esong.id
+	WHERE
+		enick.nick=? AND esong.hash_link=?;
+	`
 
-	res, err := handle.Exec(query, nick, song.ID)
+	res, err := handle.Exec(query, nick, song.HashLink)
 	if err != nil {
 		return false, errors.E(op, err)
 	}
