@@ -77,7 +77,7 @@ const maybeSongColumns = `
 `
 
 const lastplayedSelect = `
-	IFNULL((SELECT dt FROM eplay WHERE eplay.isong = esong.id ORDER BY dt DESC LIMIT 1), TIMESTAMP('0000-00-00 00:00:00')) AS lastplayed
+	IFNULL((SELECT dt FROM eplay JOIN esong AS esong2 ON esong2.id = eplay.isong WHERE esong2.hash_link=esong.hash_link ORDER BY dt DESC LIMIT 1), TIMESTAMP('0000-00-00 00:00:00')) AS lastplayed
 `
 
 // SongStorage implements radio.SongStorage
