@@ -249,7 +249,7 @@ func (u User) ComparePassword(passwd string) error {
 }
 
 func (u *User) IsValid() bool {
-	return u != nil && u.ID != 0
+	return u != nil && u.Username != ""
 }
 
 var bcryptCost = 14

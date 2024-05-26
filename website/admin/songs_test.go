@@ -200,7 +200,9 @@ func TestPostSongs(t *testing.T) {
 		getArg = testSong.TrackID
 		getRet = testSong
 
-		user := radio.User{}
+		user := radio.User{
+			Username: "test",
+		}
 
 		req := prepReq(user, testValues)
 		w := httptest.NewRecorder()
@@ -224,6 +226,7 @@ func TestPostSongs(t *testing.T) {
 		deleteArg = testSong.TrackID
 
 		user := radio.User{
+			Username: "test",
 			UserPermissions: radio.UserPermissions{
 				radio.PermActive:         struct{}{},
 				radio.PermDatabaseEdit:   struct{}{},
@@ -258,6 +261,7 @@ func TestPostSongs(t *testing.T) {
 		deleteArg = testSong.TrackID
 
 		user := radio.User{
+			Username: "test",
 			UserPermissions: radio.UserPermissions{
 				radio.PermActive:         struct{}{},
 				radio.PermDatabaseEdit:   struct{}{},
@@ -287,6 +291,7 @@ func TestPostSongs(t *testing.T) {
 		deleteArg = testSong.TrackID
 
 		user := radio.User{
+			Username: "test",
 			UserPermissions: radio.UserPermissions{
 				radio.PermActive:       struct{}{},
 				radio.PermDatabaseEdit: struct{}{},
@@ -312,6 +317,7 @@ func TestPostSongs(t *testing.T) {
 		getRet = testSong
 
 		user := radio.User{
+			Username: "test",
 			UserPermissions: radio.UserPermissions{
 				radio.PermActive:         struct{}{},
 				radio.PermDatabaseEdit:   struct{}{},
@@ -337,6 +343,7 @@ func TestPostSongs(t *testing.T) {
 		getRet = testSong
 
 		user := radio.User{
+			Username: "test",
 			UserPermissions: radio.UserPermissions{
 				radio.PermActive:         struct{}{},
 				radio.PermDatabaseEdit:   struct{}{},
@@ -367,6 +374,7 @@ func TestPostSongs(t *testing.T) {
 		getRet = &c
 
 		user := radio.User{
+			Username: "test",
 			UserPermissions: radio.UserPermissions{
 				radio.PermActive:         struct{}{},
 				radio.PermDatabaseEdit:   struct{}{},

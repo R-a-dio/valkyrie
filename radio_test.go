@@ -427,7 +427,16 @@ func TestUserIsValid(t *testing.T) {
 		{
 			name: "actual value",
 			user: &User{
-				ID: 500,
+				ID:       500,
+				Username: "test",
+			},
+			expected: true,
+		},
+		{
+			name: "value with 0 ID",
+			user: &User{
+				ID:       0,
+				Username: "test",
 			},
 			expected: true,
 		},
