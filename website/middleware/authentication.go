@@ -54,7 +54,7 @@ type authentication struct {
 func RequirePermission(perm radio.UserPermission, handler http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user := UserFromContext(r.Context())
-		if user == nil {
+		if !user.IsValid() {
 			// no user, clearly doesn't have permission
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return

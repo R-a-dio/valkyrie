@@ -161,7 +161,7 @@ func IdentifierMiddleware(next http.Handler) http.Handler {
 
 		// collect the user
 		user := middleware.UserFromContext(ctx)
-		if user == nil {
+		if !user.IsValid() {
 			// no user available, which means we can't really make an identifier so
 			// just don't add one and continue to the next handler
 			next.ServeHTTP(w, r)

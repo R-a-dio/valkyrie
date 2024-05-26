@@ -248,6 +248,10 @@ func (u User) ComparePassword(passwd string) error {
 	return bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(passwd))
 }
 
+func (u *User) IsValid() bool {
+	return u != nil && u.ID != 0
+}
+
 var bcryptCost = 14
 
 func GenerateHashFromPassword(passwd string) (string, error) {

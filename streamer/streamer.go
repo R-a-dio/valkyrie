@@ -103,7 +103,7 @@ func NewStreamer(ctx context.Context, cfg config.Config, qs radio.QueueService, 
 
 func (s *Streamer) userChange(ctx context.Context, user *radio.User) {
 	// nobody is streaming
-	if user == nil || user.ID == 0 {
+	if !user.IsValid() {
 		zerolog.Ctx(ctx).Info().Msg("nobody streaming")
 
 		// we are allowed to connect after a timeout if one is set

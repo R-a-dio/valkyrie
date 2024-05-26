@@ -29,7 +29,7 @@ func (s *Server) PutSource(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user := middleware.UserFromContext(ctx)
-	if user == nil {
+	if !user.IsValid() {
 		hlog.FromRequest(r).Error().Msg("failed to get an user")
 		return
 	}

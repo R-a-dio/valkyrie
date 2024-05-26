@@ -144,7 +144,7 @@ func (s *State) postSongs(w http.ResponseWriter, r *http.Request) (*SongsForm, e
 
 	ts := s.Storage.Track(r.Context())
 	user := middleware.UserFromContext(ctx)
-	if user == nil {
+	if !user.IsValid() {
 		return nil, errors.E(op, errors.AccessDenied)
 	}
 

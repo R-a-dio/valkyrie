@@ -130,7 +130,7 @@ func (s *State) GetPending(w http.ResponseWriter, r *http.Request) {
 func (s *State) PostPending(w http.ResponseWriter, r *http.Request) {
 	var input = NewPendingInput(r)
 
-	if input.User == nil || !input.User.UserPermissions.Has(radio.PermPendingEdit) {
+	if !input.User.IsValid() || !input.User.UserPermissions.Has(radio.PermPendingEdit) {
 		hlog.FromRequest(r).Warn().Any("user", input.User).Msg("failed permission check")
 		s.GetPending(w, r)
 		return

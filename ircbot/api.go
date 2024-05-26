@@ -238,7 +238,7 @@ func (ann *announceService) AnnounceRequest(ctx context.Context, song radio.Song
 
 func (ann *announceService) AnnounceUser(ctx context.Context, user *radio.User) error {
 	name := "None"
-	if user != nil {
+	if user.IsValid() {
 		name = user.DJ.Name
 	}
 

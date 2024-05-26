@@ -154,7 +154,7 @@ func (s *State) getProfile(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 
 	user := middleware.UserFromContext(ctx)
-	if user == nil {
+	if !user.IsValid() {
 		panic("admin request with no user")
 	}
 	// the user we're viewing
@@ -210,7 +210,7 @@ func (s *State) postProfile(w http.ResponseWriter, r *http.Request) (*ProfileFor
 	ctx := r.Context()
 	// current user of this session
 	currentUser := middleware.UserFromContext(ctx)
-	if currentUser == nil {
+	if !currentUser.IsValid() {
 		panic("admin request with no user")
 	}
 	// the user we're editing
@@ -508,7 +508,7 @@ func NewProfileForm(user radio.User, r *http.Request) (*ProfileForm, error) {
 
 func newProfileForm(user radio.User, r *http.Request) ProfileForm {
 	requestUser := middleware.UserFromContext(r.Context())
-	if requestUser == nil {
+	if !requestUser.IsValid() {
 		panic("admin request with no user")
 	}
 
