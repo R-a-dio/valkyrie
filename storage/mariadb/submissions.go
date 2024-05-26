@@ -143,12 +143,12 @@ func (ss SubmissionStorage) SubmissionStats(identifier string) (radio.Submission
 	query := `
 	SELECT 
 		(SELECT count(*) FROM pending) AS current_pending,
-		IFNULL(SUM(accepted >= 0), 0) AS accepted_total,
-		IFNULL(SUM(accepted >= 0 && time > DATE_SUB(NOW(), INTERVAL 2 WEEK)), 0) AS accepted_last_two_weeks,
-		IFNULL(SUM(accepted >= 0 && ip=:identifier), 0) AS accepted_you,
-		IFNULL(SUM(accepted = 0), 0) AS declined_total,
-		IFNULL(SUM(accepted = 0 && time > DATE_SUB(NOW(), INTERVAL 2 WEEK)), 0) AS declined_last_two_weeks,
-		IFNULL(SUM(accepted = 0 && ip=:identifier), 0) AS declined_you,
+		COALESCE(SUM(accepted >= 0), 0) AS accepted_total,
+		COALESCE(SUM(accepted >= 0 && time > DATE_SUB(NOW(), INTERVAL 2 WEEK)), 0) AS accepted_last_two_weeks,
+		COALESCE(SUM(accepted >= 0 && ip=:identifier), 0) AS accepted_you,
+		COALESCE(SUM(accepted = 0), 0) AS declined_total,
+		COALESCE(SUM(accepted = 0 && time > DATE_SUB(NOW(), INTERVAL 2 WEEK)), 0) AS declined_last_two_weeks,
+		COALESCE(SUM(accepted = 0 && ip=:identifier), 0) AS declined_you,
 		COALESCE((SELECT time FROM uploadtime WHERE ip=:identifier ORDER BY time DESC LIMIT 1), TIMESTAMP('0000-00-00 00::00::00')) AS last_submission_time
 	FROM postpending;
 	`

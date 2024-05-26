@@ -30,11 +30,11 @@ func expand(query string) string {
 
 const trackColumns = `
 	tracks.id AS trackid,
-	IFNULL(tracks.artist, '') AS artist,
-	IFNULL(tracks.track, '') AS title,
-	IFNULL(tracks.album, '') AS album,
-	IFNULL(tracks.path, '') AS filepath,
-	IFNULL(tracks.tags, '') AS tags,
+	COALESCE(tracks.artist, '') AS artist,
+	COALESCE(tracks.track, '') AS title,
+	COALESCE(tracks.album, '') AS album,
+	COALESCE(tracks.path, '') AS filepath,
+	COALESCE(tracks.tags, '') AS tags,
 	tracks.accepter AS acceptor,
 	tracks.lasteditor,
 	tracks.priority,
@@ -45,19 +45,19 @@ const trackColumns = `
 `
 
 const maybeTrackColumns = `
-	IFNULL(tracks.id, 0) AS trackid,
-	IFNULL(tracks.artist, '') AS artist,
-	IFNULL(tracks.track, '') AS title,
-	IFNULL(tracks.album, '') AS album,
-	IFNULL(tracks.path, '') AS filepath,
-	IFNULL(tracks.tags, '') AS tags,
-	IFNULL(tracks.accepter, '') AS acceptor,
-	IFNULL(tracks.lasteditor, '') AS lasteditor,
-	IFNULL(tracks.priority, 0) AS priority,
+	COALESCE(tracks.id, 0) AS trackid,
+	COALESCE(tracks.artist, '') AS artist,
+	COALESCE(tracks.track, '') AS title,
+	COALESCE(tracks.album, '') AS album,
+	COALESCE(tracks.path, '') AS filepath,
+	COALESCE(tracks.tags, '') AS tags,
+	COALESCE(tracks.accepter, '') AS acceptor,
+	COALESCE(tracks.lasteditor, '') AS lasteditor,
+	COALESCE(tracks.priority, 0) AS priority,
 	IF(tracks.usable, TRUE, FALSE) AS usable,
 	IF(tracks.need_reupload, TRUE, FALSE) AS needreplacement,
-	IFNULL(tracks.lastrequested, TIMESTAMP('0000-00-00 00:00:00')) AS lastrequested,
-	IFNULL(tracks.requestcount, 0) AS requestcount
+	COALESCE(tracks.lastrequested, TIMESTAMP('0000-00-00 00:00:00')) AS lastrequested,
+	COALESCE(tracks.requestcount, 0) AS requestcount
 `
 
 const songColumns = `
@@ -69,15 +69,15 @@ const songColumns = `
 `
 
 const maybeSongColumns = `
-	IFNULL(esong.id, 0) AS id,
-	IFNULL(esong.meta, '') AS metadata,
-	IFNULL(esong.hash, '') AS hash,
-	IFNULL(esong.hash_link, '') AS hashlink,
-	IFNULL(to_go_duration(esong.len), 0) AS length
+	COALESCE(esong.id, 0) AS id,
+	COALESCE(esong.meta, '') AS metadata,
+	COALESCE(esong.hash, '') AS hash,
+	COALESCE(esong.hash_link, '') AS hashlink,
+	COALESCE(to_go_duration(esong.len), 0) AS length
 `
 
 const lastplayedSelect = `
-	IFNULL((SELECT dt FROM eplay JOIN esong AS esong2 ON esong2.id = eplay.isong WHERE esong2.hash_link=esong.hash_link ORDER BY dt DESC LIMIT 1), TIMESTAMP('0000-00-00 00:00:00')) AS lastplayed
+	COALESCE((SELECT dt FROM eplay JOIN esong AS esong2 ON esong2.id = eplay.isong WHERE esong2.hash_link=esong.hash_link ORDER BY dt DESC LIMIT 1), TIMESTAMP('0000-00-00 00:00:00')) AS lastplayed
 `
 
 // SongStorage implements radio.SongStorage
@@ -173,29 +173,29 @@ SELECT
 	{maybeTrackColumns},
 	{songColumns},
 	eplay.dt AS lastplayed,
-	IFNULL(users.id, 0) AS 'lastplayedby.id',
-	IFNULL(users.user, '') AS 'lastplayedby.username',
-	IFNULL(users.pass, '') AS 'lastplayedby.password',
-	IFNULL(users.email, '') AS 'lastplayedby.email',
-	IFNULL(users.ip, '') AS 'lastplayedby.ip',
-	IFNULL(users.updated_at, TIMESTAMP('0000-00-00 00:00:00')) AS 'lastplayedby.updated_at',
-	IFNULL(users.deleted_at, TIMESTAMP('0000-00-00 00:00:00')) AS 'lastplayedby.deleted_at',
-	IFNULL(users.created_at, TIMESTAMP('0000-00-00 00:00:00')) AS 'lastplayedby.created_at',
+	COALESCE(users.id, 0) AS 'lastplayedby.id',
+	COALESCE(users.user, '') AS 'lastplayedby.username',
+	COALESCE(users.pass, '') AS 'lastplayedby.password',
+	COALESCE(users.email, '') AS 'lastplayedby.email',
+	COALESCE(users.ip, '') AS 'lastplayedby.ip',
+	COALESCE(users.updated_at, TIMESTAMP('0000-00-00 00:00:00')) AS 'lastplayedby.updated_at',
+	COALESCE(users.deleted_at, TIMESTAMP('0000-00-00 00:00:00')) AS 'lastplayedby.deleted_at',
+	COALESCE(users.created_at, TIMESTAMP('0000-00-00 00:00:00')) AS 'lastplayedby.created_at',
 	(SELECT group_concat(permission) FROM permissions WHERE user_id=users.id) AS 'lastplayedby.userpermissions',
-	IFNULL(djs.id, 0) AS 'lastplayedby.dj.id',
-	IFNULL(djs.regex, '') AS 'lastplayedby.dj.regex',
-	IFNULL(djs.djname, '') AS 'lastplayedby.dj.name',
-	IFNULL(djs.djtext, '') AS 'lastplayedby.dj.text',
-	IFNULL(djs.djimage, '') AS 'lastplayedby.dj.image',
-	IFNULL(djs.visible, 0) AS 'lastplayedby.dj.visible',
-	IFNULL(djs.priority, 0) AS 'lastplayedby.dj.priority',
-	IFNULL(djs.role, '') AS 'lastplayedby.dj.role',
-	IFNULL(djs.css, '') AS 'lastplayedby.dj.css',
-	IFNULL(djs.djcolor, '') AS 'lastplayedby.dj.color',
-	IFNULL(themes.id, 0) AS 'lastplayedby.dj.theme.id',
-	IFNULL(themes.name, 'default') AS 'lastplayedby.dj.theme.name',
-	IFNULL(themes.display_name, 'default') AS 'lastplayedby.dj.theme.displayname',
-	IFNULL(themes.author, 'unknown') AS 'lastplayedby.dj.theme.author',
+	COALESCE(djs.id, 0) AS 'lastplayedby.dj.id',
+	COALESCE(djs.regex, '') AS 'lastplayedby.dj.regex',
+	COALESCE(djs.djname, '') AS 'lastplayedby.dj.name',
+	COALESCE(djs.djtext, '') AS 'lastplayedby.dj.text',
+	COALESCE(djs.djimage, '') AS 'lastplayedby.dj.image',
+	COALESCE(djs.visible, 0) AS 'lastplayedby.dj.visible',
+	COALESCE(djs.priority, 0) AS 'lastplayedby.dj.priority',
+	COALESCE(djs.role, '') AS 'lastplayedby.dj.role',
+	COALESCE(djs.css, '') AS 'lastplayedby.dj.css',
+	COALESCE(djs.djcolor, '') AS 'lastplayedby.dj.color',
+	COALESCE(themes.id, 0) AS 'lastplayedby.dj.theme.id',
+	COALESCE(themes.name, 'default') AS 'lastplayedby.dj.theme.name',
+	COALESCE(themes.display_name, 'default') AS 'lastplayedby.dj.theme.displayname',
+	COALESCE(themes.author, 'unknown') AS 'lastplayedby.dj.theme.author',
 	NOW() AS synctime
 FROM
 	esong

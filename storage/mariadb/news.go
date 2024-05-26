@@ -186,8 +186,8 @@ func (ns NewsStorage) List(limit int64, offset int64) (radio.NewsList, error) {
 		radio_news.created_at AS created_at,
 		radio_news.updated_at AS updated_at,
 		radio_news.private AS private,
-		IFNULL(users.id, 0) AS 'user.id',
-		IFNULL(users.user, 'unknown') AS 'user.username'
+		COALESCE(users.id, 0) AS 'user.id',
+		COALESCE(users.user, 'unknown') AS 'user.username'
 	FROM
 		radio_news
 	LEFT JOIN
@@ -231,8 +231,8 @@ func (ns NewsStorage) ListPublic(limit int64, offset int64) (radio.NewsList, err
 		radio_news.created_at AS created_at,
 		radio_news.updated_at AS updated_at,
 		radio_news.private AS private,
-		IFNULL(users.id, 0) AS 'user.id',
-		IFNULL(users.user, 0) AS 'user.username'
+		COALESCE(users.id, 0) AS 'user.id',
+		COALESCE(users.user, 0) AS 'user.username'
 	FROM
 		radio_news
 	LEFT JOIN

@@ -264,29 +264,29 @@ SELECT
 	users.id AS id,
 	users.user AS username,
 	users.pass AS password,
-	IFNULL(users.email, '') AS email,
+	COALESCE(users.email, '') AS email,
 	users.ip AS ip,
 	users.updated_at AS updated_at,
 	users.deleted_at AS deleted_at,
-	IFNULL(users.created_at, TIMESTAMP('2010-10-10 10:10:10')) AS created_at,
+	COALESCE(users.created_at, TIMESTAMP('2010-10-10 10:10:10')) AS created_at,
 	group_concat(permissions.permission) AS userpermissions,
-	IFNULL(djs.id, 0) AS 'dj.id',
-	IFNULL(djs.regex, '') AS 'dj.regex',
-	IFNULL(djs.djname, '') AS 'dj.name',
+	COALESCE(djs.id, 0) AS 'dj.id',
+	COALESCE(djs.regex, '') AS 'dj.regex',
+	COALESCE(djs.djname, '') AS 'dj.name',
 
-	IFNULL(djs.djtext, '') AS 'dj.text',
-	IFNULL(djs.djimage, '') AS 'dj.image',
+	COALESCE(djs.djtext, '') AS 'dj.text',
+	COALESCE(djs.djimage, '') AS 'dj.image',
 
-	IFNULL(djs.visible, 0) AS 'dj.visible',
-	IFNULL(djs.priority, 0) AS 'dj.priority',
-	IFNULL(djs.role, '') AS 'dj.role',
+	COALESCE(djs.visible, 0) AS 'dj.visible',
+	COALESCE(djs.priority, 0) AS 'dj.priority',
+	COALESCE(djs.role, '') AS 'dj.role',
 
-	IFNULL(djs.css, '') AS 'dj.css',
-	IFNULL(djs.djcolor, '') AS 'dj.color',
-	IFNULL(themes.id, 0) AS 'dj.theme.id',
-	IFNULL(themes.name, 'default') AS 'dj.theme.name',
-	IFNULL(themes.display_name, 'default') AS 'dj.theme.displayname',
-	IFNULL(themes.author, 'unknown') AS 'dj.theme.author'
+	COALESCE(djs.css, '') AS 'dj.css',
+	COALESCE(djs.djcolor, '') AS 'dj.color',
+	COALESCE(themes.id, 0) AS 'dj.theme.id',
+	COALESCE(themes.name, 'default') AS 'dj.theme.name',
+	COALESCE(themes.display_name, 'default') AS 'dj.theme.displayname',
+	COALESCE(themes.author, 'unknown') AS 'dj.theme.author'
 FROM
 	users
 LEFT JOIN
@@ -410,30 +410,30 @@ func (us UserStorage) All() ([]radio.User, error) {
 		users.id AS id,
 		users.user AS username,
 		users.pass AS password,
-		IFNULL(users.email, '') AS email,
+		COALESCE(users.email, '') AS email,
 		users.ip AS ip,
 		users.updated_at AS updated_at,
 		users.deleted_at AS deleted_at,
-		IFNULL(users.created_at, TIMESTAMP('2010-10-10 10:10:10')) AS created_at,
-		IFNULL(users.user, '') AS username,
+		COALESCE(users.created_at, TIMESTAMP('2010-10-10 10:10:10')) AS created_at,
+		COALESCE(users.user, '') AS username,
 		(SELECT group_concat(permission) FROM permissions WHERE user_id=users.id) AS userpermissions,
-		IFNULL(djs.id, 0) AS 'dj.id',
-		IFNULL(djs.regex, '') AS 'dj.regex',
-		IFNULL(djs.djname, '') AS 'dj.name',
+		COALESCE(djs.id, 0) AS 'dj.id',
+		COALESCE(djs.regex, '') AS 'dj.regex',
+		COALESCE(djs.djname, '') AS 'dj.name',
 	
-		IFNULL(djs.djtext, '') AS 'dj.text',
-		IFNULL(djs.djimage, '') AS 'dj.image',
+		COALESCE(djs.djtext, '') AS 'dj.text',
+		COALESCE(djs.djimage, '') AS 'dj.image',
 	
-		IFNULL(djs.visible, 0) AS 'dj.visible',
-		IFNULL(djs.priority, 0) AS 'dj.priority',
-		IFNULL(djs.role, '') AS 'dj.role',
+		COALESCE(djs.visible, 0) AS 'dj.visible',
+		COALESCE(djs.priority, 0) AS 'dj.priority',
+		COALESCE(djs.role, '') AS 'dj.role',
 	
-		IFNULL(djs.css, '') AS 'dj.css',
-		IFNULL(djs.djcolor, '') AS 'dj.color',
-		IFNULL(themes.id, 0) AS 'dj.theme.id',
-		IFNULL(themes.name, 'default') AS 'dj.theme.name',
-		IFNULL(themes.display_name, 'default') AS 'dj.theme.displayname',
-		IFNULL(themes.author, 'unknown') AS 'dj.theme.author'
+		COALESCE(djs.css, '') AS 'dj.css',
+		COALESCE(djs.djcolor, '') AS 'dj.color',
+		COALESCE(themes.id, 0) AS 'dj.theme.id',
+		COALESCE(themes.name, 'default') AS 'dj.theme.name',
+		COALESCE(themes.display_name, 'default') AS 'dj.theme.displayname',
+		COALESCE(themes.author, 'unknown') AS 'dj.theme.author'
 	FROM
 		users
 	LEFT JOIN
