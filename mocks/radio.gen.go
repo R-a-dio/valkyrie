@@ -1129,6 +1129,9 @@ var _ radio.AnnounceService = &AnnounceServiceMock{}
 //			AnnounceSongFunc: func(contextMoqParam context.Context, status radio.Status) error {
 //				panic("mock out the AnnounceSong method")
 //			},
+//			AnnounceUserFunc: func(contextMoqParam context.Context, user *radio.User) error {
+//				panic("mock out the AnnounceUser method")
+//			},
 //		}
 //
 //		// use mockedAnnounceService in code that requires radio.AnnounceService
@@ -1141,6 +1144,9 @@ type AnnounceServiceMock struct {
 
 	// AnnounceSongFunc mocks the AnnounceSong method.
 	AnnounceSongFunc func(contextMoqParam context.Context, status radio.Status) error
+
+	// AnnounceUserFunc mocks the AnnounceUser method.
+	AnnounceUserFunc func(contextMoqParam context.Context, user *radio.User) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -1158,9 +1164,17 @@ type AnnounceServiceMock struct {
 			// Status is the status argument value.
 			Status radio.Status
 		}
+		// AnnounceUser holds details about calls to the AnnounceUser method.
+		AnnounceUser []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+			// User is the user argument value.
+			User *radio.User
+		}
 	}
 	lockAnnounceRequest sync.RWMutex
 	lockAnnounceSong    sync.RWMutex
+	lockAnnounceUser    sync.RWMutex
 }
 
 // AnnounceRequest calls AnnounceRequestFunc.
@@ -1232,6 +1246,42 @@ func (mock *AnnounceServiceMock) AnnounceSongCalls() []struct {
 	mock.lockAnnounceSong.RLock()
 	calls = mock.calls.AnnounceSong
 	mock.lockAnnounceSong.RUnlock()
+	return calls
+}
+
+// AnnounceUser calls AnnounceUserFunc.
+func (mock *AnnounceServiceMock) AnnounceUser(contextMoqParam context.Context, user *radio.User) error {
+	if mock.AnnounceUserFunc == nil {
+		panic("AnnounceServiceMock.AnnounceUserFunc: method is nil but AnnounceService.AnnounceUser was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+		User            *radio.User
+	}{
+		ContextMoqParam: contextMoqParam,
+		User:            user,
+	}
+	mock.lockAnnounceUser.Lock()
+	mock.calls.AnnounceUser = append(mock.calls.AnnounceUser, callInfo)
+	mock.lockAnnounceUser.Unlock()
+	return mock.AnnounceUserFunc(contextMoqParam, user)
+}
+
+// AnnounceUserCalls gets all the calls that were made to AnnounceUser.
+// Check the length with:
+//
+//	len(mockedAnnounceService.AnnounceUserCalls())
+func (mock *AnnounceServiceMock) AnnounceUserCalls() []struct {
+	ContextMoqParam context.Context
+	User            *radio.User
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+		User            *radio.User
+	}
+	mock.lockAnnounceUser.RLock()
+	calls = mock.calls.AnnounceUser
+	mock.lockAnnounceUser.RUnlock()
 	return calls
 }
 

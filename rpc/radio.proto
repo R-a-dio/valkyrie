@@ -146,6 +146,7 @@ message ListenerInfo {
 service Announcer {
     rpc AnnounceSong(SongAnnouncement) returns (google.protobuf.Empty);
     rpc AnnounceRequest(SongRequestAnnouncement) returns (google.protobuf.Empty);
+    rpc AnnounceUser(UserAnnouncement) returns (google.protobuf.Empty);
 }
 
 message SongAnnouncement {
@@ -155,7 +156,11 @@ message SongAnnouncement {
 }
 
 message SongRequestAnnouncement {
-    Song song = 1;
+    Song song = 1; 
+}
+
+message UserAnnouncement {
+    User user = 1;
 }
 
 service Streamer {

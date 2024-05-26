@@ -180,3 +180,8 @@ func (i *ircService) AnnounceRequest(ctx context.Context, song radio.Song) error
 func (i *ircService) AnnounceSong(ctx context.Context, status radio.Status) error {
 	return i.fn().AnnounceSong(ctx, status)
 }
+
+// AnnounceUser implements radio.AnnounceService.
+func (i *ircService) AnnounceUser(ctx context.Context, user *radio.User) error {
+	return i.fn().AnnounceUser(ctx, user)
+}

@@ -47,11 +47,16 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	b.StatusValue = util.StreamValue(ctx, cfg.Manager.CurrentStatus, func(ctx context.Context, s radio.Status) {
 		err := announce.AnnounceSong(ctx, s)
 		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to announce")
+			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to announce status")
+		}
+	})
+	b.UserValue = util.StreamValue(ctx, cfg.Manager.CurrentUser, func(ctx context.Context, user *radio.User) {
+		err := announce.AnnounceUser(ctx, user)
+		if err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to announce user")
 		}
 	})
 	b.ListenersValue = util.StreamValue(ctx, cfg.Manager.CurrentListeners)
-	b.UserValue = util.StreamValue(ctx, cfg.Manager.CurrentUser)
 
 	errCh := make(chan error, 2)
 	go func() {
@@ -108,8 +113,6 @@ func NewBot(ctx context.Context, cfg config.Config) (*Bot, error) {
 	b := &Bot{
 		Config:   cfg,
 		Storage:  store,
-		Manager:  cfg.Manager,
-		Streamer: cfg.Streamer,
 		Searcher: ss,
 		c:        girc.New(ircConf),
 	}
@@ -130,8 +133,6 @@ type Bot struct {
 	Storage radio.StorageService
 
 	// interfaces to other components
-	Manager  radio.ManagerService
-	Streamer radio.StreamerService
 	Searcher radio.SearchService
 
 	// Values used by commands

@@ -2,8 +2,10 @@ package ircbot
 
 import (
 	"context"
+	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -37,6 +39,10 @@ type announceService struct {
 	bot                  *Bot
 	lastAnnounceSongTime time.Time
 	lastAnnounceSong     radio.Song
+
+	topicTimerMu  sync.Mutex
+	topicTimer    *time.Timer
+	topicLastEdit time.Time
 }
 
 func (ann *announceService) AnnounceSong(ctx context.Context, status radio.Status) error {
@@ -227,5 +233,90 @@ func (ann *announceService) AnnounceRequest(ctx context.Context, song radio.Song
 	// Announce the request to the main channel
 	ann.bot.c.Cmd.Message(ann.Conf().IRC.MainChannel, message)
 
+	return nil
+}
+
+func (ann *announceService) AnnounceUser(ctx context.Context, user *radio.User) error {
+	name := "None"
+	if user != nil {
+		name = user.DJ.Name
+	}
+
+	message := Fmt("Current DJ: {green}%s", name)
+	ann.bot.c.Cmd.Message(ann.Conf().IRC.MainChannel, message)
+
+	ann.queueChangeTopic(ctx, user)
+	return nil
+}
+
+func (ann *announceService) queueChangeTopic(ctx context.Context, user *radio.User) {
+	const topicDelay = time.Second * 15
+
+	ann.topicTimerMu.Lock()
+	if ann.topicTimer != nil {
+		// stop any timer that is already running
+		ann.topicTimer.Stop()
+	}
+	// start a timer for updating the topic
+	ann.topicTimer = time.AfterFunc(topicDelay, func() {
+		ann.topicTimerMu.Lock()
+		if time.Since(ann.topicLastEdit) < topicDelay {
+			// if our last edit was recent, just queue another update a bit
+			// into the future
+			ann.topicTimerMu.Unlock()
+			ann.queueChangeTopic(ctx, user)
+		}
+		defer ann.topicTimerMu.Unlock()
+
+		err := ann.changeTopic(context.WithoutCancel(ctx), user)
+		if err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to change topic")
+			return
+		}
+		ann.topicLastEdit = time.Now()
+		ann.topicTimer.Stop()
+		ann.topicTimer = nil
+	})
+	ann.topicTimerMu.Unlock()
+}
+
+var reOtherTopicBit = regexp.MustCompile(`(.*?r/.*/dio.*?)(\|.*?\|)(.*)`)
+
+func (ann *announceService) changeTopic(ctx context.Context, user *radio.User) error {
+	const op errors.Op = "ircbot/announceService.changeTopic"
+
+	channel := ann.bot.c.LookupChannel(ann.Conf().IRC.MainChannel)
+	if channel == nil {
+		return errors.E(op, "channel is missing")
+	}
+
+	// parse the topic so we can change it
+	match := reOtherTopicBit.FindStringSubmatch(channel.Topic)
+	if len(match) < 4 {
+		return errors.E(errors.BrokenTopic, op, errors.Info(channel.Topic))
+	}
+
+	topicStatus := "DOWN"
+	topicName := "None"
+	if user != nil {
+		topicStatus = "UP"
+		topicName = user.DJ.Name
+	}
+
+	// we get a []string back with all our groups, the first is the full match
+	// which we don't need
+	match = match[1:]
+	// now the group we're interested in is the second one, so replace that with
+	// our new status print
+	match[1] = Fmt(
+		"|{orange} Stream:{red} %s {orange}DJ:{red} %s {cyan} https://r-a-d.io {clear}|",
+		topicStatus, topicName,
+	)
+
+	newTopic := strings.Join(match, "")
+
+	if newTopic != channel.Topic {
+		ann.bot.c.Cmd.Topic(channel.Name, newTopic)
+	}
 	return nil
 }

@@ -104,6 +104,15 @@ func (a AnnouncerClientRPC) AnnounceRequest(ctx context.Context, s radio.Song) e
 	return err
 }
 
+func (a AnnouncerClientRPC) AnnounceUser(ctx context.Context, u *radio.User) error {
+	ua := &UserAnnouncement{
+		User: toProtoUser(u),
+	}
+
+	_, err := a.rpc.AnnounceUser(ctx, ua)
+	return err
+}
+
 // NewManagerService returns a new client implementing radio.ManagerService
 func NewManagerService(c *grpc.ClientConn) radio.ManagerService {
 	return ManagerClientRPC{

@@ -27,7 +27,7 @@ func IsAuthed(e Event) bool {
 		select {
 		case authCh <- true:
 		default:
-			// this default cause should never happen, but it might be possible to
+			// this default case should never happen, but it might be possible to
 			// trigger it by having the same user call a command that checks
 			// authentication in rapid succession, so we protect against that
 		}
@@ -88,6 +88,7 @@ func HasAccess(c *girc.Client, e girc.Event) bool {
 // HasStreamAccess is similar to HasAccess but also includes special casing for streamers
 // that don't have channel access, but do have the authorization to access the stream
 func HasStreamAccess(c *girc.Client, e girc.Event) bool {
+	// TODO: implement this
 	return HasAccess(c, e)
 }
 

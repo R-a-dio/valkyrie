@@ -453,6 +453,7 @@ type QueueService interface {
 type AnnounceService interface {
 	AnnounceSong(context.Context, Status) error
 	AnnounceRequest(context.Context, Song) error
+	AnnounceUser(context.Context, *User) error
 }
 
 // SongID is a songs identifier

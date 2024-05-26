@@ -88,8 +88,8 @@ func LastPlayed(e Event) error {
 func StreamerQueue(e Event) error {
 	const op errors.Op = "irc/StreamerQueue"
 
-	// Get queue from streamer
-	songQueue, err := e.Bot.Streamer.Queue(e.Ctx)
+	// Get queue
+	songQueue, err := e.Bot.Queue.Entries(e.Ctx)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -189,61 +189,33 @@ func StreamerQueueLength(e Event) error {
 	return nil
 }
 
-var reOtherTopicBit = regexp.MustCompile(`(.*?r/.*/dio.*?)(\|.*?\|)(.*)`)
-
 func StreamerUserInfo(e Event) error {
 	const op errors.Op = "irc/StreamerUserInfo"
 
 	name := e.Arguments["DJ"]
 	if name == "" || !HasAccess(e.Client, e.Event) {
-		// simple path with no argument or no access
+		// simple path if people are just asking for the current dj
 		status := e.Bot.StatusValue.Latest()
 		e.EchoPublic("Current DJ: {green}%s", status.StreamerName)
 		return nil
 	}
 
-	channel := e.Client.LookupChannel(e.Params[0])
-	if channel == nil {
-		return nil
-	}
-
-	var err error
-	var user *radio.User
-	var topicStatus = "UP"
-
-	// skip the name lookup if the name is None, since it means we are down and out
-	if name != "None" {
-		user, err = e.Storage.User(e.Ctx).LookupName(name)
-		if err != nil {
-			return errors.E(op, err)
-		}
-	} else {
-		topicStatus = "DOWN"
-	}
-
-	err = e.Bot.Manager.UpdateUser(e.Ctx, user)
+	// lookup the name from the argument
+	user, err := e.Storage.User(e.Ctx).LookupName(name)
 	if err != nil {
 		return errors.E(op, err)
 	}
 
-	// parse the topic so we can change it
-	match := reOtherTopicBit.FindStringSubmatch(channel.Topic)
-	if len(match) < 4 {
-		return errors.E(errors.BrokenTopic, op, errors.Info(channel.Topic))
+	// user given isn't a robot, which means we're going to ignore it
+	if !radio.IsRobot(*user) {
+		e.EchoPublic("Current DJ: {green}%s", e.Bot.StatusValue.Latest().StreamerName)
+		return nil
 	}
 
-	// we get a []string back with all our groups, the first is the full match
-	// which we don't need
-	match = match[1:]
-	// now the group we're interested in is the second one, so replace that with
-	// our new status print
-	match[1] = Fmt(
-		"|{orange} Stream:{red} %s {orange}DJ:{red} %s {cyan} https://r-a-d.io {clear}|",
-		topicStatus, name,
-	)
+	// otherwise we should only care if the user is the one we are aware of
+	// but for now we only have one robot ever so just assume thats the value
 
-	newTopic := strings.Join(match, "")
-	e.Client.Cmd.Topic(channel.Name, newTopic)
+	// TODO: implement the poke to the streamer that tells it it can start
 	return nil
 }
 
@@ -421,7 +393,7 @@ func KillStreamer(e Event) error {
 	until := time.Until(status.SongInfo.End)
 	if force {
 		e.EchoPublic("Disconnecting right now")
-	} else if until == 0 {
+	} else if until <= 0 {
 		e.EchoPublic("Disconnecting after the current song")
 	} else {
 		e.EchoPublic("Disconnecting in about %s",

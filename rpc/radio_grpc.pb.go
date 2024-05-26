@@ -545,6 +545,7 @@ var Manager_ServiceDesc = grpc.ServiceDesc{
 const (
 	Announcer_AnnounceSong_FullMethodName    = "/radio.Announcer/AnnounceSong"
 	Announcer_AnnounceRequest_FullMethodName = "/radio.Announcer/AnnounceRequest"
+	Announcer_AnnounceUser_FullMethodName    = "/radio.Announcer/AnnounceUser"
 )
 
 // AnnouncerClient is the client API for Announcer service.
@@ -553,6 +554,7 @@ const (
 type AnnouncerClient interface {
 	AnnounceSong(ctx context.Context, in *SongAnnouncement, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	AnnounceRequest(ctx context.Context, in *SongRequestAnnouncement, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	AnnounceUser(ctx context.Context, in *UserAnnouncement, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type announcerClient struct {
@@ -581,12 +583,22 @@ func (c *announcerClient) AnnounceRequest(ctx context.Context, in *SongRequestAn
 	return out, nil
 }
 
+func (c *announcerClient) AnnounceUser(ctx context.Context, in *UserAnnouncement, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, Announcer_AnnounceUser_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AnnouncerServer is the server API for Announcer service.
 // All implementations must embed UnimplementedAnnouncerServer
 // for forward compatibility
 type AnnouncerServer interface {
 	AnnounceSong(context.Context, *SongAnnouncement) (*emptypb.Empty, error)
 	AnnounceRequest(context.Context, *SongRequestAnnouncement) (*emptypb.Empty, error)
+	AnnounceUser(context.Context, *UserAnnouncement) (*emptypb.Empty, error)
 	mustEmbedUnimplementedAnnouncerServer()
 }
 
@@ -599,6 +611,9 @@ func (UnimplementedAnnouncerServer) AnnounceSong(context.Context, *SongAnnouncem
 }
 func (UnimplementedAnnouncerServer) AnnounceRequest(context.Context, *SongRequestAnnouncement) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AnnounceRequest not implemented")
+}
+func (UnimplementedAnnouncerServer) AnnounceUser(context.Context, *UserAnnouncement) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AnnounceUser not implemented")
 }
 func (UnimplementedAnnouncerServer) mustEmbedUnimplementedAnnouncerServer() {}
 
@@ -649,6 +664,24 @@ func _Announcer_AnnounceRequest_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Announcer_AnnounceUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UserAnnouncement)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AnnouncerServer).AnnounceUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Announcer_AnnounceUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AnnouncerServer).AnnounceUser(ctx, req.(*UserAnnouncement))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Announcer_ServiceDesc is the grpc.ServiceDesc for Announcer service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -663,6 +696,10 @@ var Announcer_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AnnounceRequest",
 			Handler:    _Announcer_AnnounceRequest_Handler,
+		},
+		{
+			MethodName: "AnnounceUser",
+			Handler:    _Announcer_AnnounceUser_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
