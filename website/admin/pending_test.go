@@ -136,7 +136,7 @@ var pendingTests = []pendingTest{
 		TxFunc: mocks.CommitTx,
 		PendingSong: radio.PendingSong{
 			FilePath:      "testfile.mp3",
-			ReplacementID: 50,
+			ReplacementID: trackID(50),
 		},
 		GetRet: &radio.Song{
 			DatabaseTrack: &radio.DatabaseTrack{
@@ -144,6 +144,10 @@ var pendingTests = []pendingTest{
 			},
 		},
 	},
+}
+
+func trackID(id radio.TrackID) *radio.TrackID {
+	return &id
 }
 
 func TestPostPending(t *testing.T) {
@@ -315,7 +319,7 @@ func TestPendingFormRoundTrip(t *testing.T) {
 		"Artist":        gen.AnyString(),
 		"Album":         gen.AnyString(),
 		"Tags":          gen.AnyString(),
-		"ReplacementID": arbitraties.GenForType(reflect.TypeOf(radio.TrackID(0))),
+		"ReplacementID": arbitraties.GenForType(reflect.TypeFor[*radio.TrackID]()),
 		"Reason":        gen.AnyString(),
 	})
 	_ = pendingSongGen

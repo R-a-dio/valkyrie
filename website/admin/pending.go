@@ -437,7 +437,7 @@ func (pf *PendingForm) Update(form url.Values) {
 	pf.Album = form.Get("album")
 	pf.Tags = form.Get("tags")
 	if id, err := radio.ParseTrackID(form.Get("replacement")); err == nil {
-		pf.ReplacementID = id
+		pf.ReplacementID = &id
 	}
 	pf.Reason = form.Get("reason")
 	pf.ReviewedAt = time.Now()
@@ -476,8 +476,8 @@ func (pf *PendingForm) ToSong(user radio.User) radio.Song {
 		song.Hydrate()
 		song.Tags = pf.Tags
 		song.FilePath = pf.FilePath
-		if pf.ReplacementID != 0 {
-			song.TrackID = pf.ReplacementID
+		if pf.ReplacementID != nil {
+			song.TrackID = *pf.ReplacementID
 			song.NeedReplacement = false
 		}
 		song.Length = pf.Length
@@ -506,7 +506,7 @@ func (pf *PendingForm) ToValues() url.Values {
 	v.Add("title", pf.Title)
 	v.Add("album", pf.Album)
 	v.Add("tags", pf.Tags)
-	if pf.ReplacementID > 0 {
+	if pf.ReplacementID != nil {
 		v.Add("replacement", pf.ReplacementID.String())
 	}
 	v.Add("reason", pf.Reason)

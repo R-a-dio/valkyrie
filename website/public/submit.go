@@ -216,7 +216,7 @@ func (s State) postSubmit(w http.ResponseWriter, r *http.Request) (SubmissionFor
 	song.Filename = form.OriginalFilename
 	song.UserIdentifier, _ = getIdentifier(r)
 	if form.Replacement != nil {
-		song.ReplacementID = *form.Replacement
+		song.ReplacementID = form.Replacement
 	}
 	song.SubmittedAt = time.Now()
 	form.Song = song

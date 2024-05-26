@@ -1169,7 +1169,7 @@ type PendingSong struct {
 	// Duplicate indicates if this might be a duplicate
 	Duplicate bool
 	// ReplacementID is the TrackID that this upload will replace
-	ReplacementID TrackID
+	ReplacementID *TrackID
 	// Bitrate of the file
 	Bitrate int
 	// Length of the song
