@@ -260,6 +260,9 @@ func (tc *CallbackTimer) Start(timeout time.Duration) {
 
 // Stop stops the current timer if one exists
 func (tc *CallbackTimer) Stop() bool {
+	if tc == nil {
+		return true
+	}
 	tc.mu.Lock()
 	defer tc.mu.Unlock()
 	if tc.timer != nil {

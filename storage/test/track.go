@@ -42,6 +42,44 @@ func (suite *Suite) TestSongCreateAndRetrieve(t *testing.T) {
 	}
 }
 
+func (suite *Suite) TestSongCreateAndRetrieveWithTrack(t *testing.T) {
+	ss := suite.Storage(t).Song(suite.ctx)
+	ts := suite.Storage(t).Track(suite.ctx)
+
+	song := radio.Song{
+		Metadata: "test-song-create-and-retrieve",
+		Length:   time.Second * 300,
+		DatabaseTrack: &radio.DatabaseTrack{
+			Title:  "testing title",
+			Artist: "testing artist",
+			Album:  "testing album",
+		},
+	}
+	song.Hydrate()
+
+	tid, err := ts.Insert(song)
+	if assert.NoError(t, err) {
+		assert.NotZero(t, tid)
+	}
+	song.TrackID = tid
+
+	fromHash, err := ss.FromHash(song.Hash)
+	if assert.NoError(t, err) {
+		assert.NotNil(t, fromHash)
+		assert.True(t, song.EqualTo(*fromHash))
+		assert.Equal(t, song.Length, fromHash.Length)
+		assert.Equal(t, song.DatabaseTrack, fromHash.DatabaseTrack)
+	}
+
+	fromMetadata, err := ss.FromMetadata(song.Metadata)
+	if assert.NoError(t, err) {
+		assert.NotNil(t, fromMetadata)
+		assert.True(t, song.EqualTo(*fromMetadata))
+		assert.Equal(t, song.Length, fromMetadata.Length)
+		assert.Equal(t, song.DatabaseTrack, fromMetadata.DatabaseTrack)
+	}
+}
+
 func (suite *Suite) TestSongLastPlayed(t *testing.T) {
 	ss := suite.Storage(t).Song(suite.ctx)
 
@@ -194,4 +232,8 @@ func (suite *Suite) TestSongFavoritesOf(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, faves, limit)
 	require.Equal(t, faveCountExpected, count)
+
+	db, err := ss.FavoritesOfDatabase(nick)
+	require.NoError(t, err)
+	require.Len(t, db, 0)
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/rpc"
+	"github.com/R-a-dio/valkyrie/util"
 	"github.com/lrstanley/girc"
 	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
@@ -25,11 +26,16 @@ func NewGRPCServer(ctx context.Context, service radio.AnnounceService) (*grpc.Se
 }
 
 func NewAnnounceService(cfg config.Config, storage radio.StorageService, bot *Bot) radio.AnnounceService {
-	return &announceService{
+	ann := &announceService{
 		Config:  cfg,
 		Storage: storage,
 		bot:     bot,
 	}
+	ann.userTimer = util.NewCallbackTimer(func() {
+		message := Fmt("Current DJ: {red}None")
+		ann.bot.c.Cmd.Message(ann.Conf().IRC.MainChannel, message)
+	})
+	return ann
 }
 
 type announceService struct {
@@ -39,6 +45,10 @@ type announceService struct {
 	bot                  *Bot
 	lastAnnounceSongTime time.Time
 	lastAnnounceSong     radio.Song
+
+	userTimer *util.CallbackTimer
+	userMu    sync.Mutex
+	userLast  string
 
 	topicTimerMu  sync.Mutex
 	topicTimer    *time.Timer
@@ -237,12 +247,23 @@ func (ann *announceService) AnnounceRequest(ctx context.Context, song radio.Song
 }
 
 func (ann *announceService) AnnounceUser(ctx context.Context, user *radio.User) error {
-	name := "None"
-	if user.IsValid() {
-		name = user.DJ.Name
+	const userDelay = time.Second * 15
+
+	if !user.IsValid() {
+		// only announce no-dj after a period of it being no-dj
+		ann.userTimer.Start(userDelay)
+		return nil
+	}
+	ann.userTimer.Stop()
+
+	ann.userMu.Lock()
+	defer ann.userMu.Unlock()
+	if ann.userLast == user.DJ.Name {
+		return nil
 	}
 
-	message := Fmt("Current DJ: {green}%s", name)
+	ann.userLast = user.DJ.Name
+	message := Fmt("Current DJ: {green}%s", user.DJ.Name)
 	ann.bot.c.Cmd.Message(ann.Conf().IRC.MainChannel, message)
 
 	ann.queueChangeTopic(ctx, user)
@@ -250,7 +271,7 @@ func (ann *announceService) AnnounceUser(ctx context.Context, user *radio.User) 
 }
 
 func (ann *announceService) queueChangeTopic(ctx context.Context, user *radio.User) {
-	const topicDelay = time.Second * 15
+	const topicDelay = time.Second * 30
 
 	ann.topicTimerMu.Lock()
 	if ann.topicTimer != nil {
