@@ -408,6 +408,38 @@ func TestUserPermissionsScan(t *testing.T) {
 	}
 }
 
+func TestUserIsValid(t *testing.T) {
+	tests := []struct {
+		name     string
+		user     *User
+		expected bool
+	}{
+		{
+			name:     "nil",
+			user:     nil,
+			expected: false,
+		},
+		{
+			name:     "zero value",
+			user:     new(User),
+			expected: false,
+		},
+		{
+			name: "actual value",
+			user: &User{
+				ID: 500,
+			},
+			expected: true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := test.user.IsValid()
+			assert.Equal(t, test.expected, got)
+		})
+	}
+}
+
 func TestScheduleDayString(t *testing.T) {
 	assert.Equal(t, "Monday", Monday.String())
 	assert.Equal(t, "Tuesday", Tuesday.String())
