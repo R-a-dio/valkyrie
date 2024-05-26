@@ -15,14 +15,16 @@ type themeKey struct{}
 
 const ThemeCookieName = "theme"
 const ThemeAdminCookieName = "admin-theme"
+const ThemeDefault = "default-dark"
+const ThemeAdminDefault = "admin-dark"
 
 func ThemeCtx(storage radio.StorageService) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			theme := DEFAULT_DIR
+			theme := ThemeDefault
 			cookieName := ThemeCookieName
 			if strings.HasPrefix(r.URL.Path, "/admin") {
-				theme = DEFAULT_ADMIN_DIR
+				theme = ThemeAdminDefault
 				cookieName = ThemeAdminCookieName
 			}
 

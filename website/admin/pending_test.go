@@ -337,7 +337,7 @@ func TestPendingFormRoundTrip(t *testing.T) {
 			// so we can actually compare them
 			in.ReviewedAt = out.ReviewedAt
 
-			return out.PendingSong == in.PendingSong
+			return assert.EqualExportedValues(t, in.PendingSong, out.PendingSong)
 		}, pendingSongGen,
 	))
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
