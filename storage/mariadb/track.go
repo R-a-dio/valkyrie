@@ -164,6 +164,11 @@ func (ss SongStorage) FromHash(hash radio.SongHash) (*radio.Song, error) {
 		}
 		return nil, errors.E(op, err)
 	}
+	// remove a DatabaseTrack if we allocated it but it ended up being
+	// zero
+	if song.HasTrack() && song.TrackID == 0 {
+		song.DatabaseTrack = nil
+	}
 
 	return &song, nil
 }
@@ -400,7 +405,7 @@ LIMIT ? OFFSET ?;
 var songFavoritesOfDatabaseOnlyQuery = expand(`
 SELECT
 	{songColumns},
-	{maybeTrackColumns},
+	{trackColumns},
 	{lastplayedSelect},
 	NOW() AS synctime
 FROM
@@ -444,6 +449,12 @@ func (ss SongStorage) FavoritesOf(nick string, limit, offset int64) ([]radio.Son
 	err = sqlx.Get(handle, &count, songFavoritesOfCountQuery, nick)
 	if err != nil {
 		return nil, 0, errors.E(op, err)
+	}
+
+	for i := range songs {
+		if songs[i].DatabaseTrack != nil && songs[i].TrackID == 0 {
+			songs[i].DatabaseTrack = nil
+		}
 	}
 
 	return songs, count, nil
