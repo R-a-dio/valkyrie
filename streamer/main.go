@@ -19,6 +19,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 
+	zerolog.Ctx(ctx).Info().Msg("setting up queue")
 	queue, err := NewQueueService(ctx, cfg, store)
 	if err != nil {
 		return err
