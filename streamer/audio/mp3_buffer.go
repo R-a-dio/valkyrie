@@ -116,6 +116,11 @@ func (mb *MP3Buffer) Reader() (*MP3Reader, error) {
 }
 
 func newMP3Reader(mbr *MemoryReader, length *atomic.Int64) *MP3Reader {
+	if length == nil {
+		length = new(atomic.Int64)
+		// TODO: add an estimated length calculation
+	}
+
 	var frame mp3.Frame
 
 	return &MP3Reader{
