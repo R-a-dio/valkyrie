@@ -1,9 +1,9 @@
 package audio
 
 import (
-	"errors"
 	"fmt"
 	"io"
+	"log"
 	"sync/atomic"
 	"time"
 	"unsafe"
@@ -15,32 +15,33 @@ const MP3EncoderDelay = time.Millisecond * 1000.0 / 44100.0 * 576.0
 const mp3BootstrapSize = 1024 * 1024 / 2
 const maxInt64 = 1<<63 - 1
 
-// ErrBufferFull is returned when using MP3Buffer.SetCap and a Write exceeding
-// said cap occurs.
-var ErrBufferFull = errors.New("buffer full")
-
 // NewMP3Buffer returns a Buffer that is mp3-aware to calculate playback
 // duration and frame validation.
-func NewMP3Buffer() *MP3Buffer {
-	buf := NewBuffer(mp3BootstrapSize)
-
-	m := &MP3Buffer{
-		Buffer:    buf,
-		lengthCap: maxInt64,
+func NewMP3Buffer() (*MP3Buffer, error) {
+	buf, err := NewMemoryBuffer(nil)
+	if err != nil {
+		return nil, err
 	}
 
-	m.dec = mp3.NewDecoder(&m.decBuf)
+	var decBuf decoderBuffer
 
-	return m
+	return &MP3Buffer{
+		MemoryBuffer: buf,
+		decoderBuf:   &decBuf,
+		decoder:      mp3.NewDecoder(&decBuf),
+		totalLength:  new(atomic.Int64),
+	}, nil
 }
 
+// decoderBuffer is a simple io.Reader that we control the contents
+// of by using the byte slice inside
 type decoderBuffer struct {
-	buf []byte
+	data []byte
 }
 
 func (b *decoderBuffer) Read(p []byte) (n int, err error) {
-	n = copy(p, b.buf)
-	b.buf = b.buf[n:]
+	n = copy(p, b.data)
+	b.data = b.data[n:]
 	if n == 0 {
 		return 0, io.EOF
 	}
@@ -49,154 +50,151 @@ func (b *decoderBuffer) Read(p []byte) (n int, err error) {
 
 // MP3Buffer is a Buffer that is mp3-aware
 type MP3Buffer struct {
-	length    int64
-	lengthCap int64
-
-	dec    *mp3.Decoder
-	decBuf decoderBuffer
-	frame  mp3.Frame
-
-	*Buffer
-}
-
-// SetCap sets a length cap, this means any writes past this cap will fail
-// with a BufferFull error. Short-writes can occur when using SetCap.
-func (mb *MP3Buffer) SetCap(dur time.Duration) {
-	atomic.StoreInt64(&mb.lengthCap, int64(dur))
+	*MemoryBuffer
+	decoderBuf  *decoderBuffer
+	decoder     *mp3.Decoder
+	frame       mp3.Frame
+	totalLength *atomic.Int64
 }
 
 func (mb *MP3Buffer) Write(p []byte) (n int, err error) {
-	mb.decBuf.buf = append(mb.decBuf.buf, p...)
+	// first we just add all the bytes to the decoder buffer
+	mb.decoderBuf.data = append(mb.decoderBuf.data, p...)
 
-	var length = atomic.LoadInt64(&mb.length)
 	var skipped int
-	var hold []byte
-
-	for err == nil {
-		if atomic.LoadInt64(&mb.lengthCap)-length < 0 {
-			mb.Close()
-			return len(p) - len(mb.decBuf.buf), ErrBufferFull
-		}
-
-		// hold the current buffer position, Decode reads a frame in sections
-		// so when an error is returned it might've read bytes before returning
-		hold = mb.decBuf.buf
-		decErr := mb.dec.Decode(&mb.frame, &skipped)
-		if decErr != nil {
-			// restore our buffer position from where the previous frame ended
-			mb.decBuf.buf = hold
+	for {
+		beforeData := mb.decoderBuf.data
+		// now we try and decode the input data as mp3 frames
+		err = mb.decoder.Decode(&mb.frame, &skipped)
+		if err != nil {
+			// an error occurs in two scenarios:
+			// 1. we didn't have a full frame of data
+			// 2. the data doesn't contain a valid frame
+			//
+			// for #1 we just hold the data back and assume the next
+			// call to Write will finish it.
+			//
+			// for #2 we hold the data back as well, because the
+			// decoder will skip invalid frames for us once it finds
+			// the next frame
+			mb.decoderBuf.data = beforeData
 			break
 		}
+
+		// skipped tells us how much data the decoder skipped
 		if skipped > 0 {
-			fmt.Println(p)
-			fmt.Println("skipped on write:", skipped, mb.Length(), mb.frame.Size())
+			log.Println("skipped on write:", skipped)
 		}
 
-		// Write can't return an error
-		_, _ = mb.Buffer.Write((*mp3frame)(unsafe.Pointer(&mb.frame)).buf)
+		n, err := mb.MemoryBuffer.Write((*mp3frame)(unsafe.Pointer(&mb.frame)).buf)
+		if err != nil {
+			return n, err
+		}
 
-		length = atomic.AddInt64(&mb.length, int64(mb.frame.Duration()))
+		mb.totalLength.Add(int64(mb.frame.Duration()))
 	}
 
-	return len(p), err
+	return len(p), nil
 }
 
 // BufferBytes returns unwritten bytes in the internal buffer. return value is
 // only valid until next Write call.
 func (mb *MP3Buffer) BufferBytes() []byte {
-	return mb.decBuf.buf
+	return mb.decoderBuf.data
+}
+
+// TotalLength returns the total duration of the contents of the buffer.
+func (mb *MP3Buffer) TotalLength() time.Duration {
+	return time.Duration(mb.totalLength.Load())
 }
 
 // Reader returns a reader over the buffer
-func (mb *MP3Buffer) Reader() *MP3BufferReader {
-	r := mb.Buffer.Reader()
-
-	return &MP3BufferReader{
-		dec:          mp3.NewDecoder(r),
-		parent:       mb,
-		BufferReader: r,
+func (mb *MP3Buffer) Reader() (*MP3Reader, error) {
+	mbr, err := mb.MemoryBuffer.Reader()
+	if err != nil {
+		return nil, err
 	}
+
+	var frame mp3.Frame
+
+	return &MP3Reader{
+		MemoryReader: mbr,
+		decoder:      mp3.NewDecoder(mbr),
+		totalLength:  mb.totalLength,
+		frame:        &frame,
+		frame2:       (*mp3frame)(unsafe.Pointer(&frame)),
+	}, nil
 }
 
-// Length returns the playback duration of the contents of the buffer.
-// i.e. calling Write increases the duration
-func (mb *MP3Buffer) Length() time.Duration {
-	return time.Duration(atomic.LoadInt64(&mb.length))
+type MP3Reader struct {
+	// fields set by parent
+	*MemoryReader
+	totalLength *atomic.Int64
+	// fields for our own use
+	progress atomic.Int64
+	decoder  *mp3.Decoder
+
+	frame  *mp3.Frame
+	frame2 *mp3frame
 }
 
-type MP3BufferReader struct {
-	// readLength is how much mp3 audio went through Read so far, a call to
-	// Read will increase this field
-	readLength  int64
-	sleepLength int64
-
-	dec           *mp3.Decoder
-	frame         mp3.Frame
-	frameLeftover bool
-
-	parent *MP3Buffer
-	*BufferReader
+func (mpr *MP3Reader) Close() error {
+	return mpr.MemoryReader.Close()
 }
 
-func (mbr *MP3BufferReader) Read(p []byte) (n int, err error) {
+func (mpr *MP3Reader) Read(p []byte) (n int, err error) {
 	var skipped int
-	var buf []byte
 
 	for {
-		if !mbr.frameLeftover {
-			err = mbr.dec.Decode(&mbr.frame, &skipped)
-		}
-
-		mbr.frameLeftover = false
-		if skipped > 0 {
-			fmt.Println("skipped:", skipped)
-		}
+		// store where we are in the file
+		startOffset, err := mpr.Seek(0, io.SeekCurrent)
 		if err != nil {
-			return
+			return n, err
 		}
 
-		buf = mbr.readFrameBuf()
-		if len(p) < n+len(buf) {
-			if n == 0 {
-				err = fmt.Errorf(
-					"buffer too small; need atleast: %d bytes got %d",
-					len(buf), len(p))
+		// try and decode a frame
+		err = mpr.decoder.Decode(mpr.frame, &skipped)
+		if err != nil {
+			return n, err
+		}
+
+		// check if the frame we just decoded fits into p
+		if len(p) < n+len(mpr.frame2.buf) {
+			// we don't fit, seek back to the start of this frame
+			_, err = mpr.MemoryReader.Seek(startOffset, io.SeekStart)
+			if err != nil {
+				return n, err
 			}
-			mbr.frameLeftover = true
-			return
+			// see if this is the first frame
+			if n == 0 {
+				// buffer too small to even fit one frame
+				return 0, fmt.Errorf("buffer too small: need atleast %d", len(mpr.frame2.buf))
+			}
+			// not the first frame, return what we have so far
+			return n, nil
 		}
 
-		n += copy(p[n:], buf)
-
-		atomic.AddInt64(&mbr.readLength, int64(mbr.frame.Duration()))
-		atomic.AddInt64(&mbr.sleepLength, int64(mbr.frame.Duration()))
+		// copy the frame we just decoded to the output
+		n += copy(p[n:], mpr.frame2.buf)
+		// add the real-time duration of the frame to our progress
+		mpr.progress.Add(int64(mpr.frame.Duration()))
 	}
 }
 
-func (mbr *MP3BufferReader) Sleep() {
-	l := atomic.LoadInt64(&mbr.sleepLength)
-	time.Sleep(time.Duration(l))
-	atomic.AddInt64(&mbr.sleepLength, -l)
+// TotalLength returns the total length of the reader
+func (mpr *MP3Reader) TotalLength() time.Duration {
+	return time.Duration(mpr.totalLength.Load())
 }
 
-// Length returns the playback duration of the contents of the buffer.
-// i.e. calling Read lowers the duration of the buffer.
-func (mbr *MP3BufferReader) Length() time.Duration {
-	var pl = mbr.parent.Length()
-	var rl = time.Duration(atomic.LoadInt64(&mbr.readLength))
-
-	// since we calculate the length concurrently, and separately from writes
-	// we have a tiny logic race where read length `rl` can be higher than
-	// the parent length `pl`; We just return a zero length when this occurs
-	if rl > pl {
-		return 0
-	}
-
-	return pl - rl
+// RemainingLength returns the remaining duration of the reader, that is
+// (TotalLength - Progress)
+func (mpr *MP3Reader) RemainingLength() time.Duration {
+	return mpr.TotalLength() - mpr.Progress()
 }
 
-func (mbr *MP3BufferReader) Progress() time.Duration {
-	return time.Duration(atomic.LoadInt64(&mbr.readLength))
+// Progress returns the duration of the audio data we've read so far
+func (mpr *MP3Reader) Progress() time.Duration {
+	return time.Duration(mpr.progress.Load())
 }
 
 func init() {
@@ -207,10 +205,4 @@ func init() {
 
 type mp3frame struct {
 	buf []byte
-}
-
-// readFrameBuf converts the mp3.Frame to an mp3frame and returns the
-// internal (private) buf field for use
-func (mbr *MP3BufferReader) readFrameBuf() []byte {
-	return (*mp3frame)(unsafe.Pointer(&mbr.frame)).buf
 }

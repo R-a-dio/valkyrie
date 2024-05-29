@@ -2,7 +2,6 @@ package audio
 
 import (
 	"io"
-	"sync/atomic"
 	"time"
 )
 
@@ -11,77 +10,56 @@ const pcmReadFromSize = 1024 * 16
 
 //const pcmReadFromSize = (44100 * 2 * 2) * 15 // about 15-seconds of data
 
-// NewPCMBuffer returns a new PCMBuffer with the Format given.
-func NewPCMBuffer(f AudioFormat) *PCMBuffer {
-	return &PCMBuffer{
-		AudioFormat: f,
-		Buffer:      NewBuffer(pcmBootstrapSize),
+// PCMLength calculates the expected duration of a file
+// that contains PCM audio data in the AudioFormat given
+func PCMLength(af AudioFormat, mb *MemoryReader) time.Duration {
+	fi, err := mb.Stat()
+	if err != nil {
+		return 0
+	}
+
+	size := fi.Size()
+	return time.Duration(size) * time.Second /
+		time.Duration(af.BytesPerSample*af.ChannelCount*af.SampleRate)
+}
+
+// PCMProgress calculates the duration of the bytes read so far
+func PCMProgress(af AudioFormat, mb *MemoryReader) time.Duration {
+	pos, err := mb.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return 0
+	}
+
+	return time.Duration(pos) * time.Second /
+		time.Duration(af.BytesPerSample*af.ChannelCount*af.SampleRate)
+}
+
+// NewPCMReader returns a new PCMReader with the AudioFormat given.
+func NewPCMReader(af AudioFormat, mr *MemoryReader) *PCMReader {
+	return &PCMReader{
+		AudioFormat:  af,
+		MemoryReader: mr,
 	}
 }
 
 // PCMBuffer is a pcm-aware Buffer
-type PCMBuffer struct {
-	length uint64
+type PCMReader struct {
 	AudioFormat
-
-	*Buffer
+	*MemoryReader
 }
 
-// Write implements io.Writer
-func (pb *PCMBuffer) Write(p []byte) (n int, err error) {
-	n, err = pb.Buffer.Write(p)
-	atomic.AddUint64(&pb.length, uint64(n))
-	return n, err
+// TotalLength returns the total length of the reader
+func (pr *PCMReader) TotalLength() time.Duration {
+	return PCMLength(pr.AudioFormat, pr.MemoryReader)
 }
 
-// ReadFrom implements io.ReaderFrom
-func (pb *PCMBuffer) ReadFrom(src io.Reader) (n int64, err error) {
-	var rn int
-	var buf = make([]byte, pcmReadFromSize)
-	for err == nil {
-		rn, err = src.Read(buf)
-		pb.Write(buf[:rn])
-		n += int64(rn)
-	}
-	if err == io.EOF {
-		err = nil
-	}
-	return
+// RemainingLength returns the remaining duration of the reader
+func (pr *PCMReader) RemainingLength() time.Duration {
+	return PCMLength(pr.AudioFormat, pr.MemoryReader) - PCMProgress(pr.AudioFormat, pr.MemoryReader)
 }
 
-// Length returns the playback length of the data in the buffer
-func (pb *PCMBuffer) Length() time.Duration {
-	return time.Duration(atomic.LoadUint64(&pb.length)) * time.Second /
-		time.Duration(pb.BytesPerSample*pb.ChannelCount*pb.SampleRate)
-}
-
-// Reader returns a reader over the buffer
-func (pb *PCMBuffer) Reader() *PCMBufferReader {
-	return &PCMBufferReader{
-		pcmParent:    pb,
-		BufferReader: pb.Buffer.Reader(),
-	}
-}
-
-// PCMBufferReader is a buffer aware of its contents
-type PCMBufferReader struct {
-	pcmParent *PCMBuffer
-
-	*BufferReader
-}
-
-// Length returns the playback duration of the contents of the buffer.
-// i.e. calling Read lowers the duration of the buffer.
-func (pbr *PCMBufferReader) Length() time.Duration {
-	y := atomic.LoadUint64(&pbr.pcmParent.length) - atomic.LoadUint64(&pbr.pos)
-	x := pbr.pcmParent.BytesPerSample * pbr.pcmParent.ChannelCount *
-		pbr.pcmParent.SampleRate
-	return time.Duration(y) * time.Second / time.Duration(x)
-}
-
-func (pbr *PCMBufferReader) Progress() time.Duration {
-	y := atomic.LoadUint64(&pbr.pos)
-	x := pbr.pcmParent.BytesPerSample * pbr.pcmParent.ChannelCount *
-		pbr.pcmParent.SampleRate
-	return time.Duration(y) * time.Second / time.Duration(x)
+// Progress returns the duration of the data we've read from the start of the
+// file to the current position
+func (pr *PCMReader) Progress() time.Duration {
+	return PCMProgress(pr.AudioFormat, pr.MemoryReader)
 }

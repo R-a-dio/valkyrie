@@ -31,16 +31,13 @@ func ExecuteVerifier(ctx context.Context, cfg config.Config) error {
 	root := cfg.Conf().MusicPath
 	for _, song := range songs {
 		filename := util.AbsolutePath(root, song.FilePath)
-		err := decodeFile(filename)
+		err := decodeFile(ctx, filename)
 		if err != nil {
-			l := logger.Error().
+			logger.Error().
 				Err(err).
 				Uint64("track_id", uint64(song.TrackID)).
-				Str("filename", filename)
-			if err, ok := err.(*audio.DecodeError); ok {
-				l = l.Str("info", err.ExtraInfo)
-			}
-			l.Msg("failed to decode file")
+				Str("filename", filename).
+				Msg("failed to decode file")
 			continue
 		}
 
@@ -56,10 +53,10 @@ func ExecuteVerifier(ctx context.Context, cfg config.Config) error {
 	return nil
 }
 
-func decodeFile(filename string) error {
+func decodeFile(ctx context.Context, filename string) error {
 	buf, err := audio.DecodeFile(filename)
 	if err != nil {
 		return err
 	}
-	return buf.Wait()
+	return buf.Wait(ctx)
 }

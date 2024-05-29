@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"crypto/rand"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestPCMBuffer(t *testing.T) {
@@ -14,42 +16,47 @@ func TestPCMBuffer(t *testing.T) {
 	}
 	data = data[:n]
 
-	p := NewPCMBuffer(AudioFormat{2, 2, 44100})
-	n, _ = p.Write(data)
-	if n != len(data) {
-		t.Fatalf("failed to write full data: %d != %d", n, len(data))
-	}
+	af := AudioFormat{2, 2, 44100}
+	p, err := NewMemoryBuffer(nil)
+	require.NoError(t, err)
+	defer p.Close()
 
-	if p.length != uint64(len(p.buf)) {
-		t.Fatalf("internal length and actual length: %d != %d",
-			p.length, len(p.buf))
-	}
-
-	t.Logf("playback length parent: %s", p.Length())
+	n, err = p.Write(data)
+	require.NoError(t, err)
+	require.Equal(t, len(data), n, "failed to write full data")
 
 	var data2 = make([]byte, pcmBootstrapSize*2)
-	pr := p.Reader()
-	t.Logf("playback length reader: %s", pr.Length())
+	mr, err := p.Reader()
+	require.NoError(t, err)
+	defer mr.Close()
+	pr := NewPCMReader(af, mr)
 
-	n, _ = pr.Read(data2)
-	if n != len(data2) {
-		t.Fatalf("failed to read full data: %d != %d", n, len(data2))
-	}
+	require.NotZero(t, pr.TotalLength(), "should contain data")
+	require.Equal(t, pr.TotalLength(), pr.RemainingLength(),
+		"haven't read yet so should be equal")
+	require.Zero(t, pr.Progress(), "haven't read yet so should be zero")
 
-	t.Logf("playback length reader: %s", pr.Length())
+	t.Logf("playback length reader: %s", pr.TotalLength())
+	t.Logf("playback progress reader: %s", pr.Progress())
+
+	n, err = pr.Read(data2)
+	require.NoError(t, err)
+	require.Equal(t, len(data2), n, "failed to read full data")
+
+	t.Logf("playback length reader: %s", pr.TotalLength())
+	t.Logf("playback progress reader: %s", pr.Progress())
 
 	if !bytes.Equal(data, data2) {
 		t.Fatal("data not equal to what was written")
 	}
 
 	go func() {
-		p.Write(data)
+		_, _ = p.Write(data)
 	}()
 
-	n, _ = pr.Read(data2)
-	if n != len(data2) {
-		t.Fatalf("failed to read full data (2): %d != %d", n, len(data2))
-	}
+	n, err = pr.Read(data2)
+	require.NoError(t, err)
+	require.Equal(t, len(data2), n, "failed to read full data")
 
 	if !bytes.Equal(data, data2) {
 		t.Fatal("data not equal to what was written")

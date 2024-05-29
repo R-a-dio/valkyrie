@@ -1,52 +1,33 @@
 package audio
 
 import (
-	"bytes"
 	"fmt"
+	"io"
 	"os/exec"
+
+	"github.com/justincormack/go-memfd"
 )
 
-// DecodeFile decodes the audio filepath given and returns a PCMBuffer
-func DecodeFile(path string) (*PCMBuffer, error) {
-	cmd, buf := newFFmpeg(path)
-
-	err := cmd.Start()
+// DecodeFile decodes the filename given to an in-memory buffer as
+// PCM audio data
+func DecodeFile(filename string) (*MemoryBuffer, error) {
+	ff, err := newFFmpeg(filename)
 	if err != nil {
 		return nil, err
 	}
 
-	go func() {
-		err := cmd.Wait()
-		if err != nil {
-			err = &DecodeError{
-				Err:       err,
-				ExtraInfo: cmd.Stderr.(*bytes.Buffer).String(),
-			}
-
-			buf.SetError(err)
-		} else {
-			buf.Close()
-		}
-	}()
-
-	return buf, nil
+	return ff.Run()
 }
 
-// DecodeError is returned when a non-zero exit code is returned by the decoder
-//
-// The ExtraInfo field contains stderr of the decoder process.
-type DecodeError struct {
-	Err       error
-	ExtraInfo string
-}
-
-func (e *DecodeError) Error() string {
-	return fmt.Sprintf("decode error: %s", e.Err.Error())
+type ffmpeg struct {
+	Cmd    *exec.Cmd
+	Stdout *MemoryBuffer
+	Stderr *memfd.Memfd
 }
 
 // newFFmpeg prepares a new ffmpeg process for decoding the filename given. The context
 // given is passed to os/exec.Cmd
-func newFFmpeg(filename string) (*exec.Cmd, *PCMBuffer) {
+func newFFmpeg(filename string) (*ffmpeg, error) {
 	// prepare arguments
 	args := []string{
 		"-hide_banner",
@@ -59,11 +40,78 @@ func newFFmpeg(filename string) (*exec.Cmd, *PCMBuffer) {
 		"-",
 	}
 
-	// prepare the os/exec command and give us access to output pipes
-	cmd := exec.Command("ffmpeg", args...)
-	cmd.Stdout = NewPCMBuffer(AudioFormat{2, 2, 44100})
-	// stderr is only used when an error is reported by exec.Cmd
-	cmd.Stderr = new(bytes.Buffer)
+	return newFFmpegCmd(args)
+}
 
-	return cmd, cmd.Stdout.(*PCMBuffer)
+func newFFmpegCmd(args []string) (*ffmpeg, error) {
+	out, err := NewMemoryBuffer(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	errOut, err := memfd.Create()
+	if err != nil {
+		out.Close()
+		return nil, err
+	}
+
+	// prepare the os/exec command and give us access to output
+	cmd := exec.Command("ffmpeg", args...)
+	cmd.Stdout = out.Memfd.File
+	// stderr is only used when an error is reported by exec.Cmd
+	cmd.Stderr = errOut.File
+	return &ffmpeg{Cmd: cmd, Stdout: out, Stderr: errOut}, nil
+}
+
+func (ff *ffmpeg) Close() error {
+	ff.Stdout.Close()
+	ff.Stderr.Close()
+	return nil
+}
+
+func (ff *ffmpeg) ReadError() error {
+	_, _ = ff.Stderr.Seek(0, 0)
+	out, _ := io.ReadAll(ff.Stderr)
+
+	return fmt.Errorf("stderr: %s", string(out))
+}
+
+func (ff *ffmpeg) Output() ([]byte, error) {
+	out, err := ff.Run()
+	if err != nil {
+		return nil, err
+	}
+	defer out.Close()
+
+	return io.ReadAll(out)
+}
+
+func (ff *ffmpeg) ErrOutput() ([]byte, error) {
+	_, err := ff.Run()
+	if err != nil {
+		return nil, err
+	}
+	defer ff.Close()
+
+	_, _ = ff.Stderr.Seek(0, io.SeekStart)
+	return io.ReadAll(ff.Stderr)
+}
+
+func (ff *ffmpeg) Run() (*MemoryBuffer, error) {
+	// try and start the ffmpeg instance
+	if err := ff.Cmd.Start(); err != nil {
+		ff.Close() // close everything if we fail
+		return nil, err
+	}
+
+	// wait for ffmpeg to finish
+	if err := ff.Cmd.Wait(); err != nil {
+		// we need to read Stderr through ReadError before
+		// we close it so defer the call
+		defer ff.Close()
+		return nil, fmt.Errorf("%w: %w", err, ff.ReadError())
+	}
+
+	ff.Stdout.CloseWrite()
+	return ff.Stdout, nil
 }

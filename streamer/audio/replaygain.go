@@ -4,38 +4,31 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"os/exec"
 )
 
-func DecodeFileGain(path string) (*PCMBuffer, error) {
-	cmd, buf, err := newFFmpegWithReplaygain(path)
+// DecodeFileGain decodes the path given with replaygain applied
+func DecodeFileGain(af AudioFormat, filename string) (*PCMReader, error) {
+	ff, err := newFFmpegWithReplaygain(filename)
 	if err != nil {
 		return nil, err
 	}
 
-	err = cmd.Start()
+	mb, err := ff.Run()
 	if err != nil {
 		return nil, err
 	}
+	defer ff.Close()
 
-	go func() {
-		err := cmd.Wait()
-		if err != nil {
-			err = &DecodeError{
-				Err:       err,
-				ExtraInfo: cmd.Stderr.(*bytes.Buffer).String(),
-			}
+	mr, err := mb.Reader()
+	if err != nil {
+		ff.Close()
+		return nil, err
+	}
 
-			buf.SetError(err)
-		} else {
-			buf.Close()
-		}
-	}()
-
-	return buf, nil
+	return NewPCMReader(af, mr), nil
 }
 
-func newFFmpegWithReplaygain(filename string) (*exec.Cmd, *PCMBuffer, error) {
+func newFFmpegWithReplaygain(filename string) (*ffmpeg, error) {
 	const (
 		// target loudness in LUFs (Loudness Units Full Scale)
 		I = -14
@@ -56,28 +49,28 @@ func newFFmpegWithReplaygain(filename string) (*exec.Cmd, *PCMBuffer, error) {
 		"-",
 	}
 
-	output := new(bytes.Buffer)
-	cmd := exec.Command("ffmpeg", args...)
-	cmd.Stderr = output
-	cmd.Stdout = new(bytes.Buffer) // we throw this away, but supply a buffer to be sure
-
-	err := cmd.Run()
+	ff, err := newFFmpegCmd(args)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	b := output.Bytes()
-	last := bytes.LastIndex(b, []byte("{"))
-	b = b[last-1:]
+	// ffmpeg outputs the analyzes on stderr
+	data, err := ff.ErrOutput()
+	if err != nil {
+		return nil, err
+	}
 
-	// TODO: log results of the replaygain calculation maybe
+	last := bytes.LastIndex(data, []byte("{"))
+	if last > 0 {
+		data = data[last-1:]
+	}
 
 	// do things with output
 	var info = new(replaygainInfo)
 
-	err = json.Unmarshal(b, info)
+	err = json.Unmarshal(data, info)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// prepare arguments for second pass
@@ -99,13 +92,7 @@ func newFFmpegWithReplaygain(filename string) (*exec.Cmd, *PCMBuffer, error) {
 		"-",
 	}
 
-	// prepare the os/exec command and give us access to output pipes
-	cmd = exec.Command("ffmpeg", args...)
-	cmd.Stdout = NewPCMBuffer(AudioFormat{2, 2, 44100})
-	// stderr is only used when an error is reported by exec.Cmd
-	cmd.Stderr = new(bytes.Buffer)
-
-	return cmd, cmd.Stdout.(*PCMBuffer), nil
+	return newFFmpegCmd(args)
 }
 
 type replaygainInfo struct {

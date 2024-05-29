@@ -24,7 +24,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	if err != nil {
 		return err
 	}
-	defer streamer.ForceStop(context.Background())
+	defer streamer.Stop(context.Background(), true)
 
 	// setup a http server for our RPC API
 	srv, err := NewGRPCServer(ctx, cfg, store, queue, cfg.IRC, streamer)

@@ -115,7 +115,7 @@ func (l *LAME) Encode(in []byte) (out []byte, err error) {
 
 // Flush flushes internal buffers and returns any mp3 data found
 func (l *LAME) Flush() []byte {
-	ret := C.lame_encode_flush(l.flags,
+	ret := C.lame_encode_flush_nogap(l.flags,
 		(*C.uchar)(unsafe.Pointer(&l.out[0])), C.int(len(l.out)))
 	if ret >= 0 {
 		return l.out[:int(ret)]
