@@ -313,9 +313,8 @@ func (s *Streamer) Stop(ctx context.Context, force bool) error {
 	const op errors.Op = "streamer/Streamer.Stop"
 
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	if !s.running {
+		s.mu.Unlock()
 		// we're not even running
 		return errors.E(op, errors.StreamerNotRunning)
 	}
@@ -327,6 +326,7 @@ func (s *Streamer) Stop(ctx context.Context, force bool) error {
 		// flag that is checked in all the loops we run
 		s.cancel(ErrForce)
 		s.forced.Store(true)
+		s.mu.Unlock()
 		return s.Wait(ctx)
 	}
 
@@ -334,6 +334,7 @@ func (s *Streamer) Stop(ctx context.Context, force bool) error {
 	// by stopping the encoder and then waiting for the icecast to notice the input
 	// channel to have been closed
 	s.encoderCancel()
+	s.mu.Unlock()
 	return s.Wait(ctx)
 }
 
