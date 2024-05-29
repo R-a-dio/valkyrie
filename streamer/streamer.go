@@ -98,6 +98,7 @@ func (s *Streamer) checkFDStore(ctx context.Context, store *fdstore.Store) {
 	}
 
 	if len(connEntries) > 0 {
+		zerolog.Ctx(ctx).Info().Msg("recovered an icecast connection")
 		// grab the first entry
 		conn = connEntries[0].Conn
 		// close the rest
@@ -132,6 +133,7 @@ func (s *Streamer) checkFDStore(ctx context.Context, store *fdstore.Store) {
 	var entries []StreamTrack
 
 	if current != nil {
+		zerolog.Ctx(ctx).Info().Msg("recovered the current song")
 		entries = append(entries, StreamTrack{
 			QueueEntry: currentEntry,
 			Audio:      current,
@@ -155,6 +157,7 @@ func (s *Streamer) checkFDStore(ctx context.Context, store *fdstore.Store) {
 			continue
 		}
 
+		zerolog.Ctx(ctx).Info().Msg("recovered an encoder song")
 		entries = append(entries, StreamTrack{
 			QueueEntry: queueEntry,
 			Audio:      reader,

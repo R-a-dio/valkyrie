@@ -30,7 +30,6 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	if err != nil {
 		return err
 	}
-	defer streamer.Stop(context.Background(), true)
 
 	// setup a http server for our RPC API
 	srv, err := NewGRPCServer(ctx, cfg, store, queue, cfg.IRC, streamer)
@@ -62,6 +61,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	case <-ctx.Done():
 		return nil
 	case err = <-errCh:
+		streamer.Stop(ctx, true)
 		return err
 	}
 }
