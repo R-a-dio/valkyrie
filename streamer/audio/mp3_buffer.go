@@ -137,6 +137,7 @@ func NewMP3Reader(f *os.File) *MP3Reader {
 	if mb == nil {
 		return nil
 	}
+	mb.CloseWrite()
 
 	mbr := &MemoryReader{
 		File:     f,
