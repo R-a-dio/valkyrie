@@ -1,3 +1,4 @@
+//go:build !nostreamer
 // +build !nostreamer
 
 package main
@@ -20,7 +21,8 @@ var streamerCmd = cmd{
 	usage: `streamer:
 	streams to a configured icecast server
 	`,
-	execute: withConfig(streamer.Execute),
+	execute:   withConfig(streamer.Execute),
+	noSIGUSR2: true,
 }
 
 var verifierCmd = cmd{

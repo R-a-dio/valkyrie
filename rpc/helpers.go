@@ -6,6 +6,7 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/rs/xid"
+	"google.golang.org/protobuf/proto"
 	durationpb "google.golang.org/protobuf/types/known/durationpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -225,6 +226,20 @@ func fromProtoQueueID(id *QueueID) radio.QueueID {
 	}
 
 	return radio.QueueID{rid}
+}
+
+func EncodeQueueEntry(entry radio.QueueEntry) ([]byte, error) {
+	return proto.Marshal(toProtoQueueEntry(entry))
+}
+
+func DecodeQueueEntry(data []byte) (radio.QueueEntry, error) {
+	entry := new(QueueEntry)
+
+	err := proto.Unmarshal(data, entry)
+	if err != nil {
+		return radio.QueueEntry{}, nil
+	}
+	return fromProtoQueueEntry(entry), nil
 }
 
 func toProtoUser(u *radio.User) *User {
