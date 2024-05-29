@@ -49,7 +49,7 @@ func newFFmpegWithReplaygain(filename string) (*ffmpeg, error) {
 		"-",
 	}
 
-	ff, err := newFFmpegCmd(args)
+	ff, err := newFFmpegCmd(filename, args)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func newFFmpegWithReplaygain(filename string) (*ffmpeg, error) {
 		"-",
 	}
 
-	return newFFmpegCmd(args)
+	return newFFmpegCmd(filename, args)
 }
 
 type replaygainInfo struct {

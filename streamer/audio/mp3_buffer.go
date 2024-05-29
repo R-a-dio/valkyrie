@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"sync/atomic"
 	"time"
 	"unsafe"
@@ -12,25 +13,21 @@ import (
 )
 
 const MP3EncoderDelay = time.Millisecond * 1000.0 / 44100.0 * 576.0
-const mp3BootstrapSize = 1024 * 1024 / 2
-const maxInt64 = 1<<63 - 1
 
 // NewMP3Buffer returns a Buffer that is mp3-aware to calculate playback
 // duration and frame validation.
-func NewMP3Buffer() (*MP3Buffer, error) {
-	buf, err := NewMemoryBuffer(nil)
+func NewMP3Buffer(name string, f *os.File) (*MP3Buffer, error) {
+	buf, err := NewMemoryBuffer(name, f)
 	if err != nil {
 		return nil, err
 	}
 
-	var decBuf decoderBuffer
+	var mb MP3Buffer
+	mb.decoder = mp3.NewDecoder(&mb.decoderBuf)
+	mb.totalLength = new(atomic.Int64)
+	mb.MemoryBuffer = buf
 
-	return &MP3Buffer{
-		MemoryBuffer: buf,
-		decoderBuf:   &decBuf,
-		decoder:      mp3.NewDecoder(&decBuf),
-		totalLength:  new(atomic.Int64),
-	}, nil
+	return &mb, nil
 }
 
 // decoderBuffer is a simple io.Reader that we control the contents
@@ -51,7 +48,7 @@ func (b *decoderBuffer) Read(p []byte) (n int, err error) {
 // MP3Buffer is a Buffer that is mp3-aware
 type MP3Buffer struct {
 	*MemoryBuffer
-	decoderBuf  *decoderBuffer
+	decoderBuf  decoderBuffer
 	decoder     *mp3.Decoder
 	frame       mp3.Frame
 	totalLength *atomic.Int64
@@ -115,15 +112,34 @@ func (mb *MP3Buffer) Reader() (*MP3Reader, error) {
 		return nil, err
 	}
 
+	return newMP3Reader(mbr, mb.totalLength), nil
+}
+
+func newMP3Reader(mbr *MemoryReader, length *atomic.Int64) *MP3Reader {
 	var frame mp3.Frame
 
 	return &MP3Reader{
 		MemoryReader: mbr,
 		decoder:      mp3.NewDecoder(mbr),
-		totalLength:  mb.totalLength,
+		totalLength:  length,
 		frame:        &frame,
 		frame2:       (*mp3frame)(unsafe.Pointer(&frame)),
-	}, nil
+	}
+}
+
+func NewMP3Reader(f *os.File) *MP3Reader {
+	mb, _ := NewMemoryBuffer("", f)
+	if mb == nil {
+		return nil
+	}
+
+	mbr := &MemoryReader{
+		File:     f,
+		parent:   mb,
+		parentMu: mb.mu.RLocker(),
+	}
+
+	return newMP3Reader(mbr, nil)
 }
 
 type MP3Reader struct {

@@ -3,9 +3,13 @@ package streamer
 import (
 	"context"
 	"net"
+	"syscall"
 
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/storage"
+	"github.com/R-a-dio/valkyrie/util"
+	"github.com/Wessie/fdstore"
+	"github.com/rs/zerolog"
 )
 
 // Execute starts a streamer instance and its RPC API server
@@ -20,7 +24,9 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 
-	streamer, err := NewStreamer(ctx, cfg, queue, store.User(ctx))
+	fdstorage := fdstore.NewStoreListenFDs()
+
+	streamer, err := NewStreamer(ctx, cfg, fdstorage, queue, store.User(ctx))
 	if err != nil {
 		return err
 	}
@@ -45,6 +51,14 @@ func Execute(ctx context.Context, cfg config.Config) error {
 
 	// wait for our context to be canceled or Serve to error out
 	select {
+	case <-util.Signal(syscall.SIGUSR2):
+		if err := streamer.handleRestart(ctx); err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to handle restart")
+		}
+		if err := fdstorage.Send(); err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to send store")
+		}
+		return nil
 	case <-ctx.Done():
 		return nil
 	case err = <-errCh:

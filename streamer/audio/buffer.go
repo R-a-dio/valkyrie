@@ -149,17 +149,20 @@ type MemoryBuffer struct {
 	err      error
 }
 
-func NewMemoryBuffer(f *memfd.Memfd) (*MemoryBuffer, error) {
+func NewMemoryBuffer(name string, f *os.File) (*MemoryBuffer, error) {
+	var mf *memfd.Memfd
 	var err error
 	if f == nil {
-		f, err = memfd.Create()
+		mf, err = memfd.CreateNameFlags(name, memfd.Cloexec|memfd.AllowSealing)
 		if err != nil {
 			return nil, err
 		}
+	} else {
+		mf = &memfd.Memfd{File: f}
 	}
 
 	mb := &MemoryBuffer{
-		Memfd: f,
+		Memfd: mf,
 		done:  make(chan struct{}),
 	}
 

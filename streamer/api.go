@@ -16,7 +16,7 @@ import (
 // NewGRPCServer returns a http server with RPC API handler and debug handlers
 func NewGRPCServer(ctx context.Context, cfg config.Config, storage radio.StorageService,
 	queue radio.QueueService, announce radio.AnnounceService,
-	streamer *Streamer2) (*grpc.Server, error) {
+	streamer *Streamer) (*grpc.Server, error) {
 
 	s := &streamerService{
 		Config:   cfg,
@@ -39,7 +39,7 @@ type streamerService struct {
 
 	announce     radio.AnnounceService
 	queue        radio.QueueService
-	streamer     *Streamer2
+	streamer     *Streamer
 	requestMutex sync.Mutex
 }
 

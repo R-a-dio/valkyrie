@@ -40,11 +40,11 @@ func newFFmpeg(filename string) (*ffmpeg, error) {
 		"-",
 	}
 
-	return newFFmpegCmd(args)
+	return newFFmpegCmd(filename, args)
 }
 
-func newFFmpegCmd(args []string) (*ffmpeg, error) {
-	out, err := NewMemoryBuffer(nil)
+func newFFmpegCmd(name string, args []string) (*ffmpeg, error) {
+	out, err := NewMemoryBuffer(name, nil)
 	if err != nil {
 		return nil, err
 	}
