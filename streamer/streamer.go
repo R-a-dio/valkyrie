@@ -181,8 +181,8 @@ func (s *Streamer) userChange(ctx context.Context, user *radio.User, timer *util
 			zerolog.Ctx(ctx).Info().
 				Dur("timeout", time.Duration(timeout)).
 				Msg("starting after timeout")
-			timer.Start(time.Second)
-			//timer.Start(time.Duration(timeout))
+
+			timer.Start(time.Duration(timeout))
 			return
 		}
 	}
