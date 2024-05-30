@@ -204,9 +204,6 @@ var (
 	ErrForce   = errors.New("force stop")
 )
 
-// PCM is an alias for the type we use for storing PCM audio data
-type PCM = audio.PCMReader
-
 type Streamer struct {
 	// configuration fields, these shouldn't change after creation
 	config.Config
@@ -255,6 +252,10 @@ func (s *Streamer) start(ctx context.Context,
 	ctx, s.cancel = context.WithCancelCause(ctx)
 	// create a channel we can use in Wait to see if we exited
 	s.done = make(chan struct{})
+	// reset force state
+	s.forced.Store(false)
+	// reset the restart state, this should never be needed
+	s.restart.Store(false)
 
 	trackCh := make(chan StreamTrack)
 	go func() { // encoder
@@ -319,7 +320,8 @@ func (s *Streamer) Stop(ctx context.Context, force bool) error {
 		return errors.E(op, errors.StreamerNotRunning)
 	}
 
-	// we have three methods of stopping, this function handles two of them
+	// we have three methods of stopping, this function handles two of them, the third
+	// is handled in handleRestart
 	if force {
 		// #1 is a force stop, we just stop anything we're doing and exit right away
 		// we achieve this by canceling the context we passed in and setting a force
@@ -352,12 +354,15 @@ func (s *Streamer) Wait(ctx context.Context) error {
 	select {
 	case <-done:
 	case <-ctx.Done():
+		return ctx.Err()
 	}
 	return nil
 }
 
 // restart tries to start a restart with state passing
 func (s *Streamer) handleRestart(ctx context.Context) error {
+	// #3 is a force stop, but we instruct the routines to store their state by
+	// using the fdstorage and restart afterwards
 	s.restart.Store(true)
 	return s.Stop(ctx, true)
 }
@@ -383,6 +388,7 @@ func (s *Streamer) encoder(ctx context.Context, encoder *audio.LAME, trackCh cha
 		start := time.Now()
 		logger.Info().
 			Str("queue_id", entry.QueueID.String()).
+			Uint64("trackid", uint64(entry.TrackID)).
 			Str("metadata", entry.Metadata).
 			Msg("starting decoding")
 		pcm, err := audio.DecodeFileGain(s.AudioFormat, filename)
@@ -392,8 +398,9 @@ func (s *Streamer) encoder(ctx context.Context, encoder *audio.LAME, trackCh cha
 		}
 		logger.Info().
 			Str("queue_id", entry.QueueID.String()).
+			Uint64("trackid", uint64(entry.TrackID)).
 			Str("metadata", entry.Metadata).
-			Str("elapsed", time.Since(start).String()).
+			Dur("elapsed", time.Since(start)).
 			Msg("finished decoding")
 
 		if encoder == nil {
@@ -414,6 +421,7 @@ func (s *Streamer) encoder(ctx context.Context, encoder *audio.LAME, trackCh cha
 		start = time.Now()
 		logger.Info().
 			Str("queue_id", entry.QueueID.String()).
+			Uint64("trackid", uint64(entry.TrackID)).
 			Str("metadata", entry.Metadata).
 			Msg("starting encoding")
 		for !s.forced.Load() {
@@ -451,9 +459,10 @@ func (s *Streamer) encoder(ctx context.Context, encoder *audio.LAME, trackCh cha
 		}
 		logger.Info().
 			Str("queue_id", entry.QueueID.String()).
+			Uint64("trackid", uint64(entry.TrackID)).
 			Str("metadata", entry.Metadata).
-			Str("elapsed", time.Since(start).String()).
-			Str("length", mp3.TotalLength().String()).
+			Dur("elapsed", time.Since(start)).
+			Dur("length", mp3.TotalLength()).
 			Msg("finished encoding")
 
 		// make a reader out of our buffer
