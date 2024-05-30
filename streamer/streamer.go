@@ -519,6 +519,12 @@ func (s *Streamer) icecast(ctx context.Context, conn net.Conn, trackCh <-chan St
 	var track StreamTrack
 	var ok bool
 	buf := make([]byte, bufferMP3Size)
+	// bufferEnd is when the audio data we've read so far is supposed
+	// to end if played back in realtime
+	bufferEnd := time.Now()
+	// bufferSlack is the period of time we subtract from our sleeping
+	// period, to make sure we don't sleep too long
+	bufferSlack := time.Second * 2
 
 	for !s.forced.Load() {
 		select {
@@ -542,12 +548,6 @@ func (s *Streamer) icecast(ctx context.Context, conn net.Conn, trackCh <-chan St
 		// send the entries metadata to icecast
 		go s.metadataToIcecast(ctx, track.QueueEntry)
 
-		// bufferEnd is when the audio data we've read so far is supposed
-		// to end if played back in realtime
-		bufferEnd := time.Now()
-		// bufferSlack is the period of time we subtract from our sleeping
-		// period, to make sure we don't sleep too long
-		bufferSlack := time.Second * 2
 		// lastProgress is the value of the previous loops Progress call
 		lastProgress := time.Duration(0)
 
