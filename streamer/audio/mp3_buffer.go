@@ -166,18 +166,19 @@ func (mpr *MP3Reader) Close() error {
 
 func (mpr *MP3Reader) Read(p []byte) (n int, err error) {
 	var skipped int
+	var startOffset int64
 
 	for {
 		// store where we are in the file
-		startOffset, err := mpr.Seek(0, io.SeekCurrent)
+		startOffset, err = mpr.Seek(0, io.SeekCurrent)
 		if err != nil {
-			return n, err
+			break
 		}
 
 		// try and decode a frame
 		err = mpr.decoder.Decode(mpr.frame, &skipped)
 		if err != nil {
-			return n, err
+			break
 		}
 
 		// check if the frame we just decoded fits into p
@@ -185,15 +186,15 @@ func (mpr *MP3Reader) Read(p []byte) (n int, err error) {
 			// we don't fit, seek back to the start of this frame
 			_, err = mpr.MemoryReader.Seek(startOffset, io.SeekStart)
 			if err != nil {
-				return n, err
+				break
 			}
 			// see if this is the first frame
 			if n == 0 {
 				// buffer too small to even fit one frame
-				return 0, fmt.Errorf("buffer too small: need atleast %d", len(mpr.frame2.buf))
+				return 0, fmt.Errorf("%w: need atleast %d", io.ErrShortBuffer, len(mpr.frame2.buf))
 			}
 			// not the first frame, return what we have so far
-			return n, nil
+			break
 		}
 
 		// copy the frame we just decoded to the output
@@ -201,6 +202,11 @@ func (mpr *MP3Reader) Read(p []byte) (n int, err error) {
 		// add the real-time duration of the frame to our progress
 		mpr.progress.Add(int64(mpr.frame.Duration()))
 	}
+
+	if n > 0 {
+		return n, nil
+	}
+	return 0, err
 }
 
 // TotalLength returns the total length of the reader
