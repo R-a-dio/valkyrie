@@ -2,33 +2,44 @@ package audio
 
 import (
 	"context"
-	"fmt"
+	"io"
 	"os"
 	"os/exec"
 
-	"github.com/spf13/afero"
+	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/justincormack/go-memfd"
 )
 
-func Spectrum(ctx context.Context, fs afero.Fs, filename string) (string, error) {
-	// TODO: use fs interface instead of plain to disk writing
-	f, err := os.CreateTemp("", "spectrum*.jpg")
+func Spectrum(ctx context.Context, filename string) (*os.File, error) {
+	const op errors.Op = "streamer/audio.Spectrum"
+
+	f, err := memfd.CreateNameFlags("spectrum", memfd.AllowSealing|memfd.Cloexec)
 	if err != nil {
-		return "", err
+		return nil, errors.E(op, err)
 	}
-	f.Close()
 
 	cmd := exec.CommandContext(ctx, "ffmpeg", "-nostdin",
 		"-y", "-v", "error", "-hide_banner",
 		"-i", filename,
 		"-filter_complex", "[0:a:0]aresample=48000:resampler=soxr,showspectrumpic=s=640x512,crop=780:544:70:50[o]",
-		"-map", "[o]", "-frames:v", "1", "-q:v", "3", f.Name(),
+		"-map", "[o]", "-frames:v", "1", "-q:v", "3", "-",
 	)
+	cmd.Stdout = f.File
 
-	out, err := cmd.Output()
-	if err != nil {
-		fmt.Println(string(out))
-		return "", err
+	if err = cmd.Start(); err != nil {
+		f.Close()
+		return nil, errors.E(op, err)
 	}
 
-	return f.Name(), nil
+	if err = cmd.Wait(); err != nil {
+		f.Close()
+		return nil, errors.E(op, err)
+	}
+
+	if _, err = f.Seek(0, io.SeekStart); err != nil {
+		f.Close()
+		return nil, errors.E(op, err)
+	}
+
+	return f.File, nil
 }

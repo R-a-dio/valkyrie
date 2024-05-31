@@ -5,7 +5,6 @@ import (
 	"html/template"
 	"net/http"
 	"net/url"
-	"os"
 	"path/filepath"
 	"slices"
 	"time"
@@ -102,15 +101,14 @@ func (s *State) GetPendingSong(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// otherwise prep the spectrum image
-	specPath, err := audio.Spectrum(r.Context(), s.FS, path)
+	specFile, err := audio.Spectrum(r.Context(), path)
 	if err != nil {
 		hlog.FromRequest(r).Error().Err(err).Msg("ffmpeg failure")
 		return
 	}
-	defer os.Remove(specPath)
+	defer specFile.Close()
 
-	// TODO: use in-memory file
-	http.ServeFile(w, r, specPath)
+	http.ServeContent(w, r, "spectrum-"+song.ID.String(), time.Now(), specFile)
 }
 
 func (s *State) GetPending(w http.ResponseWriter, r *http.Request) {
