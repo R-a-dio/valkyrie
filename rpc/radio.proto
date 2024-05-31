@@ -185,6 +185,7 @@ message StreamerResponse {
 service Queue {
     rpc AddRequest(QueueEntry) returns (google.protobuf.Empty);
     rpc ReserveNext(google.protobuf.Empty) returns (QueueEntry);
+    rpc ResetReserved(google.protobuf.Empty) returns (google.protobuf.Empty);
     rpc Remove(QueueID) returns (google.protobuf.BoolValue);
     rpc Entries(google.protobuf.Empty) returns (QueueInfo);
 }

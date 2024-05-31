@@ -369,7 +369,7 @@ func KillStreamer(e Event) error {
 		// since it has a very short timeout
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute*15)
 		defer cancel()
-		// TODO: not everyone should be able to force kill
+
 		err := e.Bot.Streamer.Stop(ctx, force)
 		if err != nil {
 			quickErr <- err

@@ -254,6 +254,10 @@ func (q QueueShim) Entries(ctx context.Context, _ *emptypb.Empty) (*QueueInfo, e
 	}, nil
 }
 
+func (q QueueShim) ResetReserved(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, q.queue.ResetReserved(ctx)
+}
+
 func NewListenerTracker(lt radio.ListenerTrackerService) ListenerTrackerServer {
 	return ListenerTrackerShim{tracker: lt}
 }

@@ -287,7 +287,10 @@ func (q QueueClientRPC) ReserveNext(ctx context.Context) (*radio.QueueEntry, err
 }
 
 func (q QueueClientRPC) ResetReserved(ctx context.Context) error {
-	// TODO: implement this
+	_, err := q.rpc.ResetReserved(ctx, new(emptypb.Empty))
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

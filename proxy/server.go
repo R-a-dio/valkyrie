@@ -65,7 +65,7 @@ func NewServer(ctx context.Context, cfg config.Config, manager radio.ManagerServ
 		hlog.NewHandler(*logger),
 		hlog.RemoteAddrHandler("ip"),
 		hlog.UserAgentHandler("user_agent"),
-		hlog.RequestIDHandler("req_id", "Request-Id"), // TODO: check if we want to return the header
+		hlog.RequestIDHandler("req_id", "Request-Id"),
 		hlog.URLHandler("url"),
 		hlog.MethodHandler("method"),
 		hlog.ProtoHandler("protocol"),

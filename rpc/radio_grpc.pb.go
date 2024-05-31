@@ -957,10 +957,11 @@ var Streamer_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	Queue_AddRequest_FullMethodName  = "/radio.Queue/AddRequest"
-	Queue_ReserveNext_FullMethodName = "/radio.Queue/ReserveNext"
-	Queue_Remove_FullMethodName      = "/radio.Queue/Remove"
-	Queue_Entries_FullMethodName     = "/radio.Queue/Entries"
+	Queue_AddRequest_FullMethodName    = "/radio.Queue/AddRequest"
+	Queue_ReserveNext_FullMethodName   = "/radio.Queue/ReserveNext"
+	Queue_ResetReserved_FullMethodName = "/radio.Queue/ResetReserved"
+	Queue_Remove_FullMethodName        = "/radio.Queue/Remove"
+	Queue_Entries_FullMethodName       = "/radio.Queue/Entries"
 )
 
 // QueueClient is the client API for Queue service.
@@ -969,6 +970,7 @@ const (
 type QueueClient interface {
 	AddRequest(ctx context.Context, in *QueueEntry, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ReserveNext(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*QueueEntry, error)
+	ResetReserved(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	Remove(ctx context.Context, in *QueueID, opts ...grpc.CallOption) (*wrapperspb.BoolValue, error)
 	Entries(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*QueueInfo, error)
 }
@@ -999,6 +1001,15 @@ func (c *queueClient) ReserveNext(ctx context.Context, in *emptypb.Empty, opts .
 	return out, nil
 }
 
+func (c *queueClient) ResetReserved(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, Queue_ResetReserved_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *queueClient) Remove(ctx context.Context, in *QueueID, opts ...grpc.CallOption) (*wrapperspb.BoolValue, error) {
 	out := new(wrapperspb.BoolValue)
 	err := c.cc.Invoke(ctx, Queue_Remove_FullMethodName, in, out, opts...)
@@ -1023,6 +1034,7 @@ func (c *queueClient) Entries(ctx context.Context, in *emptypb.Empty, opts ...gr
 type QueueServer interface {
 	AddRequest(context.Context, *QueueEntry) (*emptypb.Empty, error)
 	ReserveNext(context.Context, *emptypb.Empty) (*QueueEntry, error)
+	ResetReserved(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	Remove(context.Context, *QueueID) (*wrapperspb.BoolValue, error)
 	Entries(context.Context, *emptypb.Empty) (*QueueInfo, error)
 	mustEmbedUnimplementedQueueServer()
@@ -1037,6 +1049,9 @@ func (UnimplementedQueueServer) AddRequest(context.Context, *QueueEntry) (*empty
 }
 func (UnimplementedQueueServer) ReserveNext(context.Context, *emptypb.Empty) (*QueueEntry, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReserveNext not implemented")
+}
+func (UnimplementedQueueServer) ResetReserved(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResetReserved not implemented")
 }
 func (UnimplementedQueueServer) Remove(context.Context, *QueueID) (*wrapperspb.BoolValue, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Remove not implemented")
@@ -1093,6 +1108,24 @@ func _Queue_ReserveNext_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Queue_ResetReserved_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueueServer).ResetReserved(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Queue_ResetReserved_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueueServer).ResetReserved(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Queue_Remove_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(QueueID)
 	if err := dec(in); err != nil {
@@ -1143,6 +1176,10 @@ var Queue_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ReserveNext",
 			Handler:    _Queue_ReserveNext_Handler,
+		},
+		{
+			MethodName: "ResetReserved",
+			Handler:    _Queue_ResetReserved_Handler,
 		},
 		{
 			MethodName: "Remove",
