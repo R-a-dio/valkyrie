@@ -21,7 +21,6 @@ func (QueueInput) TemplateBundle() string {
 	return "queue"
 }
 
-// TODO: make this use radio.QueueService
 func NewQueueInput(qs radio.QueueService, r *http.Request) (*QueueInput, error) {
 	const op errors.Op = "website/admin.NewQueueInput"
 

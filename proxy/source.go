@@ -84,7 +84,7 @@ func (s *Server) PutSource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: clean this up
+	// drain the bufio buffer we got from net/http, we want to use the raw conn
 	conn = compat.DrainBuffer(bufrw, conn)
 
 	client := NewSourceClient(
