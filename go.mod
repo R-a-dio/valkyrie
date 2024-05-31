@@ -22,6 +22,7 @@ require (
 	github.com/google/subcommands v1.2.0
 	github.com/gorilla/csrf v1.7.2
 	github.com/jmoiron/sqlx v1.3.5
+	github.com/justincormack/go-memfd v0.0.0-20170219213707-6e4af0518993
 	github.com/jxskiss/base62 v1.1.0
 	github.com/leanovate/gopter v0.2.10
 	github.com/lrstanley/girc v0.0.0-20240317214256-a4a3d96369cb
@@ -73,7 +74,6 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.19.1 // indirect
-	github.com/justincormack/go-memfd v0.0.0-20170219213707-6e4af0518993 // indirect
 	github.com/klauspost/compress v1.17.7 // indirect
 	github.com/lufia/plan9stats v0.0.0-20240226150601-1dcf7310316a // indirect
 	github.com/magiconair/properties v1.8.7 // indirect

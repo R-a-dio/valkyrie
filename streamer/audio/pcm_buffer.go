@@ -5,9 +5,6 @@ import (
 	"time"
 )
 
-const pcmBootstrapSize = 1024 * 1024
-const pcmReadFromSize = 1024 * 16
-
 //const pcmReadFromSize = (44100 * 2 * 2) * 15 // about 15-seconds of data
 
 // PCMLength calculates the expected duration of a file

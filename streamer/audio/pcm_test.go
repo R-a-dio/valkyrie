@@ -8,6 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const pcmBootstrapSize = 1024 * 1024
+
 func TestPCMBuffer(t *testing.T) {
 	var data = make([]byte, pcmBootstrapSize*2)
 	n, err := rand.Read(data)
