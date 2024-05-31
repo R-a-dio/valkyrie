@@ -188,6 +188,8 @@ type website struct {
 	DJImagePath string // required
 	// PublicStreamURL is the public url to the stream
 	PublicStreamURL string
+	// CSRFSecret is the key used to generate csrf tokens, should be secret
+	CSRFSecret string
 }
 
 // streamer contains all the fields only relevant to the streamer

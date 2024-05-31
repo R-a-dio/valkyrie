@@ -90,15 +90,13 @@ func Execute(ctx context.Context, cfg config.Config) error {
 
 	r := NewRouter()
 
-	// TODO(wessie): check if nginx is setup to send the correct headers for real IP
-	// passthrough, as it's required for request handling
 	r.Use(middleware.RealIP)
 	// setup zerolog details
 	r.Use(
 		hlog.NewHandler(*logger),
 		hlog.RemoteAddrHandler("ip"),
 		hlog.UserAgentHandler("user_agent"),
-		hlog.RequestIDHandler("req_id", "Request-Id"), // TODO: check if we want to return the header
+		hlog.RequestIDHandler("req_id", "Request-Id"),
 		hlog.URLHandler("url"),
 		hlog.MethodHandler("method"),
 		hlog.ProtoHandler("protocol"),
@@ -115,14 +113,17 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	authentication := vmiddleware.NewAuthentication(storage, executor, sessionManager)
 	r.Use(authentication.UserMiddleware)
 	// CSRF token handling
-	// TODO: make this not use a random key
-	csrfKey, err := secret.NewKey(32)
-	if err != nil {
-		return errors.E(op, err)
-	}
 	// fixes a compatibility issue with the PHP api, see middleware documentation
 	r.Use(phpapi.MoveTokenToHeaderForRequests)
 	r.Use(skipCSRFProtection)
+	csrfKey := []byte(cfg.Conf().Website.CSRFSecret)
+	if len(csrfKey) == 0 {
+		logger.Warn().Msg("CSRFSecret is empty, using random key")
+		csrfKey, err = secret.NewKey(32)
+		if err != nil {
+			panic("CSRFSecret is empty and we couldn't generate a random key")
+		}
+	}
 	r.Use(csrf.Protect(csrfKey,
 		csrf.Secure(false),
 		csrf.Encoding(base62.StdEncoding),
