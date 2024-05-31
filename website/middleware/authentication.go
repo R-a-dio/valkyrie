@@ -153,7 +153,7 @@ func (a authentication) LoginMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// otherwise, use is active so forward them to their destination
+		// otherwise, user is active so forward them to their destination
 		r = RequestWithUser(r, user)
 		next.ServeHTTP(w, r)
 	})

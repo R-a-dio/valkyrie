@@ -143,7 +143,8 @@ func (s State) PostSubmit(w http.ResponseWriter, r *http.Request) {
 		// for unknown reason if we send a response without reading the body the connection is
 		// hard-reset instead and our response goes missing, so discard the body up to our
 		// allowed max size and then cut off if required
-		io.CopyN(io.Discard, r.Body, formMaxSize) // TODO: add a possible timeout
+		_ = http.NewResponseController(w).SetReadDeadline(time.Now().Add(time.Minute))
+		_, _ = io.CopyN(io.Discard, r.Body, formMaxSize)
 
 		hlog.FromRequest(r).Error().Err(err).Msg("")
 		responseFn(form)

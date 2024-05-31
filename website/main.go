@@ -196,8 +196,9 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	// setup the http server
 	conf := cfg.Conf()
 	server := &http.Server{
-		Addr:    conf.Website.WebsiteAddr.String(),
-		Handler: r,
+		Addr:              conf.Website.WebsiteAddr.String(),
+		Handler:           r,
+		ReadHeaderTimeout: time.Second * 5,
 	}
 
 	// read any FDs from a previous process
