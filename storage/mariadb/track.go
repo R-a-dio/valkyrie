@@ -106,7 +106,7 @@ func (ss SongStorage) Create(song radio.Song) (*radio.Song, error) {
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
 
-	// TODO: see if we want to not use hydrate here and leave it up to the caller instead
+	// call hydrate for the caller, should basically be a no-op anyway
 	song.Hydrate()
 
 	_, err := sqlx.NamedExec(handle, songCreateQuery, song)

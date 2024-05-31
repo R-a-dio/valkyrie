@@ -64,11 +64,24 @@ func (s secret) Get(salt []byte) (secret string) {
 }
 
 func (s secret) Equal(secret string, salt []byte) bool {
-	// TODO: this should probably be a constant-time compare, but we are not
-	// that bothered by it for our current usecase
-	return secret == s.Get(salt)
+	return constantCompare(secret, s.Get(salt))
 }
 
 func (s secret) date() []byte {
 	return []byte(s.now().Format(time.DateOnly))
+}
+
+func constantCompare(x, y string) bool {
+	if len(x) != len(y) {
+		return false
+	}
+
+	var v byte
+
+	for i := 0; i < len(x); i++ {
+		v |= x[i] ^ y[i]
+	}
+
+	return v == 0
+
 }
