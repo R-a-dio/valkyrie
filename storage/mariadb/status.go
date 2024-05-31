@@ -31,7 +31,6 @@ func (ss StatusStorage) Store(status radio.Status) error {
 				end_time,
 				trackid,
 				thread,
-				requesting,
 				djname
 			) VALUES (
 				1,
@@ -43,7 +42,6 @@ func (ss StatusStorage) Store(status radio.Status) error {
 				UNIX_TIMESTAMP(:songinfo.end),
 				:song.trackid,
 				:thread,
-				:requestsenabled,
 				:streamername
 			) ON DUPLICATE KEY UPDATE 
 				djid=:user.dj.id,
@@ -54,7 +52,6 @@ func (ss StatusStorage) Store(status radio.Status) error {
 				end_time=UNIX_TIMESTAMP(:songinfo.end),
 				trackid=:song.trackid,
 				thread=:thread,
-				requesting=:requestsenabled,
 				djname=:streamername,
 				lastset=NOW();
 	`
@@ -81,7 +78,6 @@ func (ss StatusStorage) Load() (*radio.Status, error) {
 			from_unixtime(end_time) AS 'songinfo.end',
 			trackid AS 'song.trackid',
 			thread,
-			IF(requesting = 1, 'true', 'false') AS requestsenabled,
 			djname AS streamername
 		FROM
 			streamstatus

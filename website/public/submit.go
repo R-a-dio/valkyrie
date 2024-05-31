@@ -273,11 +273,11 @@ type SubmissionForm struct {
 	//		"cooldown": indicates the user was not permitted to upload yet, they need to wait longer
 	Errors map[string]string
 	// form fields
-	OriginalFilename    string          // name="track" The filename of the uploaded file
-	Daypass             string          // name="daypass"
-	Comment             string          // name="comment"
-	Replacement         *radio.TrackID  // name="replacement"
-	NeedReplacementList []radio.TrackID // possible values for Replacement field
+	OriginalFilename    string         // name="track" The filename of the uploaded file
+	Daypass             string         // name="daypass"
+	Comment             string         // name="comment"
+	Replacement         *radio.TrackID // name="replacement"
+	NeedReplacementList []radio.Song   // possible songs for Replacement field
 
 	// after processing fields
 

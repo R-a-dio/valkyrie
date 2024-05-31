@@ -618,21 +618,26 @@ type TrackStorage struct {
 	handle handle
 }
 
-var trackNeedReplacementQuery = `
+var trackNeedReplacementQuery = expand(`
 SELECT
-	tracks.id AS trackid
+	{trackColumns},
+	{maybeSongColumns},
+	{lastplayedSelect},
+	NOW() AS synctime
 FROM
 	tracks
+LEFT JOIN
+	esong ON esong.hash = tracks.hash
 WHERE
 	tracks.need_reupload = 1;
-`
+`)
 
-func (ts TrackStorage) NeedReplacement() ([]radio.TrackID, error) {
+func (ts TrackStorage) NeedReplacement() ([]radio.Song, error) {
 	const op errors.Op = "mariadb/TrackStorage.NeedReplacement"
 	handle, deferFn := ts.handle.span(op)
 	defer deferFn()
 
-	var songs []radio.TrackID
+	var songs []radio.Song
 
 	err := sqlx.Select(handle, &songs, trackNeedReplacementQuery)
 	if err != nil {

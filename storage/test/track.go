@@ -1,12 +1,16 @@
 package storagetest
 
 import (
+	"reflect"
 	"slices"
 	"strconv"
 	"testing"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/arbitrary"
+	"github.com/leanovate/gopter/gen"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -236,4 +240,71 @@ func (suite *Suite) TestSongFavoritesOf(t *testing.T) {
 	db, err := ss.FavoritesOfDatabase(nick)
 	require.NoError(t, err)
 	require.Len(t, db, 0)
+}
+
+func (suite *Suite) TestTrackNeedReplacement(t *testing.T) {
+	s := suite.Storage(t)
+	ts := s.Track(suite.ctx)
+
+	var entries []radio.Song
+	for i := 0; i < 50; i++ {
+		song := generateTrack()
+		song.NeedReplacement = i%2 == 0
+		tid, err := ts.Insert(song)
+		require.NoError(t, err)
+		song.TrackID = tid
+		entries = append(entries, song)
+	}
+
+	ret, err := ts.NeedReplacement()
+	require.NoError(t, err)
+
+	assert.Len(t, ret, 25)
+	for _, song := range ret {
+		assert.True(t, song.NeedReplacement, "should have NeedReplacement set")
+		exists := slices.ContainsFunc(entries, func(a radio.Song) bool {
+			return a.EqualTo(song)
+		})
+		assert.True(t, exists, "song should be one we inserted")
+	}
+}
+
+func generateTrack() radio.Song {
+	a := arbitrary.DefaultArbitraries()
+	generator := gen.Struct(reflect.TypeFor[radio.Song](), map[string]gopter.Gen{
+		"ID":           genForType[radio.SongID](a),
+		"Length":       genDuration(),
+		"LastPlayed":   genTime(),
+		"LastPlayedBy": gen.PtrOf(genUser()),
+		"DatabaseTrack": gen.StructPtr(reflect.TypeFor[radio.DatabaseTrack](), map[string]gopter.Gen{
+			"Artist":   gen.AlphaString(),
+			"Title":    gen.AlphaString(),
+			"Album":    gen.AlphaString(),
+			"Tags":     gen.AlphaString(),
+			"FilePath": gen.AlphaString(),
+		}),
+	})
+
+	song := OneOff[radio.Song](generator)
+	song.Hydrate()
+	return song
+}
+
+func genForType[T any](a *arbitrary.Arbitraries) gopter.Gen {
+	return a.GenForType(reflect.TypeFor[T]())
+}
+
+func genDuration() gopter.Gen {
+	g := gen.Int64Range(0, int64(time.Hour*24))
+	return genAsType[int64, time.Duration](g)
+}
+
+func genAsType[F, T any](g gopter.Gen) gopter.Gen {
+	g = g.WithShrinker(nil)
+	return gopter.Gen(func(gp *gopter.GenParameters) *gopter.GenResult {
+		res := g(gp)
+		v := res.Result.(F)
+		vt := reflect.ValueOf(v).Convert(reflect.TypeFor[T]()).Interface()
+		return gopter.NewGenResult(vt, nil)
+	}).WithShrinker(nil)
 }

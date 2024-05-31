@@ -46,7 +46,7 @@ func TestPostSubmit(t *testing.T) {
 	}
 	storage.TrackFunc = func(contextMoqParam context.Context) radio.TrackStorage {
 		return &mocks.TrackStorageMock{
-			NeedReplacementFunc: func() ([]radio.TrackID, error) {
+			NeedReplacementFunc: func() ([]radio.Song, error) {
 				return nil, nil
 			},
 		}

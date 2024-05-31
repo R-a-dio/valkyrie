@@ -3878,7 +3878,7 @@ var _ radio.TrackStorage = &TrackStorageMock{}
 //			InsertFunc: func(song radio.Song) (radio.TrackID, error) {
 //				panic("mock out the Insert method")
 //			},
-//			NeedReplacementFunc: func() ([]radio.TrackID, error) {
+//			NeedReplacementFunc: func() ([]radio.Song, error) {
 //				panic("mock out the NeedReplacement method")
 //			},
 //			QueueCandidatesFunc: func() ([]radio.TrackID, error) {
@@ -3928,7 +3928,7 @@ type TrackStorageMock struct {
 	InsertFunc func(song radio.Song) (radio.TrackID, error)
 
 	// NeedReplacementFunc mocks the NeedReplacement method.
-	NeedReplacementFunc func() ([]radio.TrackID, error)
+	NeedReplacementFunc func() ([]radio.Song, error)
 
 	// QueueCandidatesFunc mocks the QueueCandidates method.
 	QueueCandidatesFunc func() ([]radio.TrackID, error)
@@ -4222,7 +4222,7 @@ func (mock *TrackStorageMock) InsertCalls() []struct {
 }
 
 // NeedReplacement calls NeedReplacementFunc.
-func (mock *TrackStorageMock) NeedReplacement() ([]radio.TrackID, error) {
+func (mock *TrackStorageMock) NeedReplacement() ([]radio.Song, error) {
 	if mock.NeedReplacementFunc == nil {
 		panic("TrackStorageMock.NeedReplacementFunc: method is nil but TrackStorage.NeedReplacement was just called")
 	}
