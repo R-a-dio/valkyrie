@@ -76,8 +76,6 @@ type Status struct {
 	Listeners Listeners
 	// Thread is an URL to a third-party platform related to the current stream
 	Thread string
-	// RequestsEnabled tells you if requests to the automated streamer are enabled
-	RequestsEnabled bool
 }
 
 func (s *Status) IsZero() bool {

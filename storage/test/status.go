@@ -28,10 +28,9 @@ func (suite *Suite) TestStatusStore(t *testing.T) {
 			Start: time.Date(2000, time.April, 1, 5, 6, 7, 8, time.UTC),
 			End:   time.Date(2010, time.February, 10, 15, 16, 17, 18, time.UTC),
 		},
-		Listeners:       900,
-		StreamerName:    "test",
-		Thread:          "a cool thread",
-		RequestsEnabled: true,
+		Listeners:    900,
+		StreamerName: "test",
+		Thread:       "a cool thread",
 	}
 
 	err := ss.Store(in)
@@ -46,7 +45,6 @@ func (suite *Suite) TestStatusStore(t *testing.T) {
 			assert.WithinDuration(t, in.SongInfo.End, out.SongInfo.End, time.Second) &&
 			assert.Equal(t, in.Listeners, out.Listeners) &&
 			assert.Equal(t, in.StreamerName, out.StreamerName) &&
-			assert.Equal(t, in.Thread, out.Thread) &&
-			assert.Equal(t, in.RequestsEnabled, out.RequestsEnabled)
+			assert.Equal(t, in.Thread, out.Thread)
 	})
 }

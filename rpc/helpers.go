@@ -57,13 +57,12 @@ func fromProtoStatus(s *StatusResponse) radio.Status {
 		user = *fromProtoUser(s.User)
 	}
 	return radio.Status{
-		User:            user,
-		Song:            fromProtoSong(s.Song),
-		SongInfo:        fromProtoSongInfo(s.Info),
-		Listeners:       s.ListenerInfo.Listeners,
-		Thread:          s.Thread,
-		RequestsEnabled: s.StreamerConfig.RequestsEnabled,
-		StreamerName:    s.StreamerName,
+		User:         user,
+		Song:         fromProtoSong(s.Song),
+		SongInfo:     fromProtoSongInfo(s.Info),
+		Listeners:    s.ListenerInfo.Listeners,
+		Thread:       s.Thread,
+		StreamerName: s.StreamerName,
 	}
 }
 
@@ -75,10 +74,7 @@ func toProtoStatus(s radio.Status) *StatusResponse {
 		ListenerInfo: &ListenerInfo{
 			Listeners: int64(s.Listeners),
 		},
-		Thread: s.Thread,
-		StreamerConfig: &StreamerConfig{
-			RequestsEnabled: s.RequestsEnabled,
-		},
+		Thread:       s.Thread,
 		StreamerName: s.StreamerName,
 	}
 }

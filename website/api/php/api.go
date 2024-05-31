@@ -297,11 +297,10 @@ func (a *API) getCanRequest(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	// all requests are disabled
-	if !status.RequestsEnabled {
+	if !radio.IsRobot(status.User) {
 		return
 	}
 
-	// TODO(wessie): check if this is the right identifier
 	identifier := r.RemoteAddr
 	userLastRequest, err := a.storage.Request(r.Context()).LastRequest(identifier)
 	if err != nil {
@@ -604,12 +603,8 @@ func (s *v0Status) createStatusJSON(ctx context.Context) (v0StatusJSON, error) {
 		LastSet:     now.Format("2006-01-02 15:04:05"),
 		TrackID:     trackID,
 		Thread:      thread,
-		// TODO(wessie): use RequestsEnabled again when it is implemented properly,
-		// right now nothing sets it and the streamer ignores the value too, only
-		// reading the configuration file instead
-		Requesting: ms.User.Username == "AFK",
-		// Requesting:  ms.RequestsEnabled,
-		DJName: dj.Name,
+		Requesting:  radio.IsRobot(ms.User),
+		DJName:      dj.Name,
 		DJ: v0StatusDJ{
 			ID:          int(dj.ID),
 			Name:        dj.Name,
