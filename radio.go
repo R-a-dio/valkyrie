@@ -970,6 +970,8 @@ type NewsStorage interface {
 	ListPublic(limit int64, offset int64) (NewsList, error)
 	// Comments returns all comments associated with the news post given
 	Comments(NewsPostID) ([]NewsComment, error)
+	// CommentsPublic returns all comments that were not deleted
+	CommentsPublic(NewsPostID) ([]NewsComment, error)
 }
 
 // NewsList contains multiple news posts and a total count of posts

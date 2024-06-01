@@ -142,3 +142,44 @@ func createDummyNewsPost(pre string) radio.NewsPost {
 		Private:   false,
 	}
 }
+
+func (suite *Suite) TestNewsComments(t *testing.T) {
+	s := suite.Storage(t)
+	ns := s.News(suite.ctx)
+
+	// non-existing news post, so should give us no comments
+	comments, err := ns.Comments(0)
+	require.NoError(t, err)
+	require.Len(t, comments, 0)
+}
+
+func (suite *Suite) TestNewsCommentsPublic(t *testing.T) {
+	s := suite.Storage(t)
+	ns := s.News(suite.ctx)
+
+	// non-existing news post, so should give us no comments
+	comments, err := ns.CommentsPublic(0)
+	require.NoError(t, err)
+	require.Len(t, comments, 0)
+	return
+}
+
+func (suite *Suite) TestNewsList(t *testing.T) {
+	s := suite.Storage(t)
+	ns := s.News(suite.ctx)
+
+	posts, err := ns.List(20, 0)
+	require.NoError(t, err)
+	require.Equal(t, posts.Total, 0)
+	require.Len(t, posts.Entries, 0)
+}
+
+func (suite *Suite) TestNewsListPublic(t *testing.T) {
+	s := suite.Storage(t)
+	ns := s.News(suite.ctx)
+
+	posts, err := ns.ListPublic(20, 0)
+	require.NoError(t, err)
+	require.Equal(t, posts.Total, 0)
+	require.Len(t, posts.Entries, 0)
+}

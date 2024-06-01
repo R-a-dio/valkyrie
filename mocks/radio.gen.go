@@ -5610,6 +5610,9 @@ var _ radio.NewsStorage = &NewsStorageMock{}
 //			CommentsFunc: func(newsPostID radio.NewsPostID) ([]radio.NewsComment, error) {
 //				panic("mock out the Comments method")
 //			},
+//			CommentsPublicFunc: func(newsPostID radio.NewsPostID) ([]radio.NewsComment, error) {
+//				panic("mock out the CommentsPublic method")
+//			},
 //			CreateFunc: func(newsPost radio.NewsPost) (radio.NewsPostID, error) {
 //				panic("mock out the Create method")
 //			},
@@ -5638,6 +5641,9 @@ type NewsStorageMock struct {
 	// CommentsFunc mocks the Comments method.
 	CommentsFunc func(newsPostID radio.NewsPostID) ([]radio.NewsComment, error)
 
+	// CommentsPublicFunc mocks the CommentsPublic method.
+	CommentsPublicFunc func(newsPostID radio.NewsPostID) ([]radio.NewsComment, error)
+
 	// CreateFunc mocks the Create method.
 	CreateFunc func(newsPost radio.NewsPost) (radio.NewsPostID, error)
 
@@ -5660,6 +5666,11 @@ type NewsStorageMock struct {
 	calls struct {
 		// Comments holds details about calls to the Comments method.
 		Comments []struct {
+			// NewsPostID is the newsPostID argument value.
+			NewsPostID radio.NewsPostID
+		}
+		// CommentsPublic holds details about calls to the CommentsPublic method.
+		CommentsPublic []struct {
 			// NewsPostID is the newsPostID argument value.
 			NewsPostID radio.NewsPostID
 		}
@@ -5698,13 +5709,14 @@ type NewsStorageMock struct {
 			NewsPost radio.NewsPost
 		}
 	}
-	lockComments   sync.RWMutex
-	lockCreate     sync.RWMutex
-	lockDelete     sync.RWMutex
-	lockGet        sync.RWMutex
-	lockList       sync.RWMutex
-	lockListPublic sync.RWMutex
-	lockUpdate     sync.RWMutex
+	lockComments       sync.RWMutex
+	lockCommentsPublic sync.RWMutex
+	lockCreate         sync.RWMutex
+	lockDelete         sync.RWMutex
+	lockGet            sync.RWMutex
+	lockList           sync.RWMutex
+	lockListPublic     sync.RWMutex
+	lockUpdate         sync.RWMutex
 }
 
 // Comments calls CommentsFunc.
@@ -5736,6 +5748,38 @@ func (mock *NewsStorageMock) CommentsCalls() []struct {
 	mock.lockComments.RLock()
 	calls = mock.calls.Comments
 	mock.lockComments.RUnlock()
+	return calls
+}
+
+// CommentsPublic calls CommentsPublicFunc.
+func (mock *NewsStorageMock) CommentsPublic(newsPostID radio.NewsPostID) ([]radio.NewsComment, error) {
+	if mock.CommentsPublicFunc == nil {
+		panic("NewsStorageMock.CommentsPublicFunc: method is nil but NewsStorage.CommentsPublic was just called")
+	}
+	callInfo := struct {
+		NewsPostID radio.NewsPostID
+	}{
+		NewsPostID: newsPostID,
+	}
+	mock.lockCommentsPublic.Lock()
+	mock.calls.CommentsPublic = append(mock.calls.CommentsPublic, callInfo)
+	mock.lockCommentsPublic.Unlock()
+	return mock.CommentsPublicFunc(newsPostID)
+}
+
+// CommentsPublicCalls gets all the calls that were made to CommentsPublic.
+// Check the length with:
+//
+//	len(mockedNewsStorage.CommentsPublicCalls())
+func (mock *NewsStorageMock) CommentsPublicCalls() []struct {
+	NewsPostID radio.NewsPostID
+} {
+	var calls []struct {
+		NewsPostID radio.NewsPostID
+	}
+	mock.lockCommentsPublic.RLock()
+	calls = mock.calls.CommentsPublic
+	mock.lockCommentsPublic.RUnlock()
 	return calls
 }
 
