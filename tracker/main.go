@@ -2,15 +2,15 @@ package tracker
 
 import (
 	"context"
-	"net"
+	"syscall"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
-	"github.com/R-a-dio/valkyrie/rpc"
+	"github.com/R-a-dio/valkyrie/util"
+	"github.com/Wessie/fdstore"
 	"github.com/rs/zerolog"
-	"google.golang.org/grpc"
 )
 
 const (
@@ -24,13 +24,10 @@ const (
 	RemoveStalePeriod   = time.Minute * 5
 )
 
-func NewGRPCServer(ctx context.Context, lts radio.ListenerTrackerService) *grpc.Server {
-	gs := rpc.NewGrpcServer(ctx)
-	rpc.RegisterListenerTrackerServer(gs, rpc.NewListenerTracker(lts))
-	return gs
-}
-
 func Execute(ctx context.Context, cfg config.Config) error {
+
+	fds := fdstore.NewStoreListenFDs()
+
 	// setup recorder
 	var recorder = NewRecorder(ctx, cfg)
 
@@ -39,27 +36,23 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	// setup periodic task to keep recorder state in sync with icecast
 	go PeriodicallySyncListeners(ctx, cfg, recorder, SyncListenersTickrate)
 
-	// setup the HTTP server that icecast will be poking
-	srv := NewServer(ctx, cfg.Conf().Tracker.ListenAddr.String(), recorder)
+	srv := NewServer(ctx, cfg)
 
-	// setup the GRPC server that the rest will be poking
-	grpcSrv := NewGRPCServer(ctx, recorder)
-	// and a listener for the GRPC server
-	ln, err := net.Listen("tcp", cfg.Conf().Tracker.RPCAddr.String())
-	if err != nil {
-		return err
-	}
-
-	errCh := make(chan error, 2)
+	errCh := make(chan error, 1)
 	go func() {
-		errCh <- grpcSrv.Serve(ln)
-	}()
-	go func() {
-		errCh <- srv.ListenAndServe()
+		errCh <- srv.Start(ctx, fds)
 	}()
 
 	select {
 	case <-ctx.Done():
+		return srv.Close()
+	case <-util.Signal(syscall.SIGUSR2):
+		if err := srv.storeSelf(ctx, fds); err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to store self")
+		}
+		if err := fds.Send(); err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to send store")
+		}
 		return srv.Close()
 	case err := <-errCh:
 		return err
