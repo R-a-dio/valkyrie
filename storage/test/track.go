@@ -315,7 +315,7 @@ func (suite *Suite) TestTrackDelete(t *testing.T) {
 	ts := s.Track(suite.ctx)
 
 	err := ts.Delete(1)
-	require.NoError(t, err)
+	Require(t, errors.SongUnknown, err)
 }
 
 func (suite *Suite) TestTrackQueueCandidates(t *testing.T) {
@@ -350,8 +350,7 @@ func (suite *Suite) TestTrackUpdateLastRequested(t *testing.T) {
 
 	// non-existant song, should error
 	err := ts.UpdateLastRequested(5)
-	require.NoError(t, err)
-	// TODO: this test should give an error back when the ID doesn't exist
+	Require(t, errors.SongUnknown, err)
 }
 
 func (suite *Suite) TestTrackUpdateLastPlayed(t *testing.T) {
@@ -360,8 +359,7 @@ func (suite *Suite) TestTrackUpdateLastPlayed(t *testing.T) {
 
 	// non-existant song, should error
 	err := ts.UpdateLastPlayed(5)
-	require.NoError(t, err)
-	// TODO: this test should give an error back when the ID doesn't exist
+	Require(t, errors.SongUnknown, err)
 }
 
 func (suite *Suite) TestTrackUpdateRequestInfo(t *testing.T) {
@@ -370,8 +368,7 @@ func (suite *Suite) TestTrackUpdateRequestInfo(t *testing.T) {
 
 	// non-existant song, should error
 	err := ts.UpdateRequestInfo(5)
-	require.NoError(t, err)
-	// TODO: this test should give an error back when the ID doesn't exist
+	Require(t, errors.SongUnknown, err)
 }
 
 func (suite *Suite) TestTrackUpdateUsable(t *testing.T) {
@@ -384,10 +381,19 @@ func (suite *Suite) TestTrackUpdateUsable(t *testing.T) {
 			TrackID: 5,
 		},
 	}, radio.TrackStateUnverified)
-	require.NoError(t, err)
-	// TODO: this test should give an error back when the ID doesn't exist
+	Require(t, errors.SongUnknown, err)
 
 	// should not like it if we give it an empty song
 	err = ts.UpdateUsable(radio.Song{}, radio.TrackStatePlayable)
-	require.True(t, errors.Is(errors.InvalidArgument, err), "error should be invalid argument %v", err)
+	Require(t, errors.InvalidArgument, err)
+}
+
+func Assert(t *testing.T, kind errors.Kind, err error) bool {
+	t.Helper()
+	return assert.True(t, errors.Is(kind, err), "error should be kind %s but is: %v", kind, err)
+}
+
+func Require(t *testing.T, kind errors.Kind, err error) {
+	t.Helper()
+	require.True(t, errors.Is(kind, err), "error should be kind %s but is: %v", kind, err)
 }

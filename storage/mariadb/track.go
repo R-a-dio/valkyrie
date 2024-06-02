@@ -917,11 +917,19 @@ func (ts TrackStorage) UpdateUsable(song radio.Song, state radio.TrackState) err
 		id=?;
 	`
 
-	_, err := handle.Exec(query, state, song.TrackID)
+	res, err := handle.Exec(query, state, song.TrackID)
 	if err != nil {
 		return errors.E(op, err)
 	}
-	return nil
+
+	n, err := res.RowsAffected()
+	if err != nil || n > 0 {
+		// either RowsAffected is not supported, or we had more than zero rows
+		// affected so we succeeded
+		return nil
+	}
+
+	return errors.E(op, errors.SongUnknown)
 }
 
 // UpdateRequestInfo updates the time the track given was last requested
@@ -937,11 +945,19 @@ func (ts TrackStorage) UpdateRequestInfo(id radio.TrackID) error {
 	var query = `UPDATE tracks SET lastrequested=NOW(),
 	requestcount=requestcount+2, priority=priority+1 WHERE id=?;`
 
-	_, err := handle.Exec(query, id)
+	res, err := handle.Exec(query, id)
 	if err != nil {
 		return errors.E(op, err)
 	}
-	return nil
+
+	n, err := res.RowsAffected()
+	if err != nil || n > 0 {
+		// either RowsAffected is not supported, or we had more than zero rows
+		// affected so we succeeded
+		return nil
+	}
+
+	return errors.E(op, errors.SongUnknown)
 }
 
 // UpdateLastPlayed implements radio.TrackStorage
@@ -952,11 +968,19 @@ func (ts TrackStorage) UpdateLastPlayed(id radio.TrackID) error {
 
 	var query = `UPDATE tracks SET lastplayed=NOW() WHERE id=?;`
 
-	_, err := handle.Exec(query, id)
+	res, err := handle.Exec(query, id)
 	if err != nil {
 		return errors.E(op, err)
 	}
-	return nil
+
+	n, err := res.RowsAffected()
+	if err != nil || n > 0 {
+		// either RowsAffected is not supported, or we had more than zero rows
+		// affected so we succeeded
+		return nil
+	}
+
+	return errors.E(op, errors.SongUnknown)
 }
 
 // UpdateLastRequested implements radio.TrackStorage
@@ -974,11 +998,19 @@ func (ts TrackStorage) UpdateLastRequested(id radio.TrackID) error {
 		id=?;
 	`
 
-	_, err := handle.Exec(query, id)
+	res, err := handle.Exec(query, id)
 	if err != nil {
 		return errors.E(op, err)
 	}
-	return nil
+
+	n, err := res.RowsAffected()
+	if err != nil || n > 0 {
+		// either RowsAffected is not supported, or we had more than zero rows
+		// affected so we succeeded
+		return nil
+	}
+
+	return errors.E(op, errors.SongUnknown)
 }
 
 var trackBeforeLastRequestedQuery = expand(`
@@ -1075,9 +1107,17 @@ func (ts TrackStorage) Delete(id radio.TrackID) error {
 
 	var query = `DELETE FROM tracks WHERE id=?`
 
-	_, err := handle.Exec(query, id)
+	res, err := handle.Exec(query, id)
 	if err != nil {
 		return errors.E(op, err)
 	}
-	return nil
+
+	n, err := res.RowsAffected()
+	if err != nil || n > 0 {
+		// either RowsAffected is not supported, or we had more than zero rows
+		// affected so we succeeded
+		return nil
+	}
+
+	return errors.E(op, errors.SongUnknown)
 }

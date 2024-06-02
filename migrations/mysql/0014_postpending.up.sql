@@ -1,5 +1,6 @@
 ALTER TABLE postpending MODIFY trackid INT UNSIGNED;
 ALTER TABLE postpending MODIFY meta TEXT;
+ALTER TABLE pending MODIFY replacement INT UNSIGNED;
 ALTER TABLE pending MODIFY artist TEXT;
 ALTER TABLE pending MODIFY album TEXT;
 ALTER TABLE pending MODIFY track TEXT;
