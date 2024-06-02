@@ -611,14 +611,26 @@ func (ss SongStorage) UpdateLength(song radio.Song, length time.Duration) error 
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
 
+	if song.ID == 0 {
+		return errors.E(op, errors.InvalidArgument)
+	}
+
 	var query = "UPDATE esong SET len=? WHERE id=?;"
 
 	len := int(length / time.Second)
-	_, err := handle.Exec(query, len, song.ID)
+	res, err := handle.Exec(query, len, song.ID)
 	if err != nil {
 		return errors.E(op, err)
 	}
-	return nil
+
+	n, err := res.RowsAffected()
+	if err != nil || n > 0 {
+		// either RowsAffected is not supported, or we had more than zero rows
+		// affected so we succeeded
+		return nil
+	}
+
+	return errors.E(op, errors.SongUnknown)
 }
 
 // TrackStorage implements radio.TrackStorage

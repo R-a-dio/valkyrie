@@ -34,6 +34,33 @@ func (suite *Suite) TestSongPlayedCount(t *testing.T) {
 	require.Zero(t, res)
 }
 
+func (suite *Suite) TestSongUpdateLength(t *testing.T) {
+	s := suite.Storage(t)
+	ss := s.Song(suite.ctx)
+
+	// invalid argument
+	err := ss.UpdateLength(radio.Song{}, time.Second*60)
+	Require(t, errors.InvalidArgument, err)
+
+	// non-existant argument
+	non := radio.NewSong("test-update-length")
+	non.ID = 5 // needs an ID
+	err = ss.UpdateLength(non, time.Second*60)
+	Require(t, errors.SongUnknown, err)
+
+	song, err := ss.Create(radio.NewSong("an actual song"))
+	require.NoError(t, err)
+	require.Zero(t, song.Length)
+
+	// update it to be a minute
+	err = ss.UpdateLength(*song, time.Minute)
+	require.NoError(t, err)
+	// retrieve song from storage again, should now have the new length
+	new, err := ss.FromHash(song.Hash)
+	require.NoError(t, err)
+	require.Equal(t, time.Minute, new.Length)
+}
+
 func (suite *Suite) TestSongCreateAndRetrieve(t *testing.T) {
 	ss := suite.Storage(t).Song(suite.ctx)
 
@@ -404,6 +431,26 @@ func (suite *Suite) TestTrackUpdateUsable(t *testing.T) {
 	// should not like it if we give it an empty song
 	err = ts.UpdateUsable(radio.Song{}, radio.TrackStatePlayable)
 	Require(t, errors.InvalidArgument, err)
+}
+
+func (suite *Suite) TestTrackAll(t *testing.T) {
+	s := suite.Storage(t)
+	ts := s.Track(suite.ctx)
+
+	// should have no songs
+	res, err := ts.All()
+	require.NoError(t, err)
+	require.Len(t, res, 0)
+}
+
+func (suite *Suite) TestTrackUnusable(t *testing.T) {
+	s := suite.Storage(t)
+	ts := s.Track(suite.ctx)
+
+	// should have no songs
+	res, err := ts.Unusable()
+	require.NoError(t, err)
+	require.Len(t, res, 0)
 }
 
 func Assert(t *testing.T, kind errors.Kind, err error) bool {
