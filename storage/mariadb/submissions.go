@@ -303,6 +303,9 @@ func (ss SubmissionStorage) GetSubmission(id radio.SubmissionID) (*radio.Pending
 	var song radio.PendingSong
 	err := sqlx.Get(handle, &song, query, id)
 	if err != nil {
+		if errors.IsE(err, sql.ErrNoRows) {
+			return nil, errors.E(op, errors.SubmissionUnknown)
+		}
 		return nil, errors.E(op, err)
 	}
 	return &song, nil

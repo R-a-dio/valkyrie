@@ -1182,7 +1182,7 @@ type PendingSong struct {
 	// ReplacementID is the TrackID that this upload will replace
 	ReplacementID *TrackID
 	// Bitrate of the file
-	Bitrate int
+	Bitrate uint
 	// Length of the song
 	Length time.Duration
 	// Format of the song
