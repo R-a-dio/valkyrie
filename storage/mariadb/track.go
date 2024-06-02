@@ -904,6 +904,10 @@ func (ts TrackStorage) UpdateUsable(song radio.Song, state radio.TrackState) err
 	handle, deferFn := ts.handle.span(op)
 	defer deferFn()
 
+	if !song.HasTrack() {
+		return errors.E(op, errors.InvalidArgument)
+	}
+
 	var query = `
 	UPDATE
 		tracks
@@ -913,7 +917,7 @@ func (ts TrackStorage) UpdateUsable(song radio.Song, state radio.TrackState) err
 		id=?;
 	`
 
-	_, err := handle.Exec(query, state, song.ID)
+	_, err := handle.Exec(query, state, song.TrackID)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -988,7 +992,7 @@ FROM
 LEFT JOIN
 	esong ON tracks.hash = esong.hash
 WHERE
-	track.lastrequested < ?
+	tracks.lastrequested < ?
 AND
 	requestcount > 0;
 `)

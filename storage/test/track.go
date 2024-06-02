@@ -8,6 +8,7 @@ import (
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/arbitrary"
 	"github.com/leanovate/gopter/gen"
@@ -307,4 +308,86 @@ func genAsType[F, T any](g gopter.Gen) gopter.Gen {
 		vt := reflect.ValueOf(v).Convert(reflect.TypeFor[T]()).Interface()
 		return gopter.NewGenResult(vt, nil)
 	}).WithShrinker(nil)
+}
+
+func (suite *Suite) TestTrackDelete(t *testing.T) {
+	s := suite.Storage(t)
+	ts := s.Track(suite.ctx)
+
+	err := ts.Delete(1)
+	require.NoError(t, err)
+}
+
+func (suite *Suite) TestTrackQueueCandidates(t *testing.T) {
+	s := suite.Storage(t)
+	ts := s.Track(suite.ctx)
+
+	res, err := ts.QueueCandidates()
+	require.NoError(t, err)
+	require.Len(t, res, 0)
+}
+
+func (suite *Suite) TestTrackDecrementRequestCount(t *testing.T) {
+	s := suite.Storage(t)
+	ts := s.Track(suite.ctx)
+
+	err := ts.DecrementRequestCount(time.Now())
+	require.NoError(t, err)
+}
+
+func (suite *Suite) TestTrackBeforeLastRequested(t *testing.T) {
+	s := suite.Storage(t)
+	ts := s.Track(suite.ctx)
+
+	res, err := ts.BeforeLastRequested(time.Now())
+	require.NoError(t, err)
+	require.Len(t, res, 0)
+}
+
+func (suite *Suite) TestTrackUpdateLastRequested(t *testing.T) {
+	s := suite.Storage(t)
+	ts := s.Track(suite.ctx)
+
+	// non-existant song, should error
+	err := ts.UpdateLastRequested(5)
+	require.NoError(t, err)
+	// TODO: this test should give an error back when the ID doesn't exist
+}
+
+func (suite *Suite) TestTrackUpdateLastPlayed(t *testing.T) {
+	s := suite.Storage(t)
+	ts := s.Track(suite.ctx)
+
+	// non-existant song, should error
+	err := ts.UpdateLastPlayed(5)
+	require.NoError(t, err)
+	// TODO: this test should give an error back when the ID doesn't exist
+}
+
+func (suite *Suite) TestTrackUpdateRequestInfo(t *testing.T) {
+	s := suite.Storage(t)
+	ts := s.Track(suite.ctx)
+
+	// non-existant song, should error
+	err := ts.UpdateRequestInfo(5)
+	require.NoError(t, err)
+	// TODO: this test should give an error back when the ID doesn't exist
+}
+
+func (suite *Suite) TestTrackUpdateUsable(t *testing.T) {
+	s := suite.Storage(t)
+	ts := s.Track(suite.ctx)
+
+	// non-existant song, should error
+	err := ts.UpdateUsable(radio.Song{
+		DatabaseTrack: &radio.DatabaseTrack{
+			TrackID: 5,
+		},
+	}, radio.TrackStateUnverified)
+	require.NoError(t, err)
+	// TODO: this test should give an error back when the ID doesn't exist
+
+	// should not like it if we give it an empty song
+	err = ts.UpdateUsable(radio.Song{}, radio.TrackStatePlayable)
+	require.True(t, errors.Is(errors.InvalidArgument, err), "error should be invalid argument %v", err)
 }
