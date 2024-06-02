@@ -22,6 +22,7 @@ func expand(query string) string {
 	query = strings.ReplaceAll(query, "{songColumns}", songColumns)
 	query = strings.ReplaceAll(query, "{maybeSongColumns}", maybeSongColumns)
 	query = strings.ReplaceAll(query, "{lastplayedSelect}", lastplayedSelect)
+	query = strings.ReplaceAll(query, "{newsColumns}", newsColumns)
 	if orig == query {
 		panic("expand called but nothing was expanded")
 	}
