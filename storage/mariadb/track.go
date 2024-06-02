@@ -45,7 +45,7 @@ const trackColumns = `
 `
 
 const maybeTrackColumns = `
-	COALESCE(tracks.id, 0) AS trackid,
+	COALESCE(tracks.id, CAST(0 AS UNSIGNED INT)) AS trackid,
 	COALESCE(tracks.artist, '') AS artist,
 	COALESCE(tracks.track, '') AS title,
 	COALESCE(tracks.album, '') AS album,
@@ -69,11 +69,11 @@ const songColumns = `
 `
 
 const maybeSongColumns = `
-	COALESCE(esong.id, 0) AS id,
+	COALESCE(esong.id, CAST(0 AS UNSIGNED INT)) AS id,
 	COALESCE(esong.meta, '') AS metadata,
 	COALESCE(esong.hash, '') AS hash,
 	COALESCE(esong.hash_link, '') AS hashlink,
-	COALESCE(to_go_duration(esong.len), 0) AS length
+	COALESCE(to_go_duration(esong.len), CAST(0 AS UNSIGNED INT)) AS length
 `
 
 const lastplayedSelect = `

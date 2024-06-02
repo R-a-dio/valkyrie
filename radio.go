@@ -476,11 +476,22 @@ func (s *SongID) Scan(src any) error {
 	if src == nil {
 		return nil
 	}
-	if i, ok := src.(int64); ok {
-		*s = SongID(i)
+
+	var err error
+	switch v := src.(type) {
+	case int64:
+		*s = SongID(v)
+	case uint64: // mysql driver sometimes gives you this
+		*s = SongID(v)
+	case float64:
+		*s = SongID(v)
+	case []byte: // decimals
+		*s, err = ParseSongID(string(v))
+	case string:
+		*s, err = ParseSongID(v)
 	}
 
-	return nil
+	return err
 }
 
 func (s SongID) String() string {
