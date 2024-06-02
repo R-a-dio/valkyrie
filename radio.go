@@ -91,10 +91,10 @@ func (s *Status) IsZero() bool {
 }
 
 // UserID is an identifier corresponding to an user
-type UserID int32
+type UserID uint32
 
 func ParseUserID(s string) (UserID, error) {
-	id, err := strconv.ParseInt(s, 10, 32)
+	id, err := strconv.ParseUint(s, 10, 32)
 	if err != nil {
 		return 0, err
 	}
@@ -102,7 +102,7 @@ func ParseUserID(s string) (UserID, error) {
 }
 
 func (id UserID) String() string {
-	return strconv.FormatInt(int64(id), 10)
+	return strconv.FormatUint(uint64(id), 10)
 }
 
 // UserPermission is a permission for user authorization
@@ -261,10 +261,10 @@ func GenerateHashFromPassword(passwd string) (string, error) {
 }
 
 // DJID is an identifier corresponding to a dj
-type DJID uint64
+type DJID int32
 
 func ParseDJID(s string) (DJID, error) {
-	id, err := strconv.ParseUint(s, 10, 64)
+	id, err := strconv.ParseInt(s, 10, 32)
 	if err != nil {
 		return 0, err
 	}
@@ -272,7 +272,7 @@ func ParseDJID(s string) (DJID, error) {
 }
 
 func (id DJID) String() string {
-	return strconv.FormatUint(uint64(id), 10)
+	return strconv.FormatInt(int64(id), 10)
 }
 
 // DJ is someone that has access to streaming
@@ -302,7 +302,7 @@ const (
 )
 
 // ThemeID is the identifier of a website theme
-type ThemeID uint64
+type ThemeID uint32
 
 // Theme is a website theme
 type Theme struct {
@@ -459,10 +459,10 @@ type AnnounceService interface {
 }
 
 // SongID is a songs identifier
-type SongID uint64
+type SongID uint32
 
 func ParseSongID(s string) (SongID, error) {
-	id, err := strconv.ParseUint(s, 10, 64)
+	id, err := strconv.ParseUint(s, 10, 32)
 	if err != nil {
 		return 0, err
 	}
@@ -582,10 +582,10 @@ func (s Song) EqualTo(d Song) bool {
 }
 
 // TrackID is a database track identifier
-type TrackID uint64
+type TrackID uint32
 
 func ParseTrackID(s string) (TrackID, error) {
-	id, err := strconv.ParseUint(s, 10, 64)
+	id, err := strconv.ParseUint(s, 10, 32)
 	if err != nil {
 		return 0, err
 	}
@@ -981,14 +981,14 @@ type NewsList struct {
 }
 
 // NewsPostID is an identifier for a news post
-type NewsPostID uint64
+type NewsPostID uint32
 
 func (id NewsPostID) String() string {
 	return strconv.FormatUint(uint64(id), 10)
 }
 
 func ParseNewsPostID(s string) (NewsPostID, error) {
-	id, err := strconv.ParseUint(s, 10, 64)
+	id, err := strconv.ParseUint(s, 10, 32)
 	if err != nil {
 		return 0, err
 	}
@@ -1028,14 +1028,14 @@ func (np NewsPost) HasRequired() (string, bool) {
 }
 
 // NewsCommentID is an identifier for a news comment
-type NewsCommentID uint64
+type NewsCommentID uint32
 
 func (id NewsCommentID) String() string {
 	return strconv.FormatUint(uint64(id), 10)
 }
 
 func ParseNewsCommentID(s string) (NewsCommentID, error) {
-	id, err := strconv.ParseUint(s, 10, 64)
+	id, err := strconv.ParseUint(s, 10, 32)
 	if err != nil {
 		return 0, err
 	}
@@ -1115,14 +1115,14 @@ type SubmissionStats struct {
 }
 
 // SubmissionID is the ID of a pending song
-type SubmissionID uint64
+type SubmissionID uint32
 
 func (id SubmissionID) String() string {
 	return strconv.FormatUint(uint64(id), 10)
 }
 
 func ParseSubmissionID(s string) (SubmissionID, error) {
-	id, err := strconv.ParseUint(s, 10, 64)
+	id, err := strconv.ParseUint(s, 10, 32)
 	if err != nil {
 		return 0, err
 	}
@@ -1191,14 +1191,14 @@ func (p PendingSong) Metadata() string {
 	return Metadata(p.Artist, p.Title)
 }
 
-type PostPendingID int64
+type PostPendingID int32
 
 func (id PostPendingID) String() string {
 	return strconv.FormatInt(int64(id), 10)
 }
 
 func ParsePostPendingID(s string) (PostPendingID, error) {
-	id, err := strconv.ParseInt(s, 10, 64)
+	id, err := strconv.ParseInt(s, 10, 32)
 	if err != nil {
 		return 0, err
 	}
@@ -1259,7 +1259,7 @@ type ScheduleStorage interface {
 	History(day ScheduleDay, limit, offset int64) ([]ScheduleEntry, error)
 }
 
-type ScheduleID uint64
+type ScheduleID uint32
 
 type ScheduleDay uint8
 
