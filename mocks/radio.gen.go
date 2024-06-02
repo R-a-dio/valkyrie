@@ -1391,6 +1391,9 @@ var _ radio.StorageService = &StorageServiceMock{}
 //
 //		// make and configure a mocked radio.StorageService
 //		mockedStorageService := &StorageServiceMock{
+//			CloseFunc: func() error {
+//				panic("mock out the Close method")
+//			},
 //			NewsFunc: func(contextMoqParam context.Context) radio.NewsStorage {
 //				panic("mock out the News method")
 //			},
@@ -1461,6 +1464,9 @@ var _ radio.StorageService = &StorageServiceMock{}
 //
 //	}
 type StorageServiceMock struct {
+	// CloseFunc mocks the Close method.
+	CloseFunc func() error
+
 	// NewsFunc mocks the News method.
 	NewsFunc func(contextMoqParam context.Context) radio.NewsStorage
 
@@ -1526,6 +1532,9 @@ type StorageServiceMock struct {
 
 	// calls tracks calls to the methods.
 	calls struct {
+		// Close holds details about calls to the Close method.
+		Close []struct {
+		}
 		// News holds details about calls to the News method.
 		News []struct {
 			// ContextMoqParam is the contextMoqParam argument value.
@@ -1652,6 +1661,7 @@ type StorageServiceMock struct {
 			StorageTx radio.StorageTx
 		}
 	}
+	lockClose         sync.RWMutex
 	lockNews          sync.RWMutex
 	lockNewsTx        sync.RWMutex
 	lockQueue         sync.RWMutex
@@ -1673,6 +1683,33 @@ type StorageServiceMock struct {
 	lockTrackTx       sync.RWMutex
 	lockUser          sync.RWMutex
 	lockUserTx        sync.RWMutex
+}
+
+// Close calls CloseFunc.
+func (mock *StorageServiceMock) Close() error {
+	if mock.CloseFunc == nil {
+		panic("StorageServiceMock.CloseFunc: method is nil but StorageService.Close was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockClose.Lock()
+	mock.calls.Close = append(mock.calls.Close, callInfo)
+	mock.lockClose.Unlock()
+	return mock.CloseFunc()
+}
+
+// CloseCalls gets all the calls that were made to Close.
+// Check the length with:
+//
+//	len(mockedStorageService.CloseCalls())
+func (mock *StorageServiceMock) CloseCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockClose.RLock()
+	calls = mock.calls.Close
+	mock.lockClose.RUnlock()
+	return calls
 }
 
 // News calls NewsFunc.

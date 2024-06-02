@@ -27,6 +27,7 @@ type partialStorage interface {
 	radio.SubmissionStorageService
 	radio.NewsStorageService
 	radio.ScheduleStorageService
+	Close() error // TODO: add Close to SearchService as well
 }
 
 type storageService struct {

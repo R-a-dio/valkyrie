@@ -755,6 +755,8 @@ type StorageService interface {
 	SubmissionStorageService
 	NewsStorageService
 	ScheduleStorageService
+	// Close closes the storage service and cleans up any resources
+	Close() error
 }
 
 // SessionStorageService is a service that supplies a SessionStorage
