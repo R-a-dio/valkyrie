@@ -48,6 +48,7 @@ func RunTests(t *testing.T, s TestSetup) {
 					t.Error("failed test setup:", err)
 					return
 				}
+				defer suite.AfterTest(t.Name())
 
 				fn(t)
 			})
@@ -104,6 +105,15 @@ func (suite *Suite) BeforeTest(testName string) error {
 	suite.storageMu.Lock()
 	suite.storageMap[testName] = s
 	suite.storageMu.Unlock()
+	return nil
+}
+
+func (suite *Suite) AfterTest(testName string) error {
+	suite.storageMu.Lock()
+	defer suite.storageMu.Unlock()
+	if s, ok := suite.storageMap[testName]; ok {
+		return s.Close()
+	}
 	return nil
 }
 

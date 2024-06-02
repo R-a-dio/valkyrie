@@ -267,6 +267,10 @@ func (ss SongStorage) PlayedCount(song radio.Song) (int64, error) {
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
 
+	if song.HashLink.IsZero() {
+		return 0, errors.E(op, errors.InvalidArgument)
+	}
+
 	var query = `
 		SELECT
 			count(*)
@@ -281,6 +285,9 @@ func (ss SongStorage) PlayedCount(song radio.Song) (int64, error) {
 
 	err := sqlx.Get(handle, &playedCount, query, song.HashLink)
 	if err != nil {
+		if errors.IsE(err, sql.ErrNoRows) {
+			return 0, errors.E(op, errors.SongUnknown) // TODO: implement this
+		}
 		return 0, errors.E(op, err)
 	}
 	return playedCount, nil
@@ -588,7 +595,7 @@ func (ss SongStorage) RemoveFavorite(song radio.Song, nick string) (bool, error)
 	}
 
 	// we decrease a search priority when a song gets unfavorited
-	if n > 0 && song.DatabaseTrack != nil && song.TrackID != 0 {
+	if n > 0 && song.HasTrack() {
 		query = `UPDATE tracks SET priority=priority-? WHERE id=?`
 		_, err = handle.Exec(query, FavePriorityIncrement, song.TrackID)
 		if err != nil {

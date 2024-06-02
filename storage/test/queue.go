@@ -57,7 +57,7 @@ func (suite *Suite) TestQueueStoreAndLoad(t *testing.T) {
 		entry.TrackID = tid // replace the ID with what the storage gave us back
 		queue[i] = entry
 	}
-	t.Log(queue)
+
 	err := qs.Store("test", queue)
 	require.NoError(t, err)
 

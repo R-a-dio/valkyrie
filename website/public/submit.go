@@ -252,7 +252,7 @@ func PendingFromProbe(filename string) (*radio.PendingSong, error) {
 		Album:       info.Album,
 		SubmittedAt: time.Now(),
 		Format:      info.FormatName,
-		Bitrate:     info.Bitrate,
+		Bitrate:     uint(info.Bitrate),
 		Length:      info.Duration,
 	}
 

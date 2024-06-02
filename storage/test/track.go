@@ -16,6 +16,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func (suite *Suite) TestSongPlayedCount(t *testing.T) {
+	s := suite.Storage(t)
+	ss := s.Song(suite.ctx)
+
+	// invalid argument
+	res, err := ss.PlayedCount(radio.Song{})
+	Require(t, errors.InvalidArgument, err)
+	require.Zero(t, res)
+
+	// non-existant argument
+	res, err = ss.PlayedCount(radio.NewSong("played-count-test"))
+	// TODO: fix this, we currently can't tell the difference in the
+	// current mariadb implementation
+	//Require(t, errors.SongUnknown, err)
+	require.NoError(t, err)
+	require.Zero(t, res)
+}
+
 func (suite *Suite) TestSongCreateAndRetrieve(t *testing.T) {
 	ss := suite.Storage(t).Song(suite.ctx)
 
