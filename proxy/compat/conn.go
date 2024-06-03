@@ -22,6 +22,7 @@ const maxReadSize = 1024
 var newLine = []byte{'\n'}
 var iceLine = []byte("ICE/1.0")
 var httpLine = []byte("HTTP/1.0")
+var httpLinePrefix = []byte("HTTP/1.")
 
 var _ net.Listener = new(Listener)
 var _ net.Conn = new(Conn)
@@ -72,29 +73,52 @@ type Conn struct {
 }
 
 func (c *Conn) Read(b []byte) (n int, err error) {
-	// if we already have a multireader present use that
+	// fast path, we've already read more than the max, just pass to
+	// the connection directly
 	if c.multi != nil {
 		return c.multi.Read(b)
+	}
+
+	if len(b) == 0 {
+		return 0, nil
 	}
 
 	n, err = c.Conn.Read(b)
 	if err != nil {
 		return n, err
 	}
-
-	// fast path, we already read more than our maximum allowed
-	// or have a newline already, do our replacement and continue
 	old := b[:n]
-	if n > maxReadSize || bytes.Contains(old, newLine) {
+
+	// the thing we're interested in is always on the first line
+	if bytes.Contains(old, newLine) {
+		// so if we found a newline, we can do our replacement and return
 		new := bytes.Replace(old, iceLine, httpLine, 1)
 		if len(new) > len(old) && c.logger != nil {
+			// log when this happens so we know someone is using an old client
 			c.logger.Info().Str("address", c.RemoteAddr().String()).Msg("ICE/1.0")
 		}
 
 		c.multi = MultiReader(bytes.NewReader(new), c.Conn)
+		return c.multi.Read(b)
 	}
 
-	return c.multi.Read(b)
+	// we haven't found a newline yet, we now have two more conditions we can check to
+	// see if we are done with replacing or still need to keep looking.
+	// 		#1 is that we reached our maxReadSize
+	// 		#2 is that we have encountered a HTTP/1.0 or HTTP/1.1
+	if n > maxReadSize || bytes.Contains(old, httpLinePrefix) {
+		// this we will assume is just a non-ice request so pass it along
+		c.multi = c.Conn
+		return n, nil
+	}
+
+	// otherwise, we don't have a newline, haven't read maxReadSize bytes yet and haven't
+	// encountered a HTTP/1.0 or HTTP/1.1 yet; We could implement extra stuff here to
+	// handle this case, but it should be virtually non-existant for proper behaving
+	// clients. So just log that this occured and assume it's a non-ICE request
+	c.logger.Error().Str("address", c.RemoteAddr().String()).Msg("rare compat")
+	c.multi = c.Conn
+	return n, nil
 }
 
 func (c *Conn) Close() error {
