@@ -115,6 +115,9 @@ func (ss SongStorage) Create(song radio.Song) (*radio.Song, error) {
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
 
+	if song.Metadata == "" {
+		return nil, errors.E(op, errors.InvalidArgument)
+	}
 	// call hydrate for the caller, should basically be a no-op anyway
 	song.Hydrate()
 
@@ -135,6 +138,10 @@ func (ss SongStorage) FromMetadata(metadata string) (*radio.Song, error) {
 	const op errors.Op = "mariadb/SongStorage.FromMetadata"
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
+
+	if metadata == "" {
+		return nil, errors.E(op, errors.InvalidArgument)
+	}
 
 	song, err := SongStorage{handle}.FromHash(radio.NewSongHash(metadata))
 	if err != nil {
@@ -163,6 +170,10 @@ func (ss SongStorage) FromHash(hash radio.SongHash) (*radio.Song, error) {
 	const op errors.Op = "mariadb/SongStorage.FromHash"
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
+
+	if hash.IsZero() {
+		return nil, errors.E(op, errors.InvalidArgument)
+	}
 
 	var song radio.Song
 
@@ -307,6 +318,10 @@ func (ss SongStorage) AddPlay(song radio.Song, user radio.User, ldiff *radio.Lis
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
 
+	if song.ID == 0 || user.DJ.ID == 0 {
+		return errors.E(op, errors.InvalidArgument)
+	}
+
 	var query = `INSERT INTO eplay (isong, djs_id, ldiff) VALUES (?, ?, ?);`
 
 	_, err := handle.Exec(query, song.ID, user.DJ.ID, ldiff)
@@ -382,6 +397,10 @@ func (ss SongStorage) UpdateHashLink(old, new radio.SongHash) error {
 	const op errors.Op = "mariadb/SongStorage.UpdateHashLink"
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
+
+	if old.IsZero() || new.IsZero() {
+		return errors.E(op, errors.InvalidArgument)
+	}
 
 	var query = `UPDATE esong SET hash_link=? WHERE hash=?;`
 
@@ -462,6 +481,10 @@ func (ss SongStorage) FavoritesOf(nick string, limit, offset int64) ([]radio.Son
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
 
+	if nick == "" {
+		return nil, 0, errors.E(op, errors.InvalidArgument)
+	}
+
 	var songs = []radio.Song{}
 	var count int64
 
@@ -490,6 +513,10 @@ func (ss SongStorage) FavoritesOfDatabase(nick string) ([]radio.Song, error) {
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
 
+	if nick == "" {
+		return nil, errors.E(op, errors.InvalidArgument)
+	}
+
 	var songs = []radio.Song{}
 
 	err := sqlx.Select(handle, &songs, songFavoritesOfDatabaseOnlyQuery, nick)
@@ -505,6 +532,10 @@ func (ss SongStorage) AddFavorite(song radio.Song, nick string) (bool, error) {
 	const op errors.Op = "mariadb/SongStorage.AddFavorite"
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
+
+	if song.HashLink.IsZero() || nick == "" {
+		return false, errors.E(op, errors.InvalidArgument)
+	}
 
 	var query = `
 	SELECT
