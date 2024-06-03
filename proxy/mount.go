@@ -14,7 +14,6 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/streamer/icecast"
 	"github.com/R-a-dio/valkyrie/util"
-	"github.com/R-a-dio/valkyrie/util/graceful"
 	"github.com/cenkalti/backoff"
 	"github.com/rs/zerolog"
 )
@@ -313,8 +312,6 @@ func (m *Mount) RunMountSourceClient(ctx context.Context, msc *MountSourceClient
 
 	// the last time we send metadata
 	lastMetadata := time.Time{}
-
-	<-graceful.Sync(ctx)
 
 	for {
 		// set a deadline so we don't keep bad clients around
