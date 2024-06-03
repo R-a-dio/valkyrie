@@ -36,6 +36,11 @@ func Listen(logger *zerolog.Logger, network, address string) (net.Listener, erro
 	return &Listener{logger, l}, nil
 }
 
+// Wrap returns a *compat.Listener wrapping the listener given
+func Wrap(logger *zerolog.Logger, ln net.Listener) net.Listener {
+	return &Listener{logger, ln}
+}
+
 // Accept accepts the next connection but returns a net.Conn that has been
 // wrapped to scan for ICE/1.0 in the HTTP request line and replaces it
 // with a HTTP/1.0 instance.

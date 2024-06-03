@@ -11,6 +11,7 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/R-a-dio/valkyrie/proxy/compat"
 	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/website"
 	"github.com/R-a-dio/valkyrie/website/middleware"
@@ -108,6 +109,7 @@ func (srv *Server) Start(ctx context.Context, fdstorage *fdstore.Store) error {
 	if err != nil {
 		return err
 	}
+	ln = compat.Wrap(logger, ln)
 
 	if len(state) > 0 {
 		err = json.Unmarshal(state, srv.proxy)
