@@ -173,6 +173,9 @@ func (m *Manager) runStatusUpdates(ctx context.Context) {
 	var listenerCount radio.Listeners
 	var songStartListenerCount radio.Listeners
 
+	// indicates if this is the first song, we don't want to call finishSong
+	// on the initial song until an actual song change occurs afterwards
+	var firstSong = true
 	for {
 		var sendStatus = true
 		var songUpdate = false
@@ -191,8 +194,14 @@ func (m *Manager) runStatusUpdates(ctx context.Context) {
 		m.mu.Lock()
 		// if we're about to update the song, we need to do some bookkeeping on
 		// the previous song
-		if err := m.finishSong(ctx, m.status, songStartListenerCount); err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed finishSong")
+		if songUpdate {
+			if !firstSong { // don't finish the initial song
+				if err := m.finishSong(ctx, m.status, songStartListenerCount); err != nil {
+					zerolog.Ctx(ctx).Error().Err(err).Msg("failed finishSong")
+				}
+			} else {
+				firstSong = false
+			}
 		}
 
 		// update user

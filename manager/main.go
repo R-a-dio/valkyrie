@@ -18,7 +18,12 @@ import (
 // Execute executes a manager with the context and configuration given; it returns with
 // any error that occurs; Execution can be interrupted by canceling the context given.
 func Execute(ctx context.Context, cfg config.Config) error {
-	m, err := NewManager(ctx, cfg)
+	store, err := storage.Open(ctx, cfg)
+	if err != nil {
+		return err
+	}
+
+	m, err := NewManager(ctx, store)
 	if err != nil {
 		return err
 	}
@@ -52,14 +57,8 @@ func Execute(ctx context.Context, cfg config.Config) error {
 }
 
 // NewManager returns a manager ready for use
-func NewManager(ctx context.Context, cfg config.Config) (*Manager, error) {
-	store, err := storage.Open(ctx, cfg)
-	if err != nil {
-		return nil, err
-	}
-
+func NewManager(ctx context.Context, store radio.StorageService) (*Manager, error) {
 	m := Manager{
-		Config:  cfg,
 		logger:  zerolog.Ctx(ctx),
 		Storage: store,
 		status:  radio.Status{},
@@ -86,7 +85,6 @@ func NewManager(ctx context.Context, cfg config.Config) (*Manager, error) {
 
 // Manager manages shared state between different processes
 type Manager struct {
-	config.Config
 	logger *zerolog.Logger
 
 	Storage radio.StorageService
