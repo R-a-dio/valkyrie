@@ -199,13 +199,3 @@ func GetMountpoint(r *http.Request) string {
 	}
 	return strings.ToLower(r.URL.Path)
 }
-
-func GetAudioFormat(r *http.Request) string {
-	switch r.Header.Get("Content-Type") {
-	case "audio/mpeg":
-		return "MP3"
-	case "audio/ogg", "application/ogg":
-		return "OGG"
-	}
-	return ""
-}
