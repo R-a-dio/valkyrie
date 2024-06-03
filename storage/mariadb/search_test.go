@@ -89,8 +89,7 @@ func FuzzProcessQuery(f *testing.F) {
 	require.NoError(f, err)
 	defer setup.TearDown(ctx)
 
-	s, err := setup.CreateStorage(ctx, "FuzzProcessQuery")
-	require.NoError(f, err)
+	s := setup.CreateStorage(ctx)
 
 	ss := s.(interface {
 		Search() radio.SearchService

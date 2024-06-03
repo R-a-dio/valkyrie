@@ -11,9 +11,17 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// FavePriorityIncrement is the amount we increase/decrease priority by
-// on a track when it gets favorited/unfavorited
-const FavePriorityIncrement = 1
+const (
+	// FavePriorityIncrement is the amount we increase/decrease priority by
+	// on a track when it gets favorited/unfavorited
+	FavePriorityIncrement = 1
+	// RequestPriorityIncremenet is the amount we increase priority by when
+	// a track gets requested
+	RequestPriorityIncrement = 1
+	// RequestCountIncrement is the amount we increase requestcount by when
+	// a track gets requested
+	RequestCountIncrement = 2
+)
 
 func expand(query string) string {
 	var orig = query
@@ -314,6 +322,10 @@ func (ss SongStorage) FavoriteCount(song radio.Song) (int64, error) {
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
 
+	if song.HashLink.IsZero() {
+		return 0, errors.E(op, errors.InvalidArgument)
+	}
+
 	var query = `
 		SELECT
 			count(*)
@@ -338,6 +350,10 @@ func (ss SongStorage) Favorites(song radio.Song) ([]string, error) {
 	const op errors.Op = "mariadb/SongStorage.Favorites"
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
+
+	if song.HashLink.IsZero() {
+		return nil, errors.E(op, errors.InvalidArgument)
+	}
 
 	var query = `
 	SELECT DISTINCT
@@ -960,11 +976,10 @@ func (ts TrackStorage) UpdateRequestInfo(id radio.TrackID) error {
 	handle, deferFn := ts.handle.span(op)
 	defer deferFn()
 
-	// TODO(wessie): don't hardcode requestcount and priority
 	var query = `UPDATE tracks SET lastrequested=NOW(),
-	requestcount=requestcount+2, priority=priority+1 WHERE id=?;`
+	requestcount=requestcount+?, priority=priority+? WHERE id=?;`
 
-	res, err := handle.Exec(query, id)
+	res, err := handle.Exec(query, RequestCountIncrement, RequestPriorityIncrement, id)
 	if err != nil {
 		return errors.E(op, err)
 	}

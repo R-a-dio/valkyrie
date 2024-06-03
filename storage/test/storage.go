@@ -13,25 +13,27 @@ import (
 
 type TestSetup interface {
 	Setup(context.Context) error
-	CreateStorage(ctx context.Context, name string) (radio.StorageService, error)
+	CreateStorage(ctx context.Context) radio.StorageService
 	TearDown(context.Context) error
 }
 
 func RunTests(t *testing.T, s TestSetup) {
 	ctx := zerolog.New(os.Stdout).Level(zerolog.ErrorLevel).WithContext(context.Background())
 	ctx = PutT(ctx, t)
-	// do test setup
-	err := s.Setup(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
 
+	// make sure TearDown is always called
 	defer func() {
 		err := s.TearDown(ctx)
 		if err != nil {
 			t.Error("failed to teardown", err)
 		}
 	}()
+
+	// do test Setup
+	err := s.Setup(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	suite := NewSuite(ctx, s)
 
@@ -40,9 +42,8 @@ func RunTests(t *testing.T, s TestSetup) {
 	t.Run("Storage", func(t *testing.T) {
 		for name, fn := range tests {
 			fn := fn
-			t.Run(name, func(t *testing.T) {
-				t.Parallel()
 
+			t.Run(name, func(t *testing.T) {
 				err := suite.BeforeTest(t.Name())
 				if err != nil {
 					t.Error("failed test setup:", err)
@@ -65,7 +66,7 @@ func gatherAllTests(suite *Suite) map[string]testFn {
 		mv := rv.Method(i)
 		mt := mv.Type()
 
-		if mt.NumIn() != 1 && mt.NumOut() != 0 {
+		if mt.NumIn() != 1 || mt.NumOut() != 0 {
 			continue
 		}
 
@@ -97,31 +98,15 @@ type Suite struct {
 }
 
 func (suite *Suite) BeforeTest(testName string) error {
-	s, err := suite.ToBeTested.CreateStorage(suite.ctx, testName)
-	if err != nil {
-		return err
-	}
-
-	suite.storageMu.Lock()
-	suite.storageMap[testName] = s
-	suite.storageMu.Unlock()
 	return nil
 }
 
 func (suite *Suite) AfterTest(testName string) error {
-	suite.storageMu.Lock()
-	defer suite.storageMu.Unlock()
-	if s, ok := suite.storageMap[testName]; ok {
-		return s.Close()
-	}
 	return nil
 }
 
 func (suite *Suite) Storage(t *testing.T) radio.StorageService {
-	suite.storageMu.Lock()
-	defer suite.storageMu.Unlock()
-
-	return suite.storageMap[t.Name()]
+	return suite.ToBeTested.CreateStorage(suite.ctx)
 }
 
 type testingKey struct{}

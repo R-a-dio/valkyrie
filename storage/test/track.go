@@ -34,6 +34,39 @@ func (suite *Suite) TestSongPlayedCount(t *testing.T) {
 	require.Zero(t, res)
 }
 
+func (suite *Suite) TestSongFavoriteCount(t *testing.T) {
+	s := suite.Storage(t)
+	ss := s.Song(suite.ctx)
+
+	// invalid argument
+	res, err := ss.FavoriteCount(radio.Song{})
+	Require(t, errors.InvalidArgument, err)
+	require.Zero(t, res)
+
+	// non-existant argument
+	res, err = ss.FavoriteCount(radio.NewSong("favorite-count-test"))
+	// TODO: fix this, we currently can't tell the difference in the
+	// current mariadb implementation
+	// Require(t, errors.SongUnknown, err)
+	require.NoError(t, err)
+	require.Zero(t, res)
+}
+
+func (suite *Suite) TestSongFavorites(t *testing.T) {
+	s := suite.Storage(t)
+	ss := s.Song(suite.ctx)
+
+	// invalid argument
+	res, err := ss.Favorites(radio.Song{})
+	Require(t, errors.InvalidArgument, err)
+	require.Zero(t, res)
+
+	// non-existant argument
+	res, err = ss.Favorites(radio.NewSong("favorites-test"))
+	require.NoError(t, err)
+	require.Len(t, res, 0)
+}
+
 func (suite *Suite) TestSongUpdateLength(t *testing.T) {
 	s := suite.Storage(t)
 	ss := s.Song(suite.ctx)
