@@ -162,6 +162,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	if err != nil {
 		return errors.E(op, err)
 	}
+	defer v1.Shutdown()
 	r.Route("/v1", v1.Route)
 
 	// admin routes

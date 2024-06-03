@@ -4,11 +4,13 @@ import (
 	"context"
 	"net"
 	"sync"
+	"syscall"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/storage"
+	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/util/eventstream"
 	"github.com/rs/zerolog"
 )
@@ -26,6 +28,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	if err != nil {
 		return err
 	}
+	defer srv.Stop()
 
 	ln, err := net.Listen("tcp", cfg.Conf().Manager.RPCAddr.String())
 	if err != nil {
@@ -40,7 +43,8 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	// wait for our context to be canceled or Serve to error out
 	select {
 	case <-ctx.Done():
-		srv.Stop()
+		return nil
+	case <-util.Signal(syscall.SIGUSR2):
 		return nil
 	case err = <-errCh:
 		return err
@@ -76,7 +80,7 @@ func NewManager(ctx context.Context, cfg config.Config) (*Manager, error) {
 	m.songStream = eventstream.NewEventStream(&radio.SongUpdate{Song: old.Song, Info: old.SongInfo})
 	m.listenerStream = eventstream.NewEventStream(radio.Listeners(old.Listeners))
 	m.statusStream = eventstream.NewEventStream(*old)
-
+	go m.runStatusUpdates(ctx)
 	return &m, nil
 }
 
@@ -90,8 +94,6 @@ type Manager struct {
 	// mu protects the fields below and their contents
 	mu     sync.Mutex
 	status radio.Status
-	// listener count at the start of a song
-	songStartListenerCount radio.Listeners
 
 	// streaming support
 	userStream     *eventstream.EventStream[*radio.User]
@@ -103,27 +105,9 @@ type Manager struct {
 
 // updateStreamStatus is a legacy layer to keep supporting streamstatus table usage
 // in the website.
-func (m *Manager) updateStreamStatus(send bool, status radio.Status) {
+func (m *Manager) updateStreamStatus(status radio.Status) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
 	defer cancel()
-
-	// do some minor adjustments so that we can safely pass the status object
-	// straight to the Exec
-	if !status.Song.HasTrack() {
-		status.Song.DatabaseTrack = &radio.DatabaseTrack{}
-	}
-	// streamstatus can be empty and we set a start time of now if it's zero
-	if status.SongInfo.Start.IsZero() {
-		status.SongInfo.Start = time.Now()
-	}
-	// streamstatus expects an end equal to start if it's unknown
-	if status.SongInfo.End.IsZero() {
-		status.SongInfo.End = status.SongInfo.Start
-	}
-
-	if send {
-		m.statusStream.Send(status)
-	}
 
 	err := m.Storage.Status(ctx).Store(status)
 	if err != nil {

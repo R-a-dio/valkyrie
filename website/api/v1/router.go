@@ -64,3 +64,8 @@ func (a *API) Route(r chi.Router) {
 	r.Get("/song", a.GetSong)
 	r.Post("/request", a.PostRequest)
 }
+
+func (a *API) Shutdown() error {
+	a.sse.Shutdown()
+	return nil
+}

@@ -2,6 +2,7 @@ package mariadb
 
 import (
 	"database/sql"
+	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
@@ -17,6 +18,27 @@ func (ss StatusStorage) Store(status radio.Status) error {
 	const op errors.Op = "mariadb/StatusStorage.Store"
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
+
+	if status.IsZero() {
+		return errors.E(op, errors.InvalidArgument)
+	}
+
+	// the named query below will try to access some fields that are beyond
+	// a pointer type, so make sure those fields actually exist before we
+	// pass it to the database driver
+	if !status.Song.HasTrack() {
+		status.Song.DatabaseTrack = &radio.DatabaseTrack{}
+	}
+
+	// we also have the info Start/End times that could be zero, if they are
+	// they would be outside of the supported range of mariadb, so just mock
+	// them to be the current time
+	if status.SongInfo.Start.IsZero() {
+		status.SongInfo.Start = time.Now()
+	}
+	if status.SongInfo.End.IsZero() {
+		status.SongInfo.End = status.SongInfo.Start
+	}
 
 	var query = `
 	INSERT INTO

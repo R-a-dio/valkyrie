@@ -5,6 +5,7 @@ import (
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -47,4 +48,12 @@ func (suite *Suite) TestStatusStore(t *testing.T) {
 			assert.Equal(t, in.StreamerName, out.StreamerName) &&
 			assert.Equal(t, in.Thread, out.Thread)
 	})
+}
+
+func (suite *Suite) TestStatusStoreEmpty(t *testing.T) {
+	ss := suite.Storage(t).Status(suite.ctx)
+
+	// just an empty status
+	err := ss.Store(radio.Status{})
+	Require(t, errors.InvalidArgument, err)
 }

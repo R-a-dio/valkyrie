@@ -80,6 +80,7 @@ type Status struct {
 
 func (s *Status) IsZero() bool {
 	ok := s.User.ID == 0 &&
+		s.User.DJ.ID == 0 &&
 		s.Song.ID == 0 &&
 		s.SongInfo == (SongInfo{}) &&
 		s.StreamerName == "" &&
