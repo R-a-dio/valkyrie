@@ -67,6 +67,90 @@ func (suite *Suite) TestSongFavorites(t *testing.T) {
 	require.Len(t, res, 0)
 }
 
+func (suite *Suite) TestSongRemoveFavorite(t *testing.T) {
+	s := suite.Storage(t)
+	ss := s.Song(suite.ctx)
+
+	// invalid song argument
+	removed, err := ss.RemoveFavorite(radio.Song{}, "nickname")
+	Require(t, errors.InvalidArgument, err)
+	require.False(t, removed, "should not return removed=true")
+
+	// invalid nick argument
+	removed, err = ss.RemoveFavorite(radio.NewSong("test-remove-favorite"), "")
+	Require(t, errors.InvalidArgument, err)
+	require.False(t, removed, "should not return removed=true")
+
+	// non-existant argument
+	removed, err = ss.RemoveFavorite(radio.NewSong("test-remove-favorite"), "test")
+	require.NoError(t, err)
+	require.False(t, removed, "should not return removed=true")
+}
+
+func (suite *Suite) TestSongFaves(t *testing.T) {
+	s := suite.Storage(t)
+	ss := s.Song(suite.ctx)
+
+	nick := "test"
+
+	// create a song
+	song, err := ss.Create(radio.NewSong("test-remove-favorite"))
+	require.NoError(t, err)
+	require.NotNil(t, song)
+
+	// add a favorite, should succeed
+	added, err := ss.AddFavorite(*song, nick)
+	require.NoError(t, err)
+	require.True(t, added, "should have added=true")
+
+	// ask for it to favorite the same thing again, should succeed but tell us
+	// nothing was added
+	addedAgain, err := ss.AddFavorite(*song, nick)
+	require.NoError(t, err)
+	require.False(t, addedAgain, "should have added=false since we just added this")
+
+	// ask for the list of faves, should have the one we added above
+	faves, n, err := ss.FavoritesOf(nick, 20, 0)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, n)
+	require.Len(t, faves, 1)
+
+	// ask for the favorite count of the song, should also be one
+	n, err = ss.FavoriteCount(*song)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, n)
+
+	// ask for all users that have the song on their list
+	nicks, err := ss.Favorites(*song)
+	require.NoError(t, err)
+	require.Len(t, nicks, 1)
+	require.Equal(t, nick, nicks[0])
+
+	// and now we try and remove it
+	removed, err := ss.RemoveFavorite(*song, nick)
+	require.NoError(t, err)
+	require.True(t, removed, "should have removed=true")
+
+	// and then we repeat the checks from above but just with us expecting
+	// nothing instead of one entry
+
+	// ask for the list of faves, should have nothing now
+	faves, n, err = ss.FavoritesOf(nick, 20, 0)
+	require.NoError(t, err)
+	require.EqualValues(t, 0, n)
+	require.Len(t, faves, 0)
+
+	// ask for the favorite count of the song, should now be zero
+	n, err = ss.FavoriteCount(*song)
+	require.NoError(t, err)
+	require.EqualValues(t, 0, n)
+
+	// ask for all users that have the song on their list
+	nicks, err = ss.Favorites(*song)
+	require.NoError(t, err)
+	require.Len(t, nicks, 0)
+}
+
 func (suite *Suite) TestSongUpdateLength(t *testing.T) {
 	s := suite.Storage(t)
 	ss := s.Song(suite.ctx)

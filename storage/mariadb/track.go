@@ -587,6 +587,10 @@ func (ss SongStorage) RemoveFavorite(song radio.Song, nick string) (bool, error)
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
 
+	if song.HashLink.IsZero() || nick == "" {
+		return false, errors.E(op, errors.InvalidArgument)
+	}
+
 	var query = `
 	DELETE
 		efave
