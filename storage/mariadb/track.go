@@ -771,14 +771,14 @@ func (ts TrackStorage) AllRaw() ([]radio.Song, error) {
 	handle, deferFn := ts.handle.span(op)
 	defer deferFn()
 
-	query := `
+	query := expand(`
 	SELECT
 		{trackColumns},
 		tracks.hash AS hash,
 		tracks.lastplayed AS lastplayed
 	FROM
 		tracks;
-	`
+	`)
 	var songs = []radio.Song{}
 
 	err := sqlx.Select(handle, &songs, query)
