@@ -766,16 +766,31 @@ JOIN
 	eplay ON eplay.isong = esong.id;
 `)
 
+func (ts TrackStorage) AllRaw() ([]radio.Song, error) {
+	const op errors.Op = "mariadb/TrackStorage.All"
+	handle, deferFn := ts.handle.span(op)
+	defer deferFn()
+
+	query := `
+	SELECT
+		{trackColumns},
+		tracks.hash AS hash,
+		tracks.lastplayed AS lastplayed
+	FROM
+		tracks;
+	`
+	var songs = []radio.Song{}
+
+	err := sqlx.Select(handle, &songs, query)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	return songs, nil
+}
+
 // All implements radio.TrackStorage
 func (ts TrackStorage) All() ([]radio.Song, error) {
-	return ts.all(true)
-}
-
-func (ts TrackStorage) AllRaw() ([]radio.Song, error) {
-	return ts.all(false)
-}
-
-func (ts TrackStorage) all(withHydrate bool) ([]radio.Song, error) {
 	const op errors.Op = "mariadb/TrackStorage.All"
 	handle, deferFn := ts.handle.span(op)
 	defer deferFn()
@@ -787,10 +802,8 @@ func (ts TrackStorage) all(withHydrate bool) ([]radio.Song, error) {
 		return nil, errors.E(op, err)
 	}
 
-	if withHydrate {
-		for i := range songs {
-			songs[i].Hydrate()
-		}
+	for i := range songs {
+		songs[i].Hydrate()
 	}
 	return songs, nil
 }
