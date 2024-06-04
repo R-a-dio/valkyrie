@@ -2,6 +2,7 @@ package manager
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -19,6 +20,8 @@ func TestManager(t *testing.T) {
 	ctx = zerolog.New(zerolog.NewTestWriter(t)).WithContext(ctx)
 
 	songs := make(map[radio.SongHash]radio.Song)
+	var songsMu sync.Mutex
+
 	initSong := radio.NewSong("initial value")
 	initUser := radio.User{
 		ID:       50,
@@ -52,7 +55,9 @@ func TestManager(t *testing.T) {
 			return &initSong, nil
 		},
 		FromHashFunc: func(songHash radio.SongHash) (*radio.Song, error) {
+			songsMu.Lock()
 			song, ok := songs[songHash]
+			songsMu.Unlock()
 			if !ok {
 				return nil, errors.E(errors.SongUnknown)
 			}
@@ -111,7 +116,7 @@ func TestManager(t *testing.T) {
 		defer m.mu.Unlock()
 		return m.status
 	}
-	_ = status
+
 	newsong := func(meta string, length ...time.Duration) radio.Song {
 		song := radio.NewSong(meta, length...)
 		songs[song.Hash] = song
@@ -263,7 +268,9 @@ func TestManager(t *testing.T) {
 			Title:   "a testing song",
 			Album:   "that's a test",
 		}
+		songsMu.Lock()
 		songs[song.Hash] = song // store updated song in map
+		songsMu.Unlock()
 
 		su := &radio.SongUpdate{
 			Song: song,
