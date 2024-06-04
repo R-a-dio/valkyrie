@@ -364,9 +364,9 @@ func (ns NewsStorage) Comments(postid radio.NewsPostID) ([]radio.NewsComment, er
 		return nil, errors.E(op, err)
 	}
 
-	for _, comm := range comments {
+	for i, comm := range comments {
 		if comm.UserID == nil {
-			comm.User = nil
+			comments[i].User = nil
 		}
 	}
 
@@ -442,9 +442,9 @@ func (ns NewsStorage) CommentsPublic(postid radio.NewsPostID) ([]radio.NewsComme
 		return nil, errors.E(op, err)
 	}
 
-	for _, comm := range comments {
+	for i, comm := range comments {
 		if comm.UserID == nil {
-			comm.User = nil
+			comments[i].User = nil
 		}
 	}
 
