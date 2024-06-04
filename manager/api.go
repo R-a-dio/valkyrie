@@ -115,8 +115,7 @@ func (m *Manager) UpdateSong(ctx context.Context, su *radio.SongUpdate) error {
 		// it to the end time as an estimated end
 		if su.Song.Length > 0 { // updater song
 			info.End = info.End.Add(su.Song.Length)
-		}
-		if song.Length > 0 { // storage song
+		} else if song.Length > 0 { // storage song
 			info.End = info.End.Add(song.Length)
 		}
 	}
