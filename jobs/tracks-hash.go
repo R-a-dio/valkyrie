@@ -14,7 +14,7 @@ func ExecuteTracksHash(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 
-	songs, err := store.Track(ctx).All()
+	songs, err := store.Track(ctx).AllRaw()
 	if err != nil {
 		return err
 	}

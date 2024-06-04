@@ -864,6 +864,9 @@ type TrackStorage interface {
 	Get(TrackID) (*Song, error)
 	// All returns all tracks in storage
 	All() ([]Song, error)
+	// AllRaw returns all tracks in storage, but without making sure all fields
+	// are filled. This returns them as-is straight from storage
+	AllRaw() ([]Song, error)
 	// Delete removes a track from storage
 	Delete(TrackID) error
 	// Unusable returns all tracks that are deemed unusable by the streamer

@@ -768,6 +768,14 @@ JOIN
 
 // All implements radio.TrackStorage
 func (ts TrackStorage) All() ([]radio.Song, error) {
+	return ts.all(true)
+}
+
+func (ts TrackStorage) AllRaw() ([]radio.Song, error) {
+	return ts.all(false)
+}
+
+func (ts TrackStorage) all(withHydrate bool) ([]radio.Song, error) {
 	const op errors.Op = "mariadb/TrackStorage.All"
 	handle, deferFn := ts.handle.span(op)
 	defer deferFn()
@@ -779,8 +787,10 @@ func (ts TrackStorage) All() ([]radio.Song, error) {
 		return nil, errors.E(op, err)
 	}
 
-	for i := range songs {
-		songs[i].Hydrate()
+	if withHydrate {
+		for i := range songs {
+			songs[i].Hydrate()
+		}
 	}
 	return songs, nil
 }

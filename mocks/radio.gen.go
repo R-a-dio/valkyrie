@@ -3900,6 +3900,9 @@ var _ radio.TrackStorage = &TrackStorageMock{}
 //			AllFunc: func() ([]radio.Song, error) {
 //				panic("mock out the All method")
 //			},
+//			AllRawFunc: func() ([]radio.Song, error) {
+//				panic("mock out the AllRaw method")
+//			},
 //			BeforeLastRequestedFunc: func(before time.Time) ([]radio.Song, error) {
 //				panic("mock out the BeforeLastRequested method")
 //			},
@@ -3949,6 +3952,9 @@ type TrackStorageMock struct {
 	// AllFunc mocks the All method.
 	AllFunc func() ([]radio.Song, error)
 
+	// AllRawFunc mocks the AllRaw method.
+	AllRawFunc func() ([]radio.Song, error)
+
 	// BeforeLastRequestedFunc mocks the BeforeLastRequested method.
 	BeforeLastRequestedFunc func(before time.Time) ([]radio.Song, error)
 
@@ -3992,6 +3998,9 @@ type TrackStorageMock struct {
 	calls struct {
 		// All holds details about calls to the All method.
 		All []struct {
+		}
+		// AllRaw holds details about calls to the AllRaw method.
+		AllRaw []struct {
 		}
 		// BeforeLastRequested holds details about calls to the BeforeLastRequested method.
 		BeforeLastRequested []struct {
@@ -4056,6 +4065,7 @@ type TrackStorageMock struct {
 		}
 	}
 	lockAll                   sync.RWMutex
+	lockAllRaw                sync.RWMutex
 	lockBeforeLastRequested   sync.RWMutex
 	lockDecrementRequestCount sync.RWMutex
 	lockDelete                sync.RWMutex
@@ -4095,6 +4105,33 @@ func (mock *TrackStorageMock) AllCalls() []struct {
 	mock.lockAll.RLock()
 	calls = mock.calls.All
 	mock.lockAll.RUnlock()
+	return calls
+}
+
+// AllRaw calls AllRawFunc.
+func (mock *TrackStorageMock) AllRaw() ([]radio.Song, error) {
+	if mock.AllRawFunc == nil {
+		panic("TrackStorageMock.AllRawFunc: method is nil but TrackStorage.AllRaw was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockAllRaw.Lock()
+	mock.calls.AllRaw = append(mock.calls.AllRaw, callInfo)
+	mock.lockAllRaw.Unlock()
+	return mock.AllRawFunc()
+}
+
+// AllRawCalls gets all the calls that were made to AllRaw.
+// Check the length with:
+//
+//	len(mockedTrackStorage.AllRawCalls())
+func (mock *TrackStorageMock) AllRawCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockAllRaw.RLock()
+	calls = mock.calls.AllRaw
+	mock.lockAllRaw.RUnlock()
 	return calls
 }
 
