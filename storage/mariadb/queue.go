@@ -130,6 +130,7 @@ func (qs QueueStorage) Load(name string) ([]radio.QueueEntry, error) {
 	for i, qSong := range queue {
 		qSong.IsUserRequest = qSong.IsRequest == 1
 		songs[i] = qSong.QueueEntry
+		songs[i].Hydrate()
 	}
 
 	return songs, nil
