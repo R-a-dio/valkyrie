@@ -28,8 +28,9 @@ const (
 	RemoveStaleTickrate = time.Hour * 24
 	RemoveStalePeriod   = time.Minute * 5
 
-	HttpLn = "tracker.http"
-	GrpcLn = "tracker.grpc"
+	HttpLn      = "tracker.http"
+	GrpcLn      = "tracker.grpc"
+	TrackerFile = "tracker.listeners"
 
 	ICECAST_AUTH_HEADER         = "icecast-auth-user"
 	ICECAST_CLIENTID_FIELD_NAME = "client"
@@ -54,21 +55,19 @@ func (s *Server) Start(ctx context.Context, fds *fdstore.Store) error {
 	httpAddr := s.cfg.Conf().Tracker.ListenAddr.String()
 	grpcAddr := s.cfg.Conf().Tracker.RPCAddr.String()
 
-	s.httpLn, state, err = util.RestoreOrListen(fds, HttpLn, "tcp", httpAddr)
+	s.httpLn, _, err = util.RestoreOrListen(fds, HttpLn, "tcp", httpAddr)
 	if err != nil {
 		return err
 	}
 
-	_ = state
-
-	s.grpcLn, state, err = util.RestoreOrListen(fds, GrpcLn, "tcp", grpcAddr)
+	s.grpcLn, _, err = util.RestoreOrListen(fds, GrpcLn, "tcp", grpcAddr)
 	if err != nil {
 		return err
 	}
 
 	s.recorder = NewRecorder(ctx, s.cfg)
 
-	_ = state
+	s.recorder.restoreSelf(ctx, fds)
 
 	logger.Info().Str("address", s.httpLn.Addr().String()).Msg("tracker http started listening")
 	logger.Info().Str("address", s.grpcLn.Addr().String()).Msg("tracker grpc started listening")
