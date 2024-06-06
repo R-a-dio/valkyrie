@@ -41,6 +41,8 @@ func (r *Recorder) storeSelf(ctx context.Context, fds *fdstore.Store) error {
 	if err != nil {
 		return err
 	}
+	// close since createtemp opens
+	tmpf.Close()
 	return fds.AddFile(tmpf, TrackerFile, d)
 }
 
