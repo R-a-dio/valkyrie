@@ -27,6 +27,7 @@ type partialStorage interface {
 	radio.SubmissionStorageService
 	radio.NewsStorageService
 	radio.ScheduleStorageService
+	Close() error // TODO: add Close to SearchService as well
 }
 
 type storageService struct {
@@ -56,6 +57,7 @@ func (ss storageService) TrackTx(ctx context.Context, tx radio.StorageTx) (radio
 type partialTrackStorage interface {
 	Get(radio.TrackID) (*radio.Song, error)
 	All() ([]radio.Song, error)
+	AllRaw() ([]radio.Song, error)
 	Unusable() ([]radio.Song, error)
 	NeedReplacement() ([]radio.Song, error)
 	BeforeLastRequested(before time.Time) ([]radio.Song, error)

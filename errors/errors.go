@@ -360,6 +360,7 @@ const (
 	DirtyMigration                     // indicates the migration failed to apply and is in a dirty state
 	MigrationNotApplied                // indicates not all migrations were applied
 	LoginError                         // Login error
+	SubmissionUnknown                  // Submission does not exist
 )
 
 func (k Kind) String() string {
@@ -436,6 +437,8 @@ func (k Kind) String() string {
 		return "migration needs to be applied"
 	case LoginError:
 		return "login error"
+	case SubmissionUnknown:
+		return "submission does not exist"
 	}
 
 	return "unknown error kind"

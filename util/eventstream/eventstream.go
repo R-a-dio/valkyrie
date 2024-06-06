@@ -54,6 +54,10 @@ type EventStream[M any] struct {
 	FallbehindFn func(chan M, M)
 }
 
+func (es *EventStream[M]) Latest() M {
+	return *es.last.Load()
+}
+
 func (es *EventStream[M]) run() {
 	ticker := time.NewTicker(TIMEOUT)
 	defer ticker.Stop()

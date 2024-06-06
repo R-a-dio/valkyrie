@@ -61,6 +61,12 @@ func (qs QueueStorage) Store(name string, queue []radio.QueueEntry) error {
 		return errors.E(op, err)
 	}
 
+	if len(entries) == 0 {
+		// nothing to store, but NamedExec doesn't like that so we just don't
+		// execute it
+		return tx.Commit()
+	}
+
 	var query = `
 	INSERT INTO
 		queue (trackid, time, ip, type, meta, length, id, queue_id)
@@ -124,6 +130,7 @@ func (qs QueueStorage) Load(name string) ([]radio.QueueEntry, error) {
 	for i, qSong := range queue {
 		qSong.IsUserRequest = qSong.IsRequest == 1
 		songs[i] = qSong.QueueEntry
+		songs[i].Hydrate()
 	}
 
 	return songs, nil

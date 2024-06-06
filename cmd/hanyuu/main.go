@@ -193,6 +193,15 @@ var listenerLogCmd = cmd{
 	execute: withConfig(jobs.ExecuteListenerLog),
 }
 
+var tracksHashCmd = cmd{
+	name:     "check-tracks",
+	synopsis: "checks the tracks table for mismatching hashes",
+	usage: `check-tracks:
+	check the tracks table for mismatching hashes
+	`,
+	execute: withConfig(jobs.ExecuteTracksHash),
+}
+
 var requestCountCmd = cmd{
 	name:     "requestcount",
 	synopsis: "reduce request counter in database",
@@ -267,6 +276,7 @@ func main() {
 
 	subcommands.Register(listenerLogCmd, "jobs")
 	subcommands.Register(requestCountCmd, "jobs")
+	subcommands.Register(tracksHashCmd, "jobs")
 	subcommands.Register(&databaseCmd{}, "jobs")
 	// verifier job is in streamer.go for the above reason
 

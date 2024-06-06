@@ -8,12 +8,175 @@ import (
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/arbitrary"
 	"github.com/leanovate/gopter/gen"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func (suite *Suite) TestSongPlayedCount(t *testing.T) {
+	s := suite.Storage(t)
+	ss := s.Song(suite.ctx)
+
+	// invalid argument
+	res, err := ss.PlayedCount(radio.Song{})
+	Require(t, errors.InvalidArgument, err)
+	require.Zero(t, res)
+
+	// non-existant argument
+	res, err = ss.PlayedCount(radio.NewSong("played-count-test"))
+	// TODO: fix this, we currently can't tell the difference in the
+	// current mariadb implementation
+	//Require(t, errors.SongUnknown, err)
+	require.NoError(t, err)
+	require.Zero(t, res)
+}
+
+func (suite *Suite) TestSongFavoriteCount(t *testing.T) {
+	s := suite.Storage(t)
+	ss := s.Song(suite.ctx)
+
+	// invalid argument
+	res, err := ss.FavoriteCount(radio.Song{})
+	Require(t, errors.InvalidArgument, err)
+	require.Zero(t, res)
+
+	// non-existant argument
+	res, err = ss.FavoriteCount(radio.NewSong("favorite-count-test"))
+	// TODO: fix this, we currently can't tell the difference in the
+	// current mariadb implementation
+	// Require(t, errors.SongUnknown, err)
+	require.NoError(t, err)
+	require.Zero(t, res)
+}
+
+func (suite *Suite) TestSongFavorites(t *testing.T) {
+	s := suite.Storage(t)
+	ss := s.Song(suite.ctx)
+
+	// invalid argument
+	res, err := ss.Favorites(radio.Song{})
+	Require(t, errors.InvalidArgument, err)
+	require.Zero(t, res)
+
+	// non-existant argument
+	res, err = ss.Favorites(radio.NewSong("favorites-test"))
+	require.NoError(t, err)
+	require.Len(t, res, 0)
+}
+
+func (suite *Suite) TestSongRemoveFavorite(t *testing.T) {
+	s := suite.Storage(t)
+	ss := s.Song(suite.ctx)
+
+	// invalid song argument
+	removed, err := ss.RemoveFavorite(radio.Song{}, "nickname")
+	Require(t, errors.InvalidArgument, err)
+	require.False(t, removed, "should not return removed=true")
+
+	// invalid nick argument
+	removed, err = ss.RemoveFavorite(radio.NewSong("test-remove-favorite"), "")
+	Require(t, errors.InvalidArgument, err)
+	require.False(t, removed, "should not return removed=true")
+
+	// non-existant argument
+	removed, err = ss.RemoveFavorite(radio.NewSong("test-remove-favorite"), "test")
+	require.NoError(t, err)
+	require.False(t, removed, "should not return removed=true")
+}
+
+func (suite *Suite) TestSongFaves(t *testing.T) {
+	s := suite.Storage(t)
+	ss := s.Song(suite.ctx)
+
+	nick := "test"
+
+	// create a song
+	song, err := ss.Create(radio.NewSong("test-remove-favorite"))
+	require.NoError(t, err)
+	require.NotNil(t, song)
+
+	// add a favorite, should succeed
+	added, err := ss.AddFavorite(*song, nick)
+	require.NoError(t, err)
+	require.True(t, added, "should have added=true")
+
+	// ask for it to favorite the same thing again, should succeed but tell us
+	// nothing was added
+	addedAgain, err := ss.AddFavorite(*song, nick)
+	require.NoError(t, err)
+	require.False(t, addedAgain, "should have added=false since we just added this")
+
+	// ask for the list of faves, should have the one we added above
+	faves, n, err := ss.FavoritesOf(nick, 20, 0)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, n)
+	require.Len(t, faves, 1)
+
+	// ask for the favorite count of the song, should also be one
+	n, err = ss.FavoriteCount(*song)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, n)
+
+	// ask for all users that have the song on their list
+	nicks, err := ss.Favorites(*song)
+	require.NoError(t, err)
+	require.Len(t, nicks, 1)
+	require.Equal(t, nick, nicks[0])
+
+	// and now we try and remove it
+	removed, err := ss.RemoveFavorite(*song, nick)
+	require.NoError(t, err)
+	require.True(t, removed, "should have removed=true")
+
+	// and then we repeat the checks from above but just with us expecting
+	// nothing instead of one entry
+
+	// ask for the list of faves, should have nothing now
+	faves, n, err = ss.FavoritesOf(nick, 20, 0)
+	require.NoError(t, err)
+	require.EqualValues(t, 0, n)
+	require.Len(t, faves, 0)
+
+	// ask for the favorite count of the song, should now be zero
+	n, err = ss.FavoriteCount(*song)
+	require.NoError(t, err)
+	require.EqualValues(t, 0, n)
+
+	// ask for all users that have the song on their list
+	nicks, err = ss.Favorites(*song)
+	require.NoError(t, err)
+	require.Len(t, nicks, 0)
+}
+
+func (suite *Suite) TestSongUpdateLength(t *testing.T) {
+	s := suite.Storage(t)
+	ss := s.Song(suite.ctx)
+
+	// invalid argument
+	err := ss.UpdateLength(radio.Song{}, time.Second*60)
+	Require(t, errors.InvalidArgument, err)
+
+	// non-existant argument
+	non := radio.NewSong("test-update-length")
+	non.ID = 5 // needs an ID
+	err = ss.UpdateLength(non, time.Second*60)
+	Require(t, errors.SongUnknown, err)
+
+	song, err := ss.Create(radio.NewSong("an actual song"))
+	require.NoError(t, err)
+	require.Zero(t, song.Length)
+
+	// update it to be a minute
+	err = ss.UpdateLength(*song, time.Minute)
+	require.NoError(t, err)
+	// retrieve song from storage again, should now have the new length
+	new, err := ss.FromHash(song.Hash)
+	require.NoError(t, err)
+	require.Equal(t, time.Minute, new.Length)
+}
 
 func (suite *Suite) TestSongCreateAndRetrieve(t *testing.T) {
 	ss := suite.Storage(t).Song(suite.ctx)
@@ -307,4 +470,112 @@ func genAsType[F, T any](g gopter.Gen) gopter.Gen {
 		vt := reflect.ValueOf(v).Convert(reflect.TypeFor[T]()).Interface()
 		return gopter.NewGenResult(vt, nil)
 	}).WithShrinker(nil)
+}
+
+func (suite *Suite) TestTrackDelete(t *testing.T) {
+	s := suite.Storage(t)
+	ts := s.Track(suite.ctx)
+
+	err := ts.Delete(1)
+	Require(t, errors.SongUnknown, err)
+}
+
+func (suite *Suite) TestTrackQueueCandidates(t *testing.T) {
+	s := suite.Storage(t)
+	ts := s.Track(suite.ctx)
+
+	res, err := ts.QueueCandidates()
+	require.NoError(t, err)
+	require.Len(t, res, 0)
+}
+
+func (suite *Suite) TestTrackDecrementRequestCount(t *testing.T) {
+	s := suite.Storage(t)
+	ts := s.Track(suite.ctx)
+
+	err := ts.DecrementRequestCount(time.Now())
+	require.NoError(t, err)
+}
+
+func (suite *Suite) TestTrackBeforeLastRequested(t *testing.T) {
+	s := suite.Storage(t)
+	ts := s.Track(suite.ctx)
+
+	res, err := ts.BeforeLastRequested(time.Now())
+	require.NoError(t, err)
+	require.Len(t, res, 0)
+}
+
+func (suite *Suite) TestTrackUpdateLastRequested(t *testing.T) {
+	s := suite.Storage(t)
+	ts := s.Track(suite.ctx)
+
+	// non-existant song, should error
+	err := ts.UpdateLastRequested(5)
+	Require(t, errors.SongUnknown, err)
+}
+
+func (suite *Suite) TestTrackUpdateLastPlayed(t *testing.T) {
+	s := suite.Storage(t)
+	ts := s.Track(suite.ctx)
+
+	// non-existant song, should error
+	err := ts.UpdateLastPlayed(5)
+	Require(t, errors.SongUnknown, err)
+}
+
+func (suite *Suite) TestTrackUpdateRequestInfo(t *testing.T) {
+	s := suite.Storage(t)
+	ts := s.Track(suite.ctx)
+
+	// non-existant song, should error
+	err := ts.UpdateRequestInfo(5)
+	Require(t, errors.SongUnknown, err)
+}
+
+func (suite *Suite) TestTrackUpdateUsable(t *testing.T) {
+	s := suite.Storage(t)
+	ts := s.Track(suite.ctx)
+
+	// non-existant song, should error
+	err := ts.UpdateUsable(radio.Song{
+		DatabaseTrack: &radio.DatabaseTrack{
+			TrackID: 5,
+		},
+	}, radio.TrackStateUnverified)
+	Require(t, errors.SongUnknown, err)
+
+	// should not like it if we give it an empty song
+	err = ts.UpdateUsable(radio.Song{}, radio.TrackStatePlayable)
+	Require(t, errors.InvalidArgument, err)
+}
+
+func (suite *Suite) TestTrackAll(t *testing.T) {
+	s := suite.Storage(t)
+	ts := s.Track(suite.ctx)
+
+	// should have no songs
+	res, err := ts.All()
+	require.NoError(t, err)
+	require.Len(t, res, 0)
+}
+
+func (suite *Suite) TestTrackUnusable(t *testing.T) {
+	s := suite.Storage(t)
+	ts := s.Track(suite.ctx)
+
+	// should have no songs
+	res, err := ts.Unusable()
+	require.NoError(t, err)
+	require.Len(t, res, 0)
+}
+
+func Assert(t *testing.T, kind errors.Kind, err error) bool {
+	t.Helper()
+	return assert.True(t, errors.Is(kind, err), "error should be kind %s but is: %v", kind, err)
+}
+
+func Require(t *testing.T, kind errors.Kind, err error) {
+	t.Helper()
+	require.True(t, errors.Is(kind, err), "error should be kind %s but is: %v", kind, err)
 }

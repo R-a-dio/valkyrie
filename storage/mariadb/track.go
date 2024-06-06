@@ -11,9 +11,17 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// FavePriorityIncrement is the amount we increase/decrease priority by
-// on a track when it gets favorited/unfavorited
-const FavePriorityIncrement = 1
+const (
+	// FavePriorityIncrement is the amount we increase/decrease priority by
+	// on a track when it gets favorited/unfavorited
+	FavePriorityIncrement = 1
+	// RequestPriorityIncremenet is the amount we increase priority by when
+	// a track gets requested
+	RequestPriorityIncrement = 1
+	// RequestCountIncrement is the amount we increase requestcount by when
+	// a track gets requested
+	RequestCountIncrement = 2
+)
 
 func expand(query string) string {
 	var orig = query
@@ -22,6 +30,7 @@ func expand(query string) string {
 	query = strings.ReplaceAll(query, "{songColumns}", songColumns)
 	query = strings.ReplaceAll(query, "{maybeSongColumns}", maybeSongColumns)
 	query = strings.ReplaceAll(query, "{lastplayedSelect}", lastplayedSelect)
+	query = strings.ReplaceAll(query, "{newsColumns}", newsColumns)
 	if orig == query {
 		panic("expand called but nothing was expanded")
 	}
@@ -45,7 +54,7 @@ const trackColumns = `
 `
 
 const maybeTrackColumns = `
-	COALESCE(tracks.id, 0) AS trackid,
+	COALESCE(tracks.id, CAST(0 AS UNSIGNED INT)) AS trackid,
 	COALESCE(tracks.artist, '') AS artist,
 	COALESCE(tracks.track, '') AS title,
 	COALESCE(tracks.album, '') AS album,
@@ -69,11 +78,11 @@ const songColumns = `
 `
 
 const maybeSongColumns = `
-	COALESCE(esong.id, 0) AS id,
+	COALESCE(esong.id, CAST(0 AS UNSIGNED INT)) AS id,
 	COALESCE(esong.meta, '') AS metadata,
 	COALESCE(esong.hash, '') AS hash,
 	COALESCE(esong.hash_link, '') AS hashlink,
-	COALESCE(to_go_duration(esong.len), 0) AS length
+	COALESCE(to_go_duration(esong.len), CAST(0 AS UNSIGNED INT)) AS length
 `
 
 const lastplayedSelect = `
@@ -106,6 +115,9 @@ func (ss SongStorage) Create(song radio.Song) (*radio.Song, error) {
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
 
+	if song.Metadata == "" {
+		return nil, errors.E(op, errors.InvalidArgument)
+	}
 	// call hydrate for the caller, should basically be a no-op anyway
 	song.Hydrate()
 
@@ -126,6 +138,10 @@ func (ss SongStorage) FromMetadata(metadata string) (*radio.Song, error) {
 	const op errors.Op = "mariadb/SongStorage.FromMetadata"
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
+
+	if metadata == "" {
+		return nil, errors.E(op, errors.InvalidArgument)
+	}
 
 	song, err := SongStorage{handle}.FromHash(radio.NewSongHash(metadata))
 	if err != nil {
@@ -154,6 +170,10 @@ func (ss SongStorage) FromHash(hash radio.SongHash) (*radio.Song, error) {
 	const op errors.Op = "mariadb/SongStorage.FromHash"
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
+
+	if hash.IsZero() {
+		return nil, errors.E(op, errors.InvalidArgument)
+	}
 
 	var song radio.Song
 
@@ -266,6 +286,10 @@ func (ss SongStorage) PlayedCount(song radio.Song) (int64, error) {
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
 
+	if song.HashLink.IsZero() {
+		return 0, errors.E(op, errors.InvalidArgument)
+	}
+
 	var query = `
 		SELECT
 			count(*)
@@ -280,6 +304,9 @@ func (ss SongStorage) PlayedCount(song radio.Song) (int64, error) {
 
 	err := sqlx.Get(handle, &playedCount, query, song.HashLink)
 	if err != nil {
+		if errors.IsE(err, sql.ErrNoRows) {
+			return 0, errors.E(op, errors.SongUnknown) // TODO: implement this
+		}
 		return 0, errors.E(op, err)
 	}
 	return playedCount, nil
@@ -290,6 +317,10 @@ func (ss SongStorage) AddPlay(song radio.Song, user radio.User, ldiff *radio.Lis
 	const op errors.Op = "mariadb/SongStorage.AddPlay"
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
+
+	if song.ID == 0 || user.DJ.ID == 0 {
+		return errors.E(op, errors.InvalidArgument)
+	}
 
 	var query = `INSERT INTO eplay (isong, djs_id, ldiff) VALUES (?, ?, ?);`
 
@@ -305,6 +336,10 @@ func (ss SongStorage) FavoriteCount(song radio.Song) (int64, error) {
 	const op errors.Op = "mariadb/SongStorage.FavoriteCount"
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
+
+	if song.HashLink.IsZero() {
+		return 0, errors.E(op, errors.InvalidArgument)
+	}
 
 	var query = `
 		SELECT
@@ -330,6 +365,10 @@ func (ss SongStorage) Favorites(song radio.Song) ([]string, error) {
 	const op errors.Op = "mariadb/SongStorage.Favorites"
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
+
+	if song.HashLink.IsZero() {
+		return nil, errors.E(op, errors.InvalidArgument)
+	}
 
 	var query = `
 	SELECT DISTINCT
@@ -358,6 +397,10 @@ func (ss SongStorage) UpdateHashLink(old, new radio.SongHash) error {
 	const op errors.Op = "mariadb/SongStorage.UpdateHashLink"
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
+
+	if old.IsZero() || new.IsZero() {
+		return errors.E(op, errors.InvalidArgument)
+	}
 
 	var query = `UPDATE esong SET hash_link=? WHERE hash=?;`
 
@@ -438,6 +481,10 @@ func (ss SongStorage) FavoritesOf(nick string, limit, offset int64) ([]radio.Son
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
 
+	if nick == "" {
+		return nil, 0, errors.E(op, errors.InvalidArgument)
+	}
+
 	var songs = []radio.Song{}
 	var count int64
 
@@ -466,6 +513,10 @@ func (ss SongStorage) FavoritesOfDatabase(nick string) ([]radio.Song, error) {
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
 
+	if nick == "" {
+		return nil, errors.E(op, errors.InvalidArgument)
+	}
+
 	var songs = []radio.Song{}
 
 	err := sqlx.Select(handle, &songs, songFavoritesOfDatabaseOnlyQuery, nick)
@@ -481,6 +532,10 @@ func (ss SongStorage) AddFavorite(song radio.Song, nick string) (bool, error) {
 	const op errors.Op = "mariadb/SongStorage.AddFavorite"
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
+
+	if song.HashLink.IsZero() || nick == "" {
+		return false, errors.E(op, errors.InvalidArgument)
+	}
 
 	var query = `
 	SELECT
@@ -563,6 +618,10 @@ func (ss SongStorage) RemoveFavorite(song radio.Song, nick string) (bool, error)
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
 
+	if song.HashLink.IsZero() || nick == "" {
+		return false, errors.E(op, errors.InvalidArgument)
+	}
+
 	var query = `
 	DELETE
 		efave
@@ -587,7 +646,7 @@ func (ss SongStorage) RemoveFavorite(song radio.Song, nick string) (bool, error)
 	}
 
 	// we decrease a search priority when a song gets unfavorited
-	if n > 0 && song.DatabaseTrack != nil && song.TrackID != 0 {
+	if n > 0 && song.HasTrack() {
 		query = `UPDATE tracks SET priority=priority-? WHERE id=?`
 		_, err = handle.Exec(query, FavePriorityIncrement, song.TrackID)
 		if err != nil {
@@ -603,14 +662,26 @@ func (ss SongStorage) UpdateLength(song radio.Song, length time.Duration) error 
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
 
+	if song.ID == 0 {
+		return errors.E(op, errors.InvalidArgument)
+	}
+
 	var query = "UPDATE esong SET len=? WHERE id=?;"
 
 	len := int(length / time.Second)
-	_, err := handle.Exec(query, len, song.ID)
+	res, err := handle.Exec(query, len, song.ID)
 	if err != nil {
 		return errors.E(op, err)
 	}
-	return nil
+
+	n, err := res.RowsAffected()
+	if err != nil || n > 0 {
+		// either RowsAffected is not supported, or we had more than zero rows
+		// affected so we succeeded
+		return nil
+	}
+
+	return errors.E(op, errors.SongUnknown)
 }
 
 // TrackStorage implements radio.TrackStorage
@@ -694,6 +765,29 @@ LEFT JOIN
 JOIN
 	eplay ON eplay.isong = esong.id;
 `)
+
+func (ts TrackStorage) AllRaw() ([]radio.Song, error) {
+	const op errors.Op = "mariadb/TrackStorage.All"
+	handle, deferFn := ts.handle.span(op)
+	defer deferFn()
+
+	query := expand(`
+	SELECT
+		{trackColumns},
+		tracks.hash AS hash,
+		tracks.lastplayed AS lastplayed
+	FROM
+		tracks;
+	`)
+	var songs = []radio.Song{}
+
+	err := sqlx.Select(handle, &songs, query)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	return songs, nil
+}
 
 // All implements radio.TrackStorage
 func (ts TrackStorage) All() ([]radio.Song, error) {
@@ -903,6 +997,10 @@ func (ts TrackStorage) UpdateUsable(song radio.Song, state radio.TrackState) err
 	handle, deferFn := ts.handle.span(op)
 	defer deferFn()
 
+	if !song.HasTrack() {
+		return errors.E(op, errors.InvalidArgument)
+	}
+
 	var query = `
 	UPDATE
 		tracks
@@ -912,11 +1010,19 @@ func (ts TrackStorage) UpdateUsable(song radio.Song, state radio.TrackState) err
 		id=?;
 	`
 
-	_, err := handle.Exec(query, state, song.ID)
+	res, err := handle.Exec(query, state, song.TrackID)
 	if err != nil {
 		return errors.E(op, err)
 	}
-	return nil
+
+	n, err := res.RowsAffected()
+	if err != nil || n > 0 {
+		// either RowsAffected is not supported, or we had more than zero rows
+		// affected so we succeeded
+		return nil
+	}
+
+	return errors.E(op, errors.SongUnknown)
 }
 
 // UpdateRequestInfo updates the time the track given was last requested
@@ -928,15 +1034,22 @@ func (ts TrackStorage) UpdateRequestInfo(id radio.TrackID) error {
 	handle, deferFn := ts.handle.span(op)
 	defer deferFn()
 
-	// TODO(wessie): don't hardcode requestcount and priority
 	var query = `UPDATE tracks SET lastrequested=NOW(),
-	requestcount=requestcount+2, priority=priority+1 WHERE id=?;`
+	requestcount=requestcount+?, priority=priority+? WHERE id=?;`
 
-	_, err := handle.Exec(query, id)
+	res, err := handle.Exec(query, RequestCountIncrement, RequestPriorityIncrement, id)
 	if err != nil {
 		return errors.E(op, err)
 	}
-	return nil
+
+	n, err := res.RowsAffected()
+	if err != nil || n > 0 {
+		// either RowsAffected is not supported, or we had more than zero rows
+		// affected so we succeeded
+		return nil
+	}
+
+	return errors.E(op, errors.SongUnknown)
 }
 
 // UpdateLastPlayed implements radio.TrackStorage
@@ -947,11 +1060,19 @@ func (ts TrackStorage) UpdateLastPlayed(id radio.TrackID) error {
 
 	var query = `UPDATE tracks SET lastplayed=NOW() WHERE id=?;`
 
-	_, err := handle.Exec(query, id)
+	res, err := handle.Exec(query, id)
 	if err != nil {
 		return errors.E(op, err)
 	}
-	return nil
+
+	n, err := res.RowsAffected()
+	if err != nil || n > 0 {
+		// either RowsAffected is not supported, or we had more than zero rows
+		// affected so we succeeded
+		return nil
+	}
+
+	return errors.E(op, errors.SongUnknown)
 }
 
 // UpdateLastRequested implements radio.TrackStorage
@@ -969,11 +1090,19 @@ func (ts TrackStorage) UpdateLastRequested(id radio.TrackID) error {
 		id=?;
 	`
 
-	_, err := handle.Exec(query, id)
+	res, err := handle.Exec(query, id)
 	if err != nil {
 		return errors.E(op, err)
 	}
-	return nil
+
+	n, err := res.RowsAffected()
+	if err != nil || n > 0 {
+		// either RowsAffected is not supported, or we had more than zero rows
+		// affected so we succeeded
+		return nil
+	}
+
+	return errors.E(op, errors.SongUnknown)
 }
 
 var trackBeforeLastRequestedQuery = expand(`
@@ -987,7 +1116,7 @@ FROM
 LEFT JOIN
 	esong ON tracks.hash = esong.hash
 WHERE
-	track.lastrequested < ?
+	tracks.lastrequested < ?
 AND
 	requestcount > 0;
 `)
@@ -1070,9 +1199,17 @@ func (ts TrackStorage) Delete(id radio.TrackID) error {
 
 	var query = `DELETE FROM tracks WHERE id=?`
 
-	_, err := handle.Exec(query, id)
+	res, err := handle.Exec(query, id)
 	if err != nil {
 		return errors.E(op, err)
 	}
-	return nil
+
+	n, err := res.RowsAffected()
+	if err != nil || n > 0 {
+		// either RowsAffected is not supported, or we had more than zero rows
+		// affected so we succeeded
+		return nil
+	}
+
+	return errors.E(op, errors.SongUnknown)
 }

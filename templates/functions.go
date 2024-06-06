@@ -28,8 +28,8 @@ var fnMap = map[string]any{
 	"AbsoluteDate":                AbsoluteDate,
 	"HumanDuration":               HumanDuration,
 	"MediaDuration":               MediaDuration,
-	"Div":                         func(a, b int) int { return a / b },
-	"Sub":                         func(a, b int64) int64 { return a - b },
+	"Div":                         func(a, b any) int64 { return castInt64(a) / castInt64(b) },
+	"Sub":                         func(a, b any) int64 { return castInt64(a) / castInt64(b) },
 	"CalculateSubmissionCooldown": radio.CalculateSubmissionCooldown,
 	"AllUserPermissions":          radio.AllUserPermissions,
 	"HasField":                    HasField,
@@ -46,6 +46,28 @@ func SongPair(song radio.Song, data any) SongPairing {
 		Song: &song,
 		Data: data,
 	}
+}
+
+func castInt64(a any) int64 {
+	switch a := a.(type) {
+	case int:
+		return int64(a)
+	case int16:
+		return int64(a)
+	case int32:
+		return int64(a)
+	case int64:
+		return a
+	case uint:
+		return int64(a)
+	case uint16:
+		return int64(a)
+	case uint32:
+		return int64(a)
+	case uint64:
+		return int64(a)
+	}
+	panic("invalid type in castInt64")
 }
 
 func HasField(v any, name string) bool {

@@ -100,6 +100,10 @@ type StorageService struct {
 	db *sqlx.DB
 }
 
+func (s *StorageService) Close() error {
+	return s.db.Close()
+}
+
 // fakeTx is a *sqlx.Tx with the Commit method disabled
 type fakeTx struct {
 	*sqlx.Tx

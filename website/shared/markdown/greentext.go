@@ -13,7 +13,6 @@ import (
 	"github.com/yuin/goldmark/renderer"
 	"github.com/yuin/goldmark/renderer/html"
 	"github.com/yuin/goldmark/text"
-	"github.com/yuin/goldmark/util"
 	goldutil "github.com/yuin/goldmark/util"
 )
 
@@ -150,7 +149,7 @@ func (r *MemeQuoteRenderer) RegisterFuncs(reg renderer.NodeRendererFuncRegistere
 	reg.Register(Kind, r.Render)
 }
 
-func (r *MemeQuoteRenderer) Render(w util.BufWriter, src []byte, node ast.Node, entering bool) (ast.WalkStatus, error) {
+func (r *MemeQuoteRenderer) Render(w goldutil.BufWriter, src []byte, node ast.Node, entering bool) (ast.WalkStatus, error) {
 	_, ok := node.(*Node)
 	if !ok {
 		return ast.WalkStop, fmt.Errorf("unexpected node %T, expected 'mememark.Node'", node)
