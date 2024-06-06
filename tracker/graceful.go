@@ -36,6 +36,7 @@ func (r *Recorder) storeSelf(ctx context.Context, fds *fdstore.Store) error {
 	if err != nil {
 		return err
 	}
+
 	tmpf, err := os.CreateTemp("", "listeners")
 	if err != nil {
 		return err

@@ -44,11 +44,12 @@ type Server struct {
 	grpc     *grpc.Server
 	httpLn   net.Listener
 	grpcLn   net.Listener
+
+	h http.Handler
 }
 
 func (s *Server) Start(ctx context.Context, fds *fdstore.Store) error {
 	var err error
-	var state []byte
 
 	logger := zerolog.Ctx(ctx)
 
@@ -64,8 +65,6 @@ func (s *Server) Start(ctx context.Context, fds *fdstore.Store) error {
 	if err != nil {
 		return err
 	}
-
-	s.recorder = NewRecorder(ctx, s.cfg)
 
 	s.recorder.restoreSelf(ctx, fds)
 
@@ -104,6 +103,8 @@ func NewServer(ctx context.Context, cfg config.Config) *Server {
 	s := new(Server)
 	s.recorder = NewRecorder(ctx, cfg)
 
+	s.cfg = cfg
+
 	r := website.NewRouter()
 
 	r.Use(
@@ -124,6 +125,8 @@ func NewServer(ctx context.Context, cfg config.Config) *Server {
 		Handler:     r,
 		BaseContext: func(l net.Listener) context.Context { return ctx },
 	}
+	s.h = r
+
 	gs := rpc.NewGrpcServer(ctx)
 	rpc.RegisterListenerTrackerServer(gs, rpc.NewListenerTracker(s.recorder))
 
