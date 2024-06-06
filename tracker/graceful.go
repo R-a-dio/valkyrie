@@ -64,5 +64,10 @@ func (r *Recorder) restoreSelf(ctx context.Context, fds *fdstore.Store) error {
 	}
 	r.listenerAmount.Add(i)
 
+	err = os.Remove(fe.File.Name())
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
