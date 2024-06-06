@@ -8,6 +8,7 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
+	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/rpc"
 	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/website"
@@ -18,6 +19,18 @@ import (
 )
 
 const (
+	// UpdateListenersTickrate is the period between two UpdateListeners
+	// calls done to the manager
+	UpdateListenersTickrate = time.Second * 10
+	// SyncListenersTickrate is the period between two sync operations
+	SyncListenersTickrate = time.Minute * 10
+
+	RemoveStaleTickrate = time.Hour * 24
+	RemoveStalePeriod   = time.Minute * 5
+
+	HttpLn = "tracker.http"
+	GrpcLn = "tracker.grpc"
+
 	ICECAST_AUTH_HEADER         = "icecast-auth-user"
 	ICECAST_CLIENTID_FIELD_NAME = "client"
 )
@@ -41,20 +54,29 @@ func (s *Server) Start(ctx context.Context, fds *fdstore.Store) error {
 	httpAddr := s.cfg.Conf().Tracker.ListenAddr.String()
 	grpcAddr := s.cfg.Conf().Tracker.RPCAddr.String()
 
-	s.httpLn, state, err = util.RestoreOrListen(fds, "tracker.http", "tcp", httpAddr)
-	if err != nil {
-		return err
-	}
-
-	s.grpcLn, state, err = util.RestoreOrListen(fds, "tracker.grpc", "tcp", grpcAddr)
+	s.httpLn, state, err = util.RestoreOrListen(fds, HttpLn, "tcp", httpAddr)
 	if err != nil {
 		return err
 	}
 
 	_ = state
 
+	s.grpcLn, state, err = util.RestoreOrListen(fds, GrpcLn, "tcp", grpcAddr)
+	if err != nil {
+		return err
+	}
+
+	s.recorder = NewRecorder(ctx, s.cfg)
+
+	_ = state
+
 	logger.Info().Str("address", s.httpLn.Addr().String()).Msg("tracker http started listening")
 	logger.Info().Str("address", s.grpcLn.Addr().String()).Msg("tracker grpc started listening")
+
+	// setup periodic task to update the manager of our listener count
+	go s.periodicallyUpdateListeners(ctx, UpdateListenersTickrate)
+	// setup periodic task to keep recorder state in sync with icecast
+	go s.periodicallySyncListeners(ctx, SyncListenersTickrate)
 
 	errCh := make(chan error, 2)
 	go func() {
@@ -66,18 +88,15 @@ func (s *Server) Start(ctx context.Context, fds *fdstore.Store) error {
 
 	select {
 	case <-ctx.Done():
-		//TODO: do i run this in a goroutine?
-		s.grpc.GracefulStop()
-
-		return s.http.Shutdown(ctx)
+		s.grpc.Stop()
+		return s.http.Close()
 	case err := <-errCh:
 		return err
 	}
 }
 
 func (s *Server) Close() error {
-	//TODO: here too :3
-	s.grpc.GracefulStop()
+	s.grpc.Stop()
 
 	return s.http.Close()
 }
@@ -176,4 +195,60 @@ func ListenerRemove(ctx context.Context, recorder *Recorder) http.HandlerFunc {
 
 		go recorder.ListenerRemove(ctx, cid)
 	}
+}
+
+func (s *Server) periodicallyUpdateListeners(ctx context.Context,
+	tickrate time.Duration,
+) {
+	ticker := time.NewTicker(tickrate)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			err := s.cfg.Manager.UpdateListeners(ctx, s.recorder.ListenerAmount())
+			if err != nil {
+				zerolog.Ctx(ctx).Error().Err(err).Msg("failed update listeners")
+			}
+		}
+	}
+}
+
+func (s *Server) periodicallySyncListeners(ctx context.Context,
+	tickrate time.Duration,
+) {
+	ticker := time.NewTicker(tickrate)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			err := s.syncListeners(ctx)
+			if err != nil {
+				zerolog.Ctx(ctx).Error().Err(err).Msg("failed sync listeners")
+			}
+		}
+	}
+}
+
+func (s *Server) syncListeners(ctx context.Context) error {
+	const op errors.Op = "tracker/syncListeners"
+
+	s.recorder.syncing.Store(true)
+	defer s.recorder.syncing.Store(false)
+
+	ctx, cancel := context.WithTimeout(ctx, time.Second*5)
+	defer cancel()
+
+	list, err := GetIcecastListClients(ctx, s.cfg)
+	if err != nil {
+		return errors.E(op, err)
+	}
+
+	s.recorder.Sync(ctx, list)
+	return nil
 }
