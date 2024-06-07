@@ -156,8 +156,15 @@ func TestMultiReader(t *testing.T) {
 		return bytes.NewReader(b1), bytes.NewReader(b2), bytes.NewReader(b3)
 	}
 
-	properties := gopter.NewProperties(nil)
-	properties.Property("3 nested readers read everything", prop.ForAllNoShrink(
+	parameters := gopter.DefaultTestParameters()
+
+	run := func(t *testing.T, name string, prop gopter.Prop) {
+		p := gopter.NewProperties(parameters)
+		p.Property(name, prop)
+		p.TestingRun(t)
+	}
+
+	run(t, "3 nested readers read everything", prop.ForAllNoShrink(
 		func(b1, b2, b3 []byte) bool {
 			final := Concat(b1, b2, b3)
 
@@ -190,7 +197,9 @@ func TestMultiReader(t *testing.T) {
 		gen.SliceOf(gen.UInt8()),
 		gen.SliceOf(gen.UInt8()),
 	))
-	properties.Property("3 nested readers read 2", prop.ForAllNoShrink(
+
+	parameters.MinSize = 16
+	run(t, "3 nested readers read 2", prop.ForAllNoShrink(
 		func(b1, b2, b3 []byte) bool {
 			r1, r2, r3 := Readers(b1, b2, b3)
 
@@ -232,7 +241,7 @@ func TestMultiReader(t *testing.T) {
 		gen.SliceOf(gen.UInt8()).SuchThat(func(b []byte) bool { return len(b) > 16 }),
 		gen.SliceOf(gen.UInt8()).SuchThat(func(b []byte) bool { return len(b) > 16 }),
 	))
-	properties.Property("3 nested readers read first before creating second multi", prop.ForAllNoShrink(
+	run(t, "3 nested readers read first before creating second multi", prop.ForAllNoShrink(
 		func(b1, b2, b3 []byte) bool {
 			r1, r2, r3 := Readers(b1, b2, b3)
 
@@ -274,6 +283,4 @@ func TestMultiReader(t *testing.T) {
 		gen.SliceOf(gen.UInt8()).SuchThat(func(b []byte) bool { return len(b) > 16 }),
 		gen.SliceOf(gen.UInt8()).SuchThat(func(b []byte) bool { return len(b) > 16 }),
 	))
-
-	properties.TestingRun(t)
 }
