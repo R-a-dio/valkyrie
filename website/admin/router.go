@@ -95,8 +95,14 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 		r.Post("/tracker/remove", p(radio.PermListenerKick, s.PostRemoveListener))
 
 		// proxy to the grafana host
-		grafana, _ := url.Parse("http://localhost:3000")
-		proxy := httputil.NewSingleHostReverseProxy(grafana)
+		grafana, _ := url.Parse("http://localhost:6969")
+		proxy := &httputil.ReverseProxy{
+			Rewrite: func(r *httputil.ProxyRequest) {
+				r.SetURL(grafana)
+				u := vmiddleware.UserFromContext(ctx)
+				r.Out.Header.Add("X-WEBAUTH-USER", u.Username)
+			},
+		}
 		r.Handle("/grafana/*", p(radio.PermGrafanaView, proxy.ServeHTTP))
 
 		// debug handlers, might not be needed later
