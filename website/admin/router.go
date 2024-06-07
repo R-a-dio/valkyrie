@@ -99,7 +99,7 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 		proxy := &httputil.ReverseProxy{
 			Rewrite: func(r *httputil.ProxyRequest) {
 				r.SetURL(grafana)
-				u := vmiddleware.UserFromContext(ctx)
+				u := vmiddleware.UserFromContext(r.In.Context())
 				r.Out.Header.Add("X-WEBAUTH-USER", u.Username)
 			},
 		}
