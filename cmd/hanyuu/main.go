@@ -171,7 +171,8 @@ var managerCmd = cmd{
 	usage: `manager:
 	manages shared state between the different parts
 	`,
-	execute: withConfig(manager.Execute),
+	execute:   withConfig(manager.Execute),
+	noSIGUSR2: true,
 }
 
 // implements cmd for .../valkyrie/ircbot
