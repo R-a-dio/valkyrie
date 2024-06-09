@@ -9,9 +9,11 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
+	"github.com/R-a-dio/valkyrie/rpc"
 	"github.com/R-a-dio/valkyrie/storage"
 	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/util/eventstream"
+	"github.com/Wessie/fdstore"
 	"github.com/rs/zerolog"
 )
 
@@ -23,7 +25,15 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 
-	m, err := NewManager(ctx, store)
+	fdstorage := fdstore.NewStoreListenFDs()
+
+	ln, state, err := util.RestoreOrListen(fdstorage, "manager", "tcp", cfg.Conf().Manager.RPCAddr.String())
+	if err != nil {
+		return err
+	}
+	defer ln.Close()
+
+	m, err := NewManager(ctx, store, state)
 	if err != nil {
 		return err
 	}
@@ -35,13 +45,19 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	}
 	defer srv.Stop()
 
-	ln, err := net.Listen("tcp", cfg.Conf().Manager.RPCAddr.String())
-	if err != nil {
-		return err
-	}
-
 	errCh := make(chan error, 1)
 	go func() {
+		// we need to clone the listener since we use the GRPC shutdown mechanism
+		// before we add the listener to the fdstore, and GRPC will close the listener
+		// fd when Stop is called
+		clone, err := ln.(fdstore.Filer).File()
+		if err != nil {
+			errCh <- err
+		}
+		ln, err := net.FileListener(clone)
+		if err != nil {
+			errCh <- err
+		}
 		errCh <- srv.Serve(ln)
 	}()
 
@@ -50,6 +66,29 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	case <-ctx.Done():
 		return nil
 	case <-util.Signal(syscall.SIGUSR2):
+		// on a restart signal we want to capture the current state and pass it
+		// to the next process, however it is possible there are in-flight updates
+		// happening and so we need to wait for those to finish first
+
+		// this stops any long-running manager streams we have open
+		m.Shutdown()
+		// this should stop any other RPC requests and wait until they're finished
+		srv.GracefulStop()
+		// now our state should be "stable" and not be able to be mutated anymore,
+		// so we can encode it to bytes. We use statusFromStreams because we did
+		// a stream Shutdown earlier and it means m.status might not have the latest
+		// values.
+		state, err := rpc.EncodeStatus(m.statusFromStreams())
+		if err != nil {
+			return err
+		}
+		if err := fdstorage.AddListener(ln, "manager", state); err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to store self")
+			return err
+		}
+		if err := fdstorage.Send(); err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to send store")
+		}
 		return nil
 	case err = <-errCh:
 		return err
@@ -57,28 +96,40 @@ func Execute(ctx context.Context, cfg config.Config) error {
 }
 
 // NewManager returns a manager ready for use
-func NewManager(ctx context.Context, store radio.StorageService) (*Manager, error) {
+func NewManager(ctx context.Context, store radio.StorageService, state []byte) (*Manager, error) {
 	m := Manager{
 		logger:  zerolog.Ctx(ctx),
 		Storage: store,
 		status:  radio.Status{},
 	}
 
-	old, err := m.loadStreamStatus(ctx)
-	if err != nil {
-		return nil, err
+	// if we have state from a previous process, use that
+	if len(state) > 0 {
+		old, err := rpc.DecodeStatus(state)
+		if err != nil {
+			return nil, err
+		}
+		m.status = old
+	} else { // otherwise use the state from the storage interface
+		old, err := m.loadStreamStatus(ctx)
+		if err != nil {
+			return nil, err
+		}
+		m.status = *old
 	}
-	m.status = *old
 
-	if old.User.ID != 0 {
-		m.userStream = eventstream.NewEventStream(&old.User)
+	if m.status.User.ID != 0 { //
+		m.userStream = eventstream.NewEventStream(&m.status.User)
 	} else {
 		m.userStream = eventstream.NewEventStream[*radio.User](nil)
 	}
-	m.threadStream = eventstream.NewEventStream(old.Thread)
-	m.songStream = eventstream.NewEventStream(&radio.SongUpdate{Song: old.Song, Info: old.SongInfo})
-	m.listenerStream = eventstream.NewEventStream(radio.Listeners(old.Listeners))
-	m.statusStream = eventstream.NewEventStream(*old)
+	m.threadStream = eventstream.NewEventStream(m.status.Thread)
+	m.songStream = eventstream.NewEventStream(&radio.SongUpdate{
+		Song: m.status.Song,
+		Info: m.status.SongInfo,
+	})
+	m.listenerStream = eventstream.NewEventStream(radio.Listeners(m.status.Listeners))
+	m.statusStream = eventstream.NewEventStream(m.status)
 	go m.runStatusUpdates(ctx)
 	return &m, nil
 }
@@ -141,4 +192,13 @@ func (m *Manager) loadStreamStatus(ctx context.Context) (*radio.Status, error) {
 	}
 
 	return status, nil
+}
+
+// Shutdown calls Shutdown on all internal manager streams
+func (m *Manager) Shutdown() {
+	m.listenerStream.Shutdown()
+	m.threadStream.Shutdown()
+	m.songStream.Shutdown()
+	m.statusStream.Shutdown()
+	m.userStream.Shutdown()
 }

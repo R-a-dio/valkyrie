@@ -96,7 +96,7 @@ func TestManager(t *testing.T) {
 		},
 	}
 
-	m, err := NewManager(ctx, storage)
+	m, err := NewManager(ctx, storage, nil)
 	require.NoError(t, err)
 	require.NotNil(t, m)
 	// the status should now be our initial song and user
@@ -301,5 +301,9 @@ func TestManager(t *testing.T) {
 		require.NotNil(t, s)
 
 		require.EqualExportedValues(t, status(), *s)
+	})
+
+	t.Run("statusFromStreams", func(t *testing.T) {
+		require.EqualExportedValues(t, status(), m.statusFromStreams())
 	})
 }

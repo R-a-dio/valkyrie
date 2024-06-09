@@ -238,6 +238,20 @@ func DecodeQueueEntry(data []byte) (radio.QueueEntry, error) {
 	return fromProtoQueueEntry(entry), nil
 }
 
+func EncodeStatus(status radio.Status) ([]byte, error) {
+	return proto.Marshal(toProtoStatus(status))
+}
+
+func DecodeStatus(data []byte) (radio.Status, error) {
+	status := new(StatusResponse)
+
+	err := proto.Unmarshal(data, status)
+	if err != nil {
+		return radio.Status{}, nil
+	}
+	return fromProtoStatus(status), nil
+}
+
 func toProtoUser(u *radio.User) *User {
 	if u == nil {
 		return nil

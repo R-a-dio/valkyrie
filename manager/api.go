@@ -152,6 +152,25 @@ func (m *Manager) UpdateListeners(ctx context.Context, listeners radio.Listeners
 	return nil
 }
 
+// statusFromStreams constructs a radio.Status from the individual data streams using
+// their latest value
+func (m *Manager) statusFromStreams() radio.Status {
+	var status radio.Status
+
+	status.Thread = m.threadStream.Latest()
+	status.Listeners = m.listenerStream.Latest()
+	if u := m.userStream.Latest(); u != nil {
+		status.User = *u
+		status.StreamerName = u.DJ.Name
+	}
+	if su := m.songStream.Latest(); su != nil {
+		status.Song = su.Song
+		status.SongInfo = su.Info
+	}
+
+	return status
+}
+
 // runStatusUpdates is in charge of keeping m.status up-to-date from the other
 // data streams.
 func (m *Manager) runStatusUpdates(ctx context.Context) {
