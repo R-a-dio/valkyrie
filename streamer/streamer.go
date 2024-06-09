@@ -478,7 +478,11 @@ func (s *Streamer) encoder(ctx context.Context, encoder *audio.LAME, trackCh cha
 
 		// if this track is too short log a warning
 		if preloadedLength < preloadTarget {
-			logger.Warn().Dur("preloaded_length", preloadedLength).Msg("short preload")
+			logger.Warn().
+				Dur("preloaded_length", preloadedLength).
+				Uint64("trackid", uint64(entry.TrackID)).
+				Str("metadata", entry.Metadata).
+				Msg("short preload")
 		}
 
 		// send the data to the icecast routine
