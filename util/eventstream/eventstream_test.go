@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -178,6 +179,29 @@ func TestEventServerShutdown(t *testing.T) {
 	}
 
 	es.Leave(ch)
+}
+
+func TestEventServerCloseSubs(t *testing.T) {
+	es := NewEventStream[string]("test")
+	es.CloseSubs()
+
+	ch := es.Sub()
+	if len(es.subs) != 0 {
+		t.Fatal("added a subscriber after close")
+	}
+
+	select {
+	case <-ch:
+	case <-time.After(time.Second):
+		t.Fatal("channel returned by Sub after Close should be closed")
+	}
+
+	// we called close, but not shutdown so Send's should still be being processed
+	es.Send("welcome")
+
+	assert.Eventually(t, func() bool {
+		return "welcome" == es.Latest()
+	}, time.Second, time.Millisecond*50)
 }
 
 var testVar string
