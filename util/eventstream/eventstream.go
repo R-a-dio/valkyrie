@@ -13,7 +13,7 @@ const (
 	LEAVE
 	SHUTDOWN
 	CLOSE
-	INIT
+	LENGTH
 )
 
 const TIMEOUT = time.Millisecond * 100
@@ -30,8 +30,8 @@ func NewEventStream[M any](initial M) *EventStream[M] {
 	es := &EventStream[M]{
 		shutdownCh: make(chan struct{}),
 		closeCh:    make(chan struct{}),
+		lengthCh:   make(chan int),
 		reqs:       make(chan request[M]),
-		subs:       make([]chan M, 0, 16),
 		last:       atomic.Pointer[M]{},
 	}
 
@@ -48,11 +48,12 @@ type EventStream[M any] struct {
 	// closeCh is closed when CloseSubs is called and indicates
 	// we're unsubscribing all subs
 	closeCh chan struct{}
+	// lengthCh is the channel used to receive length responses after
+	// calling .length()
+	lengthCh chan int
 
 	// reqs is the request channel to the manager goroutine
 	reqs chan request[M]
-	// subs stores the subscribers
-	subs []chan M
 	// last stores the last value send to subscribers
 	last atomic.Pointer[M]
 }
@@ -66,6 +67,7 @@ func (es *EventStream[M]) run() {
 	defer ticker.Stop()
 
 	var closed bool
+	var subs = make([]chan M, 0, 16)
 
 	for req := range es.reqs {
 		switch req.cmd {
@@ -77,20 +79,10 @@ func (es *EventStream[M]) run() {
 			}
 			// send our last/initial value
 			req.ch <- *es.last.Load()
-			es.subs = append(es.subs, req.ch)
+			subs = append(subs, req.ch)
 		case LEAVE:
-			// find the channel that is leaving
-			for i, ch := range es.subs {
-				if ch == req.ch {
-					// swap it with the last sub and cut the slice
-					last := len(es.subs) - 1
-					es.subs[i] = es.subs[last]
-					es.subs = es.subs[:last]
-					// close the leaving channel to unblock sub
-					close(ch)
-					break
-				}
-			}
+			// remove the channel
+			subs = removeSub(subs, req.ch)
 		case SEND:
 			v := req.m
 			es.last.Store(&v)
@@ -104,7 +96,7 @@ func (es *EventStream[M]) run() {
 			default:
 			}
 
-			for _, ch := range es.subs {
+			for _, ch := range subs {
 				ticker.Reset(TIMEOUT)
 				select {
 				case ch <- req.m:
@@ -116,11 +108,11 @@ func (es *EventStream[M]) run() {
 			close(es.closeCh)
 			// after closing the above channel we shouldn't be getting anymore
 			// new subscribers so we can close all existing ones
-			for _, ch := range es.subs {
+			for _, ch := range subs {
 				close(ch)
 			}
 			closed = true
-			es.subs = nil
+			subs = nil
 		case SHUTDOWN:
 			close(es.shutdownCh)
 
@@ -129,12 +121,41 @@ func (es *EventStream[M]) run() {
 			}
 
 			// otherwise we want to close all subs
-			for _, ch := range es.subs {
+			for _, ch := range subs {
 				close(ch)
 			}
-			es.subs = nil
 			return
+		case LENGTH:
+			es.lengthCh <- len(subs)
 		}
+	}
+}
+
+// removeSub removes the needle given from the slice s by swapping
+// the last element with the needle and slicing the end off
+func removeSub[M any](s []chan M, needle chan M) []chan M {
+	for i, ch := range s {
+		if ch == needle {
+			// swap it with the last and cut the slice
+			last := len(s) - 1
+			s[i] = s[last]
+			s = s[:last]
+			// close the leaving channel to unblock sub
+			close(ch)
+			break
+		}
+	}
+	return s
+}
+
+// length returns the length of the internal subs slice, this is the amount
+// of active subscribers
+func (es *EventStream[M]) length() int {
+	select {
+	case es.reqs <- request[M]{cmd: LENGTH}:
+		return <-es.lengthCh
+	case <-es.shutdownCh:
+		return 0
 	}
 }
 
