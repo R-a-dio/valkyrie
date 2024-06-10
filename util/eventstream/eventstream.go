@@ -79,12 +79,15 @@ func (es *EventStream[M]) run() {
 			}
 			// send our last/initial value
 			req.ch <- *es.last.Load()
+			// add the channel
 			subs = append(subs, req.ch)
 		case LEAVE:
 			// remove the channel
 			subs = removeSub(subs, req.ch)
 		case SEND:
+			// make a copy of the value
 			v := req.m
+			// store the value as our last known value
 			es.last.Store(&v)
 			// send to all our subs with a small timeout grace period
 			// so that clients have a bit of leeway between receives
@@ -105,7 +108,9 @@ func (es *EventStream[M]) run() {
 				}
 			}
 		case CLOSE:
-			close(es.closeCh)
+			if !closed {
+				close(es.closeCh)
+			}
 			// after closing the above channel we shouldn't be getting anymore
 			// new subscribers so we can close all existing ones
 			for _, ch := range subs {
@@ -114,13 +119,11 @@ func (es *EventStream[M]) run() {
 			closed = true
 			subs = nil
 		case SHUTDOWN:
-			close(es.shutdownCh)
-
-			if closed { // if we already closed there is nothing to do
-				return
+			if !closed {
+				close(es.closeCh)
 			}
-
-			// otherwise we want to close all subs
+			close(es.shutdownCh)
+			// close all the subs, a noop if CLOSE was done beforehand
 			for _, ch := range subs {
 				close(ch)
 			}
@@ -179,8 +182,6 @@ func (es *EventStream[M]) Sub() chan M {
 	case es.reqs <- request[M]{cmd: SUBSCRIBE, ch: ch}:
 	case <-es.closeCh: // indicates this stream isn't taking any more subs
 		close(ch) // we never subscribed so close the channel
-	case <-es.shutdownCh: // indicates this stream is completely shutdown
-		close(ch) // we never subscribed so close the channel
 	}
 	return ch
 }
@@ -195,8 +196,8 @@ func (es *EventStream[M]) SubStream(ctx context.Context) Stream[M] {
 func (es *EventStream[M]) Leave(ch chan M) {
 	select {
 	case es.reqs <- request[M]{cmd: LEAVE, ch: ch}:
-	case <-es.shutdownCh:
-		// shutdown before we were able to leave, so we can assume we got closed already
+	case <-es.closeCh:
+		// closed before we were able to leave, so we can assume we got closed already
 	}
 }
 
@@ -206,6 +207,8 @@ func (es *EventStream[M]) CloseSubs() {
 	select {
 	case es.reqs <- request[M]{cmd: CLOSE}:
 	case <-es.closeCh:
+		// if we're already closed we don't have to wait for the request
+		// to go through
 	}
 }
 

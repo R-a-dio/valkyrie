@@ -204,7 +204,38 @@ func TestEventServerCloseSubs(t *testing.T) {
 	}, time.Second, time.Millisecond*50)
 }
 
-var testVar string
+func TestEventServerCloseSubsMulti(t *testing.T) {
+	es := NewEventStream("test")
+
+	for range 50 {
+		// call CloseSubs multiple times to hit the extra case where we
+		// take the double CLOSE request path
+		es.CloseSubs()
+	}
+}
+
+func TestEventServerCloseSubsMultiSub(t *testing.T) {
+	es := NewEventStream("test")
+
+	es.CloseSubs()
+
+	for range 50 {
+		// call Sub multiple times to hit the extra case where we
+		// take the SUBSCRIBE request path
+		es.Sub()
+	}
+}
+
+func TestEventServerSlowSub(t *testing.T) {
+	es := NewEventStream(0)
+	ch := es.Sub()
+
+	for i := range 50 {
+		es.Send(i)
+	}
+
+	t.Log(<-ch)
+}
 
 func benchmarkEventStream(subcount int, b *testing.B) {
 	es := NewEventStream("hello world")
@@ -214,30 +245,17 @@ func benchmarkEventStream(subcount int, b *testing.B) {
 		ch := es.Sub()
 		channels = append(channels, ch)
 		go func(ch chan string) {
-			for m := range ch {
-				testVar = m
+			for range ch {
 			}
 		}(ch)
 	}
 
 	thing := "some garbage"
-	ch := es.Sub()
-	go func() {
-		for n := 0; n < b.N; n++ {
-			es.Send(thing)
-		}
-	}()
+	for n := 0; n < b.N; n++ {
+		es.Send(thing)
+	}
 
-	var counter = 0
-	for range ch {
-		counter++
-		if counter >= b.N {
-			break
-		}
-	}
-	for _, ch := range channels {
-		es.Leave(ch)
-	}
+	es.Shutdown()
 }
 
 func BenchmarkEventStream1(b *testing.B)     { benchmarkEventStream(1, b) }
