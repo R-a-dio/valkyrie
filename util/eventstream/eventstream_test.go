@@ -2,11 +2,13 @@ package eventstream
 
 import (
 	"context"
+	"io"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestEventStreamInitialValue(t *testing.T) {
@@ -140,6 +142,25 @@ func TestEventServerStream(t *testing.T) {
 	}
 }
 
+func TestEventServerStreamContextCancel(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	es := NewEventStream("hello world")
+
+	s := es.SubStream(ctx)
+
+	initial, err := s.Next()
+	require.NoError(t, err)
+	require.Equal(t, "hello world", initial)
+
+	// now cancel the context we passed to SubStream
+	cancel()
+
+	next, err := s.Next()           // this should not block because the context got canceled
+	require.ErrorIs(t, err, io.EOF) // should be EOF
+	require.Zero(t, next)
+}
+
 func TestEventServerLeave(t *testing.T) {
 	es := NewEventStream[string]("hello world")
 
@@ -179,19 +200,30 @@ func TestEventServerShutdown(t *testing.T) {
 	}
 
 	es.Leave(ch)
+
+	// sending after Shutdown should not block
+	es.Send("after shutdown")
 }
 
 func TestEventServerCloseSubs(t *testing.T) {
 	es := NewEventStream[string]("test")
+	beforeCh := es.Sub()
+
 	es.CloseSubs()
 
-	ch := es.Sub()
+	afterCh := es.Sub()
 	if es.length() != 0 {
 		t.Fatal("added a subscriber after close")
 	}
 
 	select {
-	case <-ch:
+	case <-beforeCh:
+	case <-time.After(time.Second):
+		t.Fatal("channel returned by Sub should be closed after CloseSubs")
+	}
+
+	select {
+	case <-afterCh:
 	case <-time.After(time.Second):
 		t.Fatal("channel returned by Sub after Close should be closed")
 	}
@@ -202,6 +234,15 @@ func TestEventServerCloseSubs(t *testing.T) {
 	assert.Eventually(t, func() bool {
 		return "welcome" == es.Latest()
 	}, time.Second, time.Millisecond*50)
+}
+
+func TestEventServerShutdownMulti(t *testing.T) {
+	es := NewEventStream("test")
+
+	for range 50 {
+		// call Shutdown multiple times to make sure it can't break somehow
+		es.Shutdown()
+	}
 }
 
 func TestEventServerCloseSubsMulti(t *testing.T) {
@@ -230,6 +271,7 @@ func TestEventServerSlowSub(t *testing.T) {
 	es := NewEventStream(0)
 	ch := es.Sub()
 
+	time.Sleep(TIMEOUT * 2) // also wait a bit for the initial ticker to tick
 	for i := range 50 {
 		es.Send(i)
 	}
