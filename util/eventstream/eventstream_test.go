@@ -144,13 +144,13 @@ func TestEventServerLeave(t *testing.T) {
 	es := NewEventStream[string]("hello world")
 
 	ch := es.Sub()
-	if len(es.subs) != 1 {
+	if es.length() != 1 {
 		t.Fatal("failed to subscribe")
 	}
 	es.Leave(ch)
 	es.Send("secondary")
-	if len(es.subs) != 0 {
-		t.Fatal("failed to leave:", es.subs)
+	if es.length() != 0 {
+		t.Fatal("failed to leave")
 	}
 }
 
@@ -158,14 +158,14 @@ func TestEventServerLeaveStream(t *testing.T) {
 	es := NewEventStream[string]("hello world")
 
 	s := es.SubStream(context.Background())
-	if len(es.subs) != 1 {
+	if es.length() != 1 {
 		t.Fatal("failed to subscribe")
 	}
 	_ = s.Close()
 
 	es.Send("secondary")
-	if len(es.subs) != 0 {
-		t.Fatal("failed to leave:", es.subs)
+	if es.length() != 0 {
+		t.Fatal("failed to leave")
 	}
 }
 
@@ -174,7 +174,7 @@ func TestEventServerShutdown(t *testing.T) {
 	es.Shutdown()
 
 	ch := es.Sub()
-	if len(es.subs) != 0 {
+	if es.length() != 0 {
 		t.Fatal("added a subscriber after shutdown")
 	}
 
@@ -186,7 +186,7 @@ func TestEventServerCloseSubs(t *testing.T) {
 	es.CloseSubs()
 
 	ch := es.Sub()
-	if len(es.subs) != 0 {
+	if es.length() != 0 {
 		t.Fatal("added a subscriber after close")
 	}
 
