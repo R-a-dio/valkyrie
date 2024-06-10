@@ -12,6 +12,7 @@ const (
 	SEND
 	LEAVE
 	SHUTDOWN
+	CLOSE
 	INIT
 )
 
@@ -28,6 +29,7 @@ type request[T any] struct {
 func NewEventStream[M any](initial M) *EventStream[M] {
 	es := &EventStream[M]{
 		shutdownCh: make(chan struct{}),
+		closeCh:    make(chan struct{}),
 		reqs:       make(chan request[M]),
 		subs:       make([]chan M, 0, 16),
 		last:       atomic.Pointer[M]{},
@@ -40,8 +42,12 @@ func NewEventStream[M any](initial M) *EventStream[M] {
 }
 
 type EventStream[M any] struct {
-	// shutdownCh is closed when the server is shutting down
+	// shutdownCh is closed when Shutdown is called and indicates
+	// we're unsubscribing all subs and the background goroutine
 	shutdownCh chan struct{}
+	// closeCh is closed when CloseSubs is called and indicates
+	// we're unsubscribing all subs
+	closeCh chan struct{}
 
 	// reqs is the request channel to the manager goroutine
 	reqs chan request[M]
@@ -49,9 +55,6 @@ type EventStream[M any] struct {
 	subs []chan M
 	// last stores the last value send to subscribers
 	last atomic.Pointer[M]
-	// FallbehindFn holds a function that is called when a subscriber falls behind
-	// and isn't keeping up with SENDs
-	FallbehindFn func(chan M, M)
 }
 
 func (es *EventStream[M]) Latest() M {
@@ -62,9 +65,16 @@ func (es *EventStream[M]) run() {
 	ticker := time.NewTicker(TIMEOUT)
 	defer ticker.Stop()
 
+	var closed bool
+
 	for req := range es.reqs {
 		switch req.cmd {
 		case SUBSCRIBE:
+			if closed {
+				// we're not taking new subscribers
+				close(req.ch)
+				continue
+			}
 			// send our last/initial value
 			req.ch <- *es.last.Load()
 			es.subs = append(es.subs, req.ch)
@@ -99,25 +109,38 @@ func (es *EventStream[M]) run() {
 				select {
 				case ch <- req.m:
 				case <-ticker.C: // sub didn't receive fast enough
-					if es.FallbehindFn != nil {
-						es.FallbehindFn(ch, req.m)
-					}
 					// TODO: see if we want to do book keeping and kicking of bad subs
 				}
 			}
-		case SHUTDOWN:
-			close(es.shutdownCh)
+		case CLOSE:
+			close(es.closeCh)
 			// after closing the above channel we shouldn't be getting anymore
 			// new subscribers so we can close all existing ones
 			for _, ch := range es.subs {
 				close(ch)
 			}
-			// and exit our background goroutine
+			closed = true
+			es.subs = nil
+		case SHUTDOWN:
+			close(es.shutdownCh)
+
+			if closed { // if we already closed there is nothing to do
+				return
+			}
+
+			// otherwise we want to close all subs
+			for _, ch := range es.subs {
+				close(ch)
+			}
+			es.subs = nil
 			return
 		}
 	}
 }
 
+// Send sends the value M to all subscribers previously subscribed through
+// Sub() or SubStream(), the last value Send is also stored and send when
+// a new subscriber appears.
 func (es *EventStream[M]) Send(m M) {
 	select {
 	case es.reqs <- request[M]{cmd: SEND, m: m}:
@@ -125,21 +148,29 @@ func (es *EventStream[M]) Send(m M) {
 	}
 }
 
+// Sub subscribers to this stream of events, the channel will receive values
+// send through calling Send with a small buffer and receive grace period if
+// they fall behind.
 func (es *EventStream[M]) Sub() chan M {
 	ch := make(chan M, 8)
 
 	select {
 	case es.reqs <- request[M]{cmd: SUBSCRIBE, ch: ch}:
-	case <-es.shutdownCh:
-		close(ch) // we never subscribed so close ourselves
+	case <-es.closeCh: // indicates this stream isn't taking any more subs
+		close(ch) // we never subscribed so close the channel
+	case <-es.shutdownCh: // indicates this stream is completely shutdown
+		close(ch) // we never subscribed so close the channel
 	}
 	return ch
 }
 
+// SubStream is like Sub but returns a Stream interface instead of a channel
 func (es *EventStream[M]) SubStream(ctx context.Context) Stream[M] {
 	return NewStream(ctx, es)
 }
 
+// Leave leaves the subscriber list, the channel should be one returned by Sub, the
+// channel is closed once the Leave request has been processed
 func (es *EventStream[M]) Leave(ch chan M) {
 	select {
 	case es.reqs <- request[M]{cmd: LEAVE, ch: ch}:
@@ -148,6 +179,17 @@ func (es *EventStream[M]) Leave(ch chan M) {
 	}
 }
 
+// CloseSubs closes all channels handed out by Sub() and prevents
+// new subs from subscribing
+func (es *EventStream[M]) CloseSubs() {
+	select {
+	case es.reqs <- request[M]{cmd: CLOSE}:
+	case <-es.closeCh:
+	}
+}
+
+// Shutdown is like CloseSubs but also exits the background goroutine used
+// for updating the eventstream
 func (es *EventStream[M]) Shutdown() {
 	select {
 	case es.reqs <- request[M]{cmd: SHUTDOWN}:
