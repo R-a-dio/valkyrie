@@ -16,7 +16,7 @@ const (
 	LENGTH
 )
 
-const TIMEOUT = time.Millisecond * 100
+const TIMEOUT = time.Millisecond * 10
 
 type cmd byte
 
