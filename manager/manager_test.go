@@ -22,7 +22,7 @@ func TestManager(t *testing.T) {
 	songs := make(map[radio.SongHash]radio.Song)
 	var songsMu sync.Mutex
 
-	initSong := radio.NewSong("initial value")
+	initSong := radio.NewSong("#1 initial value")
 	initUser := radio.User{
 		ID:       50,
 		Username: "initial",
@@ -111,6 +111,9 @@ func TestManager(t *testing.T) {
 		assert.Equal(t, initUser.DJ.ID, calls[0].DJID)
 	}
 
+	statusCh := m.statusStream.Sub()
+	<-statusCh // eat the initial
+
 	status := func() radio.Status {
 		m.mu.Lock()
 		defer m.mu.Unlock()
@@ -135,9 +138,7 @@ func TestManager(t *testing.T) {
 		// should show up in the thread stream
 		require.Equal(t, thread, <-threadCh)
 		// and should show up in the status afterwards
-		require.Eventually(t, func() bool {
-			return assert.EqualValues(t, thread, status().Thread)
-		}, time.Second, time.Millisecond*50)
+		require.Equal(t, thread, (<-statusCh).Thread)
 	})
 
 	t.Run("UpdateListeners", func(t *testing.T) {
@@ -153,8 +154,9 @@ func TestManager(t *testing.T) {
 		require.EqualValues(t, list, <-listCh)
 		// and should show up in the status afterwards
 		require.Eventually(t, func() bool {
-			return assert.EqualValues(t, list, status().Listeners)
+			return assert.ObjectsAreEqualValues(list, status().Listeners)
 		}, time.Second, time.Millisecond*50)
+		// should have no status updates, so don't check
 	})
 
 	t.Run("UpdateUser", func(t *testing.T) {
@@ -162,17 +164,12 @@ func TestManager(t *testing.T) {
 		defer m.userStream.Leave(userCh)
 		require.EqualValues(t, &initUser, <-userCh)
 
-		statusCh := m.statusStream.Sub()
-		defer m.statusStream.Leave(statusCh)
-		<-statusCh // eat the initial value
-
 		// set it to nil first, see if it updates
 		err := m.UpdateUser(ctx, nil)
 		require.NoError(t, err)
 		// nil should show up in the user stream
 		require.Nil(t, <-userCh)
-		// but not in the status update
-		require.EqualValues(t, initUser, (<-statusCh).User)
+		// but not in the status update, but absence is hard to check
 
 		// now set an actual value
 		user := &radio.User{
@@ -224,19 +221,27 @@ func TestManager(t *testing.T) {
 		return true
 	}
 
+	compareStatusUpdate := func(t *testing.T, expected *radio.SongUpdate, actual radio.Status) bool {
+		return compareSongUpdate(t, expected, &radio.SongUpdate{
+			Song: actual.Song,
+			Info: actual.SongInfo,
+		})
+	}
+
 	t.Run("UpdateSong", func(t *testing.T) {
 		suCh := m.songStream.Sub()
 		defer m.songStream.Leave(suCh)
 		require.EqualValues(t, initSong, (<-suCh).Song)
 
 		su := &radio.SongUpdate{
-			Song: newsong("yes - no", time.Second*126),
+			Song: newsong("#2 yes - no", time.Second*126),
 			Info: radio.SongInfo{},
 		}
 
 		err := m.UpdateSong(ctx, su)
 		require.NoError(t, err)
 		compareSongUpdate(t, su, <-suCh)
+		compareStatusUpdate(t, su, <-statusCh)
 
 		// now do a duplicate update of the same song
 		err = m.UpdateSong(ctx, su)
@@ -247,13 +252,14 @@ func TestManager(t *testing.T) {
 		// instead of what it expects
 
 		su = &radio.SongUpdate{
-			Song: radio.NewSong("does not exist", time.Second*187),
+			Song: radio.NewSong("#3 does not exist", time.Second*187),
 			Info: radio.SongInfo{},
 		}
 
 		err = m.UpdateSong(ctx, su)
 		require.NoError(t, err)
 		compareSongUpdate(t, su, <-suCh)
+		compareStatusUpdate(t, su, <-statusCh)
 	})
 
 	t.Run("UpdateSongWithTrack", func(t *testing.T) {
@@ -261,10 +267,10 @@ func TestManager(t *testing.T) {
 		defer m.songStream.Leave(suCh)
 		<-suCh // eat the initial
 
-		song := newsong("me - a testing song", time.Second*322)
+		song := newsong("#4 me - a testing song", time.Second*322)
 		song.DatabaseTrack = &radio.DatabaseTrack{
 			TrackID: 50,
-			Artist:  "me",
+			Artist:  "#4 me",
 			Title:   "a testing song",
 			Album:   "that's a test",
 		}
@@ -280,6 +286,7 @@ func TestManager(t *testing.T) {
 		err = m.UpdateSong(ctx, su)
 		require.NoError(t, err)
 		compareSongUpdate(t, su, <-suCh)
+		compareStatusUpdate(t, su, <-statusCh)
 
 		// check duplicate update again
 		err = m.UpdateSong(ctx, su)
@@ -287,12 +294,13 @@ func TestManager(t *testing.T) {
 
 		// now update with any other song
 		su = &radio.SongUpdate{
-			Song: newsong("not a database song", time.Second*50),
+			Song: newsong("#5 not a database song", time.Second*50),
 		}
 
 		err = m.UpdateSong(ctx, su)
 		require.NoError(t, err)
 		compareSongUpdate(t, su, <-suCh)
+		compareStatusUpdate(t, su, <-statusCh)
 	})
 
 	t.Run("Status", func(t *testing.T) {

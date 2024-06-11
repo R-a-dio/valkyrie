@@ -3,6 +3,7 @@ package eventstream
 import (
 	"context"
 	"io"
+	"log"
 	"sync/atomic"
 	"time"
 )
@@ -37,7 +38,6 @@ func NewEventStream[M any](initial M) *EventStream[M] {
 
 	es.last.Store(&initial)
 	go es.run()
-
 	return es
 }
 
@@ -105,6 +105,7 @@ func (es *EventStream[M]) run() {
 				case ch <- req.m:
 				case <-ticker.C: // sub didn't receive fast enough
 					// TODO: see if we want to do book keeping and kicking of bad subs
+					log.Println("TIMEOUT REACHED")
 				}
 			}
 		case CLOSE:
