@@ -7,9 +7,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
-	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
@@ -85,48 +83,46 @@ func (d databaseCmd) addTrack(ctx context.Context, cfg config.Config) error {
 		if err != nil {
 			return err
 		}
-		info, err := audio.Probe(ctx, filename)
+		// try get information from ffprobe
+		info, err := audio.ProbeText(ctx, filename)
 		if err != nil {
 			return err
 		}
 
+		// as fallback we use the filename as '{artist} - {title}'
 		fn := filepath.Base(filename)
 		fn = strings.TrimSuffix(fn, filepath.Ext(fn))
 		artist, title, _ := strings.Cut(fn, " - ")
-		if info.Format.Tags.Title == "" {
-			info.Format.Tags.Title = title
+		if info.Title == "" {
+			info.Title = title
 		}
-		if info.Format.Tags.Artist == "" {
-			info.Format.Tags.Artist = artist
+		if info.Artist == "" {
+			info.Artist = artist
 		}
 
 		track := radio.DatabaseTrack{
 			TrackID:    0,
-			Artist:     info.Format.Tags.Artist,
-			Title:      info.Format.Tags.Title,
-			Album:      info.Format.Tags.Album,
+			Artist:     info.Artist,
+			Title:      info.Title,
+			Album:      info.Album,
 			FilePath:   filename,
 			Tags:       "testfile",
 			Acceptor:   "command-line-interface",
 			LastEditor: "command-line-interface",
 			Usable:     true,
 		}
-		metadata := track.Artist + " - " + track.Title
-		duration, _ := strconv.Atoi(info.Format.Duration)
 
 		song := radio.Song{
-			ID:            0,
-			Hash:          radio.NewSongHash(metadata),
-			Metadata:      metadata,
-			Length:        time.Duration(duration) * time.Second,
+			Length:        info.Duration,
 			DatabaseTrack: &track,
 		}
+		song.Hydrate()
 
 		id, err := db.Track(ctx).Insert(song)
 		if err != nil && !strings.Contains(err.Error(), "Duplicate") {
 			return err
 		}
-		fmt.Printf("successfully added %s (ID: %d)\n", metadata, id)
+		fmt.Printf("successfully added %s (ID: %d)\n", song.Metadata, id)
 	}
 	return nil
 }
