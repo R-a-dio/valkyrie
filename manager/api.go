@@ -173,69 +173,67 @@ func (m *Manager) statusFromStreams() radio.Status {
 
 // runStatusUpdates is in charge of keeping m.status up-to-date from the other
 // data streams.
-func (m *Manager) runStatusUpdates(ctx context.Context) {
+func (m *Manager) runStatusUpdates(ctx context.Context, ready chan struct{}) {
 	userCh := m.userStream.Sub()
 	defer m.userStream.Leave(userCh)
-	var user *radio.User
+	<-userCh // eat initial value
 
 	threadCh := m.threadStream.Sub()
 	defer m.threadStream.Leave(threadCh)
-	var thread string
+	<-threadCh // eat initial value
 
 	songCh := m.songStream.Sub()
 	defer m.songStream.Leave(songCh)
-	var su *radio.SongUpdate
+	<-songCh // eat initial value
 
 	listenerCh := m.listenerStream.Sub()
 	defer m.listenerStream.Leave(listenerCh)
-	var listenerCount radio.Listeners
+	// store initial value, for if we get a song update before a listener update
+	listenerCount := <-listenerCh
 	var songStartListenerCount radio.Listeners
 
-	// indicates if this is the first song, we don't want to call finishSong
-	// on the initial song until an actual song change occurs afterwards
-	var firstSong = true
+	// communicate that we are ready to handle events
+	close(ready)
+
 	for {
 		var sendStatus = true
-		var songUpdate = false
 
 		select {
 		case <-ctx.Done():
 			return
-		case user = <-userCh:
-		case thread = <-threadCh:
-		case su = <-songCh:
-			songUpdate = true
-		case listenerCount = <-listenerCh:
-			sendStatus = false
-		}
-
-		m.mu.Lock()
-		// if we're about to update the song, we need to do some bookkeeping on
-		// the previous song
-		if songUpdate {
-			if !firstSong { // don't finish the initial song
-				if err := m.finishSong(ctx, m.status, songStartListenerCount); err != nil {
-					zerolog.Ctx(ctx).Error().Err(err).Msg("failed finishSong")
-				}
-			} else {
-				firstSong = false
+		case user := <-userCh:
+			if user == nil {
+				// skip nil users, we don't update the status for them
+				continue
 			}
-		}
-
-		// update user
-		if user != nil {
+			zerolog.Ctx(ctx).Info().Any("user", user).Msg("running status update")
+			m.mu.Lock()
 			m.status.StreamerName = user.DJ.Name
 			m.status.User = *user
+		case thread := <-threadCh:
+			zerolog.Ctx(ctx).Info().Str("thread", thread).Msg("running status update")
+			m.mu.Lock()
+			m.status.Thread = thread
+		case su := <-songCh:
+			zerolog.Ctx(ctx).Info().Any("song", su).Msg("running status update")
+			m.mu.Lock()
+			if err := m.finishSong(ctx, m.status, songStartListenerCount); err != nil {
+				zerolog.Ctx(ctx).Error().Err(err).Msg("failed finishSong")
+			}
+
+			if su != nil {
+				m.status.Song = su.Song
+				m.status.SongInfo = su.Info
+				// if we just did a song update we want to record how many
+				// listeners we have at the start of it
+				songStartListenerCount = listenerCount
+			}
+		case listenerCount = <-listenerCh:
+			zerolog.Ctx(ctx).Info().Int64("listeners", listenerCount).Msg("running status update")
+			m.mu.Lock()
+			m.status.Listeners = listenerCount
+			sendStatus = false // don't send status updates for listener count updates
 		}
-		// update song
-		if su != nil {
-			m.status.Song = su.Song
-			m.status.SongInfo = su.Info
-		}
-		// update thread
-		m.status.Thread = thread
-		// update listener count
-		m.status.Listeners = listenerCount
 
 		if sendStatus {
 			// send a copy to the status stream
@@ -244,12 +242,6 @@ func (m *Manager) runStatusUpdates(ctx context.Context) {
 		// and a copy to the persistent storage
 		m.updateStreamStatus(m.status)
 		m.mu.Unlock()
-
-		// and finally, if we just did a song update we want to record how many
-		// listeners we have at the start of it
-		if songUpdate {
-			songStartListenerCount = listenerCount
-		}
 	}
 }
 

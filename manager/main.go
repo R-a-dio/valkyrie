@@ -133,7 +133,14 @@ func NewManager(ctx context.Context, store radio.StorageService, state []byte) (
 	})
 	m.listenerStream = eventstream.NewEventStream(radio.Listeners(m.status.Listeners))
 	m.statusStream = eventstream.NewEventStream(m.status)
-	go m.runStatusUpdates(ctx)
+
+	ready := make(chan struct{})
+	go m.runStatusUpdates(ctx, ready)
+	// wait for the goroutine to startup and subscribe to the eventstreams
+	select {
+	case <-ready:
+	case <-ctx.Done():
+	}
 	return &m, nil
 }
 
