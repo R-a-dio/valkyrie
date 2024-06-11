@@ -71,9 +71,12 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		// happening and so we need to wait for those to finish first
 
 		// this stops any long-running manager streams we have open
-		m.Shutdown()
+		m.CloseSubs()
 		// this should stop any other RPC requests and wait until they're finished
 		srv.GracefulStop()
+		// now shutdown the manager streams, this should count as a "happens-after"
+		// constraint for any updates that were incoming
+		m.Shutdown()
 		// now our state should be "stable" and not be able to be mutated anymore,
 		// so we can encode it to bytes. We use statusFromStreams because we did
 		// a stream Shutdown earlier and it means m.status might not have the latest
@@ -192,6 +195,15 @@ func (m *Manager) loadStreamStatus(ctx context.Context) (*radio.Status, error) {
 	}
 
 	return status, nil
+}
+
+// CloseSubs calls CloseSubs on all internal manager streams
+func (m *Manager) CloseSubs() {
+	m.listenerStream.CloseSubs()
+	m.threadStream.CloseSubs()
+	m.songStream.CloseSubs()
+	m.statusStream.CloseSubs()
+	m.userStream.CloseSubs()
 }
 
 // Shutdown calls Shutdown on all internal manager streams
