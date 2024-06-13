@@ -5,6 +5,7 @@ import (
 
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/templates"
+	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/rs/xid"
 	"github.com/rs/zerolog/hlog"
@@ -12,9 +13,10 @@ import (
 
 type ErrorInput struct {
 	middleware.Input
-	Message   string
-	Error     error
-	RequestID xid.ID
+	StatusCode int
+	Message    string
+	Error      error
+	RequestID  xid.ID
 }
 
 func (ErrorInput) TemplateBundle() string {
@@ -29,30 +31,33 @@ var (
 func ErrorHandler(exec templates.Executor, w http.ResponseWriter, r *http.Request, err error) {
 	hlog.FromRequest(r).Error().Err(err).Msg("")
 
-	var msg string
+	var statusCode = http.StatusInternalServerError
+	var msg = http.StatusText(statusCode)
 
 	switch {
 	case errors.IsE(err, ErrNotFound):
+		statusCode = http.StatusNotFound
 		msg = "page not found"
-		w.WriteHeader(http.StatusNotFound)
 	case errors.IsE(err, ErrMethodNotAllowed):
+		statusCode = http.StatusMethodNotAllowed
 		msg = "method not allowed"
-		w.WriteHeader(http.StatusMethodNotAllowed)
 	case errors.Is(errors.InvalidForm, err):
+		statusCode = http.StatusBadRequest
 		msg = "form is invalid"
-		w.WriteHeader(http.StatusBadRequest)
-	default:
-		msg = "internal server error"
-		w.WriteHeader(http.StatusInternalServerError)
 	}
 
 	rid, _ := hlog.IDFromRequest(r)
 
 	input := ErrorInput{
-		Input:     middleware.InputFromRequest(r),
-		Message:   msg,
-		Error:     err,
-		RequestID: rid,
+		Input:      middleware.InputFromRequest(r),
+		StatusCode: statusCode,
+		Message:    msg,
+		Error:      err,
+		RequestID:  rid,
+	}
+
+	if util.IsHTMX(r) {
+		w.Header().Set("HX-Retarget", "#content")
 	}
 
 	err = exec.Execute(w, r, input)
