@@ -258,12 +258,17 @@ func (s State) PostNewsEntry(w http.ResponseWriter, r *http.Request) {
 }
 
 func ParsePostNewsEntryForm(r *http.Request) (*radio.NewsComment, error) {
+	const op errors.Op = "website/public.ParsePostNewsEntryForm"
+
 	ctx := r.Context()
 
 	id := chi.URLParamFromCtx(ctx, "NewsID")
 	newsid, err := radio.ParseNewsPostID(id)
 	if err != nil {
 		return nil, err
+	}
+	if newsid == 0 { // make sure we have an id
+		return nil, errors.E(op, errors.InvalidForm)
 	}
 
 	comment := radio.NewsComment{
@@ -277,6 +282,10 @@ func ParsePostNewsEntryForm(r *http.Request) (*radio.NewsComment, error) {
 
 	if comment.User != nil {
 		comment.UserID = &comment.User.ID
+	}
+
+	if len(comment.Body) > 500 { // comment too big
+		return nil, errors.E(op, errors.InvalidForm)
 	}
 
 	return &comment, nil
