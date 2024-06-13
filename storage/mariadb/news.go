@@ -64,7 +64,9 @@ LEFT JOIN
 LEFT JOIN
 	permissions ON users.id = permissions.user_id
 WHERE
-	radio_news.id=?;
+	radio_news.id=?
+GROUP BY
+	radio_news.id;
 `)
 
 // Get implements radio.NewsStorage
