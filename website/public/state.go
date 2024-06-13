@@ -11,6 +11,7 @@ import (
 	"github.com/R-a-dio/valkyrie/util/secret"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/R-a-dio/valkyrie/website/shared"
+	"github.com/rs/xid"
 	"github.com/rs/zerolog/hlog"
 
 	"github.com/go-chi/chi/v5"
@@ -53,30 +54,47 @@ type State struct {
 
 type ErrorInput struct {
 	middleware.Input
-	Message string
-	Error   error
+	Message   string
+	Error     error
+	RequestID xid.ID
 }
 
 func (ErrorInput) TemplateBundle() string {
 	return "error"
 }
 
-const (
-	TEMPLATE_ERROR = "Template rendering error"
-	INPUT_ERROR    = "Input creation error"
-	FORM_ERROR     = "Form parsing error"
-	INTERNAL_ERROR = "Internal server error"
+var (
+	ErrNotFound         = errors.New("page not found")
+	ErrMethodNotAllowed = errors.New("method not allowed")
 )
 
 func (s *State) errorHandler(w http.ResponseWriter, r *http.Request, err error) {
 	hlog.FromRequest(r).Error().Err(err).Msg("")
 
-	msg := INTERNAL_ERROR
+	var msg string
+
+	switch {
+	case errors.IsE(err, ErrNotFound):
+		msg = "page not found"
+		w.WriteHeader(http.StatusNotFound)
+	case errors.IsE(err, ErrMethodNotAllowed):
+		msg = "method not allowed"
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	case errors.Is(errors.InvalidForm, err):
+		msg = "form is invalid"
+		w.WriteHeader(http.StatusBadRequest)
+	default:
+		msg = "internal server error"
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+
+	rid, _ := hlog.IDFromRequest(r)
 
 	input := ErrorInput{
-		Input:   middleware.InputFromRequest(r),
-		Message: msg,
-		Error:   err,
+		Input:     middleware.InputFromRequest(r),
+		Message:   msg,
+		Error:     err,
+		RequestID: rid,
 	}
 
 	err = s.Templates.Execute(w, r, input)
@@ -106,10 +124,10 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 		r.Get("/irc", s.GetChat)
 		r.Get("/help", s.GetHelp)
 		r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
-			s.errorHandler(w, r, errors.E(errors.Op("MethodNotAllowed")))
+			s.errorHandler(w, r, ErrMethodNotAllowed)
 		})
 		r.NotFound(func(w http.ResponseWriter, r *http.Request) {
-			s.errorHandler(w, r, errors.E(errors.Op("NotFound")))
+			s.errorHandler(w, r, ErrNotFound)
 		})
 	}
 }
