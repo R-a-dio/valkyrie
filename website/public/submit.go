@@ -356,7 +356,9 @@ func NewSubmissionForm(ts radio.TrackStorage, tempdir string, r *http.Request) (
 		if err != nil {
 			return nil, errors.E(op, err)
 		}
-		sf.Replacement = &tid
+		if tid != 0 { // 0 is our no replacement indicator
+			sf.Replacement = &tid
+		}
 	}
 
 	// now handle the uploaded file
