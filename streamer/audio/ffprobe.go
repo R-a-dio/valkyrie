@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"io"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -55,25 +56,34 @@ type Info struct {
 	Bitrate    int
 }
 
+var ffprobeTextArgs = []string{
+	"-loglevel", "fatal",
+	"-hide_banner",
+	"-show_entries", "format_tags=title,artist,album:stream_tags=title,artist,album:stream=duration,bit_rate:format=format_name,bit_rate",
+	"-of", "default=noprint_wrappers=1",
+}
+
 func ProbeText(ctx context.Context, filename string) (*Info, error) {
 	const op errors.Op = "streamer/audio.Probe"
 
-	log := zerolog.Ctx(ctx)
-
 	cmd := exec.CommandContext(ctx, "ffprobe",
-		"-loglevel", "fatal",
-		"-hide_banner",
-		"-show_entries", "format_tags=title,artist,album:stream_tags=title,artist,album:stream=duration,bit_rate:format=format_name,bit_rate",
-		"-of", "default=noprint_wrappers=1",
-		"-i", filename)
+		append(ffprobeTextArgs, "-i", filename)...)
 
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, errors.E(op, err, errors.Info(cmd.String()))
 	}
 
+	return parseProbeText(ctx, bytes.NewReader(out))
+}
+
+func parseProbeText(ctx context.Context, out io.Reader) (*Info, error) {
+	const op errors.Op = "streamer/audio.parseProbeText"
+	var err error
 	var info Info
-	s := bufio.NewScanner(bytes.NewReader(out))
+
+	s := bufio.NewScanner(out)
+	log := zerolog.Ctx(ctx)
 	for s.Scan() {
 		m := probeRegex.FindStringSubmatch(s.Text())
 		if m == nil {
