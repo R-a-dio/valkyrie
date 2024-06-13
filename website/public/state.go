@@ -8,6 +8,7 @@ import (
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/R-a-dio/valkyrie/util/secret"
+	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/R-a-dio/valkyrie/website/shared"
 	"github.com/rs/zerolog/hlog"
 
@@ -49,10 +50,39 @@ type State struct {
 	Search    radio.SearchService
 }
 
+type ErrorInput struct {
+	middleware.Input
+	Message string
+	Error   error
+}
+
+func (ErrorInput) TemplateBundle() string {
+	return "error"
+}
+
+const (
+	TEMPLATE_ERROR = "Template rendering error"
+	INPUT_ERROR    = "Input creation error"
+	FORM_ERROR     = "Form parsing error"
+	INTERNAL_ERROR = "Internal server error"
+)
+
 func (s *State) errorHandler(w http.ResponseWriter, r *http.Request, err error) {
 	hlog.FromRequest(r).Error().Err(err).Msg("")
-	// TODO: handle errors more gracefully
-	http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+
+	msg := INTERNAL_ERROR
+
+	input := ErrorInput{
+		Input:   middleware.InputFromRequest(r),
+		Message: msg,
+		Error:   err,
+	}
+
+	err = s.Templates.Execute(w, r, input)
+	if err != nil {
+		hlog.FromRequest(r).Error().Err(err).Msg("error while rendering error page")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+	}
 }
 
 func Route(ctx context.Context, s State) func(chi.Router) {

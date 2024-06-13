@@ -190,6 +190,11 @@ type website struct {
 	PublicStreamURL string
 	// CSRFSecret is the key used to generate csrf tokens, should be secret
 	CSRFSecret string
+
+	// AkismetKey is the anti-spam API key to akismet
+	AkismetKey string
+	// AkismetBlog is the string to send as the blog value in the akismet api
+	AkismetBlog string
 }
 
 // streamer contains all the fields only relevant to the streamer
