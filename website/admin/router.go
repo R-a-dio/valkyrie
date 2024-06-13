@@ -12,7 +12,6 @@ import (
 	"github.com/R-a-dio/valkyrie/util/secret"
 	vmiddleware "github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/R-a-dio/valkyrie/website/shared"
-	"github.com/rs/zerolog/hlog"
 	"github.com/spf13/afero"
 
 	"github.com/alexedwards/scs/v2"
@@ -102,6 +101,12 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 		// debug handlers, might not be needed later
 		r.Post("/api/streamer/stop", p(radio.PermAdmin, s.PostStreamerStop))
 		r.Post("/api/website/reload-templates", p(radio.PermAdmin, s.PostReloadTemplates))
+		r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
+			shared.ErrorHandler(s.TemplateExecutor, w, r, shared.ErrMethodNotAllowed)
+		})
+		r.NotFound(func(w http.ResponseWriter, r *http.Request) {
+			shared.ErrorHandler(s.TemplateExecutor, w, r, shared.ErrNotFound)
+		})
 	}
 }
 
@@ -110,7 +115,5 @@ func (s *State) PostStreamerStop(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *State) errorHandler(w http.ResponseWriter, r *http.Request, err error, msg string) {
-	// TODO: implement this better
-	hlog.FromRequest(r).Error().Err(err).Msg(msg)
-	http.Error(w, err.Error(), http.StatusInternalServerError)
+	shared.ErrorHandler(s.TemplateExecutor, w, r, err)
 }

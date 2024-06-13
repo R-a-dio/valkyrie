@@ -6,13 +6,9 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
-	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/R-a-dio/valkyrie/util/secret"
-	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/R-a-dio/valkyrie/website/shared"
-	"github.com/rs/xid"
-	"github.com/rs/zerolog/hlog"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -52,58 +48,6 @@ type State struct {
 	Search    radio.SearchService
 }
 
-type ErrorInput struct {
-	middleware.Input
-	Message   string
-	Error     error
-	RequestID xid.ID
-}
-
-func (ErrorInput) TemplateBundle() string {
-	return "error"
-}
-
-var (
-	ErrNotFound         = errors.New("page not found")
-	ErrMethodNotAllowed = errors.New("method not allowed")
-)
-
-func (s *State) errorHandler(w http.ResponseWriter, r *http.Request, err error) {
-	hlog.FromRequest(r).Error().Err(err).Msg("")
-
-	var msg string
-
-	switch {
-	case errors.IsE(err, ErrNotFound):
-		msg = "page not found"
-		w.WriteHeader(http.StatusNotFound)
-	case errors.IsE(err, ErrMethodNotAllowed):
-		msg = "method not allowed"
-		w.WriteHeader(http.StatusMethodNotAllowed)
-	case errors.Is(errors.InvalidForm, err):
-		msg = "form is invalid"
-		w.WriteHeader(http.StatusBadRequest)
-	default:
-		msg = "internal server error"
-		w.WriteHeader(http.StatusInternalServerError)
-	}
-
-	rid, _ := hlog.IDFromRequest(r)
-
-	input := ErrorInput{
-		Input:     middleware.InputFromRequest(r),
-		Message:   msg,
-		Error:     err,
-		RequestID: rid,
-	}
-
-	err = s.Templates.Execute(w, r, input)
-	if err != nil {
-		hlog.FromRequest(r).Error().Err(err).Msg("error while rendering error page")
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-	}
-}
-
 func Route(ctx context.Context, s State) func(chi.Router) {
 	return func(r chi.Router) {
 		r.Get("/", s.GetHome)
@@ -124,10 +68,14 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 		r.Get("/irc", s.GetChat)
 		r.Get("/help", s.GetHelp)
 		r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
-			s.errorHandler(w, r, ErrMethodNotAllowed)
+			shared.ErrorHandler(s.Templates, w, r, shared.ErrMethodNotAllowed)
 		})
 		r.NotFound(func(w http.ResponseWriter, r *http.Request) {
-			s.errorHandler(w, r, ErrNotFound)
+			shared.ErrorHandler(s.Templates, w, r, shared.ErrNotFound)
 		})
 	}
+}
+
+func (s *State) errorHandler(w http.ResponseWriter, r *http.Request, err error) {
+	shared.ErrorHandler(s.Templates, w, r, err)
 }
