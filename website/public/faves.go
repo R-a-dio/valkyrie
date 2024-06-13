@@ -49,9 +49,13 @@ func NewFavesInput(ss radio.SongStorage, rs radio.RequestStorage, r *http.Reques
 		nickname = r.FormValue("nick")
 	}
 
-	faves, faveCount, err := ss.FavoritesOf(nickname, favesPageSize, offset)
-	if err != nil {
-		return nil, errors.E(op, err)
+	var faves []radio.Song
+	var faveCount int64
+	if nickname != "" { // only ask for faves if we have a nickname
+		faves, faveCount, err = ss.FavoritesOf(nickname, favesPageSize, offset)
+		if err != nil {
+			return nil, errors.E(op, err)
+		}
 	}
 
 	// create download URL
