@@ -138,6 +138,40 @@ func (ns NewsStorage) Create(post radio.NewsPost) (radio.NewsPostID, error) {
 	return radio.NewsPostID(new), nil
 }
 
+const newsCommentAddQuery = `
+INSERT INTO
+	radio_comments (
+		id,
+		comment,
+		ip,
+		user_id,
+		created_at,
+		updated_at,
+		news_id
+	) VALUES (
+		0,
+		:body,
+		:identifier,
+		:userid,
+		NOW(),
+		NOW(),
+		:postid
+	);
+`
+
+func (ns NewsStorage) AddComment(comment radio.NewsComment) (radio.NewsCommentID, error) {
+	const op errors.Op = "mariadb/NewsStorage.AddComment"
+	handle, deferFn := ns.handle.span(op)
+	defer deferFn()
+
+	new, err := namedExecLastInsertId(handle, newsCommentAddQuery, comment)
+	if err != nil {
+		return 0, errors.E(op, err)
+	}
+
+	return radio.NewsCommentID(new), nil
+}
+
 const newsUpdateQuery = `
 UPDATE
 	radio_news

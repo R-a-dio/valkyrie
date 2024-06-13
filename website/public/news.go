@@ -12,6 +12,7 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/R-a-dio/valkyrie/website/shared"
+	"github.com/adtac/go-akismet/akismet"
 	"github.com/go-chi/chi/v5"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -222,6 +223,63 @@ func (s State) GetNewsEntry(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s State) PostNewsEntry(w http.ResponseWriter, r *http.Request) {
+	const op errors.Op = "website/public.PostNewsEntry"
+
+	comment, err := ParsePostNewsEntryForm(r)
+	if err != nil {
+		s.errorHandler(w, r, err)
+		return
+	}
+
+	// check if we have a configured api key
+	if key := s.Conf().Website.AkismetKey; key != "" {
+		isSpam, err := akismet.Check(&akismet.Comment{
+			Blog:           s.Conf().Website.AkismetBlog,
+			UserIP:         r.RemoteAddr,
+			UserAgent:      r.UserAgent(),
+			CommentType:    "comment",
+			CommentContent: comment.Body,
+		}, key)
+		if err != nil {
+			s.errorHandler(w, r, err)
+			return
+		}
+		if isSpam {
+			s.errorHandler(w, r, errors.E(op, errors.Spam))
+			return
+		}
+	}
+
+	_, err = s.Storage.News(r.Context()).AddComment(*comment)
+	if err != nil {
+		s.errorHandler(w, r, err)
+		return
+	}
+}
+
+func ParsePostNewsEntryForm(r *http.Request) (*radio.NewsComment, error) {
+	ctx := r.Context()
+
+	id := chi.URLParamFromCtx(ctx, "NewsID")
+	newsid, err := radio.ParseNewsPostID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	comment := radio.NewsComment{
+		ID:         0,
+		PostID:     newsid,
+		Body:       r.FormValue("comment"),
+		Identifier: r.RemoteAddr,
+		User:       middleware.UserFromContext(ctx),
+		CreatedAt:  time.Now(),
+	}
+
+	if comment.User != nil {
+		comment.UserID = &comment.User.ID
+	}
+
+	return &comment, nil
 }
 
 func hashedIdentifier(identifier string) string {

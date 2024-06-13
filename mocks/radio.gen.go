@@ -5681,6 +5681,9 @@ var _ radio.NewsStorage = &NewsStorageMock{}
 //
 //		// make and configure a mocked radio.NewsStorage
 //		mockedNewsStorage := &NewsStorageMock{
+//			AddCommentFunc: func(newsComment radio.NewsComment) (radio.NewsCommentID, error) {
+//				panic("mock out the AddComment method")
+//			},
 //			CommentsFunc: func(newsPostID radio.NewsPostID) ([]radio.NewsComment, error) {
 //				panic("mock out the Comments method")
 //			},
@@ -5712,6 +5715,9 @@ var _ radio.NewsStorage = &NewsStorageMock{}
 //
 //	}
 type NewsStorageMock struct {
+	// AddCommentFunc mocks the AddComment method.
+	AddCommentFunc func(newsComment radio.NewsComment) (radio.NewsCommentID, error)
+
 	// CommentsFunc mocks the Comments method.
 	CommentsFunc func(newsPostID radio.NewsPostID) ([]radio.NewsComment, error)
 
@@ -5738,6 +5744,11 @@ type NewsStorageMock struct {
 
 	// calls tracks calls to the methods.
 	calls struct {
+		// AddComment holds details about calls to the AddComment method.
+		AddComment []struct {
+			// NewsComment is the newsComment argument value.
+			NewsComment radio.NewsComment
+		}
 		// Comments holds details about calls to the Comments method.
 		Comments []struct {
 			// NewsPostID is the newsPostID argument value.
@@ -5783,6 +5794,7 @@ type NewsStorageMock struct {
 			NewsPost radio.NewsPost
 		}
 	}
+	lockAddComment     sync.RWMutex
 	lockComments       sync.RWMutex
 	lockCommentsPublic sync.RWMutex
 	lockCreate         sync.RWMutex
@@ -5791,6 +5803,38 @@ type NewsStorageMock struct {
 	lockList           sync.RWMutex
 	lockListPublic     sync.RWMutex
 	lockUpdate         sync.RWMutex
+}
+
+// AddComment calls AddCommentFunc.
+func (mock *NewsStorageMock) AddComment(newsComment radio.NewsComment) (radio.NewsCommentID, error) {
+	if mock.AddCommentFunc == nil {
+		panic("NewsStorageMock.AddCommentFunc: method is nil but NewsStorage.AddComment was just called")
+	}
+	callInfo := struct {
+		NewsComment radio.NewsComment
+	}{
+		NewsComment: newsComment,
+	}
+	mock.lockAddComment.Lock()
+	mock.calls.AddComment = append(mock.calls.AddComment, callInfo)
+	mock.lockAddComment.Unlock()
+	return mock.AddCommentFunc(newsComment)
+}
+
+// AddCommentCalls gets all the calls that were made to AddComment.
+// Check the length with:
+//
+//	len(mockedNewsStorage.AddCommentCalls())
+func (mock *NewsStorageMock) AddCommentCalls() []struct {
+	NewsComment radio.NewsComment
+} {
+	var calls []struct {
+		NewsComment radio.NewsComment
+	}
+	mock.lockAddComment.RLock()
+	calls = mock.calls.AddComment
+	mock.lockAddComment.RUnlock()
+	return calls
 }
 
 // Comments calls CommentsFunc.

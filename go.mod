@@ -9,6 +9,7 @@ require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/Wessie/fdstore v1.2.3
 	github.com/XSAM/otelsql v0.29.0
+	github.com/adtac/go-akismet v0.0.0-20181220032308-0ca9e1023047
 	github.com/agoda-com/opentelemetry-go/otelzerolog v0.0.1
 	github.com/agoda-com/opentelemetry-logs-go v0.4.3
 	github.com/alevinval/sse v1.0.2

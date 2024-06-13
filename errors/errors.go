@@ -361,6 +361,7 @@ const (
 	MigrationNotApplied                // indicates not all migrations were applied
 	LoginError                         // Login error
 	SubmissionUnknown                  // Submission does not exist
+	Spam                               // Comment is spam
 )
 
 func (k Kind) String() string {
@@ -439,6 +440,8 @@ func (k Kind) String() string {
 		return "login error"
 	case SubmissionUnknown:
 		return "submission does not exist"
+	case Spam:
+		return "this is SPAM"
 	}
 
 	return "unknown error kind"
