@@ -1,23 +1,24 @@
 package v1
 
 import (
+	"fmt"
 	"net/http"
-	"os"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/util"
-	"github.com/rs/zerolog/hlog"
+	"github.com/R-a-dio/valkyrie/website/shared"
 )
 
 func (a *API) GetSong(w http.ResponseWriter, r *http.Request) {
+	const op errors.Op = "website/api/v1/API.GetSong"
+
 	query := r.URL.Query()
 
 	tid, err := radio.ParseTrackID(query.Get("id"))
 	if err != nil {
-		hlog.FromRequest(r).Error().Err(err).Msg("")
-		http.Error(w, "invalid or missing id", http.StatusBadRequest)
+		a.errorHandler(w, r, errors.E(op, errors.InvalidForm, errors.Info("invalid or missing id")))
 		return
 	}
 
@@ -25,14 +26,12 @@ func (a *API) GetSong(w http.ResponseWriter, r *http.Request) {
 
 	song, err := a.storage.Track(r.Context()).Get(tid)
 	if err != nil {
-		hlog.FromRequest(r).Error().Err(err).Msg("")
-		http.Error(w, "unknown id", http.StatusNotFound)
+		a.errorHandler(w, r, shared.ErrNotFound)
 		return
 	}
 
 	if !a.songSecret.Equal(key, song.Hash[:]) {
-		hlog.FromRequest(r).Error().Msg("wrong key for song download")
-		http.Error(w, "invalid key", http.StatusUnauthorized)
+		a.errorHandler(w, r, errors.E(op, errors.InvalidForm, errors.Info("invalid or missing key")))
 		return
 	}
 
@@ -40,12 +39,7 @@ func (a *API) GetSong(w http.ResponseWriter, r *http.Request) {
 
 	f, err := a.fs.Open(path)
 	if err != nil {
-		status := http.StatusInternalServerError
-		if errors.IsE(err, os.ErrNotExist) {
-			status = http.StatusNotFound
-		}
-		hlog.FromRequest(r).Error().Err(err).Msg("")
-		http.Error(w, http.StatusText(status), status)
+		a.errorHandler(w, r, fmt.Errorf("%w: %w", err, shared.ErrNotFound))
 		return
 	}
 	defer f.Close()

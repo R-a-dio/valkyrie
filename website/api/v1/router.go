@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	"net/http"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
@@ -9,6 +10,7 @@ import (
 	"github.com/R-a-dio/valkyrie/storage"
 	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/R-a-dio/valkyrie/util/secret"
+	"github.com/R-a-dio/valkyrie/website/shared"
 	"github.com/go-chi/chi/v5"
 	"github.com/spf13/afero"
 )
@@ -68,4 +70,8 @@ func (a *API) Route(r chi.Router) {
 func (a *API) Shutdown() error {
 	a.sse.Shutdown()
 	return nil
+}
+
+func (a *API) errorHandler(w http.ResponseWriter, r *http.Request, err error) {
+	shared.ErrorHandler(a.Templates, w, r, err)
 }

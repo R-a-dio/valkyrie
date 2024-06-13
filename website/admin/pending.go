@@ -79,7 +79,7 @@ func (s *State) GetPendingSong(w http.ResponseWriter, r *http.Request) {
 
 	song, err := s.Storage.Submissions(r.Context()).GetSubmission(id)
 	if err != nil {
-		hlog.FromRequest(r).Error().Err(err).Msg("database failure")
+		s.errorHandler(w, r, err, "database failure")
 		return
 	}
 
@@ -90,7 +90,7 @@ func (s *State) GetPendingSong(w http.ResponseWriter, r *http.Request) {
 	if r.FormValue("spectrum") == "" {
 		f, err := s.FS.Open(path)
 		if err != nil {
-			hlog.FromRequest(r).Error().Err(err).Msg("fs failure")
+			s.errorHandler(w, r, err, "fs failure")
 			return
 		}
 		defer f.Close()
@@ -103,7 +103,7 @@ func (s *State) GetPendingSong(w http.ResponseWriter, r *http.Request) {
 	// otherwise prep the spectrum image
 	specFile, err := audio.Spectrum(r.Context(), path)
 	if err != nil {
-		hlog.FromRequest(r).Error().Err(err).Msg("ffmpeg failure")
+		s.errorHandler(w, r, err, "ffmpeg failure")
 		return
 	}
 	defer specFile.Close()
@@ -115,12 +115,12 @@ func (s *State) GetPending(w http.ResponseWriter, r *http.Request) {
 	var input = NewPendingInput(r)
 
 	if err := input.Hydrate(s.Storage.Submissions(r.Context()), r); err != nil {
-		hlog.FromRequest(r).Error().Err(err).Msg("database failure")
+		s.errorHandler(w, r, err, "database failure")
 		return
 	}
 
 	if err := s.TemplateExecutor.Execute(w, r, input); err != nil {
-		hlog.FromRequest(r).Error().Err(err).Msg("template failure")
+		s.errorHandler(w, r, err, "template failure")
 		return
 	}
 }
@@ -152,7 +152,7 @@ func (s *State) PostPending(w http.ResponseWriter, r *http.Request) {
 	if util.IsHTMX(r) {
 		// htmx, send just the form back
 		if err := s.TemplateExecutor.Execute(w, r, form); err != nil {
-			hlog.FromRequest(r).Error().Err(err).Msg("template failure")
+			s.errorHandler(w, r, err, "template failure")
 		}
 		return
 	}
@@ -160,7 +160,7 @@ func (s *State) PostPending(w http.ResponseWriter, r *http.Request) {
 	// no htmx, send a full page back, but we have to hydrate the full list and swap out
 	// the element that was posted with the posted values
 	if err := input.Hydrate(s.Storage.Submissions(r.Context()), r); err != nil {
-		hlog.FromRequest(r).Error().Err(err).Msg("database failure")
+		s.errorHandler(w, r, err, "database failure")
 		return
 	}
 
@@ -175,7 +175,7 @@ func (s *State) PostPending(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.TemplateExecutor.Execute(w, r, input); err != nil {
-		hlog.FromRequest(r).Error().Err(err).Msg("template failure")
+		s.errorHandler(w, r, err, "template failure")
 		return
 	}
 }
