@@ -6,6 +6,7 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
+	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/R-a-dio/valkyrie/util/secret"
 	"github.com/R-a-dio/valkyrie/website/middleware"
@@ -104,5 +105,11 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 		r.Post("/faves", s.PostFaves)
 		r.Get("/irc", s.GetChat)
 		r.Get("/help", s.GetHelp)
+		r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
+			s.errorHandler(w, r, errors.E(errors.Op("MethodNotAllowed")))
+		})
+		r.NotFound(func(w http.ResponseWriter, r *http.Request) {
+			s.errorHandler(w, r, errors.E(errors.Op("NotFound")))
+		})
 	}
 }
