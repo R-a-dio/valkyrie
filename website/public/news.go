@@ -232,7 +232,8 @@ func (s State) PostNewsEntry(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// check if we have a configured api key
-	if key := s.Conf().Website.AkismetKey; key != "" {
+	if key := s.Conf().Website.AkismetKey; key != "" &&
+		comment.User == nil { // skip spam check if user is logged in
 		isSpam, err := akismet.Check(&akismet.Comment{
 			Blog:           s.Conf().Website.AkismetBlog,
 			UserIP:         r.RemoteAddr,
@@ -255,6 +256,8 @@ func (s State) PostNewsEntry(w http.ResponseWriter, r *http.Request) {
 		s.errorHandler(w, r, err)
 		return
 	}
+
+	s.GetNewsEntry(w, r)
 }
 
 func ParsePostNewsEntryForm(r *http.Request) (*radio.NewsComment, error) {

@@ -10,11 +10,13 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"text/template"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/mocks"
+	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/R-a-dio/valkyrie/util/secret"
 	"github.com/rs/zerolog"
 	"github.com/spf13/afero"
@@ -23,9 +25,10 @@ import (
 )
 
 type testAPI struct {
-	ctx         context.Context
-	storageMock *mocks.StorageServiceMock
-	trackMock   *mocks.TrackStorageMock
+	ctx          context.Context
+	storageMock  *mocks.StorageServiceMock
+	trackMock    *mocks.TrackStorageMock
+	templateMock *mocks.ExecutorMock
 
 	GetArg radio.TrackID
 	GetRet *radio.Song
@@ -57,10 +60,16 @@ func newTestAPI(t *testing.T) (*testAPI, *API) {
 			return api.trackMock
 		},
 	}
+	api.templateMock = &mocks.ExecutorMock{
+		ExecuteFunc: func(w io.Writer, r *http.Request, input templates.TemplateSelectable) error {
+			return template.Must(template.New("test").Parse(`{{.StatusCode .Message .Error}}`)).Execute(w, input)
+		},
+	}
 
 	fs := afero.NewMemMapFs()
 
 	return &api, &API{
+		Templates:  api.templateMock,
 		storage:    api.storageMock,
 		Config:     cfg,
 		songSecret: songSecret,

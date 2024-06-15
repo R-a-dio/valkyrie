@@ -57,7 +57,11 @@ func ErrorHandler(exec templates.Executor, w http.ResponseWriter, r *http.Reques
 	}
 
 	if util.IsHTMX(r) {
+		// if this is a htmx request, we should retarget onto the content div
 		w.Header().Set("HX-Retarget", "#content")
+	} else {
+		// if it's not htmx, we can send the status code as normal
+		w.WriteHeader(statusCode)
 	}
 
 	err = exec.Execute(w, r, input)
