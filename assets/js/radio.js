@@ -73,7 +73,7 @@ htmx.on('htmx:load', (event) => {
     }
     if (stream && stream.button() && !stream.button().dataset.hasclick) {
         console.log("registering stream play/stop button handler");
-        stream.button().onclick = stream.playStop;
+        stream.button().onclick = async (event) => { await stream.playStop(event) };
         stream.button().dataset.hasclick = true;
         if (stream.audio && !stream.audio.paused) {
             stream.setButton("Stop Stream");
@@ -234,14 +234,14 @@ class Stream {
 
         try {
             // setup phone action handlers, these are shown in the notification area
-            navigator.mediaSession.setActionHandler("pause", (event) => {
-                this.playStop();
+            navigator.mediaSession.setActionHandler("pause", async (event) => {
+                await this.playStop();
             });
-            navigator.mediaSession.setActionHandler("stop", (event) => {
-                this.playStop();
+            navigator.mediaSession.setActionHandler("stop", async (event) => {
+                await this.playStop();
             });
-            navigator.mediaSession.setActionHandler("play", (event) => {
-                this.playStop();
+            navigator.mediaSession.setActionHandler("play", async (event) => {
+                await this.playStop();
             })
         } catch (err) { }
     }
@@ -273,17 +273,17 @@ class Stream {
         let audio = new Audio();
         audio.crossOrigin = 'anonymous';
         audio.preload = "none";
-        audio.addEventListener('error', () => {
-            this.recover(true);
+        audio.addEventListener('error', async () => {
+            await this.recover(true);
         }, true);
         return audio;
     }
 
-    playStop = (event) => {
+    playStop = async (event) => {
         if (!this.audio || this.audio.paused) {
-            this.play(true);
+            await this.play(true);
         } else {
-            this.stop(true);
+            await this.stop(true);
         }
     }
 
@@ -296,10 +296,6 @@ class Stream {
 
         let pp = this.audio.play();
         this.setButton("Connecting...");
-        if (!pp || !pp.then || !pp.catch) {
-            this.checkStarted();
-            return;
-        }
 
         try {
             await pp;
@@ -381,7 +377,7 @@ class Stream {
         }
     }
 
-    recover = (fromErrorHandler) => {
+    recover = async (fromErrorHandler) => {
         if (!this.audio) { // we got called while there isn't supposed to be a stream
             return
         }
@@ -407,8 +403,8 @@ class Stream {
         }
         this.recoverLast = Date.now();
 
-        this.stop();
-        this.play();
+        await this.stop();
+        await this.play();
     }
 
     setButton = (text) => {
@@ -422,7 +418,7 @@ class Stream {
         return document.getElementById("stream-play-pause");
     }
 
-    monitor = () => {
+    monitor = async () => {
         if (!this.audio) {
             return;
         }
@@ -436,7 +432,7 @@ class Stream {
             if (cur <= this.monitorLastTime) {
                 console.log(Date.now(), "reconnecting", cur);
                 this.monitorLastTime = 0;
-                this.recover(false);
+                await this.recover(false);
             } else {
                 this.monitorLastTime = cur;
             }
