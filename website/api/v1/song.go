@@ -18,7 +18,7 @@ func (a *API) GetSong(w http.ResponseWriter, r *http.Request) {
 
 	tid, err := radio.ParseTrackID(query.Get("id"))
 	if err != nil {
-		a.errorHandler(w, r, errors.E(op, errors.InvalidForm, errors.Info("invalid or missing id")))
+		a.errorHandler(w, r, errors.E(op, err, errors.InvalidForm, errors.Info("invalid or missing id")))
 		return
 	}
 
