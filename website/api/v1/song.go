@@ -26,7 +26,7 @@ func (a *API) GetSong(w http.ResponseWriter, r *http.Request) {
 
 	song, err := a.storage.Track(r.Context()).Get(tid)
 	if err != nil {
-		a.errorHandler(w, r, shared.ErrNotFound)
+		a.errorHandler(w, r, errors.E(op, shared.ErrNotFound, errors.Info("unknown id")))
 		return
 	}
 
