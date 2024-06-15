@@ -62,7 +62,7 @@ func newTestAPI(t *testing.T) (*testAPI, *API) {
 	}
 	api.templateMock = &mocks.ExecutorMock{
 		ExecuteFunc: func(w io.Writer, r *http.Request, input templates.TemplateSelectable) error {
-			return template.Must(template.New("test").Parse(`{{.StatusCode .Message .Error}}`)).Execute(w, input)
+			return template.Must(template.New("test").Parse(`{{.StatusCode}} {{.Message}} {{.Error}}`)).Execute(w, input)
 		},
 	}
 
@@ -141,15 +141,15 @@ func TestGetSong(t *testing.T) {
 	t.Run("missing key", func(t *testing.T) {
 		values := createValues(api, tapi.GetRet)
 		values.Del("key")
-		assert.HTTPStatusCode(t, api.GetSong, http.MethodGet, "/song", values, http.StatusUnauthorized)
-		assert.HTTPBodyContains(t, api.GetSong, http.MethodGet, "/song", values, "invalid key")
+		assert.HTTPStatusCode(t, api.GetSong, http.MethodGet, "/song", values, http.StatusBadRequest)
+		assert.HTTPBodyContains(t, api.GetSong, http.MethodGet, "/song", values, "invalid or missing key")
 		assert.HTTPBodyNotContains(t, api.GetSong, http.MethodGet, "/song", values, data)
 	})
 	t.Run("invalid key", func(t *testing.T) {
 		otherSong, data := createSong(t, api, 50, "other.flac", "big test")
 		values := createValues(api, otherSong)
-		assert.HTTPStatusCode(t, api.GetSong, http.MethodGet, "/song", values, http.StatusUnauthorized)
-		assert.HTTPBodyContains(t, api.GetSong, http.MethodGet, "/song", values, "invalid key")
+		assert.HTTPStatusCode(t, api.GetSong, http.MethodGet, "/song", values, http.StatusBadRequest)
+		assert.HTTPBodyContains(t, api.GetSong, http.MethodGet, "/song", values, "invalid or missing key")
 		assert.HTTPBodyNotContains(t, api.GetSong, http.MethodGet, "/song", values, data)
 	})
 }
