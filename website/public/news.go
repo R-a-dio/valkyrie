@@ -14,6 +14,7 @@ import (
 	"github.com/R-a-dio/valkyrie/website/shared"
 	"github.com/adtac/go-akismet/akismet"
 	"github.com/go-chi/chi/v5"
+	"github.com/gorilla/csrf"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -121,8 +122,8 @@ type NewsEntryPost struct {
 
 type NewsEntryInput struct {
 	middleware.Input
-
-	Post NewsEntryPost
+	CSRFTokenInput template.HTML
+	Post           NewsEntryPost
 }
 
 type NewsEntryComment struct {
@@ -194,7 +195,8 @@ func NewNewsEntryInput(cache *shared.NewsCache, ns radio.NewsStorage, r *http.Re
 	span.End()
 
 	return &NewsEntryInput{
-		Input: middleware.InputFromContext(ctx),
+		Input:          middleware.InputFromContext(ctx),
+		CSRFTokenInput: csrf.TemplateField(r),
 		Post: NewsEntryPost{
 			ID:        post.ID,
 			Title:     post.Title,
