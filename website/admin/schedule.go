@@ -44,6 +44,14 @@ func NewScheduleInput(ss radio.ScheduleStorage, us radio.UserStorage, r *http.Re
 		return nil, errors.E(op, err)
 	}
 
+	for day, entry := range schedule {
+		if entry == nil { // enter dummy entries for nils
+			schedule[day] = &radio.ScheduleEntry{
+				Weekday: radio.ScheduleDay(day),
+			}
+		}
+	}
+
 	users, err := scheduleGetUsers(us)
 	if err != nil {
 		return nil, errors.E(op, err)
