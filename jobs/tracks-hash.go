@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"context"
+	"strings"
 
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/storage"
@@ -26,11 +27,24 @@ func ExecuteTracksHash(ctx context.Context, cfg config.Config) error {
 		song.Hydrate()
 
 		// compare it to what we had previously
-		if current != song.Hash {
-			zerolog.Ctx(ctx).Info().
-				Int64("trackid", int64(song.TrackID)).
-				Str("metadata", song.Metadata).
-				Msg("mismatched hash")
+		if current == song.Hash {
+			// no difference, continue with next
+			continue
+		}
+
+		zerolog.Ctx(ctx).Info().
+			Int64("trackid", int64(song.TrackID)).
+			Str("metadata", song.Metadata).
+			Msg("mismatched hash")
+
+		// trim whitespace from artist and title, since those are the cause
+		// of the mismatched hash
+		song.Artist = strings.TrimSpace(song.Artist)
+		song.Title = strings.TrimSpace(song.Title)
+		// and then update the track
+		err := store.Track(ctx).UpdateMetadata(song)
+		if err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to update metadata")
 		}
 	}
 
