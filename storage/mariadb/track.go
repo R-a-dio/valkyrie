@@ -277,15 +277,15 @@ func (ss SongStorage) LastPlayedPagination(key radio.LastPlayedKey, amountPerPag
 	tmp := make([]radio.LastPlayedKey, 0, total)
 
 	query := `
-		SELECT
-			id
-		FROM
-			eplay
-		WHERE
-			id < ?
-		ORDER BY
-			id DESC
-		LIMIT ?;
+	SELECT
+		id
+	FROM
+		eplay
+	WHERE
+		id < ?
+	ORDER BY
+		id DESC
+	LIMIT ?;
 	`
 
 	err = sqlx.Select(handle, &tmp, query, key, total)
@@ -295,7 +295,7 @@ func (ss SongStorage) LastPlayedPagination(key radio.LastPlayedKey, amountPerPag
 	// reduce to just the page boundaries
 	next = util.ReduceWithStep(tmp, amountPerPage)
 
-	// reset tmp for the next set
+	// reset tmp for the prev set
 	tmp = tmp[:0]
 	query = `
 	SELECT
@@ -303,7 +303,7 @@ func (ss SongStorage) LastPlayedPagination(key radio.LastPlayedKey, amountPerPag
 	FROM
 		eplay
 	WHERE
-		id >= ?
+		id > ?
 	ORDER BY
 		id ASC
 	LIMIT ?;
@@ -316,6 +316,9 @@ func (ss SongStorage) LastPlayedPagination(key radio.LastPlayedKey, amountPerPag
 
 	// reduce to just the page boundaries
 	prev = util.ReduceWithStep(tmp, amountPerPage)
+	if util.ReduceHasLeftover(tmp, amountPerPage) {
+		prev = append(prev, radio.LPKeyLast)
+	}
 	// reverse since they're in ascending order
 	slices.Reverse(prev)
 

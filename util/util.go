@@ -309,3 +309,10 @@ func ReduceWithStep[T any](s []T, step int) []T {
 
 	return res
 }
+
+func ReduceHasLeftover[T any](s []T, step int) bool {
+	if step > 0 {
+		return len(s)%step > 0
+	}
+	return false
+}
