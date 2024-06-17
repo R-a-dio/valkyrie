@@ -239,7 +239,7 @@ LEFT JOIN
 WHERE
 	eplay.id < ?
 ORDER BY
-	eplay.dt DESC, eplay.id DESC
+	eplay.id DESC
 LIMIT ?;
 `)
 
@@ -284,7 +284,7 @@ func (ss SongStorage) LastPlayedPagination(key radio.LastPlayedKey, amountPerPag
 		WHERE
 			id < ?
 		ORDER BY
-			dt DESC, id DESC
+			id DESC
 		LIMIT ?;
 	`
 
@@ -305,7 +305,7 @@ func (ss SongStorage) LastPlayedPagination(key radio.LastPlayedKey, amountPerPag
 	WHERE
 		id >= ?
 	ORDER BY
-		dt ASC, id ASC
+		id ASC
 	LIMIT ?;
 	`
 
