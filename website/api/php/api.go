@@ -540,10 +540,7 @@ func (s *v0Status) createStatusJSON(ctx context.Context) (v0StatusJSON, error) {
 		if err != nil {
 			return last, err
 		}
-
-		if len(q) > 5 {
-			q = q[:5]
-		}
+		q = q[:min(5, len(q))]
 
 		queue = make([]v0StatusListEntry, len(q))
 		for i, entry := range q {
