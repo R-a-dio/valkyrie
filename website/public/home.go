@@ -49,7 +49,7 @@ func (s State) getHome(w http.ResponseWriter, r *http.Request) error {
 	}
 	input.Queue = queue
 
-	lp, err := s.Storage.Song(ctx).LastPlayed(0, 5)
+	lp, err := s.Storage.Song(ctx).LastPlayed(radio.LPKeyLast, 5)
 	if err != nil {
 		return errors.E(op, errors.InternalServer, err)
 	}

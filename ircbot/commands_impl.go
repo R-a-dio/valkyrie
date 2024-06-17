@@ -66,7 +66,7 @@ func NowPlaying(e Event) error {
 func LastPlayed(e Event) error {
 	const op errors.Op = "irc/LastPlayed"
 
-	songs, err := e.Storage.Song(e.Ctx).LastPlayed(0, 5)
+	songs, err := e.Storage.Song(e.Ctx).LastPlayed(radio.LPKeyLast, 5)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -230,7 +230,23 @@ func FaveTrack(e Event) error {
 
 		// count the amount of `last`'s used to determine how far back we should go
 		index := strings.Count(e.Arguments["relative"], "last") - 1
-		songs, err := ss.LastPlayed(int64(index), 1)
+
+		key := radio.LPKeyLast
+		if index > 0 {
+			// if our index is higher than 0 we need to lookup the key for that
+			prev, _, err := ss.LastPlayedPagination(radio.LPKeyLast, 1, 50)
+			if err != nil {
+				return errors.E(op, err)
+			}
+			// make sure our index exists in the list
+			if index >= len(prev) {
+				return errors.E(op, "index too far")
+			}
+
+			key = prev[index]
+		}
+
+		songs, err := ss.LastPlayed(key, 1)
 		if err != nil {
 			return errors.E(op, err)
 		}

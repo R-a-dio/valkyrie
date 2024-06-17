@@ -804,6 +804,10 @@ type SongStorageService interface {
 	SongTx(context.Context, StorageTx) (SongStorage, StorageTx, error)
 }
 
+type LastPlayedKey uint32
+
+const LPKeyLast = LastPlayedKey(math.MaxUint32)
+
 // SongStorage stores information about songs
 //
 // A song can be anything that plays on stream, unlike a track which is a specific
@@ -818,7 +822,9 @@ type SongStorage interface {
 
 	// LastPlayed returns songs that have recently played, up to amount given after
 	// applying the offset
-	LastPlayed(offset, amount int64) ([]Song, error)
+	LastPlayed(key LastPlayedKey, amountPerPage int) ([]Song, error)
+	// LastPlayedPagination looks up keys for adjacent pages of key
+	LastPlayedPagination(key LastPlayedKey, amountPerPage, pageCount int) (prev, next []LastPlayedKey, err error)
 	// LastPlayedCount returns the amount of plays recorded
 	LastPlayedCount() (int64, error)
 	// PlayedCount returns the amount of times the song has been played on stream

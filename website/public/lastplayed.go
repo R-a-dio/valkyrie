@@ -18,7 +18,7 @@ type LastPlayedInput struct {
 	middleware.Input
 
 	Songs []radio.Song
-	Page  *shared.Pagination
+	Page  *shared.FromPagination[radio.LastPlayedKey]
 }
 
 func (LastPlayedInput) TemplateBundle() string {
@@ -28,29 +28,28 @@ func (LastPlayedInput) TemplateBundle() string {
 func NewLastPlayedInput(s radio.SongStorageService, r *http.Request) (*LastPlayedInput, error) {
 	const op errors.Op = "website/public.NewLastPlayedInput"
 
-	page, offset, err := getPageOffset(r, lastplayedSize)
+	key, page, err := getPageFrom(r)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
 
 	ss := s.Song(r.Context())
-	songs, err := ss.LastPlayed(offset, lastplayedSize)
+	songs, err := ss.LastPlayed(key, lastplayedSize)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
 
-	total, err := ss.LastPlayedCount()
+	prev, next, err := ss.LastPlayedPagination(key, lastplayedSize, 5)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
+
+	pagination := shared.NewFromPagination(key, prev, next, r.URL).WithPage(page)
 
 	return &LastPlayedInput{
 		Input: middleware.InputFromRequest(r),
 		Songs: songs,
-		Page: shared.NewPagination(
-			page, shared.PageCount(total, lastplayedSize),
-			r.URL,
-		),
+		Page:  pagination,
 	}, nil
 }
 
@@ -71,6 +70,31 @@ func (s State) GetLastPlayed(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func getPageFrom(r *http.Request) (radio.LastPlayedKey, int, error) {
+	var key = radio.LPKeyLast
+	var page int = 1
+
+	if rawPage := r.FormValue("page"); rawPage != "" {
+		parsedPage, err := strconv.Atoi(rawPage)
+		if err != nil {
+			return key, page, errors.E(err, errors.InvalidForm)
+		}
+		page = parsedPage
+	}
+
+	rawFrom := r.FormValue("from")
+	if rawFrom == "" {
+		return key, page, nil
+	}
+
+	parsedFrom, err := strconv.ParseUint(rawFrom, 10, 32)
+	if err != nil {
+		return key, page, errors.E(err, errors.InvalidForm)
+	}
+	key = radio.LastPlayedKey(parsedFrom)
+
+	return key, page, nil
+}
 func getPageOffset(r *http.Request, pageSize int64) (int64, int64, error) {
 	var page int64 = 1
 	{
