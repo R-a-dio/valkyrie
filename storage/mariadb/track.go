@@ -2,11 +2,13 @@ package mariadb
 
 import (
 	"database/sql"
+	"slices"
 	"strings"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/R-a-dio/valkyrie/util"
 	"github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 )
@@ -234,20 +236,22 @@ LEFT JOIN
 	users ON djs.id = users.djid
 LEFT JOIN
 	themes ON djs.theme_id = themes.id
+WHERE
+	eplay.id < ?
 ORDER BY
 	eplay.dt DESC, eplay.id DESC
-LIMIT ? OFFSET ?;
+LIMIT ?;
 `)
 
 // LastPlayed implements radio.SongStorage
-func (ss SongStorage) LastPlayed(offset, amount int64) ([]radio.Song, error) {
+func (ss SongStorage) LastPlayed(key radio.LastPlayedKey, amountPerPage int) ([]radio.Song, error) {
 	const op errors.Op = "mariadb/SongStorage.LastPlayed"
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
 
-	var songs = make([]radio.Song, 0, amount)
+	var songs = make([]radio.Song, 0, amountPerPage)
 
-	err := sqlx.Select(handle, &songs, songLastPlayedQuery, amount, offset)
+	err := sqlx.Select(handle, &songs, songLastPlayedQuery, key, amountPerPage)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
@@ -262,6 +266,60 @@ func (ss SongStorage) LastPlayed(offset, amount int64) ([]radio.Song, error) {
 	}
 
 	return songs, nil
+}
+
+func (ss SongStorage) LastPlayedPagination(key radio.LastPlayedKey, amountPerPage, pageCount int) (prev, next []radio.LastPlayedKey, err error) {
+	const op errors.Op = "mariadb/SongStorage.LastPlayedPagination"
+	handle, deferFn := ss.handle.span(op)
+	defer deferFn()
+
+	total := amountPerPage * pageCount
+	tmp := make([]radio.LastPlayedKey, 0, total)
+
+	query := `
+		SELECT
+			id
+		FROM
+			eplay
+		WHERE
+			id < ?
+		ORDER BY
+			dt DESC, id DESC
+		LIMIT ?;
+	`
+
+	err = sqlx.Select(handle, &tmp, query, key, total)
+	if err != nil {
+		return nil, nil, errors.E(op, err)
+	}
+	// reduce to just the page boundaries
+	next = util.ReduceWithStep(tmp, amountPerPage)
+
+	// reset tmp for the next set
+	tmp = tmp[:0]
+	query = `
+	SELECT
+		id
+	FROM
+		eplay
+	WHERE
+		id >= ?
+	ORDER BY
+		dt ASC, id ASC
+	LIMIT ?;
+	`
+
+	err = sqlx.Select(handle, &tmp, query, key, total)
+	if err != nil {
+		return nil, nil, errors.E(op, err)
+	}
+
+	// reduce to just the page boundaries
+	prev = util.ReduceWithStep(tmp, amountPerPage)
+	// reverse since they're in ascending order
+	slices.Reverse(prev)
+
+	return prev, next, nil
 }
 
 // LastPlayedCount implements radio.SongStorage

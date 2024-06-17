@@ -555,7 +555,7 @@ func (s *v0Status) createStatusJSON(ctx context.Context) (v0StatusJSON, error) {
 			}
 		}
 
-		lp, err := s.songs.Song(ctx).LastPlayed(0, 5)
+		lp, err := s.songs.Song(ctx).LastPlayed(radio.LPKeyLast, 5)
 		if err != nil {
 			return last, err
 		}

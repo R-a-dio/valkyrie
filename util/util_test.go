@@ -3,6 +3,7 @@ package util
 import (
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -71,4 +72,73 @@ func TestAddContentDispositionSong(t *testing.T) {
 	assert.NotEmpty(t, value)
 	assert.Equal(t, `attachment; filename="hello - world.flac"; filename*=UTF-8''hello%20-%20world.flac`, value)
 	assert.Equal(t, "audio/flac", w.Header().Get("Content-Type"))
+}
+
+func TestReduceWithStep(t *testing.T) {
+	var in []int
+
+	for i := range 50 {
+		in = append(in, i)
+	}
+
+	tests := []struct {
+		step     int
+		expected []int
+	}{
+		{
+			step:     10,
+			expected: []int{9, 19, 29, 39, 49},
+		},
+		{
+			step:     9,
+			expected: []int{8, 17, 26, 35, 44},
+		},
+		{
+			step:     8,
+			expected: []int{7, 15, 23, 31, 39, 47},
+		},
+		{
+			step:     7,
+			expected: []int{6, 13, 20, 27, 34, 41, 48},
+		},
+		{
+			step:     6,
+			expected: []int{5, 11, 17, 23, 29, 35, 41, 47},
+		},
+		{
+			step:     5,
+			expected: []int{4, 9, 14, 19, 24, 29, 34, 39, 44, 49},
+		},
+		{
+			step:     4,
+			expected: []int{3, 7, 11, 15, 19, 23, 27, 31, 35, 39, 43, 47},
+		},
+		{
+			step:     3,
+			expected: []int{2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35, 38, 41, 44, 47},
+		},
+		{
+			step:     2,
+			expected: []int{1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33, 35, 37, 39, 41, 43, 45, 47, 49},
+		},
+		{
+			step:     1,
+			expected: in,
+		},
+		{
+			step:     -100,
+			expected: in,
+		},
+		{
+			step:     0,
+			expected: in,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(strconv.Itoa(test.step), func(t *testing.T) {
+			out := ReduceWithStep(in, test.step)
+			assert.Equal(t, test.expected, out)
+		})
+	}
 }

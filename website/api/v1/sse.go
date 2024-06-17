@@ -74,7 +74,7 @@ func (a *API) sendQueue(ctx context.Context) {
 }
 
 func (a *API) sendLastPlayed(ctx context.Context) {
-	lp, err := a.storage.Song(ctx).LastPlayed(0, 5)
+	lp, err := a.storage.Song(ctx).LastPlayed(radio.LPKeyLast, 5)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Str("sse", "lastplayed").Msg("")
 		return

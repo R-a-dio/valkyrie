@@ -292,3 +292,20 @@ func RestoreOrListen(store *fdstore.Store, name string, network, addr string) (n
 
 	return lns[0].Listener, lns[0].Data, nil
 }
+
+func ReduceWithStep[T any](s []T, step int) []T {
+	if step < 1 {
+		// set the step to 1 if it's lower than that, this to
+		// avoid a panic below, also zero or negative step is
+		// undefined behavior for this function
+		step = 1
+	}
+
+	var res []T
+
+	for i := step - 1; i < len(s); i += step {
+		res = append(res, s[i])
+	}
+
+	return res
+}

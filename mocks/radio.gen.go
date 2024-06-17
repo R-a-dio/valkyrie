@@ -3079,11 +3079,14 @@ var _ radio.SongStorage = &SongStorageMock{}
 //			FromMetadataFunc: func(metadata string) (*radio.Song, error) {
 //				panic("mock out the FromMetadata method")
 //			},
-//			LastPlayedFunc: func(offset int64, amount int64) ([]radio.Song, error) {
+//			LastPlayedFunc: func(key radio.LastPlayedKey, amountPerPage int) ([]radio.Song, error) {
 //				panic("mock out the LastPlayed method")
 //			},
 //			LastPlayedCountFunc: func() (int64, error) {
 //				panic("mock out the LastPlayedCount method")
+//			},
+//			LastPlayedPaginationFunc: func(key radio.LastPlayedKey, amountPerPage int, pageCount int) ([]radio.LastPlayedKey, []radio.LastPlayedKey, error) {
+//				panic("mock out the LastPlayedPagination method")
 //			},
 //			PlayedCountFunc: func(song radio.Song) (int64, error) {
 //				panic("mock out the PlayedCount method")
@@ -3132,10 +3135,13 @@ type SongStorageMock struct {
 	FromMetadataFunc func(metadata string) (*radio.Song, error)
 
 	// LastPlayedFunc mocks the LastPlayed method.
-	LastPlayedFunc func(offset int64, amount int64) ([]radio.Song, error)
+	LastPlayedFunc func(key radio.LastPlayedKey, amountPerPage int) ([]radio.Song, error)
 
 	// LastPlayedCountFunc mocks the LastPlayedCount method.
 	LastPlayedCountFunc func() (int64, error)
+
+	// LastPlayedPaginationFunc mocks the LastPlayedPagination method.
+	LastPlayedPaginationFunc func(key radio.LastPlayedKey, amountPerPage int, pageCount int) ([]radio.LastPlayedKey, []radio.LastPlayedKey, error)
 
 	// PlayedCountFunc mocks the PlayedCount method.
 	PlayedCountFunc func(song radio.Song) (int64, error)
@@ -3208,13 +3214,22 @@ type SongStorageMock struct {
 		}
 		// LastPlayed holds details about calls to the LastPlayed method.
 		LastPlayed []struct {
-			// Offset is the offset argument value.
-			Offset int64
-			// Amount is the amount argument value.
-			Amount int64
+			// Key is the key argument value.
+			Key radio.LastPlayedKey
+			// AmountPerPage is the amountPerPage argument value.
+			AmountPerPage int
 		}
 		// LastPlayedCount holds details about calls to the LastPlayedCount method.
 		LastPlayedCount []struct {
+		}
+		// LastPlayedPagination holds details about calls to the LastPlayedPagination method.
+		LastPlayedPagination []struct {
+			// Key is the key argument value.
+			Key radio.LastPlayedKey
+			// AmountPerPage is the amountPerPage argument value.
+			AmountPerPage int
+			// PageCount is the pageCount argument value.
+			PageCount int
 		}
 		// PlayedCount holds details about calls to the PlayedCount method.
 		PlayedCount []struct {
@@ -3243,21 +3258,22 @@ type SongStorageMock struct {
 			Duration time.Duration
 		}
 	}
-	lockAddFavorite         sync.RWMutex
-	lockAddPlay             sync.RWMutex
-	lockCreate              sync.RWMutex
-	lockFavoriteCount       sync.RWMutex
-	lockFavorites           sync.RWMutex
-	lockFavoritesOf         sync.RWMutex
-	lockFavoritesOfDatabase sync.RWMutex
-	lockFromHash            sync.RWMutex
-	lockFromMetadata        sync.RWMutex
-	lockLastPlayed          sync.RWMutex
-	lockLastPlayedCount     sync.RWMutex
-	lockPlayedCount         sync.RWMutex
-	lockRemoveFavorite      sync.RWMutex
-	lockUpdateHashLink      sync.RWMutex
-	lockUpdateLength        sync.RWMutex
+	lockAddFavorite          sync.RWMutex
+	lockAddPlay              sync.RWMutex
+	lockCreate               sync.RWMutex
+	lockFavoriteCount        sync.RWMutex
+	lockFavorites            sync.RWMutex
+	lockFavoritesOf          sync.RWMutex
+	lockFavoritesOfDatabase  sync.RWMutex
+	lockFromHash             sync.RWMutex
+	lockFromMetadata         sync.RWMutex
+	lockLastPlayed           sync.RWMutex
+	lockLastPlayedCount      sync.RWMutex
+	lockLastPlayedPagination sync.RWMutex
+	lockPlayedCount          sync.RWMutex
+	lockRemoveFavorite       sync.RWMutex
+	lockUpdateHashLink       sync.RWMutex
+	lockUpdateLength         sync.RWMutex
 }
 
 // AddFavorite calls AddFavoriteFunc.
@@ -3569,21 +3585,21 @@ func (mock *SongStorageMock) FromMetadataCalls() []struct {
 }
 
 // LastPlayed calls LastPlayedFunc.
-func (mock *SongStorageMock) LastPlayed(offset int64, amount int64) ([]radio.Song, error) {
+func (mock *SongStorageMock) LastPlayed(key radio.LastPlayedKey, amountPerPage int) ([]radio.Song, error) {
 	if mock.LastPlayedFunc == nil {
 		panic("SongStorageMock.LastPlayedFunc: method is nil but SongStorage.LastPlayed was just called")
 	}
 	callInfo := struct {
-		Offset int64
-		Amount int64
+		Key           radio.LastPlayedKey
+		AmountPerPage int
 	}{
-		Offset: offset,
-		Amount: amount,
+		Key:           key,
+		AmountPerPage: amountPerPage,
 	}
 	mock.lockLastPlayed.Lock()
 	mock.calls.LastPlayed = append(mock.calls.LastPlayed, callInfo)
 	mock.lockLastPlayed.Unlock()
-	return mock.LastPlayedFunc(offset, amount)
+	return mock.LastPlayedFunc(key, amountPerPage)
 }
 
 // LastPlayedCalls gets all the calls that were made to LastPlayed.
@@ -3591,12 +3607,12 @@ func (mock *SongStorageMock) LastPlayed(offset int64, amount int64) ([]radio.Son
 //
 //	len(mockedSongStorage.LastPlayedCalls())
 func (mock *SongStorageMock) LastPlayedCalls() []struct {
-	Offset int64
-	Amount int64
+	Key           radio.LastPlayedKey
+	AmountPerPage int
 } {
 	var calls []struct {
-		Offset int64
-		Amount int64
+		Key           radio.LastPlayedKey
+		AmountPerPage int
 	}
 	mock.lockLastPlayed.RLock()
 	calls = mock.calls.LastPlayed
@@ -3628,6 +3644,46 @@ func (mock *SongStorageMock) LastPlayedCountCalls() []struct {
 	mock.lockLastPlayedCount.RLock()
 	calls = mock.calls.LastPlayedCount
 	mock.lockLastPlayedCount.RUnlock()
+	return calls
+}
+
+// LastPlayedPagination calls LastPlayedPaginationFunc.
+func (mock *SongStorageMock) LastPlayedPagination(key radio.LastPlayedKey, amountPerPage int, pageCount int) ([]radio.LastPlayedKey, []radio.LastPlayedKey, error) {
+	if mock.LastPlayedPaginationFunc == nil {
+		panic("SongStorageMock.LastPlayedPaginationFunc: method is nil but SongStorage.LastPlayedPagination was just called")
+	}
+	callInfo := struct {
+		Key           radio.LastPlayedKey
+		AmountPerPage int
+		PageCount     int
+	}{
+		Key:           key,
+		AmountPerPage: amountPerPage,
+		PageCount:     pageCount,
+	}
+	mock.lockLastPlayedPagination.Lock()
+	mock.calls.LastPlayedPagination = append(mock.calls.LastPlayedPagination, callInfo)
+	mock.lockLastPlayedPagination.Unlock()
+	return mock.LastPlayedPaginationFunc(key, amountPerPage, pageCount)
+}
+
+// LastPlayedPaginationCalls gets all the calls that were made to LastPlayedPagination.
+// Check the length with:
+//
+//	len(mockedSongStorage.LastPlayedPaginationCalls())
+func (mock *SongStorageMock) LastPlayedPaginationCalls() []struct {
+	Key           radio.LastPlayedKey
+	AmountPerPage int
+	PageCount     int
+} {
+	var calls []struct {
+		Key           radio.LastPlayedKey
+		AmountPerPage int
+		PageCount     int
+	}
+	mock.lockLastPlayedPagination.RLock()
+	calls = mock.calls.LastPlayedPagination
+	mock.lockLastPlayedPagination.RUnlock()
 	return calls
 }
 

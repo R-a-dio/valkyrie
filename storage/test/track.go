@@ -258,14 +258,13 @@ func (suite *Suite) TestSongLastPlayed(t *testing.T) {
 			ID: 10,
 		},
 	}
-	amount := int64(50)
-
+	amount := 50
 	// create 50 testing songs
 	var songs []radio.Song
-	for i := int64(0); i < amount; i++ {
+	for i := 0; i < amount; i++ {
 		song := base
 		song.Length = time.Duration(i*2) * time.Second
-		song.Metadata = song.Metadata + strconv.FormatInt(i, 10)
+		song.Metadata = song.Metadata + strconv.Itoa(i)
 		song.Hydrate()
 
 		new, err := ss.Create(song)
@@ -288,10 +287,10 @@ func (suite *Suite) TestSongLastPlayed(t *testing.T) {
 
 	n, err := ss.LastPlayedCount()
 	require.NoError(t, err)
-	assert.Equal(t, amount, n)
+	assert.Equal(t, amount, int(n))
 
 	// test the full list of songs
-	lp, err := ss.LastPlayed(0, amount)
+	lp, err := ss.LastPlayed(radio.LPKeyLast, amount)
 	require.NoError(t, err)
 	// reverse them since we added them in 0-49 order but we will get them back as 49-0 order
 	slices.Reverse(lp)
@@ -308,19 +307,38 @@ func (suite *Suite) TestSongLastPlayed(t *testing.T) {
 	}
 
 	// test a subset of the list
-	lp, err = ss.LastPlayed(0, 20)
+	lp, err = ss.LastPlayed(radio.LPKeyLast, 20)
 	require.NoError(t, err)
 	slices.Reverse(lp)
 	for i, original := range songs[amount-20 : amount] {
 		assert.True(t, original.EqualTo(lp[i]), "subset start: expected %s got %s", original.Metadata, lp[i].Metadata)
 	}
 
+	prev, _, err := ss.LastPlayedPagination(radio.LPKeyLast, 20, 5)
+	require.NoError(t, err)
+
 	// test the other end of the subset
-	lp, err = ss.LastPlayed(30, 20)
+	lp, err = ss.LastPlayed(prev[1], 20)
 	require.NoError(t, err)
 	slices.Reverse(lp)
-	for i, original := range songs[:20] {
+
+	for i, original := range songs[:10] {
 		assert.True(t, original.EqualTo(lp[i]), "subset end: expected %s got %s", original.Metadata, lp[i].Metadata)
+	}
+
+	// the below scenario is done by the irc bot, see if that is handled correctly
+	prev, _, err = ss.LastPlayedPagination(radio.LPKeyLast, 1, 50)
+	require.NoError(t, err)
+
+	for index := range 20 {
+		key := radio.LPKeyLast
+		if index > 0 {
+			key = prev[index-1]
+		}
+		lp, err = ss.LastPlayed(key, 1)
+		require.NoError(t, err)
+		original := songs[len(songs)-1-index]
+		assert.True(t, original.EqualTo(lp[0]), "expected %s got %s", original, lp[0])
 	}
 }
 
