@@ -29,18 +29,17 @@ FROM
 (SELECT *, MATCH (artist, track, album, tags) AGAINST (? IN BOOLEAN MODE) score
 	FROM tracks 
 	HAVING score > 0
-	ORDER BY score DESC
 	LIMIT ? OFFSET ?) AS tracks
 JOIN
 	esong ON esong.hash = tracks.hash
 ORDER BY
-	score DESC;
+	priority DESC, score DESC;
 `)
 
 var searchTotalQuery = `
 SELECT COUNT(*) FROM 
 (SELECT *, MATCH (artist, track, album, tags) AGAINST (? IN BOOLEAN MODE) score
-	FROM tracks 
+	FROM tracks
 	HAVING score > 0) AS tracks;
 `
 
