@@ -26,7 +26,9 @@ func (a *API) SearchHTML(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(input.Songs) == 0 {
+	// return an empty response if the query is empty
+	if len(input.Query) == 0 {
+		w.WriteHeader(http.StatusOK)
 		return
 	}
 
