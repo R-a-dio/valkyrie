@@ -253,7 +253,11 @@ type Streamer struct {
 }
 
 func (s *Streamer) Start(_ context.Context) error {
-	if s.userValue.Latest() != nil {
+	if latest := s.userValue.Latest(); latest.IsValid() && latest.ID != s.StreamUser.ID {
+		zerolog.Ctx(s.baseCtx).Info().
+			Time("time", time.Now()).
+			Str("current dj", latest.Username).
+			Msg("start poked")
 		// if someone is streaming, we don't start but just record that
 		// we have been poked at this point in time
 		s.lastStartPoke.Store(time.Now())
@@ -661,17 +665,27 @@ func (s *Streamer) newIcecastConn(ctx context.Context) (net.Conn, error) {
 	var conn net.Conn
 	var err error
 
+	uri := s.streamURL()
 	err = backoff.RetryNotify(func() error {
-		conn, err = icecast.DialURL(ctx, s.streamURL(),
+		uri = s.streamURL()
+		conn, err = icecast.DialURL(ctx, uri,
 			icecast.ContentType("audio/mpeg"),
 			icecast.UserAgent(s.Conf().UserAgent),
 		)
 		if err != nil {
 			return err
 		}
+
+		zerolog.Ctx(ctx).Info().
+			Str("endpoint", uri.Redacted()).
+			Msg("connected to icecast")
 		return nil
 	}, bo, func(err error, d time.Duration) {
-		zerolog.Ctx(ctx).Error().Err(err).Dur("backoff", d).Msg("icecast connection failure")
+		zerolog.Ctx(ctx).Error().
+			Err(err).
+			Dur("backoff", d).
+			Str("endpoint", uri.Redacted()).
+			Msg("icecast connection failure")
 	})
 	if err != nil {
 		return nil, err
