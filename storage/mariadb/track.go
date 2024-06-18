@@ -823,8 +823,6 @@ FROM
 	tracks
 LEFT JOIN
 	esong ON tracks.hash = esong.hash
-JOIN
-	eplay ON eplay.isong = esong.id;
 `)
 
 func (ts TrackStorage) AllRaw() ([]radio.Song, error) {
