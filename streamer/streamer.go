@@ -42,6 +42,9 @@ func NewStreamer(ctx context.Context, cfg config.Config,
 		baseCtx:   ctx,
 		queue:     qs,
 		fdstorage: fdstorage,
+		lastStartPoke: util.NewTypedValue(
+			time.Now().Add(-time.Duration(cfg.Conf().Streamer.ConnectTimeout) * 2),
+		),
 	}
 
 	// the expected audio format for the stream, this is basically
