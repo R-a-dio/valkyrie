@@ -177,15 +177,30 @@ func (s *Streamer) userChange(ctx context.Context, user *radio.User, timer *util
 
 		// we are allowed to connect after a timeout if one is set
 		timeout := s.Conf().Streamer.ConnectTimeout
-		if timeout > 0 {
-			zerolog.Ctx(ctx).Info().
-				Dur("timeout", time.Duration(timeout)).
-				Msg("starting after timeout")
-
-			timer.Start(time.Duration(timeout))
+		if timeout == 0 {
+			zerolog.Ctx(ctx).Info().Msg("timeout is zero, not connecting")
 			return
 		}
+
+		if time.Since(s.lastStartPoke.Load()) < time.Duration(timeout) {
+			// we have been poked recently, so just connect instantly
+			zerolog.Ctx(ctx).Info().Msg("starting because recent poke")
+			s.Start(context.WithoutCancel(ctx))
+			return
+		}
+
+		// otherwise just start our timeout period
+		zerolog.Ctx(ctx).Info().
+			Dur("timeout", time.Duration(timeout)).
+			Msg("starting after timeout")
+
+		timer.Start(time.Duration(timeout))
+		return
 	}
+
+	// stop the potential timer if we got a new user
+	timer.Stop()
+
 	// if we are supposed to be streaming, we can connect
 	if user.ID == s.StreamUser.ID {
 		zerolog.Ctx(ctx).Info().Msg("starting because (me)")
@@ -218,7 +233,8 @@ type Streamer struct {
 	// baseCtx is the base context used when Start is called
 	baseCtx context.Context
 
-	userValue *util.Value[*radio.User]
+	userValue     *util.Value[*radio.User]
+	lastStartPoke *util.TypedValue[time.Time]
 
 	// mu protected fields
 	mu      sync.Mutex
@@ -234,6 +250,13 @@ type Streamer struct {
 }
 
 func (s *Streamer) Start(_ context.Context) error {
+	if s.userValue.Latest() != nil {
+		// if someone is streaming, we don't start but just record that
+		// we have been poked at this point in time
+		s.lastStartPoke.Store(time.Now())
+		return nil
+	}
+
 	s.start(s.baseCtx, nil)
 	return nil
 }
