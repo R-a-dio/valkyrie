@@ -216,9 +216,8 @@ func StreamerUserInfo(e Event) error {
 
 	// otherwise we should only care if the user is the one we are aware of
 	// but for now we only have one robot ever so just assume thats the value
-
-	// TODO: implement the poke to the streamer that tells it it can start
-	return nil
+	// TODO: make this work with multiple streamers
+	return e.Bot.Streamer.Start(e.Ctx)
 }
 
 func FaveTrack(e Event) error {
