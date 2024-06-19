@@ -174,7 +174,7 @@ func toProtoSongUpdate(s *radio.SongUpdate) *SongUpdate {
 }
 
 func fromProtoSongUpdate(s *SongUpdate) *radio.SongUpdate {
-	if s == nil {
+	if s == nil || (s.Song == nil && s.Info == nil) {
 		return nil
 	}
 	return &radio.SongUpdate{
@@ -214,7 +214,7 @@ func toProtoQueueID(rid radio.QueueID) *QueueID {
 }
 
 func fromProtoQueueID(id *QueueID) radio.QueueID {
-	if id == nil {
+	if id == nil || len(id.ID) == 0 {
 		return radio.QueueID{}
 	}
 
@@ -276,7 +276,7 @@ func toProtoUser(u *radio.User) *User {
 }
 
 func fromProtoUser(u *User) *radio.User {
-	if u == nil {
+	if u == nil || (u.Id == 0 && u.Username == "") {
 		return nil
 	}
 	return &radio.User{
