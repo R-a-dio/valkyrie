@@ -57,7 +57,7 @@ service Manager {
 }
 
 message StatusResponse {
-    // the current user that is streaming
+    // the current user that is streaming (or was streaming)
     User user = 1;
     // the current song being played
     Song song = 2;
@@ -71,6 +71,8 @@ message StatusResponse {
     StreamerConfig streamer_config = 6;
     // the display name given to us by the streaming user
     string streamer_name = 7;
+    // the current user that is streaming
+    User stream_user = 8;
 }
 
 message SongUpdate {
