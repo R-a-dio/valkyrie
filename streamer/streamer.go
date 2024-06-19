@@ -295,6 +295,7 @@ func (s *Streamer) start(ctx context.Context,
 		// routine, we make a separately cancelable context
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
+		defer close(trackCh)
 
 		// store the cancel in the struct so it's accessable from Stop
 		s.mu.Lock()
