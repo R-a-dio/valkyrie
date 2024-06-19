@@ -322,6 +322,8 @@ func ThreadURL(e Event) error {
 		if err != nil {
 			return errors.E(op, err)
 		}
+	} else {
+		thread = e.Bot.StatusValue.Latest().Thread
 	}
 
 	e.EchoPublic("Thread: %s", thread)
