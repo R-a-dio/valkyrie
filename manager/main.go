@@ -112,12 +112,14 @@ func NewManager(ctx context.Context, store radio.StorageService, state []byte) (
 		if err != nil {
 			return nil, err
 		}
+		zerolog.Ctx(ctx).Info().Any("status", old).Msg("restored state from fdstore")
 		m.status = old
 	} else { // otherwise use the state from the storage interface
 		old, err := m.loadStreamStatus(ctx)
 		if err != nil {
 			return nil, err
 		}
+		zerolog.Ctx(ctx).Info().Any("status", *old).Msg("restored state from storage")
 		m.status = *old
 	}
 
