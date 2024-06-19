@@ -91,7 +91,7 @@ func TestLoadThemes(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := templates.LoadThemes(tt.args.fsys)
+			got, err := templates.LoadThemes(tt.args.fsys, templates.TemplateFuncs())
 			if (err != nil) != tt.wantErr {
 				t.Errorf("LoadThemes() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -110,7 +110,7 @@ func FuzzLoadThemes(f *testing.F) {
 	}
 	f.Fuzz(func(t *testing.T, name string) {
 		rfs := randomFS(name)
-		themes, err := templates.LoadThemes(rfs)
+		themes, err := templates.LoadThemes(rfs, templates.TemplateFuncs())
 		if err == nil || themes != nil {
 			t.Errorf("there should probably be an error for %s", name)
 		}
@@ -170,7 +170,7 @@ admin-base
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := templates.FromFS(tt.args.fsys)
+			got, err := templates.FromFS(tt.args.fsys, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("FromFS() error = %v, wantErr %v", err, tt.wantErr)
 				return

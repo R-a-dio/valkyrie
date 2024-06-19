@@ -9,13 +9,34 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/R-a-dio/valkyrie/util"
 )
 
-func TemplateFuncs() template.FuncMap {
-	return fnMap
+func NewStatefulFunctions(status *util.Value[radio.Status]) *StatefulFuncs {
+	return &StatefulFuncs{
+		status: status,
+	}
 }
 
-var fnMap = map[string]any{
+type StatefulFuncs struct {
+	status *util.Value[radio.Status]
+}
+
+func (sf *StatefulFuncs) Status() radio.Status {
+	return sf.status.Latest()
+}
+
+func (sf *StatefulFuncs) FuncMap() template.FuncMap {
+	return map[string]any{
+		"Status": sf.Status,
+	}
+}
+
+func TemplateFuncs() template.FuncMap {
+	return defaultFunctions
+}
+
+var defaultFunctions = map[string]any{
 	"printjson":                   PrintJSON,
 	"safeHTML":                    SafeHTML,
 	"safeHTMLAttr":                SafeHTMLAttr,
