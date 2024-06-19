@@ -68,7 +68,6 @@ func (a *API) sendQueue(ctx context.Context) {
 		zerolog.Ctx(ctx).Error().Err(err).Str("sse", "queue").Msg("")
 		return
 	}
-	q = q[:min(5, len(q))]
 
 	zerolog.Ctx(ctx).Debug().Str("event", EventQueue).Any("value", q).Msg("sending")
 	a.sse.SendQueue(q)

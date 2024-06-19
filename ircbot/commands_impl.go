@@ -110,8 +110,6 @@ func StreamerQueue(e Event) error {
 	message := "{green}Queue (/r/ time: %s):{clear}"
 	messageJoin := "{red}|{clear}"
 
-	// limit the queue length
-	songQueue = songQueue[:min(5, len(songQueue))]
 	// Grab metadata and set color green if requestable
 	onlyFmt := make([]string, len(songQueue))
 	onlyMetadata := make([]interface{}, len(songQueue))
