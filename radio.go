@@ -393,6 +393,35 @@ type StreamerService interface {
 	Queue(context.Context) ([]QueueEntry, error)
 }
 
+type Queue []QueueEntry
+
+// Limit limits the queue size to the maxSize given or
+// the whole queue if maxSize < len(queue)
+func (q Queue) Limit(maxSize int) Queue {
+	return q[:min(maxSize, len(q))]
+}
+
+// Length returns the length of the queue
+func (q Queue) Length() time.Duration {
+	if len(q) > 0 {
+		last := q[len(q)-1]
+		return time.Until(last.ExpectedStartTime) + last.Length
+	}
+	return 0
+}
+
+// RequestAmount returns the amount of QueueEntries that have
+// IsUserRequest set to true
+func (q Queue) RequestAmount() int {
+	var n int
+	for _, entry := range q {
+		if entry.IsUserRequest {
+			n++
+		}
+	}
+	return n
+}
+
 func NewQueueID() QueueID {
 	return QueueID{xid.New()}
 }
