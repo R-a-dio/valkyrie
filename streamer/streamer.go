@@ -76,6 +76,7 @@ func NewStreamer(ctx context.Context, cfg config.Config,
 
 	// timer we use for starting the streamer if nobody is on
 	startTimer := util.NewCallbackTimer(func() {
+		zerolog.Ctx(ctx).Info().Msg("calling start after timeout")
 		s.Start(ctx)
 	})
 	// user value to tell us who is streaming according to the proxy
@@ -276,6 +277,7 @@ func (s *Streamer) start(ctx context.Context,
 	defer s.mu.Unlock()
 
 	if s.running { // already running
+		zerolog.Ctx(ctx).Info().Msg("start called while we're already running")
 		return
 	}
 
