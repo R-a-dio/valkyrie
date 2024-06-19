@@ -230,7 +230,7 @@ func (qs *QueueService) Remove(ctx context.Context, id radio.QueueID) (bool, err
 }
 
 // Entries returns all entries in the queue
-func (qs *QueueService) Entries(ctx context.Context) ([]radio.QueueEntry, error) {
+func (qs *QueueService) Entries(ctx context.Context) (radio.Queue, error) {
 	qs.mu.Lock()
 	defer qs.mu.Unlock()
 

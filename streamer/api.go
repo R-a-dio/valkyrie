@@ -62,7 +62,7 @@ func (s *streamerService) Stop(ctx context.Context, force bool) error {
 }
 
 // Queue implements radio.StreamerService
-func (s *streamerService) Queue(ctx context.Context) ([]radio.QueueEntry, error) {
+func (s *streamerService) Queue(ctx context.Context) (radio.Queue, error) {
 	const op errors.Op = "streamer/streamerService.Queue"
 
 	queue, err := s.queue.Entries(ctx)

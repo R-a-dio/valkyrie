@@ -647,7 +647,7 @@ var _ radio.StreamerService = &StreamerServiceMock{}
 //
 //		// make and configure a mocked radio.StreamerService
 //		mockedStreamerService := &StreamerServiceMock{
-//			QueueFunc: func(contextMoqParam context.Context) ([]radio.QueueEntry, error) {
+//			QueueFunc: func(contextMoqParam context.Context) (radio.Queue, error) {
 //				panic("mock out the Queue method")
 //			},
 //			RequestSongFunc: func(contextMoqParam context.Context, song radio.Song, s string) error {
@@ -667,7 +667,7 @@ var _ radio.StreamerService = &StreamerServiceMock{}
 //	}
 type StreamerServiceMock struct {
 	// QueueFunc mocks the Queue method.
-	QueueFunc func(contextMoqParam context.Context) ([]radio.QueueEntry, error)
+	QueueFunc func(contextMoqParam context.Context) (radio.Queue, error)
 
 	// RequestSongFunc mocks the RequestSong method.
 	RequestSongFunc func(contextMoqParam context.Context, song radio.Song, s string) error
@@ -714,7 +714,7 @@ type StreamerServiceMock struct {
 }
 
 // Queue calls QueueFunc.
-func (mock *StreamerServiceMock) Queue(contextMoqParam context.Context) ([]radio.QueueEntry, error) {
+func (mock *StreamerServiceMock) Queue(contextMoqParam context.Context) (radio.Queue, error) {
 	if mock.QueueFunc == nil {
 		panic("StreamerServiceMock.QueueFunc: method is nil but StreamerService.Queue was just called")
 	}
@@ -866,7 +866,7 @@ var _ radio.QueueService = &QueueServiceMock{}
 //			AddRequestFunc: func(contextMoqParam context.Context, song radio.Song, s string) error {
 //				panic("mock out the AddRequest method")
 //			},
-//			EntriesFunc: func(contextMoqParam context.Context) ([]radio.QueueEntry, error) {
+//			EntriesFunc: func(contextMoqParam context.Context) (radio.Queue, error) {
 //				panic("mock out the Entries method")
 //			},
 //			RemoveFunc: func(contextMoqParam context.Context, queueID radio.QueueID) (bool, error) {
@@ -889,7 +889,7 @@ type QueueServiceMock struct {
 	AddRequestFunc func(contextMoqParam context.Context, song radio.Song, s string) error
 
 	// EntriesFunc mocks the Entries method.
-	EntriesFunc func(contextMoqParam context.Context) ([]radio.QueueEntry, error)
+	EntriesFunc func(contextMoqParam context.Context) (radio.Queue, error)
 
 	// RemoveFunc mocks the Remove method.
 	RemoveFunc func(contextMoqParam context.Context, queueID radio.QueueID) (bool, error)
@@ -982,7 +982,7 @@ func (mock *QueueServiceMock) AddRequestCalls() []struct {
 }
 
 // Entries calls EntriesFunc.
-func (mock *QueueServiceMock) Entries(contextMoqParam context.Context) ([]radio.QueueEntry, error) {
+func (mock *QueueServiceMock) Entries(contextMoqParam context.Context) (radio.Queue, error) {
 	if mock.EntriesFunc == nil {
 		panic("QueueServiceMock.EntriesFunc: method is nil but QueueService.Entries was just called")
 	}

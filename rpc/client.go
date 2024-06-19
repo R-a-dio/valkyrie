@@ -237,7 +237,7 @@ func (s StreamerClientRPC) RequestSong(ctx context.Context, song radio.Song, ide
 }
 
 // Queue implements radio.StreamerService
-func (s StreamerClientRPC) Queue(ctx context.Context) ([]radio.QueueEntry, error) {
+func (s StreamerClientRPC) Queue(ctx context.Context) (radio.Queue, error) {
 	resp, err := s.rpc.Queue(ctx, new(emptypb.Empty))
 	if err != nil {
 		return nil, err
@@ -305,7 +305,7 @@ func (q QueueClientRPC) Remove(ctx context.Context, id radio.QueueID) (bool, err
 }
 
 // Entries implements radio.QueueService
-func (q QueueClientRPC) Entries(ctx context.Context) ([]radio.QueueEntry, error) {
+func (q QueueClientRPC) Entries(ctx context.Context) (radio.Queue, error) {
 	resp, err := q.rpc.Entries(ctx, new(emptypb.Empty))
 	if err != nil {
 		return nil, err

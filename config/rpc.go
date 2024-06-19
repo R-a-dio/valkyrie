@@ -81,7 +81,7 @@ type streamerService struct {
 }
 
 // Queue implements radio.StreamerService.
-func (s *streamerService) Queue(ctx context.Context) ([]radio.QueueEntry, error) {
+func (s *streamerService) Queue(ctx context.Context) (radio.Queue, error) {
 	return s.fn().Queue(ctx)
 }
 
@@ -118,7 +118,7 @@ func (q *queueService) AddRequest(ctx context.Context, song radio.Song, identifi
 }
 
 // Entries implements radio.QueueService.
-func (q *queueService) Entries(ctx context.Context) ([]radio.QueueEntry, error) {
+func (q *queueService) Entries(ctx context.Context) (radio.Queue, error) {
 	return q.fn().Entries(ctx)
 }
 
