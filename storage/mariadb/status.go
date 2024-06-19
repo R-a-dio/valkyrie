@@ -7,6 +7,7 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/jmoiron/sqlx"
+	"github.com/rs/zerolog"
 )
 
 type StatusStorage struct {
@@ -28,6 +29,9 @@ func (ss StatusStorage) Store(status radio.Status) error {
 	// pass it to the database driver
 	if !status.Song.HasTrack() {
 		status.Song.DatabaseTrack = &radio.DatabaseTrack{}
+	}
+	if status.StreamUser == nil {
+		status.StreamUser = &radio.User{}
 	}
 
 	// we also have the info Start/End times that could be zero, if they are
@@ -53,7 +57,8 @@ func (ss StatusStorage) Store(status radio.Status) error {
 				end_time,
 				trackid,
 				thread,
-				djname
+				djname,
+				stream_user
 			) VALUES (
 				1,
 				:user.dj.id,
@@ -64,7 +69,8 @@ func (ss StatusStorage) Store(status radio.Status) error {
 				UNIX_TIMESTAMP(:songinfo.end),
 				:song.trackid,
 				:thread,
-				:streamername
+				:streamername,
+				:streamuser.id
 			) ON DUPLICATE KEY UPDATE 
 				djid=:user.dj.id,
 				np=:song.metadata,
@@ -75,6 +81,7 @@ func (ss StatusStorage) Store(status radio.Status) error {
 				trackid=:song.trackid,
 				thread=:thread,
 				djname=:streamername,
+				stream_user=:streamuser.id,
 				lastset=NOW();
 	`
 
@@ -100,7 +107,8 @@ func (ss StatusStorage) Load() (*radio.Status, error) {
 			from_unixtime(end_time) AS 'songinfo.end',
 			trackid AS 'song.trackid',
 			thread,
-			djname AS streamername
+			djname AS streamername,
+			COALESCE(stream_user, 0) AS 'streamuser.id'
 		FROM
 			streamstatus
 		WHERE
@@ -114,5 +122,41 @@ func (ss StatusStorage) Load() (*radio.Status, error) {
 	if err != nil && err != sql.ErrNoRows {
 		return nil, errors.E(op, err)
 	}
+
+	// since we don't store the full information we need to fill in the
+	// rest of the information before we return the status, we could do
+	// this with a join in the query, but since this is a low-frequency
+	// method it should be fine to just do 3 extra queries
+	if status.Song.Metadata != "" {
+		song, err := SongStorage{handle}.FromMetadata(status.Song.Metadata)
+		if err != nil {
+			zerolog.Ctx(handle.ctx).Warn().
+				Err(err).
+				Msg("retrieving database metadata")
+		} else {
+			status.Song = *song
+		}
+	}
+	if status.User.DJ.ID != 0 {
+		user, err := UserStorage{handle}.GetByDJID(status.User.DJ.ID)
+		if err != nil {
+			zerolog.Ctx(handle.ctx).Warn().
+				Err(err).
+				Msg("retrieving database user")
+		} else {
+			status.User = *user
+		}
+	}
+	if status.StreamUser != nil && status.StreamUser.ID != 0 {
+		user, err := UserStorage{handle}.GetByID(status.StreamUser.ID)
+		if err != nil {
+			zerolog.Ctx(handle.ctx).Warn().
+				Err(err).
+				Msg("retrieving database stream user")
+		} else {
+			status.StreamUser = user
+		}
+	}
+
 	return &status, nil
 }

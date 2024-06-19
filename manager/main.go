@@ -179,24 +179,6 @@ func (m *Manager) loadStreamStatus(ctx context.Context) (*radio.Status, error) {
 		return nil, err
 	}
 
-	// see if we can get more complete data than what we already have
-	if status.Song.Metadata != "" {
-		song, err := m.Storage.Song(ctx).FromMetadata(status.Song.Metadata)
-		if err != nil {
-			m.logger.Warn().Err(err).Msg("retrieving database metadata")
-		} else {
-			status.Song = *song
-		}
-	}
-	if status.User.DJ.ID != 0 {
-		user, err := m.Storage.User(ctx).GetByDJID(status.User.DJ.ID)
-		if err != nil {
-			m.logger.Warn().Err(err).Msg("retrieving database user")
-		} else {
-			status.User = *user
-		}
-	}
-
 	return status, nil
 }
 
