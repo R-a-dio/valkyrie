@@ -61,11 +61,16 @@ func (TemplateReloadInput) TemplateName() string {
 
 func (s *State) PostReloadTemplates(w http.ResponseWriter, r *http.Request) {
 	err := s.Templates.Reload()
-	err = s.TemplateExecutor.Execute(w, r, TemplateReloadInput{
+
+	input := NewHomeInput(r, s.Daypass)
+	input.TemplateReload = TemplateReloadInput{
 		Reloaded: err == nil,
 		Error:    err,
-	})
+	}
+
+	err = s.TemplateExecutor.Execute(w, r, input)
 	if err != nil {
 		s.errorHandler(w, r, err, "failed to reload templates")
+		return
 	}
 }
