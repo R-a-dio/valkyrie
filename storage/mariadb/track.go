@@ -379,13 +379,18 @@ func (ss SongStorage) AddPlay(song radio.Song, user radio.User, ldiff *radio.Lis
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
 
-	if song.ID == 0 || user.DJ.ID == 0 {
+	if song.ID == 0 {
 		return errors.E(op, errors.InvalidArgument)
+	}
+
+	var djid *radio.DJID
+	if user.DJ.ID != 0 {
+		djid = &user.DJ.ID
 	}
 
 	var query = `INSERT INTO eplay (isong, djs_id, ldiff) VALUES (?, ?, ?);`
 
-	_, err := handle.Exec(query, song.ID, user.DJ.ID, ldiff)
+	_, err := handle.Exec(query, song.ID, djid, ldiff)
 	if err != nil {
 		return errors.E(op, err)
 	}
