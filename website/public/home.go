@@ -12,7 +12,7 @@ import (
 type HomeInput struct {
 	middleware.Input
 
-	Queue      []radio.QueueEntry
+	Queue      radio.Queue
 	LastPlayed []radio.Song
 	News       []NewsInputPost
 }
