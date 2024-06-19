@@ -47,7 +47,7 @@ func (s State) getHome(w http.ResponseWriter, r *http.Request) error {
 		// continue with an empty queue instead
 		queue = []radio.QueueEntry{}
 	}
-	input.Queue = queue[:min(5, len(queue))]
+	input.Queue = queue
 
 	lp, err := s.Storage.Song(ctx).LastPlayed(radio.LPKeyLast, 5)
 	if err != nil {
