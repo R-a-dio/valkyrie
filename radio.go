@@ -390,7 +390,7 @@ type StreamerService interface {
 	Stop(ctx context.Context, force bool) error
 
 	RequestSong(context.Context, Song, string) error
-	Queue(context.Context) ([]QueueEntry, error)
+	Queue(context.Context) (Queue, error)
 }
 
 type Queue []QueueEntry
@@ -479,7 +479,7 @@ type QueueService interface {
 	// Remove removes the first occurence of the given entry from the queue
 	Remove(context.Context, QueueID) (bool, error)
 	// Entries returns all entries in the queue
-	Entries(context.Context) ([]QueueEntry, error)
+	Entries(context.Context) (Queue, error)
 }
 
 type AnnounceService interface {
