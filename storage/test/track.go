@@ -314,11 +314,12 @@ func (suite *Suite) TestSongLastPlayed(t *testing.T) {
 		assert.True(t, original.EqualTo(lp[i]), "subset start: expected %s got %s", original.Metadata, lp[i].Metadata)
 	}
 
-	prev, _, err := ss.LastPlayedPagination(radio.LPKeyLast, 20, 5)
+	_, next, err := ss.LastPlayedPagination(radio.LPKeyLast, 20, 5)
 	require.NoError(t, err)
+	require.Len(t, next, 2, "expected to have two pages")
 
 	// test the other end of the subset
-	lp, err = ss.LastPlayed(prev[1], 20)
+	lp, err = ss.LastPlayed(next[1], 20)
 	require.NoError(t, err)
 	slices.Reverse(lp)
 
@@ -327,13 +328,14 @@ func (suite *Suite) TestSongLastPlayed(t *testing.T) {
 	}
 
 	// the below scenario is done by the irc bot, see if that is handled correctly
-	prev, _, err = ss.LastPlayedPagination(radio.LPKeyLast, 1, 50)
+	_, next, err = ss.LastPlayedPagination(radio.LPKeyLast, 1, 50)
 	require.NoError(t, err)
+	require.Len(t, next, 50)
 
 	for index := range 20 {
 		key := radio.LPKeyLast
 		if index > 0 {
-			key = prev[index-1]
+			key = next[index-1]
 		}
 		lp, err = ss.LastPlayed(key, 1)
 		require.NoError(t, err)

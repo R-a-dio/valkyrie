@@ -236,16 +236,16 @@ func FaveTrack(e Event) error {
 		key := radio.LPKeyLast
 		if index > 0 {
 			// if our index is higher than 0 we need to lookup the key for that
-			prev, _, err := ss.LastPlayedPagination(radio.LPKeyLast, 1, 50)
+			_, next, err := ss.LastPlayedPagination(radio.LPKeyLast, 1, 50)
 			if err != nil {
 				return errors.E(op, err)
 			}
 			// make sure our index exists in the list
-			if index >= len(prev) {
+			if index >= len(next) {
 				return errors.E(op, "index too far")
 			}
 
-			key = prev[index]
+			key = next[index]
 		}
 
 		songs, err := ss.LastPlayed(key, 1)
