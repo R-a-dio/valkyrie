@@ -1,16 +1,19 @@
 package admin
 
 import (
+	"html/template"
 	"net/http"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/util/secret"
 	"github.com/R-a-dio/valkyrie/website/middleware"
+	"github.com/gorilla/csrf"
 )
 
 type HomeInput struct {
 	middleware.Input
-	Daypass string
+	Daypass        string
+	CSRFTokenInput template.HTML
 
 	CanKillStreamer bool
 
@@ -23,6 +26,7 @@ func NewHomeInput(r *http.Request, dp secret.Secret) HomeInput {
 	return HomeInput{
 		Input:             input,
 		Daypass:           dp.Get(nil),
+		CSRFTokenInput:    csrf.TemplateField(r),
 		CanTemplateReload: input.User.UserPermissions.Has(radio.PermAdmin),
 		CanKillStreamer:   input.User.UserPermissions.Has(radio.PermDJ),
 	}
