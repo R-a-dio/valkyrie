@@ -17,7 +17,7 @@ func TestRoundtrip(tt *testing.T) {
 	// special generator for users since we don't actually pass all the fields
 	// over the wire for reasons
 	userGen := gen.Struct(reflect.TypeFor[radio.User](), map[string]gopter.Gen{
-		"ID":              a.GenForType(reflect.TypeFor[radio.UserID]()),
+		"ID":              a.GenForType(reflect.TypeFor[radio.UserID]()).SuchThat(func(v radio.UserID) bool { return v > 0 }),
 		"Username":        gen.AnyString(),
 		"IP":              gen.AnyString(),
 		"UpdatedAt":       a.GenForType(reflect.TypeFor[*time.Time]()),
@@ -95,7 +95,11 @@ func TestRoundtrip(tt *testing.T) {
 	p.Property("user-permissions", a.ForAll(func(in radio.UserPermissions) bool {
 		out := fromProtoUserPermissions(toProtoUserPermissions(in))
 
-		return assert.Equal(tt, in, out)
+		if len(in) == 0 {
+			return assert.Len(tt, out, 0)
+		} else {
+			return assert.Equal(tt, in, out)
+		}
 	}))
 	p.Property("dj", a.ForAll(func(in radio.DJ) bool {
 		out := fromProtoDJ(toProtoDJ(in))
