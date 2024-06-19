@@ -44,6 +44,7 @@ var defaultFunctions = map[string]any{
 	"safeURL":                     SafeURL,
 	"IsValidThread":               IsValidThread,
 	"IsImageThread":               IsImageThread,
+	"IsRobot":                     radio.IsRobot,
 	"Until":                       time.Until,
 	"Since":                       time.Since,
 	"Now":                         time.Now,

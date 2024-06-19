@@ -255,10 +255,6 @@ func (u *User) IsValid() bool {
 	return u != nil && u.Username != ""
 }
 
-func (u *User) IsRobot() bool {
-	return u.IsValid() && IsRobot(*u)
-}
-
 var bcryptCost = 14
 
 func GenerateHashFromPassword(passwd string) (string, error) {
