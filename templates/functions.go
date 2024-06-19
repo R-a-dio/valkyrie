@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html/template"
 	"reflect"
+	"strings"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -40,6 +41,9 @@ var defaultFunctions = map[string]any{
 	"printjson":                   PrintJSON,
 	"safeHTML":                    SafeHTML,
 	"safeHTMLAttr":                SafeHTMLAttr,
+	"safeURL":                     SafeURL,
+	"IsValidThread":               IsValidThread,
+	"IsImageThread":               IsImageThread,
 	"Until":                       time.Until,
 	"Since":                       time.Since,
 	"Now":                         time.Now,
@@ -118,6 +122,31 @@ func SafeHTMLAttr(v any) (template.HTMLAttr, error) {
 	return template.HTMLAttr(s), nil
 }
 
+func SafeURL(v any) (template.URL, error) {
+	s, ok := v.(string)
+	if !ok {
+		return "", errors.E(errors.InvalidArgument)
+	}
+	return template.URL(s), nil
+}
+
+// IsValidThread tells you if a thread is valid, that is not-empty
+// or is the literal 'none'
+func IsValidThread(v string) bool {
+	if len(v) == 0 {
+		return false
+	}
+	if strings.ToLower(v) == "none" {
+		return false
+	}
+	return true
+}
+
+// IsImageThread tells you if the thread is an image thread
+func IsImageThread(v string) bool {
+	return strings.HasPrefix("image:", v)
+}
+
 func TimeagoDuration(d time.Duration) string {
 	if d > 0 { // future duration
 		if d <= time.Minute {
@@ -142,7 +171,7 @@ func TimeagoDuration(d time.Duration) string {
 func PrettyDuration(d time.Duration) string {
 	if d > 0 { // future duration
 		if d <= time.Minute {
-			return "in less than a minute"
+			return "in <1 minute"
 		}
 		if d < time.Minute*2 {
 			return fmt.Sprintf("in %.0f minute", d.Minutes())
@@ -151,7 +180,7 @@ func PrettyDuration(d time.Duration) string {
 	} else { // past duration
 		d = d.Abs()
 		if d <= time.Minute {
-			return "less than a minute ago"
+			return "<1 minute ago"
 		}
 		if d < time.Minute*2 {
 			return fmt.Sprintf("%.0f minute ago", d.Minutes())
