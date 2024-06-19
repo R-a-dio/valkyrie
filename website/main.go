@@ -65,7 +65,11 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	// RPC values
 	statusValue := util.StreamValue(ctx, manager.CurrentStatus)
 	// templates
-	siteTemplates, err := templates.FromDirectory(cfg.Conf().TemplatePath)
+	templateFuncs := templates.NewStatefulFunctions(statusValue)
+	siteTemplates, err := templates.FromDirectory(
+		cfg.Conf().TemplatePath,
+		templateFuncs,
+	)
 	if err != nil {
 		return errors.E(op, err)
 	}

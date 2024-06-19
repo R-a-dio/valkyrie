@@ -38,10 +38,15 @@ const (
 
 // Site is an overarching struct containing all the themes of the website.
 type Site struct {
+	// Production indicates if we should reload every page load
 	Production bool
+	// fnMap holds the functions we add to templates
+	fnMap template.FuncMap
 
+	// fs is the source fs for our template files
 	fs fs.FS
 
+	// mu protects the fields below it
 	mu               sync.RWMutex
 	themes           Themes
 	themeNamesPublic []string
@@ -55,7 +60,7 @@ func (s *Site) Reload() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	themes, err := LoadThemes(s.fs)
+	themes, err := LoadThemes(s.fs, s.fnMap)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -183,27 +188,33 @@ func (s *Site) ResolveThemeName(name string) string {
 	return DEFAULT_DIR
 }
 
-func FromDirectory(dir string) (*Site, error) {
+func FromDirectory(dir string, state *StatefulFuncs) (*Site, error) {
 	const op errors.Op = "templates/FromDirectory"
 
 	fsys := os.DirFS(dir)
-	s, err := FromFS(fsys)
+	s, err := FromFS(fsys, state)
 	if err != nil {
 		return nil, errors.E(op, err, dir)
 	}
 	return s, nil
 }
 
-func FromFS(fsys fs.FS) (*Site, error) {
+func FromFS(fsys fs.FS, state *StatefulFuncs) (*Site, error) {
 	const op errors.Op = "templates/FromFS"
+
+	fnMap := maps.Clone(defaultFunctions)
+	if state != nil {
+		maps.Copy(fnMap, state.FuncMap())
+	}
 
 	var err error
 	tmpl := Site{
 		fs:    fsys,
+		fnMap: fnMap,
 		cache: make(map[string]*template.Template),
 	}
 
-	tmpl.themes, err = LoadThemes(fsys)
+	tmpl.themes, err = LoadThemes(fsys, fnMap)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
@@ -216,7 +227,8 @@ func FromFS(fsys fs.FS) (*Site, error) {
 // for the page
 type TemplateBundle struct {
 	// fs to load the relative-filenames below
-	fs fs.FS
+	fs    fs.FS
+	fnMap template.FuncMap
 	// the following fields contain all the filenames of the templates we're parsing
 	// into a html/template.Template. They're listed in load-order, last one wins.
 	base            []string
@@ -280,7 +292,7 @@ func (tb *TemplateBundle) Files() []string {
 func (tb *TemplateBundle) Template() (*template.Template, error) {
 	const op errors.Op = "templates/TemplateBundle.Template"
 
-	tmpl, err := createRoot().ParseFS(tb.fs, tb.Files()...)
+	tmpl, err := createRoot(tb.fnMap).ParseFS(tb.fs, tb.Files()...)
 	if err != nil {
 		return nil, errors.E(op, errors.TemplateParseError, err)
 	}
@@ -289,7 +301,7 @@ func (tb *TemplateBundle) Template() (*template.Template, error) {
 
 // createRoot creates a root template that adds global utility functions to
 // all other template files.
-func createRoot() *template.Template {
+func createRoot(fnMap template.FuncMap) *template.Template {
 	return template.New("root").Funcs(fnMap)
 }
 
@@ -327,7 +339,8 @@ func (tb ThemeBundle) Assets() fs.FS {
 }
 
 type loadState struct {
-	fs fs.FS
+	fs    fs.FS
+	fnMap template.FuncMap
 
 	baseTemplates []string
 	defaults      loadStateDefault
@@ -339,13 +352,14 @@ type loadStateDefault struct {
 	bundle   map[string]*TemplateBundle
 }
 
-func LoadThemes(fsys fs.FS) (Themes, error) {
+func LoadThemes(fsys fs.FS, fnMap template.FuncMap) (Themes, error) {
 	const op errors.Op = "templates/LoadThemes"
 
 	var state loadState
 	var err error
 
 	state.fs = fsys
+	state.fnMap = fnMap
 
 	// first, we're looking for .tmpl files in the main template directory
 	// these are included in all other templates as a base
@@ -459,6 +473,7 @@ func (ls loadState) loadSubDir(dir string) (map[string]*TemplateBundle, error) {
 
 	var bundle = TemplateBundle{
 		fs:              ls.fs,
+		fnMap:           ls.fnMap,
 		base:            ls.baseTemplates,
 		defaultPartials: ls.defaults.partials,
 		defaultForms:    ls.defaults.forms,
@@ -603,7 +618,7 @@ func Definitions(fsys fs.FS, files []string) error {
 		}
 		contents := string(b)
 
-		tmpl, err := createRoot().New(noop).Parse(contents)
+		tmpl, err := createRoot(defaultFunctions).New(noop).Parse(contents)
 		if err != nil {
 			return errors.E(op, err)
 		}
