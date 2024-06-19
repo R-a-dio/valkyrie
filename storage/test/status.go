@@ -14,6 +14,9 @@ func (suite *Suite) TestStatusStore(t *testing.T) {
 	ss := suite.Storage(t).Status(suite.ctx)
 
 	in := radio.Status{
+		StreamUser: &radio.User{
+			ID: 60,
+		},
 		User: radio.User{
 			DJ: radio.DJ{
 				ID: 500,
@@ -41,6 +44,7 @@ func (suite *Suite) TestStatusStore(t *testing.T) {
 	require.NoError(t, err)
 	assert.Condition(t, func() (success bool) {
 		return assert.Equal(t, in.User, out.User) &&
+			assert.Equal(t, in.StreamUser, out.StreamUser) &&
 			assert.Equal(t, in.Song, out.Song) &&
 			assert.WithinDuration(t, in.SongInfo.Start, out.SongInfo.Start, time.Second) &&
 			assert.WithinDuration(t, in.SongInfo.End, out.SongInfo.End, time.Second) &&

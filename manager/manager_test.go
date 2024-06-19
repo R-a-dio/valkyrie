@@ -104,13 +104,6 @@ func TestManager(t *testing.T) {
 	require.Equal(t, initSong.Metadata, m.status.Song.Metadata)
 	require.Equal(t, initUser.ID, m.status.User.ID)
 	require.Equal(t, initUser.DJ.Name, m.status.User.DJ.Name)
-	// and we should've contacted the database after starting
-	if calls := sos.FromMetadataCalls(); assert.Len(t, calls, 1) {
-		assert.Equal(t, initSong.Metadata, calls[0].Metadata)
-	}
-	if calls := us.GetByDJIDCalls(); assert.Len(t, calls, 1) {
-		assert.Equal(t, initUser.DJ.ID, calls[0].DJID)
-	}
 
 	statusCh := m.statusStream.Sub()
 	<-statusCh // eat the initial
