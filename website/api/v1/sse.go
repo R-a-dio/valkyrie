@@ -42,6 +42,14 @@ func (a *API) runStatusUpdates(ctx context.Context) {
 			return
 		}
 
+		if status.Thread != previous.Thread {
+			// TODO: add an actual sendThread as well
+			// TODO: see if we need this hack at all
+			// send a queue after a thread update, since our default theme
+			// uses the queue template for the thread location
+			go a.sendQueue(ctx)
+		}
+
 		// only pass an update through if the song is different from the previous one
 		if !status.Song.EqualTo(previous.Song) {
 			log.Debug().Str("event", EventMetadata).Any("value", status).Msg("sending")
