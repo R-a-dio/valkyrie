@@ -106,6 +106,9 @@ func StreamerQueue(e Event) error {
 		totalQueueTime += song.Length
 	}
 
+	// limit the length that we're printing
+	songQueue = songQueue.Limit(5)
+
 	// Define the message strings
 	message := "{green}Queue (/r/ time: %s):{clear}"
 	messageJoin := "{red}|{clear}"
