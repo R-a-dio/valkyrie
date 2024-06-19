@@ -51,14 +51,6 @@ type TemplateReloadInput struct {
 	Error    error
 }
 
-func (TemplateReloadInput) TemplateBundle() string {
-	return "home"
-}
-
-func (TemplateReloadInput) TemplateName() string {
-	return "template-reload"
-}
-
 func (s *State) PostReloadTemplates(w http.ResponseWriter, r *http.Request) {
 	err := s.Templates.Reload()
 

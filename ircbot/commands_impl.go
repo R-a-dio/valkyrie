@@ -315,6 +315,7 @@ func ThreadURL(e Event) error {
 	const op errors.Op = "irc/ThreadURL"
 
 	thread := e.Arguments["thread"]
+	thread = strings.TrimSpace(thread)
 
 	if thread != "" && HasStreamAccess(e.Client, e.Event) {
 		err := e.Bot.Manager.UpdateThread(e.Ctx, thread)
@@ -323,9 +324,7 @@ func ThreadURL(e Event) error {
 		}
 	}
 
-	status := e.Bot.StatusValue.Latest()
-
-	e.EchoPublic("Thread: %s", status.Thread)
+	e.EchoPublic("Thread: %s", thread)
 	return nil
 }
 

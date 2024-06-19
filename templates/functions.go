@@ -145,7 +145,7 @@ func IsValidThread(v string) bool {
 
 // IsImageThread tells you if the thread is an image thread
 func IsImageThread(v string) bool {
-	return strings.HasPrefix("image:", v)
+	return strings.HasPrefix(v, "image:")
 }
 
 func TimeagoDuration(d time.Duration) string {
