@@ -315,7 +315,7 @@ func (s *Stream) SendLastPlayed(data []radio.Song) {
 	s.SendEvent(EventLastPlayed, s.NewMessage(EventLastPlayed, LastPlayed(data)))
 }
 
-func (s *Stream) SendQueue(data []radio.QueueEntry) {
+func (s *Stream) SendQueue(data radio.Queue) {
 	s.SendEvent(EventQueue, s.NewMessage(EventQueue, Queue(data)))
 }
 
@@ -361,7 +361,7 @@ func (LastPlayed) TemplateBundle() string {
 }
 
 // Queue is for the queue listing on the home page
-type Queue []radio.QueueEntry
+type Queue radio.Queue
 
 func (Queue) TemplateName() string {
 	return "queue"
@@ -369,6 +369,18 @@ func (Queue) TemplateName() string {
 
 func (Queue) TemplateBundle() string {
 	return "home"
+}
+
+func (q Queue) Length() time.Duration {
+	return radio.Queue(q).Length()
+}
+
+func (q Queue) Limit(maxSize int) Queue {
+	return Queue(radio.Queue(q).Limit(maxSize))
+}
+
+func (q Queue) RequestAmount() int {
+	return radio.Queue(q).RequestAmount()
 }
 
 // Streamer is for the DJ indicator on the home page
