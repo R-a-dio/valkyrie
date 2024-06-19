@@ -326,6 +326,7 @@ func (s *Streamer) start(ctx context.Context,
 			if s.encoderCancel != nil {
 				s.encoderCancel()
 			}
+			s.running = false
 			s.mu.Unlock()
 		}()
 		// close the done channel, no streaming without this icecast routine
