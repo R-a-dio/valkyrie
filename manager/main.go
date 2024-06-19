@@ -121,11 +121,7 @@ func NewManager(ctx context.Context, store radio.StorageService, state []byte) (
 		m.status = *old
 	}
 
-	if m.status.User.ID != 0 { //
-		m.userStream = eventstream.NewEventStream(&m.status.User)
-	} else {
-		m.userStream = eventstream.NewEventStream[*radio.User](nil)
-	}
+	m.userStream = eventstream.NewEventStream(m.status.StreamUser)
 	m.threadStream = eventstream.NewEventStream(m.status.Thread)
 	m.songStream = eventstream.NewEventStream(&radio.SongUpdate{
 		Song: m.status.Song,

@@ -64,7 +64,11 @@ func CalculateCooldown(delay time.Duration, last time.Time) (time.Duration, bool
 }
 
 type Status struct {
-	// User is the user that is currently broadcasting on the stream
+	// StreamUser is the user that is currently streaming, will be nil
+	// if no one is connected on the master mountpoint (even short drops)
+	StreamUser *User
+	// User is the user that is currently or was the last to broadcast
+	// on the stream
 	User User
 	// Song is the song that is currently playing on the stream
 	Song Song

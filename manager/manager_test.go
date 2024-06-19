@@ -41,9 +41,10 @@ func TestManager(t *testing.T) {
 	sts := &mocks.StatusStorageMock{
 		LoadFunc: func() (*radio.Status, error) {
 			return &radio.Status{
-				Song:   initSong,
-				User:   initUser,
-				Thread: initThread,
+				StreamUser: &initUser,
+				Song:       initSong,
+				User:       initUser,
+				Thread:     initThread,
 			}, nil
 		},
 		StoreFunc: func(status radio.Status) error {

@@ -159,7 +159,8 @@ func (m *Manager) statusFromStreams() radio.Status {
 
 	status.Thread = m.threadStream.Latest()
 	status.Listeners = m.listenerStream.Latest()
-	if u := m.userStream.Latest(); u != nil {
+	status.StreamUser = m.userStream.Latest()
+	if u := status.StreamUser; u != nil {
 		status.User = *u
 		status.StreamerName = u.DJ.Name
 	}
@@ -202,12 +203,14 @@ func (m *Manager) runStatusUpdates(ctx context.Context, ready chan struct{}) {
 		case <-ctx.Done():
 			return
 		case user := <-userCh:
+			m.mu.Lock()
+			m.status.StreamUser = user
 			if user == nil {
-				// skip nil users, we don't update the status for them
+				// skip nil users for the User and StreamerName fields
+				m.mu.Unlock()
 				continue
 			}
 			zerolog.Ctx(ctx).Info().Any("user", user).Msg("running status update")
-			m.mu.Lock()
 			m.status.StreamerName = user.DJ.Name
 			m.status.User = *user
 		case thread := <-threadCh:
