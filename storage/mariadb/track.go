@@ -485,19 +485,10 @@ func (ss SongStorage) UpdateHashLink(old, new radio.SongHash) error {
 }
 
 var songFavoritesOfQuery = expand(`
-SELECT
-	{songColumns},
-	{maybeTrackColumns},
-	{lastplayedSelect},
-	NOW() AS synctime
-FROM
+WITH
 	esong
-LEFT JOIN
-	tracks ON tracks.hash = esong.hash
-JOIN
-	(SELECT DISTINCT
-		esong.hash_link,
-		efave.id
+AS (SELECT DISTINCT
+		esong.*
 	FROM
 		enick
 	JOIN
@@ -505,9 +496,24 @@ JOIN
 	JOIN
 		esong ON esong.id = efave.isong
 	WHERE
-		enick.nick = ?) AS truth
-	ON esong.hash = truth.hash_link
-ORDER BY truth.id ASC
+		enick.nick = ?)
+SELECT
+	{songColumns},
+	{maybeTrackColumns},
+	COALESCE(eplay.dt, TIMESTAMP('0000-00-00 00:00:00')) AS lastplayed,
+	NOW() AS synctime
+FROM
+	esong
+LEFT JOIN
+	tracks ON tracks.hash = esong.hash
+LEFT JOIN
+	(SELECT
+		MAX(dt) AS dt,
+		isong
+	FROM
+		eplay
+	GROUP BY
+		isong) AS eplay ON eplay.isong = esong.id
 LIMIT ? OFFSET ?;
 `)
 
@@ -515,15 +521,15 @@ var songFavoritesOfDatabaseOnlyQuery = expand(`
 WITH
 	esong
 AS (SELECT DISTINCT
-	esong.*
-FROM
-	enick
-JOIN
-	efave ON efave.inick = enick.id
-JOIN
-	esong ON esong.id = efave.isong
-WHERE
-	enick.nick = ?)
+		esong.*
+	FROM
+		enick
+	JOIN
+		efave ON efave.inick = enick.id
+	JOIN
+		esong ON esong.id = efave.isong
+	WHERE
+		enick.nick = ?)
 SELECT
 	{songColumns},
 	{trackColumns},
@@ -533,7 +539,7 @@ FROM
 	tracks
 JOIN
 	esong ON tracks.hash = esong.hash
-JOIN
+LEFT JOIN
 	(SELECT
 		MAX(dt) AS dt,
 		isong
