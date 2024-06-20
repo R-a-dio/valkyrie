@@ -497,7 +497,7 @@ AS (SELECT DISTINCT
 		esong ON esong.id = efave.isong
 	WHERE
 		enick.nick = ?
-	ORDER BY efave.id)
+	ORDER BY efave.id ASC)
 SELECT
 	{songColumns},
 	{maybeTrackColumns},
