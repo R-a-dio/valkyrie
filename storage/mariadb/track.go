@@ -512,22 +512,35 @@ LIMIT ? OFFSET ?;
 `)
 
 var songFavoritesOfDatabaseOnlyQuery = expand(`
-SELECT
-	{songColumns},
-	{trackColumns},
-	{lastplayedSelect},
-	NOW() AS synctime
+WITH
+	esong
+AS (SELECT DISTINCT
+	esong.*
 FROM
 	enick
 JOIN
 	efave ON efave.inick = enick.id
 JOIN
 	esong ON esong.id = efave.isong
-JOIN
-	tracks ON tracks.hash = esong.hash_link
 WHERE
-	enick.nick = ?
-ORDER BY efave.id ASC;
+	enick.nick = ?)
+SELECT
+	{songColumns},
+	{trackColumns},
+	COALESCE(eplay.dt, TIMESTAMP('0000-00-00 00:00:00')) AS lastplayed,
+	NOW() AS synctime
+FROM
+	tracks
+JOIN
+	esong ON tracks.hash = esong.hash
+JOIN
+	(SELECT
+		MAX(dt) AS dt,
+		isong
+	FROM
+		eplay
+	GROUP BY
+		isong) AS eplay ON eplay.isong = esong.id;
 `)
 
 var songFavoritesOfCountQuery = `
