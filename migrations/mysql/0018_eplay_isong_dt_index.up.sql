@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS isong_dt ON eplay (isong, dt);
