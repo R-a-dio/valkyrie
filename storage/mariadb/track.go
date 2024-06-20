@@ -496,7 +496,8 @@ AS (SELECT DISTINCT
 	JOIN
 		esong ON esong.id = efave.isong
 	WHERE
-		enick.nick = ?)
+		enick.nick = ?
+	ORDER BY efave.id)
 SELECT
 	{songColumns},
 	{maybeTrackColumns},
