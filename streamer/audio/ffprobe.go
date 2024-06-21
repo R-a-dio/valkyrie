@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"os"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -53,13 +54,14 @@ type Info struct {
 	Title      string
 	Artist     string
 	Album      string
+	Comment    string
 	Bitrate    int
 }
 
 var ffprobeTextArgs = []string{
 	"-loglevel", "fatal",
 	"-hide_banner",
-	"-show_entries", "format_tags=title,artist,album:stream_tags=title,artist,album:stream=duration,bit_rate:format=format_name,bit_rate",
+	"-show_entries", "format_tags=title,artist,album,comment:stream_tags=title,artist,album,comment:stream=duration,bit_rate:format=format_name,bit_rate",
 	"-of", "default=noprint_wrappers=1",
 }
 
@@ -68,6 +70,21 @@ func ProbeText(ctx context.Context, filename string) (*Info, error) {
 
 	cmd := exec.CommandContext(ctx, "ffprobe",
 		append(ffprobeTextArgs, "-i", filename)...)
+
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, errors.E(op, err, errors.Info(cmd.String()))
+	}
+
+	return parseProbeText(ctx, bytes.NewReader(out))
+}
+
+func probeText(ctx context.Context, file *os.File) (*Info, error) {
+	const op errors.Op = "streamer/audio.Probe"
+
+	cmd := exec.CommandContext(ctx, "ffprobe",
+		append(ffprobeTextArgs, "-i", "-")...)
+	cmd.Stdin = file
 
 	out, err := cmd.Output()
 	if err != nil {
@@ -107,6 +124,8 @@ func parseProbeText(ctx context.Context, out io.Reader) (*Info, error) {
 			info.Artist = value
 		case "album":
 			info.Album = value
+		case "comment":
+			info.Comment = value
 		case "bit_rate":
 			if value != "N/A" { // could not exist
 				info.Bitrate, err = strconv.Atoi(value)
