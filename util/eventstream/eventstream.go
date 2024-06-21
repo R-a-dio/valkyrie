@@ -11,6 +11,7 @@ import (
 const (
 	SUBSCRIBE cmd = iota
 	SEND
+	SEND_COMPARE
 	LEAVE
 	SHUTDOWN
 	CLOSE
@@ -22,9 +23,10 @@ const TIMEOUT = time.Millisecond * 100
 type cmd byte
 
 type request[T any] struct {
-	cmd cmd
-	ch  chan T
-	m   T
+	cmd       cmd
+	ch        chan T
+	m         T
+	compareFn func(new, old T) bool
 }
 
 func NewEventStream[M any](initial M) *EventStream[M] {
@@ -84,6 +86,12 @@ func (es *EventStream[M]) run() {
 		case LEAVE:
 			// remove the channel
 			subs = removeSub(subs, req.ch)
+		case SEND_COMPARE:
+			old := *es.last.Load()
+			if req.compareFn == nil || !req.compareFn(req.m, old) {
+				continue
+			}
+			fallthrough
 		case SEND:
 			// make a copy of the value
 			v := req.m
@@ -169,6 +177,20 @@ func (es *EventStream[M]) length() int {
 func (es *EventStream[M]) Send(m M) {
 	select {
 	case es.reqs <- request[M]{cmd: SEND, m: m}:
+	case <-es.shutdownCh:
+	}
+}
+
+// CompareAndSend sends the value m to all subscribers if the fn given returns
+// true
+func (es *EventStream[M]) CompareAndSend(m M, fn func(new M, old M) bool) {
+	if fn == nil {
+		// do nothing if we didn't get a comparison function
+		return
+	}
+
+	select {
+	case es.reqs <- request[M]{cmd: SEND_COMPARE, m: m, compareFn: fn}:
 	case <-es.shutdownCh:
 	}
 }

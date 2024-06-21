@@ -22,6 +22,7 @@ const _ = grpc.SupportPackageIsVersion7
 
 const (
 	Manager_CurrentStatus_FullMethodName        = "/radio.Manager/CurrentStatus"
+	Manager_UpdateFromStorage_FullMethodName    = "/radio.Manager/UpdateFromStorage"
 	Manager_CurrentSong_FullMethodName          = "/radio.Manager/CurrentSong"
 	Manager_UpdateSong_FullMethodName           = "/radio.Manager/UpdateSong"
 	Manager_CurrentThread_FullMethodName        = "/radio.Manager/CurrentThread"
@@ -37,6 +38,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ManagerClient interface {
 	CurrentStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (Manager_CurrentStatusClient, error)
+	UpdateFromStorage(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	CurrentSong(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (Manager_CurrentSongClient, error)
 	UpdateSong(ctx context.Context, in *SongUpdate, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	CurrentThread(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (Manager_CurrentThreadClient, error)
@@ -85,6 +87,15 @@ func (x *managerCurrentStatusClient) Recv() (*StatusResponse, error) {
 		return nil, err
 	}
 	return m, nil
+}
+
+func (c *managerClient) UpdateFromStorage(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, Manager_UpdateFromStorage_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *managerClient) CurrentSong(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (Manager_CurrentSongClient, error) {
@@ -256,6 +267,7 @@ func (c *managerClient) UpdateListenerCount(ctx context.Context, in *wrapperspb.
 // for forward compatibility
 type ManagerServer interface {
 	CurrentStatus(*emptypb.Empty, Manager_CurrentStatusServer) error
+	UpdateFromStorage(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	CurrentSong(*emptypb.Empty, Manager_CurrentSongServer) error
 	UpdateSong(context.Context, *SongUpdate) (*emptypb.Empty, error)
 	CurrentThread(*emptypb.Empty, Manager_CurrentThreadServer) error
@@ -273,6 +285,9 @@ type UnimplementedManagerServer struct {
 
 func (UnimplementedManagerServer) CurrentStatus(*emptypb.Empty, Manager_CurrentStatusServer) error {
 	return status.Errorf(codes.Unimplemented, "method CurrentStatus not implemented")
+}
+func (UnimplementedManagerServer) UpdateFromStorage(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateFromStorage not implemented")
 }
 func (UnimplementedManagerServer) CurrentSong(*emptypb.Empty, Manager_CurrentSongServer) error {
 	return status.Errorf(codes.Unimplemented, "method CurrentSong not implemented")
@@ -330,6 +345,24 @@ type managerCurrentStatusServer struct {
 
 func (x *managerCurrentStatusServer) Send(m *StatusResponse) error {
 	return x.ServerStream.SendMsg(m)
+}
+
+func _Manager_UpdateFromStorage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagerServer).UpdateFromStorage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Manager_UpdateFromStorage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagerServer).UpdateFromStorage(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Manager_CurrentSong_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -495,6 +528,10 @@ var Manager_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "radio.Manager",
 	HandlerType: (*ManagerServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "UpdateFromStorage",
+			Handler:    _Manager_UpdateFromStorage_Handler,
+		},
 		{
 			MethodName: "UpdateSong",
 			Handler:    _Manager_UpdateSong_Handler,

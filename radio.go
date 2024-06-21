@@ -377,6 +377,8 @@ type ListenerTrackerService interface {
 }
 
 type ManagerService interface {
+	UpdateFromStorage(context.Context) error
+
 	CurrentUser(context.Context) (eventstream.Stream[*User], error)
 	UpdateUser(context.Context, *User) error
 	CurrentSong(context.Context) (eventstream.Stream[*SongUpdate], error)

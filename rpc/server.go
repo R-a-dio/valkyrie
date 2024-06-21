@@ -135,6 +135,11 @@ func (m ManagerShim) UpdateListenerCount(ctx context.Context, i *wrapperspb.Int6
 	return new(emptypb.Empty), err
 }
 
+func (m ManagerShim) UpdateFromStorage(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+	err := m.manager.UpdateFromStorage(ctx)
+	return new(emptypb.Empty), err
+}
+
 // NewStreamer returns a new shim around the service given
 func NewStreamer(s radio.StreamerService) StreamerServer {
 	return StreamerShim{
