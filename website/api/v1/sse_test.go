@@ -3,7 +3,9 @@ package v1
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net"
+	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"sync"
@@ -16,6 +18,7 @@ import (
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/arbitrary"
 	"github.com/leanovate/gopter/gen"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -23,9 +26,12 @@ import (
 )
 
 func TestStream(t *testing.T) {
+	ctx := context.Background()
+	ctx = zerolog.New(zerolog.NewTestWriter(t)).WithContext(ctx)
+
 	exec := &mocks.ExecutorMock{
 		ExecuteAllFunc: func(input templates.TemplateSelectable) (map[string][]byte, error) {
-			jsonData, err := json.Marshal(input)
+			jsonData, err := json.MarshalIndent(input, "", "  ")
 			if err != nil {
 				return nil, err
 			}
@@ -34,6 +40,15 @@ func TestStream(t *testing.T) {
 				"json": jsonData,
 			}, nil
 		},
+		ExecuteFunc: func(w io.Writer, r *http.Request, input templates.TemplateSelectable) error {
+			jsonData, err := json.MarshalIndent(input, "", "  ")
+			if err != nil {
+				return err
+			}
+
+			_, err = w.Write(jsonData)
+			return err
+		},
 	}
 
 	var muExpected sync.Mutex
@@ -41,6 +56,7 @@ func TestStream(t *testing.T) {
 
 	stream := NewStream(exec)
 	server := httptest.NewUnstartedServer(stream)
+	server.Config.BaseContext = func(l net.Listener) context.Context { return ctx }
 	server.Config.ConnContext = func(ctx context.Context, c net.Conn) context.Context {
 		return templates.SetTheme(ctx, "json", true)
 	}
@@ -49,6 +65,7 @@ func TestStream(t *testing.T) {
 	t.Log(server.URL)
 	es1, err := eventsource.New(server.URL)
 	require.NoError(t, err)
+	defer es1.Close()
 
 	sync := make(chan struct{})
 	go func() {
@@ -80,12 +97,12 @@ func TestStream(t *testing.T) {
 
 	jsonEvent := <-ch1
 
-	assert.Equal(t, EventTime, jsonEvent.Name)
+	require.Equal(t, EventTime, jsonEvent.Name)
 
 	for i := 0; i < 100; i++ {
 		sync <- struct{}{}
 		jsonEvent = <-ch1
-		assert.Equal(t, EventMetadata, jsonEvent.Name)
+		require.Equal(t, EventMetadata, jsonEvent.Name)
 
 		var status radio.Status
 
