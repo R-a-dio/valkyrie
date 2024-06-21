@@ -162,7 +162,10 @@ func (m *Manager) UpdateFromStorage(ctx context.Context) error {
 
 		new, err := m.Storage.User(ctx).GetByID(current.ID)
 		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to update user from storage")
+			zerolog.Ctx(ctx).Error().
+				Err(err).
+				Uint64("user_id", uint64(current.ID)).
+				Msg("failed to update user from storage")
 		} else {
 			m.userStream.CompareAndSend(new, func(new, old *radio.User) bool {
 				if old == nil {
@@ -179,7 +182,10 @@ func (m *Manager) UpdateFromStorage(ctx context.Context) error {
 
 		new, err := m.Storage.Song(ctx).FromHash(current.Hash)
 		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to update song from storage")
+			zerolog.Ctx(ctx).Error().
+				Err(err).
+				Str("hash", current.Hash.String()).
+				Msg("failed to update song from storage")
 		} else {
 			m.songStream.CompareAndSend(&radio.SongUpdate{
 				Song: *new,
