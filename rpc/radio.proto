@@ -45,7 +45,8 @@ message Song {
 
 service Manager {
     rpc CurrentStatus(google.protobuf.Empty) returns (stream StatusResponse);
-
+    rpc UpdateFromStorage(google.protobuf.Empty) returns (google.protobuf.Empty);
+    
     rpc CurrentSong(google.protobuf.Empty) returns (stream SongUpdate);
     rpc UpdateSong(SongUpdate) returns (google.protobuf.Empty);
     rpc CurrentThread(google.protobuf.Empty) returns (stream google.protobuf.StringValue);

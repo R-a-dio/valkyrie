@@ -203,6 +203,9 @@ func TestEventServerShutdown(t *testing.T) {
 
 	// sending after Shutdown should not block
 	es.Send("after shutdown")
+	es.CompareAndSend("compare after shutdown", func(new, old string) bool {
+		return new == old
+	})
 }
 
 func TestEventServerCloseSubs(t *testing.T) {
@@ -277,6 +280,37 @@ func TestEventServerSlowSub(t *testing.T) {
 	}
 
 	t.Log(<-ch)
+}
+
+func TestEventServerCompareAndSend(t *testing.T) {
+	v := int(50)
+
+	es := NewEventStream(v)
+	ch := es.Sub()
+
+	// initial value
+	assert.Equal(t, v, <-ch)
+
+	// send a normal update
+	v = int(100)
+	es.Send(v)
+	assert.Equal(t, v, <-ch)
+
+	// send a compare update
+	es.CompareAndSend(int(500), func(new, old int) bool {
+		assert.Equal(t, int(500), new)
+		return new == old
+	})
+	// the above shouldn't update, neither should this below
+	es.CompareAndSend(v, nil)
+
+	// but this one below should
+	prev, v := v, int(1000)
+	es.CompareAndSend(v, func(new, old int) bool {
+		return old == prev
+	})
+	assert.Equal(t, v, <-ch)
+
 }
 
 func benchmarkEventStream(subcount int, b *testing.B) {

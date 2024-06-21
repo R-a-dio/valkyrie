@@ -152,6 +152,51 @@ func (m *Manager) UpdateListeners(ctx context.Context, listeners radio.Listeners
 	return nil
 }
 
+func (m *Manager) UpdateFromStorage(ctx context.Context) error {
+	const op errors.Op = "manager/Manager.UpdateFromStorage"
+	_, span := otel.Tracer("").Start(ctx, string(op))
+	defer span.End()
+
+	{ // user update
+		current := m.userStream.Latest()
+
+		new, err := m.Storage.User(ctx).GetByID(current.ID)
+		if err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to update user from storage")
+		} else {
+			m.userStream.CompareAndSend(new, func(new, old *radio.User) bool {
+				if old == nil {
+					return new == nil
+				}
+
+				return new.ID == old.ID
+			})
+		}
+	}
+
+	{ // song update
+		current := m.songStream.Latest()
+
+		new, err := m.Storage.Song(ctx).FromHash(current.Hash)
+		if err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to update song from storage")
+		} else {
+			m.songStream.CompareAndSend(&radio.SongUpdate{
+				Song: *new,
+				Info: current.Info,
+			}, func(new, old *radio.SongUpdate) bool {
+				if old == nil {
+					return new == nil
+				}
+
+				return new.EqualTo(old.Song)
+			})
+		}
+	}
+
+	return nil
+}
+
 // statusFromStreams constructs a radio.Status from the individual data streams using
 // their latest value
 func (m *Manager) statusFromStreams() radio.Status {

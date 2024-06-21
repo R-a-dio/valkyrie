@@ -220,6 +220,9 @@ var _ radio.ManagerService = &ManagerServiceMock{}
 //			CurrentUserFunc: func(contextMoqParam context.Context) (eventstream.Stream[*radio.User], error) {
 //				panic("mock out the CurrentUser method")
 //			},
+//			UpdateFromStorageFunc: func(contextMoqParam context.Context) error {
+//				panic("mock out the UpdateFromStorage method")
+//			},
 //			UpdateListenersFunc: func(contextMoqParam context.Context, n int64) error {
 //				panic("mock out the UpdateListeners method")
 //			},
@@ -253,6 +256,9 @@ type ManagerServiceMock struct {
 
 	// CurrentUserFunc mocks the CurrentUser method.
 	CurrentUserFunc func(contextMoqParam context.Context) (eventstream.Stream[*radio.User], error)
+
+	// UpdateFromStorageFunc mocks the UpdateFromStorage method.
+	UpdateFromStorageFunc func(contextMoqParam context.Context) error
 
 	// UpdateListenersFunc mocks the UpdateListeners method.
 	UpdateListenersFunc func(contextMoqParam context.Context, n int64) error
@@ -293,6 +299,11 @@ type ManagerServiceMock struct {
 			// ContextMoqParam is the contextMoqParam argument value.
 			ContextMoqParam context.Context
 		}
+		// UpdateFromStorage holds details about calls to the UpdateFromStorage method.
+		UpdateFromStorage []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+		}
 		// UpdateListeners holds details about calls to the UpdateListeners method.
 		UpdateListeners []struct {
 			// ContextMoqParam is the contextMoqParam argument value.
@@ -322,15 +333,16 @@ type ManagerServiceMock struct {
 			User *radio.User
 		}
 	}
-	lockCurrentListeners sync.RWMutex
-	lockCurrentSong      sync.RWMutex
-	lockCurrentStatus    sync.RWMutex
-	lockCurrentThread    sync.RWMutex
-	lockCurrentUser      sync.RWMutex
-	lockUpdateListeners  sync.RWMutex
-	lockUpdateSong       sync.RWMutex
-	lockUpdateThread     sync.RWMutex
-	lockUpdateUser       sync.RWMutex
+	lockCurrentListeners  sync.RWMutex
+	lockCurrentSong       sync.RWMutex
+	lockCurrentStatus     sync.RWMutex
+	lockCurrentThread     sync.RWMutex
+	lockCurrentUser       sync.RWMutex
+	lockUpdateFromStorage sync.RWMutex
+	lockUpdateListeners   sync.RWMutex
+	lockUpdateSong        sync.RWMutex
+	lockUpdateThread      sync.RWMutex
+	lockUpdateUser        sync.RWMutex
 }
 
 // CurrentListeners calls CurrentListenersFunc.
@@ -490,6 +502,38 @@ func (mock *ManagerServiceMock) CurrentUserCalls() []struct {
 	mock.lockCurrentUser.RLock()
 	calls = mock.calls.CurrentUser
 	mock.lockCurrentUser.RUnlock()
+	return calls
+}
+
+// UpdateFromStorage calls UpdateFromStorageFunc.
+func (mock *ManagerServiceMock) UpdateFromStorage(contextMoqParam context.Context) error {
+	if mock.UpdateFromStorageFunc == nil {
+		panic("ManagerServiceMock.UpdateFromStorageFunc: method is nil but ManagerService.UpdateFromStorage was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+	}{
+		ContextMoqParam: contextMoqParam,
+	}
+	mock.lockUpdateFromStorage.Lock()
+	mock.calls.UpdateFromStorage = append(mock.calls.UpdateFromStorage, callInfo)
+	mock.lockUpdateFromStorage.Unlock()
+	return mock.UpdateFromStorageFunc(contextMoqParam)
+}
+
+// UpdateFromStorageCalls gets all the calls that were made to UpdateFromStorage.
+// Check the length with:
+//
+//	len(mockedManagerService.UpdateFromStorageCalls())
+func (mock *ManagerServiceMock) UpdateFromStorageCalls() []struct {
+	ContextMoqParam context.Context
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+	}
+	mock.lockUpdateFromStorage.RLock()
+	calls = mock.calls.UpdateFromStorage
+	mock.lockUpdateFromStorage.RUnlock()
 	return calls
 }
 

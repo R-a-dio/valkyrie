@@ -66,6 +66,10 @@ func (m *managerService) UpdateUser(ctx context.Context, u *radio.User) error {
 	return m.fn().UpdateUser(ctx, u)
 }
 
+func (m *managerService) UpdateFromStorage(ctx context.Context) error {
+	return m.fn().UpdateFromStorage(ctx)
+}
+
 var _ radio.ManagerService = &managerService{}
 
 func newStreamerService(cfg Config, conn func() *grpc.ClientConn) radio.StreamerService {

@@ -187,6 +187,11 @@ func (m ManagerClientRPC) CurrentListeners(ctx context.Context) (eventstream.Str
 	return streamFromProtobuf(ctx, c, func(v *wrapperspb.Int64Value) radio.Listeners { return v.Value })
 }
 
+func (m ManagerClientRPC) UpdateFromStorage(ctx context.Context) error {
+	_, err := m.rpc.UpdateFromStorage(ctx, new(emptypb.Empty))
+	return err
+}
+
 // NewStreamerService returns a new client implementing radio.StreamerService
 func NewStreamerService(c *grpc.ClientConn) radio.StreamerService {
 	return StreamerClientRPC{
