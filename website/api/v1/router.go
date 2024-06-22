@@ -74,8 +74,6 @@ func (a *API) Route(r chi.Router) {
 	}
 
 	compress, err := httpcompression.Adapter(
-		// brotli uses too much memory, so don't enable it
-		// httpcompression.BrotliCompressionLevel(brotli.DefaultCompression),
 		httpcompression.GzipCompressor(gz),
 		httpcompression.MinSize(0), // always compress
 	)

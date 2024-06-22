@@ -6,6 +6,7 @@ replace github.com/gorilla/csrf => github.com/Wessie/csrf v0.0.0-20240430222011-
 
 require (
 	github.com/BurntSushi/toml v1.3.2
+	github.com/CAFxX/httpcompression v0.0.9
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/Wessie/fdstore v1.2.3
 	github.com/XSAM/otelsql v0.29.0
@@ -14,6 +15,7 @@ require (
 	github.com/agoda-com/opentelemetry-logs-go v0.4.3
 	github.com/alevinval/sse v1.0.2
 	github.com/alexedwards/scs/v2 v2.8.0
+	github.com/andybalholm/brotli v1.1.0
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/davecgh/go-spew v1.1.1
@@ -25,6 +27,7 @@ require (
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/justincormack/go-memfd v0.0.0-20170219213707-6e4af0518993
 	github.com/jxskiss/base62 v1.1.0
+	github.com/klauspost/compress v1.17.7
 	github.com/leanovate/gopter v0.2.10
 	github.com/lrstanley/girc v0.0.0-20240317214256-a4a3d96369cb
 	github.com/prometheus/client_golang v1.19.0
@@ -56,10 +59,8 @@ require (
 	dario.cat/mergo v1.0.0 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
-	github.com/CAFxX/httpcompression v0.0.9 // indirect
 	github.com/Microsoft/go-winio v0.6.1 // indirect
 	github.com/Microsoft/hcsshim v0.12.2 // indirect
-	github.com/andybalholm/brotli v1.0.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/containerd/containerd v1.7.14 // indirect
@@ -77,7 +78,6 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.19.1 // indirect
-	github.com/klauspost/compress v1.17.7 // indirect
 	github.com/lufia/plan9stats v0.0.0-20240226150601-1dcf7310316a // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
