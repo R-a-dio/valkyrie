@@ -100,6 +100,7 @@ func (rh RegexHandlers) Execute(c *girc.Client, e girc.Event) {
 			case errors.Is(errors.SongCooldown, err):
 				event.Echo(CooldownMessageFromError(err))
 			default:
+				event.Echo("An error has occurred")
 				zerolog.Ctx(ctx).Error().Err(err).Msg("handler error")
 			}
 			return
