@@ -53,9 +53,9 @@ func WriteMetadata(ctx context.Context, f afero.File, song radio.Song) (*MemoryB
 	default:
 		return nil, errors.E(op, errors.InvalidArgument)
 	}
-	args = append(args, "-")
+	//args = append(args, "-")
 
-	ff, err := newFFmpegCmd("metadata-"+song.TrackID.String(), args)
+	ff, err := newFFmpegCmdFile("metadata-"+song.TrackID.String(), args)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}

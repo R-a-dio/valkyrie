@@ -13,6 +13,7 @@ import (
 
 func TestWriteMetadata(t *testing.T) {
 	fsys := afero.NewOsFs()
+
 	f, err := fsys.Open("testdata/MP3_2MG.mp3")
 	require.NoError(t, err)
 

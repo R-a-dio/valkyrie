@@ -3,6 +3,7 @@ package audio
 import (
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 
 	"github.com/justincormack/go-memfd"
@@ -58,6 +59,28 @@ func newFFmpegCmd(name string, args []string) (*ffmpeg, error) {
 	// prepare the os/exec command and give us access to output
 	cmd := exec.Command("ffmpeg", args...)
 	cmd.Stdout = out.Memfd.File
+	// stderr is only used when an error is reported by exec.Cmd
+	cmd.Stderr = errOut.File
+	return &ffmpeg{Cmd: cmd, Stdout: out, Stderr: errOut}, nil
+}
+
+func newFFmpegCmdFile(name string, args []string) (*ffmpeg, error) {
+	out, err := NewMemoryBuffer(name, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	errOut, err := memfd.Create()
+	if err != nil {
+		out.Close()
+		return nil, err
+	}
+
+	args = append(args, "-y", fmt.Sprintf("/proc/%d/fd/%d", os.Getpid(), out.Fd()))
+
+	// prepare the os/exec command and give us access to output
+	cmd := exec.Command("ffmpeg", args...)
+	//cmd.Stdout = out.Memfd.File
 	// stderr is only used when an error is reported by exec.Cmd
 	cmd.Stderr = errOut.File
 	return &ffmpeg{Cmd: cmd, Stdout: out, Stderr: errOut}, nil
