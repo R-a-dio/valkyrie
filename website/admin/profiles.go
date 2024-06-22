@@ -18,6 +18,7 @@ import (
 	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/gorilla/csrf"
+	"github.com/rs/zerolog"
 	"github.com/spf13/afero"
 )
 
@@ -300,6 +301,14 @@ func (s *State) postProfile(w http.ResponseWriter, r *http.Request) (*ProfileFor
 	_, err = s.Storage.User(ctx).Update(form.User)
 	if err != nil {
 		return form, errors.E(op, err)
+	}
+
+	// tell the manager to update any state
+	err = s.Manager.UpdateFromStorage(ctx)
+	if err != nil {
+		// non-critical error, don't return it to the caller
+		err = errors.E(op, err)
+		zerolog.Ctx(ctx).Error().Err(err).Msg("failed to update storage")
 	}
 
 	return form, nil
