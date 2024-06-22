@@ -203,13 +203,31 @@ func StreamerUserInfo(e Event) error {
 		return nil
 	}
 
+	us := e.Storage.User(e.Ctx)
 	// lookup the name from the argument
-	user, err := e.Storage.User(e.Ctx).LookupName(name)
+	user, err := us.LookupName(name)
 	if err != nil {
 		return errors.E(op, err)
 	}
 
-	// user given isn't a robot, which means we're going to ignore it
+	if user.Username == "guest" {
+		// guest user, we special-case this and let the users set the
+		// display name of this user with the .dj command
+		newName := strings.TrimPrefix(name, "guest:")
+		user.DJ.Name = newName
+		_, err := us.Update(*user)
+		if err != nil {
+			return errors.E(op, err)
+		}
+		err = e.Bot.Manager.UpdateFromStorage(e.Ctx)
+		if err != nil {
+			return errors.E(op, err)
+		}
+		return nil
+	}
+
+	// user given isn't a robot, so all thats left to do is print the
+	// current dj instead
 	if !radio.IsRobot(*user) {
 		e.EchoPublic("Current DJ: {green}%s", e.Bot.StatusValue.Latest().StreamerName)
 		return nil
