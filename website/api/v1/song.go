@@ -2,19 +2,23 @@ package v1
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/R-a-dio/valkyrie/streamer/audio"
 	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/website/shared"
+	"github.com/rs/zerolog"
 )
 
 func (a *API) GetSong(w http.ResponseWriter, r *http.Request) {
 	const op errors.Op = "website/api/v1/API.GetSong"
 
 	query := r.URL.Query()
+	ctx := r.Context()
 
 	tid, err := radio.ParseTrackID(query.Get("id"))
 	if err != nil {
@@ -24,7 +28,7 @@ func (a *API) GetSong(w http.ResponseWriter, r *http.Request) {
 
 	key := query.Get("key")
 
-	song, err := a.storage.Track(r.Context()).Get(tid)
+	song, err := a.storage.Track(ctx).Get(tid)
 	if err != nil {
 		a.errorHandler(w, r, errors.E(op, shared.ErrNotFound, errors.Info("unknown id")))
 		return
@@ -43,7 +47,19 @@ func (a *API) GetSong(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer f.Close()
+	toSend := f
+
+	wf, err := audio.WriteMetadata(ctx, f, *song)
+	if err != nil {
+		zerolog.Ctx(ctx).Error().Err(err).Msg("failed to write metadata")
+		// if writing metadata fails, just send the file as-is without the
+		// metadata added in
+		f.Seek(0, io.SeekStart)
+	} else {
+		defer wf.Close()
+		toSend = wf
+	}
 
 	util.AddContentDispositionSong(w, song.Metadata, song.FilePath)
-	http.ServeContent(w, r, "", time.Now(), f)
+	http.ServeContent(w, r, "", time.Now(), toSend)
 }
