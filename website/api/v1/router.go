@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/CAFxX/httpcompression"
-	"github.com/CAFxX/httpcompression/contrib/andybalholm/brotli"
 	"github.com/CAFxX/httpcompression/contrib/klauspost/gzip"
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
@@ -15,6 +14,7 @@ import (
 	"github.com/R-a-dio/valkyrie/util/secret"
 	"github.com/R-a-dio/valkyrie/website/shared"
 	"github.com/go-chi/chi/v5"
+	gzipog "github.com/klauspost/compress/gzip"
 	"github.com/spf13/afero"
 )
 
@@ -66,9 +66,17 @@ type API struct {
 func (a *API) Route(r chi.Router) {
 	// the SSE endpoint is actually just text, but it isn't included in
 	// the standard list of cloudflare, so we do our own compression here
+	gz, err := gzip.New(gzip.Options{
+		Level: gzipog.StatelessCompression,
+	})
+	if err != nil {
+		panic("failed to initialize gzip adapter: " + err.Error())
+	}
+
 	compress, err := httpcompression.Adapter(
-		httpcompression.BrotliCompressionLevel(brotli.DefaultCompression),
-		httpcompression.GzipCompressionLevel(gzip.DefaultCompression),
+		// brotli uses too much memory, so don't enable it
+		// httpcompression.BrotliCompressionLevel(brotli.DefaultCompression),
+		httpcompression.GzipCompressor(gz),
 		httpcompression.MinSize(0), // always compress
 	)
 	if err != nil {
