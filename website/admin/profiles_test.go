@@ -373,6 +373,11 @@ func TestPostProfile(t *testing.T) {
 
 			// setup config and state
 			cfg := config.TestConfig()
+			cfg.Manager = &mocks.ManagerServiceMock{
+				UpdateFromStorageFunc: func(contextMoqParam context.Context) error {
+					return nil
+				},
+			}
 
 			state := &State{
 				Storage: storage,
