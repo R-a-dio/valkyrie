@@ -179,22 +179,33 @@ func (s *Stream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		log.Debug().Bytes("value", data).Msg("send")
-		if _, err := w.Write(data); err != nil && !errors.IsE(err, syscall.EPIPE) {
-			log.Error().Err(err).Msg("sse client write error")
+		if _, err := w.Write(data); err != nil {
+			if !errors.IsE(err, syscall.EPIPE) {
+				log.Error().Err(err).Msg("sse client write error")
+			}
 			return
 		}
 	}
-	controller.Flush()
+
+	if err := controller.Flush(); err != nil {
+		log.Error().Err(err).Msg("sse client flush error")
+		return
+	}
 
 	// start the actual new-event loop
 	log.Debug().Msg("start")
 	for m := range ch {
 		log.Debug().Bytes("value", m.encoded[theme]).Msg("send")
-		if _, err := w.Write(m.encoded[theme]); err != nil && !errors.IsE(err, syscall.EPIPE) {
-			log.Error().Err(err).Msg("sse client write error")
+		if _, err := w.Write(m.encoded[theme]); err != nil {
+			if !errors.IsE(err, syscall.EPIPE) {
+				log.Error().Err(err).Msg("sse client write error")
+			}
 			return
 		}
-		controller.Flush()
+		if err := controller.Flush(); err != nil {
+			log.Error().Err(err).Msg("sse client flush error")
+			return
+		}
 	}
 }
 
