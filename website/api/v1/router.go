@@ -4,6 +4,9 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/CAFxX/httpcompression"
+	"github.com/CAFxX/httpcompression/contrib/andybalholm/brotli"
+	"github.com/CAFxX/httpcompression/contrib/klauspost/gzip"
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/search"
@@ -61,7 +64,18 @@ type API struct {
 }
 
 func (a *API) Route(r chi.Router) {
-	r.Get("/sse", a.sse.ServeHTTP)
+	// the SSE endpoint is actually just text, but it isn't included in
+	// the standard list of cloudflare, so we do our own compression here
+	compress, err := httpcompression.Adapter(
+		httpcompression.BrotliCompressionLevel(brotli.DefaultCompression),
+		httpcompression.GzipCompressionLevel(gzip.DefaultCompression),
+		httpcompression.MinSize(0), // always compress
+	)
+	if err != nil {
+		panic("failed to initialize compression adapter: " + err.Error())
+	}
+
+	r.Get("/sse", compress(a.sse).ServeHTTP)
 	r.Get("/search", a.SearchHTML)
 	r.Get("/song", a.GetSong)
 	r.Post("/request", a.PostRequest)
