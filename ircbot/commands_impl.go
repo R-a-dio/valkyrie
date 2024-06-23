@@ -204,18 +204,15 @@ func StreamerUserInfo(e Event) error {
 	}
 
 	us := e.Storage.User(e.Ctx)
-	// lookup the name from the argument
-	user, err := us.LookupName(name)
-	if err != nil {
-		return errors.E(op, err)
-	}
 
-	if user.Username == "guest" {
-		// guest user, we special-case this and let the users set the
-		// display name of this user with the .dj command
-		newName := strings.TrimPrefix(name, "guest:")
-		user.DJ.Name = newName
-		_, err := us.Update(*user)
+	// guest handling
+	if e.Arguments.Bool("isGuest") {
+		user, err := us.Get("guest")
+		if err != nil {
+			return errors.E(op, err)
+		}
+		user.DJ.Name = name
+		_, err = us.Update(*user)
 		if err != nil {
 			return errors.E(op, err)
 		}
@@ -224,6 +221,13 @@ func StreamerUserInfo(e Event) error {
 			return errors.E(op, err)
 		}
 		return nil
+	}
+
+	// non-guest handling, though we currently only do a lookup to see
+	// if the user given is a robot
+	user, err := us.LookupName(name)
+	if err != nil {
+		return errors.E(op, err)
 	}
 
 	// user given isn't a robot, so all thats left to do is print the
