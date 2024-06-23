@@ -59,7 +59,8 @@ func (a *API) runStatusUpdates(ctx context.Context) {
 		}
 
 		// same goes for the user one, only pass it through if the user actually changed
-		if status.User.ID != previous.User.ID {
+		if status.User.ID != previous.User.ID ||
+			status.User.DJ != previous.User.DJ {
 			log.Debug().Str("event", EventStreamer).Any("value", status.User).Msg("sending")
 			a.sse.SendStreamer(status.User)
 			// TODO(wessie): queue is technically only used for the automated streamer
