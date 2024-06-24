@@ -271,16 +271,22 @@ func (m *Manager) runStatusUpdates(ctx context.Context, ready chan struct{}) {
 		case su := <-songCh:
 			zerolog.Ctx(ctx).Info().Any("song", su).Msg("running status update")
 			m.mu.Lock()
-			if err := m.finishSong(ctx, m.status, songStartListenerCount); err != nil {
-				zerolog.Ctx(ctx).Error().Err(err).Msg("failed finishSong")
+
+			if su == nil || !m.status.Song.EqualTo(su.Song) {
+				err := m.finishSong(ctx, m.status, songStartListenerCount)
+				if err != nil {
+					zerolog.Ctx(ctx).Error().Err(err).Msg("failed finishSong")
+				}
 			}
 
 			if su != nil {
+				// if we are doing a song update we want to record how many
+				// listeners we have at the start of it
+				if !m.status.Song.EqualTo(su.Song) {
+					songStartListenerCount = listenerCount
+				}
 				m.status.Song = su.Song
 				m.status.SongInfo = su.Info
-				// if we just did a song update we want to record how many
-				// listeners we have at the start of it
-				songStartListenerCount = listenerCount
 			}
 		case listenerCount = <-listenerCh:
 			zerolog.Ctx(ctx).Info().Int64("listeners", listenerCount).Msg("running status update")

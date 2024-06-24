@@ -625,7 +625,20 @@ func (s Song) EqualTo(d Song) bool {
 	s.Hydrate()
 	d.Hydrate()
 
-	return s.Hash == d.Hash
+	// equal hash means they're just the same metadata
+	if s.Hash == d.Hash {
+		return true
+	}
+	// equal hashlink to hash means the metadata was the same at some point
+	if s.HashLink == d.Hash || s.Hash == d.HashLink {
+		return true
+	}
+	// no tracks to compare, so these are then not equal
+	if !s.HasTrack() || !d.HasTrack() {
+		return false
+	}
+	// we do have a track, equal if the TrackID matches
+	return s.TrackID == d.TrackID
 }
 
 // TrackID is a database track identifier
