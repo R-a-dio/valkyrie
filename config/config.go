@@ -61,8 +61,9 @@ var defaultConfig = config{
 		StreamURL:     "",
 		FallbackNames: []string{"fallback"},
 	},
-	Elastic: elasticsearch{
-		URL: "http://127.0.0.1:9200/",
+	Search: search{
+		Endpoint:  "http://127.0.0.1:9200/",
+		IndexPath: "/radio/search",
 	},
 	Balancer: balancer{
 		Addr:     "127.0.0.1:4848",
@@ -116,7 +117,7 @@ type config struct {
 	Streamer streamer
 	IRC      irc
 	Manager  manager
-	Elastic  elasticsearch
+	Search   search
 	Balancer balancer
 	Proxy    proxy
 	Tracker  tracker
@@ -250,8 +251,9 @@ type manager struct {
 	FallbackNames []string
 }
 
-type elasticsearch struct {
-	URL string
+type search struct {
+	Endpoint  URL
+	IndexPath string
 }
 
 // balancer contains fields for the load balancer.
