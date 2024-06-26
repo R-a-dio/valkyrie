@@ -45,7 +45,7 @@ func AnalyzerConstructor(config map[string]interface{}, cache *registry.Cache) (
 			cjkFilter,
 			toLowerFilter,
 			unicodenorm.MustNewUnicodeNormalizeFilter(unicodenorm.NFC),
-			NgramFilter(2, 5),
+			NgramFilter(2, 3),
 		},
 	}
 	return &rv, nil

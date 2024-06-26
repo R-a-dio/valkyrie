@@ -23,8 +23,9 @@ import (
 var (
 	DefaultLimit  = 20
 	DefaultOffset = 0
-	DefaultSort   = []string{"-priority", "_score"}
-	dataField     = []string{"data"}
+	//DefaultSort   = []string{"-priority", "_score"}
+	DefaultSort = []string{"_score", "-priority"}
+	dataField   = []string{"data"}
 
 	searchPath     = "/search"
 	searchJSONPath = "/search_json"
