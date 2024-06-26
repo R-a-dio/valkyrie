@@ -36,6 +36,14 @@ type Client struct {
 	hc *http.Client
 }
 
+type SearchError struct {
+	Err string
+}
+
+func (se *SearchError) Error() string {
+	return se.Err
+}
+
 var _ radio.SearchService = &Client{}
 
 func (c *Client) Search(ctx context.Context, query string, limit int64, offset int64) (*radio.SearchResult, error) {
@@ -47,8 +55,7 @@ func (c *Client) Search(ctx context.Context, query string, limit int64, offset i
 		return nil, errors.E(op, err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		// TODO: report actual error
-		return nil, errors.E(op, err)
+		return nil, errors.E(op, decodeError(resp.Body))
 	}
 
 	result := new(bleve.SearchResult)

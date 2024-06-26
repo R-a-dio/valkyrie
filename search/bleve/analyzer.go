@@ -8,7 +8,6 @@ import (
 	"github.com/blevesearch/bleve/v2/analysis/lang/cjk"
 	"github.com/blevesearch/bleve/v2/analysis/token/lowercase"
 	"github.com/blevesearch/bleve/v2/analysis/token/ngram"
-	"github.com/blevesearch/bleve/v2/analysis/token/porter"
 	"github.com/blevesearch/bleve/v2/analysis/token/unicodenorm"
 	"github.com/blevesearch/bleve/v2/registry"
 	"github.com/robpike/nihongo"
@@ -31,12 +30,6 @@ func AnalyzerConstructor(config map[string]interface{}, cache *registry.Cache) (
 	}
 	_ = cjkFilter
 
-	porterFilter, err := cache.TokenFilterNamed(porter.Name)
-	if err != nil {
-		return nil, err
-	}
-	_ = porterFilter
-
 	toLowerFilter, err := cache.TokenFilterNamed(lowercase.Name)
 	if err != nil {
 		return nil, err
@@ -56,8 +49,31 @@ func AnalyzerConstructor(config map[string]interface{}, cache *registry.Cache) (
 	return &rv, nil
 }
 
+func QueryAnalyzerConstructor(config map[string]any, cache *registry.Cache) (analysis.Analyzer, error) {
+	tokenizer, err := cache.TokenizerNamed(web.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	toLowerFilter, err := cache.TokenFilterNamed(lowercase.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	rv := analysis.DefaultAnalyzer{
+		Tokenizer: tokenizer,
+		TokenFilters: []analysis.TokenFilter{
+			FilterFn(RomajiFilter),
+			toLowerFilter,
+		},
+	}
+
+	return &rv, nil
+}
+
 func init() {
 	registry.RegisterAnalyzer("radio", AnalyzerConstructor)
+	registry.RegisterAnalyzer("radio-query", QueryAnalyzerConstructor)
 }
 
 type FilterFn func(input analysis.TokenStream) analysis.TokenStream
