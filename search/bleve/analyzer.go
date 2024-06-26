@@ -9,6 +9,7 @@ import (
 	"github.com/blevesearch/bleve/v2/analysis/lang/cjk"
 	"github.com/blevesearch/bleve/v2/analysis/token/lowercase"
 	"github.com/blevesearch/bleve/v2/analysis/token/ngram"
+	"github.com/blevesearch/bleve/v2/analysis/token/shingle"
 	"github.com/blevesearch/bleve/v2/analysis/token/unicodenorm"
 	"github.com/blevesearch/bleve/v2/analysis/tokenizer/whitespace"
 	"github.com/blevesearch/bleve/v2/registry"
@@ -40,10 +41,11 @@ func AnalyzerConstructor(config map[string]interface{}, cache *registry.Cache) (
 	rv := analysis.DefaultAnalyzer{
 		Tokenizer: tokenizer,
 		TokenFilters: []analysis.TokenFilter{
-			FilterFn(RomajiFilter),
 			cjkWidth,
-			cjkFilter,
+			shingle.NewShingleFilter(2, 4, true, " ", "_"),
+			FilterFn(RomajiFilter),
 			toLowerFilter,
+			cjkFilter,
 			unicodenorm.MustNewUnicodeNormalizeFilter(unicodenorm.NFC),
 			NgramFilter(2, 3),
 		},
@@ -108,7 +110,7 @@ func RomajiFilter(input analysis.TokenStream) analysis.TokenStream {
 				Position: token.Position,
 				Start:    token.Start,
 				End:      token.End,
-				Type:     analysis.AlphaNumeric,
+				Type:     token.Type,
 				KeyWord:  true,
 				Term:     new,
 			}
@@ -130,8 +132,10 @@ func NgramFilter(min, max int) analysis.TokenFilter {
 				// add the original token if it's above max
 				rv = append(rv, tok)
 			}
-			// add the ngram tokens
-			rv = append(rv, ngram.Filter(input[i:i+1])...)
+			// add the ngram tokens if this isn't a shingle
+			if tok.Type != analysis.Shingle {
+				rv = append(rv, ngram.Filter(input[i:i+1])...)
+			}
 		}
 		return rv
 	})
