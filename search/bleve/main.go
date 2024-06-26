@@ -301,6 +301,12 @@ func NewQuery(ctx context.Context, s string) (query.Query, error) {
 	const op errors.Op = "search/bleve.NewQuery"
 	ctx, span := otel.Tracer("").Start(ctx, string(op))
 	defer span.End()
+	if span.IsRecording() {
+		span.SetAttributes(attribute.KeyValue{
+			Key:   "query",
+			Value: attribute.StringValue(s),
+		})
+	}
 
 	qsq := bleve.NewQueryStringQuery(s)
 	q, err := qsq.Parse()
