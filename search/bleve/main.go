@@ -209,7 +209,7 @@ func constructIndexMapping() (mapping.IndexMapping, error) {
 	// create a mapping for our radio.Song type
 	sm := bleve.NewDocumentStaticMapping()
 	sm.StructTagKey = "bleve"
-	sm.DefaultAnalyzer = "radio"
+	sm.DefaultAnalyzer = "radio-query"
 
 	title := mixedTextMapping()
 	sm.AddFieldMappingsAt("title", title)

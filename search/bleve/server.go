@@ -158,6 +158,7 @@ func SearchHandler(idx *index) http.HandlerFunc {
 			err = errors.E(op, err)
 			hlog.FromRequest(r).Error().Err(err).Msg("failed to search")
 			w.WriteHeader(http.StatusInternalServerError)
+			_ = encodeError(w, err)
 			return
 		}
 
@@ -178,6 +179,10 @@ func SearchJSONHandler(idx *index) http.HandlerFunc {
 		if err != nil {
 			err = errors.E(op, err)
 			hlog.FromRequest(r).Error().Err(err).Msg("failed to search")
+			w.WriteHeader(http.StatusInternalServerError)
+			_ = json.NewEncoder(w).Encode(&SearchError{
+				Err: err.Error(),
+			})
 			return
 		}
 
@@ -214,6 +219,42 @@ func decodeResult(src io.Reader, result *bleve.SearchResult) error {
 		return errors.E(op, err)
 	}
 	return nil
+}
+
+func encodeError(dst io.Writer, err error) error {
+	const op errors.Op = "search/bleve.encodeError"
+
+	var errString = "<nil>"
+	if err != nil {
+		errString = err.Error()
+	}
+
+	se := &SearchError{
+		Err: errString,
+	}
+
+	enc := _cache.enc.Get()
+	enc.Reset(dst)
+	defer _cache.enc.Put(enc)
+	if err := enc.Encode(se); err != nil {
+		return errors.E(op, err)
+	}
+	return nil
+}
+
+func decodeError(src io.Reader) *SearchError {
+	const op errors.Op = "search/bleve.decodeError"
+	var se SearchError
+
+	dec := _cache.dec.Get()
+	dec.Reset(src)
+	defer _cache.dec.Put(dec)
+	if err := dec.Decode(&se); err != nil {
+		return &SearchError{
+			Err: errors.E(op, err).Error(),
+		}
+	}
+	return &se
 }
 
 func bleveToRadio(result *bleve.SearchResult) (*radio.SearchResult, error) {
