@@ -19,6 +19,7 @@ import (
 	"github.com/R-a-dio/valkyrie/jobs"
 	"github.com/R-a-dio/valkyrie/manager"
 	"github.com/R-a-dio/valkyrie/proxy"
+	"github.com/R-a-dio/valkyrie/search/bleve"
 	_ "github.com/R-a-dio/valkyrie/search/storage"  // storage search interface
 	_ "github.com/R-a-dio/valkyrie/storage/mariadb" // mariadb storage interface
 	"github.com/R-a-dio/valkyrie/telemetry"
@@ -258,6 +259,15 @@ var listenerTrackerCmd = cmd{
 	execute: withConfig(tracker.Execute),
 }
 
+var bleveCmd = cmd{
+	name:     "blevesearch",
+	synopsis: "runs the bleve search provider",
+	usage: `blevesearch:
+	run the bleve search provider
+	`,
+	execute: withConfig(bleve.Execute),
+}
+
 func main() {
 	// setup configuration file as top-level flag
 	flag.StringVar(&configFile, "config", "hanyuu.toml", "filepath to configuration file")
@@ -282,6 +292,7 @@ func main() {
 	subcommands.Register(balancerCmd, "")
 	subcommands.Register(proxyCmd, "")
 	subcommands.Register(listenerTrackerCmd, "")
+	subcommands.Register(bleveCmd, "")
 
 	subcommands.Register(listenerLogCmd, "jobs")
 	subcommands.Register(requestCountCmd, "jobs")
