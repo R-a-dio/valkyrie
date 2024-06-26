@@ -2,6 +2,7 @@ package bleve
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"strconv"
@@ -25,10 +26,11 @@ var (
 	DefaultSort   = []string{"-priority", "_score"}
 	dataField     = []string{"data"}
 
-	searchPath   = "/search"
-	extendedPath = "/extended_search"
-	updatePath   = "/update"
-	deletePath   = "/delete"
+	searchPath     = "/search"
+	searchJSONPath = "/search_json"
+	extendedPath   = "/search_extended"
+	updatePath     = "/update"
+	deletePath     = "/delete"
 )
 
 var _cache = cache{
@@ -70,6 +72,7 @@ func NewServer(ctx context.Context, idx *index) (*http.Server, error) {
 	)
 
 	r.Get(searchPath, SearchHandler(idx))
+	r.Get(searchJSONPath, SearchJSONHandler(idx))
 	r.Get(extendedPath, ExtendedSearchHandler(idx))
 	r.Post(deletePath, DeleteHandler(idx))
 	r.Post(updatePath, UpdateHandler(idx))
@@ -146,6 +149,26 @@ func SearchHandler(idx *index) http.HandlerFunc {
 		}
 
 		err = encodeResult(w, result)
+		if err != nil {
+			err = errors.E(op, err)
+			hlog.FromRequest(r).Error().Err(err).Msg("failed to encode")
+			return
+		}
+	}
+}
+
+func SearchJSONHandler(idx *index) http.HandlerFunc {
+	const op errors.Op = "search/bleve.SearchJSONHandler"
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		result, err := idx.SearchFromRequest(r)
+		if err != nil {
+			err = errors.E(op, err)
+			hlog.FromRequest(r).Error().Err(err).Msg("failed to search")
+			return
+		}
+
+		err = json.NewEncoder(w).Encode(result)
 		if err != nil {
 			err = errors.E(op, err)
 			hlog.FromRequest(r).Error().Err(err).Msg("failed to encode")
