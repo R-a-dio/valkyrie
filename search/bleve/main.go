@@ -256,6 +256,7 @@ func constructIndexMapping() (mapping.IndexMapping, error) {
 	data := bleve.NewTextFieldMapping()
 	data.Index = false
 	data.Store = true
+	data.Analyzer = "keyword"
 	sm.AddFieldMappingsAt("data", data)
 
 	// register the song mapping
