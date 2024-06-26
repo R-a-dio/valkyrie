@@ -18,6 +18,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/vmihailenco/msgpack/v4"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 func Execute(ctx context.Context, cfg config.Config) error {
@@ -151,6 +152,11 @@ func (b *index) Index(ctx context.Context, songs []radio.Song) error {
 	const op errors.Op = "search/bleve.Index"
 	ctx, span := otel.Tracer("").Start(ctx, string(op))
 	defer span.End()
+
+	span.SetAttributes(attribute.KeyValue{
+		Key:   "song_count",
+		Value: attribute.IntValue(len(songs)),
+	})
 
 	batch := b.index.NewBatch()
 	for _, song := range songs {
