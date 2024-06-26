@@ -204,7 +204,6 @@ func mixedTextMapping() *mapping.FieldMapping {
 func constructIndexMapping() (mapping.IndexMapping, error) {
 	im := bleve.NewIndexMapping()
 	im.DefaultType = "song"
-	im.DefaultField = "title"
 
 	// create a mapping for our radio.Song type
 	sm := bleve.NewDocumentStaticMapping()
