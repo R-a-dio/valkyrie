@@ -265,7 +265,8 @@ var bleveCmd = cmd{
 	usage: `blevesearch:
 	run the bleve search provider
 	`,
-	execute: withConfig(bleve.Execute),
+	execute:   withConfig(bleve.Execute),
+	noSIGUSR2: true,
 }
 
 func main() {

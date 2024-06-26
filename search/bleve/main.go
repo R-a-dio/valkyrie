@@ -3,6 +3,7 @@ package bleve
 import (
 	"context"
 	"net/http"
+	"syscall"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -14,6 +15,7 @@ import (
 	"github.com/blevesearch/bleve/v2"
 	"github.com/blevesearch/bleve/v2/mapping"
 	"github.com/blevesearch/bleve/v2/search/query"
+	"github.com/rs/zerolog"
 	"github.com/vmihailenco/msgpack/v4"
 	"go.opentelemetry.io/otel"
 )
@@ -25,11 +27,13 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	if err != nil {
 		return errors.E(op, err)
 	}
+	defer idx.index.Close()
 
 	srv, err := NewServer(ctx, idx)
 	if err != nil {
 		return errors.E(op, err)
 	}
+	defer srv.Close()
 
 	fdstorage := fdstore.NewStoreListenFDs()
 
@@ -46,7 +50,16 @@ func Execute(ctx context.Context, cfg config.Config) error {
 
 	select {
 	case <-ctx.Done():
-		return nil
+		return srv.Close()
+	case <-util.Signal(syscall.SIGHUP):
+		err := fdstorage.AddListener(ln, "bleve", nil)
+		if err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to store listener")
+		}
+		if err = fdstorage.Send(); err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to send store")
+		}
+		return srv.Close()
 	case err := <-errCh:
 		return err
 	}
