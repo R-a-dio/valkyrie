@@ -6,13 +6,42 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/rs/zerolog"
 )
 
 // WrapStorageService wraps around a StorageService and intercepts calls to methods
 // that mutate tracks in the TrackStorage interface. When such a mutation happens
 // a background task is launched to update the SearchService given
 func WrapStorageService(search radio.SearchService, storage radio.StorageService) radio.StorageService {
-	return storageService{search, storage, storage}
+	return storageService{background{search}, storage, storage}
+}
+
+type background struct {
+	search radio.SearchService
+}
+
+func (bg background) Update(ctx context.Context, songs ...radio.Song) error {
+	go func() {
+		err := bg.search.Update(ctx, songs...)
+		if err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("update error")
+		}
+	}()
+	return nil
+}
+
+func (bg background) Delete(ctx context.Context, tids ...radio.TrackID) error {
+	go func() {
+		err := bg.search.Delete(ctx, tids...)
+		if err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("delete error")
+		}
+	}()
+	return nil
+}
+
+func (bg background) Search(ctx context.Context, query string, limit, offset int64) (*radio.SearchResult, error) {
+	return bg.search.Search(ctx, query, limit, offset)
 }
 
 // partialStorage is an interface containing all the methods we are NOT interested in.

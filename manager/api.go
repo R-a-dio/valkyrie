@@ -334,7 +334,7 @@ func (m *Manager) finishSong(ctx context.Context, status radio.Status, startList
 	if status.Song.Length == 0 {
 		err = ss.UpdateLength(status.Song, time.Since(status.SongInfo.Start))
 		if err != nil {
-			return errors.E(op, err, status)
+			return errors.E(op, err, status.Song)
 		}
 	}
 
@@ -347,7 +347,7 @@ func (m *Manager) finishSong(ctx context.Context, status radio.Status, startList
 
 		err = ts.UpdateLastPlayed(status.Song.TrackID)
 		if err != nil {
-			return errors.E(op, err, status)
+			return errors.E(op, err, status.Song)
 		}
 	}
 
