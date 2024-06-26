@@ -204,10 +204,12 @@ func mixedTextMapping() *mapping.FieldMapping {
 func constructIndexMapping() (mapping.IndexMapping, error) {
 	im := bleve.NewIndexMapping()
 	im.DefaultType = "song"
+	im.DefaultField = "title"
 
 	// create a mapping for our radio.Song type
 	sm := bleve.NewDocumentStaticMapping()
 	sm.StructTagKey = "bleve"
+	sm.DefaultAnalyzer = "radio"
 
 	title := mixedTextMapping()
 	sm.AddFieldMappingsAt("title", title)
@@ -255,7 +257,6 @@ func constructIndexMapping() (mapping.IndexMapping, error) {
 	data := bleve.NewTextFieldMapping()
 	data.Index = false
 	data.Store = true
-	data.Analyzer = "radio" // same as the actual text fields we index
 	sm.AddFieldMappingsAt("data", data)
 
 	// register the song mapping
@@ -339,15 +340,13 @@ func addFuzzy(qs []query.Query) {
 				fq.SetFuzziness(1)
 			}
 		case *query.FuzzyQuery:
-			if len(fq.Term) > fuzzyMin {
+			if len(fq.Term) > fuzzyMin && fq.Fuzziness == 0 {
 				fq.SetFuzziness(1)
 			}
 		case *query.MatchPhraseQuery:
 			if len(fq.MatchPhrase) > fuzzyMin {
 				fq.SetFuzziness(1)
 			}
-		case interface{ SetFuzziness(int) }:
-			fq.SetFuzziness(1)
 		}
 	}
 }
