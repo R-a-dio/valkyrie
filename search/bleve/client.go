@@ -46,6 +46,10 @@ func (c *Client) Search(ctx context.Context, query string, limit int64, offset i
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
+	if resp.StatusCode != http.StatusOK {
+		// TODO: report actual error
+		return nil, errors.E(op, err)
+	}
 
 	result := new(bleve.SearchResult)
 	err = decodeResult(resp.Body, result)
@@ -86,7 +90,7 @@ func (c *Client) Update(ctx context.Context, songs ...radio.Song) error {
 
 	err := msgpack.NewEncoder(&buf).Encode(songs)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 
 	resp, err := c.hc.Post(c.updateURL, "application/msgpack", &buf)
