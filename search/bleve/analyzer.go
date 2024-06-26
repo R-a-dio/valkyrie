@@ -2,6 +2,7 @@ package bleve
 
 import (
 	"bytes"
+	"fmt"
 
 	"github.com/blevesearch/bleve/v2/analysis"
 	"github.com/blevesearch/bleve/v2/analysis/analyzer/web"
@@ -9,6 +10,7 @@ import (
 	"github.com/blevesearch/bleve/v2/analysis/token/lowercase"
 	"github.com/blevesearch/bleve/v2/analysis/token/ngram"
 	"github.com/blevesearch/bleve/v2/analysis/token/unicodenorm"
+	"github.com/blevesearch/bleve/v2/analysis/tokenizer/whitespace"
 	"github.com/blevesearch/bleve/v2/registry"
 	"github.com/robpike/nihongo"
 )
@@ -43,14 +45,14 @@ func AnalyzerConstructor(config map[string]interface{}, cache *registry.Cache) (
 			cjkFilter,
 			toLowerFilter,
 			unicodenorm.MustNewUnicodeNormalizeFilter(unicodenorm.NFC),
-			ngram.NewNgramFilter(2, 5),
+			NgramFilter(2, 5),
 		},
 	}
 	return &rv, nil
 }
 
 func QueryAnalyzerConstructor(config map[string]any, cache *registry.Cache) (analysis.Analyzer, error) {
-	tokenizer, err := cache.TokenizerNamed(web.Name)
+	tokenizer, err := cache.TokenizerNamed(whitespace.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -82,6 +84,17 @@ func (fn FilterFn) Filter(input analysis.TokenStream) analysis.TokenStream {
 	return fn(input)
 }
 
+func DebugFilter(prefix string) analysis.TokenFilter {
+	return FilterFn(func(input analysis.TokenStream) analysis.TokenStream {
+		fmt.Printf("======== %s ========\n", prefix)
+		for i, token := range input {
+			fmt.Printf("%d %s\n", i, token)
+		}
+		fmt.Printf("======== %s ========\n", prefix)
+		return input
+	})
+}
+
 func RomajiFilter(input analysis.TokenStream) analysis.TokenStream {
 	rv := make(analysis.TokenStream, 0, len(input))
 
@@ -104,6 +117,24 @@ func RomajiFilter(input analysis.TokenStream) analysis.TokenStream {
 	}
 
 	return rv
+}
+
+func NgramFilter(min, max int) analysis.TokenFilter {
+	ngram := ngram.NewNgramFilter(min, max)
+
+	return FilterFn(func(input analysis.TokenStream) analysis.TokenStream {
+		rv := make(analysis.TokenStream, 0, len(input))
+
+		for i, tok := range input {
+			if len(tok.Term) > max {
+				// add the original token if it's above max
+				rv = append(rv, tok)
+			}
+			// add the ngram tokens
+			rv = append(rv, ngram.Filter(input[i:i+1])...)
+		}
+		return rv
+	})
 }
 
 /*func KagomeFilter() (FilterFn, error) {
