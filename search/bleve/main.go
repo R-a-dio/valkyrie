@@ -325,7 +325,7 @@ func NewQuery(ctx context.Context, s string) (query.Query, error) {
 	// move the disjuncts (OR) into the conjuncts (AND) query set
 	cq.AddQuery(dq.Disjuncts...)
 	// add a bit of fuzziness to queries that support it
-	addFuzzy(cq.Conjuncts)
+	//addFuzzy(cq.Conjuncts)
 
 	bq.Should = nil
 	return bq, nil
