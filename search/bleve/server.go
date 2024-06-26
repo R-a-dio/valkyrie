@@ -157,6 +157,7 @@ func SearchHandler(idx *index) http.HandlerFunc {
 		if err != nil {
 			err = errors.E(op, err)
 			hlog.FromRequest(r).Error().Err(err).Msg("failed to search")
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 

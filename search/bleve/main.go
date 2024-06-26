@@ -255,6 +255,7 @@ func constructIndexMapping() (mapping.IndexMapping, error) {
 	data := bleve.NewTextFieldMapping()
 	data.Index = false
 	data.Store = true
+	data.Analyzer = "radio" // same as the actual text fields we index
 	sm.AddFieldMappingsAt("data", data)
 
 	// register the song mapping
