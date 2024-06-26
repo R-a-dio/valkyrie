@@ -2,7 +2,6 @@ package bleve
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -198,12 +197,6 @@ func bleveToRadio(result *bleve.SearchResult) (*radio.SearchResult, error) {
 		}
 	}
 
-	if len(res.Songs) > 0 {
-		for _, song := range res.Songs {
-			fmt.Println(song.LastPlayed, song.LastRequested)
-			fmt.Println(song.Requestable(), song.RequestDelay(), song.UntilRequestable())
-		}
-	}
 	return &res, nil
 }
 
