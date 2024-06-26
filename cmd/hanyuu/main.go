@@ -212,6 +212,14 @@ var requestCountCmd = cmd{
 	execute: withConfig(jobs.ExecuteRequestCount),
 }
 
+var indexSearchCmd = cmd{
+	name:     "index-search",
+	synopsis: "re-index the search index from storage",
+	usage: `index-search:
+	`,
+	execute: withConfig(jobs.ExecuteIndexSearch),
+}
+
 var websiteCmd = cmd{
 	name:     "website",
 	synopsis: "runs the r/a/dio website",
@@ -278,6 +286,7 @@ func main() {
 	subcommands.Register(listenerLogCmd, "jobs")
 	subcommands.Register(requestCountCmd, "jobs")
 	subcommands.Register(tracksHashCmd, "jobs")
+	subcommands.Register(indexSearchCmd, "jobs")
 	subcommands.Register(&databaseCmd{}, "jobs")
 	// verifier job is in streamer.go for the above reason
 
