@@ -29,6 +29,7 @@ var (
 	searchPath     = "/search"
 	searchJSONPath = "/search_json"
 	extendedPath   = "/search_extended"
+	indexStatsPath = "/index_stats"
 	updatePath     = "/update"
 	deletePath     = "/delete"
 )
@@ -74,6 +75,7 @@ func NewServer(ctx context.Context, idx *index) (*http.Server, error) {
 	r.Get(searchPath, SearchHandler(idx))
 	r.Get(searchJSONPath, SearchJSONHandler(idx))
 	r.Get(extendedPath, ExtendedSearchHandler(idx))
+	r.Get(indexStatsPath, IndexStatsHandler(idx))
 	r.Post(deletePath, DeleteHandler(idx))
 	r.Post(updatePath, UpdateHandler(idx))
 
@@ -137,6 +139,16 @@ func AsIntOrDefault(s string, def int) int {
 	return i
 }
 
+func IndexStatsHandler(idx *index) http.HandlerFunc {
+	const op errors.Op = "search/bleve.IndexStatsHandler"
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		stats := idx.index.Stats()
+		enc := json.NewEncoder(w)
+		enc.SetIndent("", "  ")
+		enc.Encode(stats)
+	}
+}
 func SearchHandler(idx *index) http.HandlerFunc {
 	const op errors.Op = "search/bleve.SearchHandler"
 
@@ -168,7 +180,9 @@ func SearchJSONHandler(idx *index) http.HandlerFunc {
 			return
 		}
 
-		err = json.NewEncoder(w).Encode(result)
+		enc := json.NewEncoder(w)
+		enc.SetIndent("", "  ")
+		err = enc.Encode(result)
 		if err != nil {
 			err = errors.E(op, err)
 			hlog.FromRequest(r).Error().Err(err).Msg("failed to encode")
