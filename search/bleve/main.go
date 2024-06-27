@@ -3,6 +3,7 @@ package bleve
 import (
 	"context"
 	"net/http"
+	"strings"
 	"syscall"
 	"time"
 
@@ -330,29 +331,77 @@ func NewQuery(ctx context.Context, s string) (query.Query, error) {
 	}
 	// move the disjuncts (OR) into the conjuncts (AND) query set
 	cq.AddQuery(dq.Disjuncts...)
-	// add a bit of fuzziness to queries that support it
-	//addFuzzy(cq.Conjuncts)
-
+	// set the original should to nil
 	bq.Should = nil
+
+	// add a bit of fuzziness to queries that support it
+	//filterQuery(&q, AddFuzzy)
+	// remove wildcards that are just "match everything"
+	filterQuery(&q,
+		ChangeLoneWildcardIntoMatchAll,
+		RemoveRegexQuery,
+		// AddFuzzy,
+	)
 	return bq, nil
 }
 
-func addFuzzy(qs []query.Query) {
-	var fuzzyMin = 3
-	for _, q := range qs {
-		switch fq := q.(type) {
-		case *query.MatchQuery:
-			if len(fq.Match) > fuzzyMin {
-				fq.SetFuzziness(1)
-			}
-		case *query.FuzzyQuery:
-			if len(fq.Term) > fuzzyMin && fq.Fuzziness == 0 {
-				fq.SetFuzziness(1)
-			}
-		case *query.MatchPhraseQuery:
-			if len(fq.MatchPhrase) > fuzzyMin {
-				fq.SetFuzziness(1)
-			}
+func filterQuery(q *query.Query, filter ...func(q *query.Query)) {
+	switch v := (*q).(type) {
+	case *query.BooleanQuery:
+		filterQuery(&v.Must, filter...)
+		filterQuery(&v.MustNot, filter...)
+		filterQuery(&v.Should, filter...)
+	case *query.ConjunctionQuery:
+		for i := range v.Conjuncts {
+			filterQuery(&v.Conjuncts[i], filter...)
+		}
+	case *query.DisjunctionQuery:
+		for i := range v.Disjuncts {
+			filterQuery(&v.Disjuncts[i], filter...)
+		}
+	case nil:
+	default:
+		for _, fn := range filter {
+			fn(q)
+		}
+	}
+}
+
+func RemoveRegexQuery(q *query.Query) {
+	rq, ok := (*q).(*query.RegexpQuery)
+	if !ok {
+		return
+	}
+	_ = rq
+	// TODO: implement this
+	return
+}
+
+func ChangeLoneWildcardIntoMatchAll(q *query.Query) {
+	wq, ok := (*q).(*query.WildcardQuery)
+	if !ok {
+		return
+	}
+	if strings.TrimSpace(wq.Wildcard) == "*" {
+		*q = bleve.NewMatchAllQuery()
+	}
+}
+
+func AddFuzzy(q *query.Query) {
+	const fuzzyMin = 3
+
+	switch fq := (*q).(type) {
+	case *query.MatchQuery:
+		if len(fq.Match) > fuzzyMin {
+			fq.SetFuzziness(1)
+		}
+	case *query.FuzzyQuery:
+		if len(fq.Term) > fuzzyMin && fq.Fuzziness == 0 {
+			fq.SetFuzziness(1)
+		}
+	case *query.MatchPhraseQuery:
+		if len(fq.MatchPhrase) > fuzzyMin {
+			fq.SetFuzziness(1)
 		}
 	}
 }
