@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -83,47 +84,70 @@ func (d databaseCmd) addTrack(ctx context.Context, cfg config.Config) error {
 		if err != nil {
 			return err
 		}
-		// try get information from ffprobe
-		info, err := audio.ProbeText(ctx, filename)
+
+		fmt.Printf("entering: %s\n", filename)
+		err = filepath.WalkDir(filename, func(path string, d fs.DirEntry, err error) error {
+			fmt.Printf("attempting %s\n", path)
+			if d.IsDir() {
+				return nil
+			}
+
+			switch filepath.Ext(path) {
+			case ".opus", ".mp3", ".flac", ".ogg":
+			default:
+				fmt.Printf("skipping %s not an audio file\n", path)
+				return nil
+			}
+
+			return addSingleTrack(ctx, db, path)
+		})
 		if err != nil {
 			return err
 		}
-
-		// as fallback we use the filename as '{artist} - {title}'
-		fn := filepath.Base(filename)
-		fn = strings.TrimSuffix(fn, filepath.Ext(fn))
-		artist, title, _ := strings.Cut(fn, " - ")
-		if info.Title == "" {
-			info.Title = title
-		}
-		if info.Artist == "" {
-			info.Artist = artist
-		}
-
-		track := radio.DatabaseTrack{
-			TrackID:    0,
-			Artist:     info.Artist,
-			Title:      info.Title,
-			Album:      info.Album,
-			FilePath:   filename,
-			Tags:       "testfile",
-			Acceptor:   "command-line-interface",
-			LastEditor: "command-line-interface",
-			Usable:     true,
-		}
-
-		song := radio.Song{
-			Length:        info.Duration,
-			DatabaseTrack: &track,
-		}
-		song.Hydrate()
-
-		id, err := db.Track(ctx).Insert(song)
-		if err != nil && !strings.Contains(err.Error(), "Duplicate") {
-			return err
-		}
-		fmt.Printf("successfully added %s (ID: %d)\n", song.Metadata, id)
 	}
+	return nil
+}
+
+func addSingleTrack(ctx context.Context, db radio.StorageService, filename string) error {
+	info, err := audio.ProbeText(ctx, filename)
+	if err != nil {
+		return err
+	}
+
+	// as fallback we use the filename as '{artist} - {title}'
+	fn := filepath.Base(filename)
+	fn = strings.TrimSuffix(fn, filepath.Ext(fn))
+	artist, title, _ := strings.Cut(fn, " - ")
+	if info.Title == "" {
+		info.Title = title
+	}
+	if info.Artist == "" {
+		info.Artist = artist
+	}
+
+	track := radio.DatabaseTrack{
+		TrackID:    0,
+		Artist:     info.Artist,
+		Title:      info.Title,
+		Album:      info.Album,
+		FilePath:   filename,
+		Tags:       "testfile",
+		Acceptor:   "command-line-interface",
+		LastEditor: "command-line-interface",
+		Usable:     true,
+	}
+
+	song := radio.Song{
+		Length:        info.Duration,
+		DatabaseTrack: &track,
+	}
+	song.Hydrate()
+
+	id, err := db.Track(ctx).Insert(song)
+	if err != nil && !strings.Contains(err.Error(), "Duplicate") {
+		return err
+	}
+	fmt.Printf("successfully added %s (ID: %d)\n", song.Metadata, id)
 	return nil
 }
 
