@@ -52,10 +52,15 @@ func dp(x time.Duration) *durationpb.Duration {
 }
 
 func fromProtoStatus(s *StatusResponse) radio.Status {
-	var user radio.User
-	if s.User != nil {
-		user = *fromProtoUser(s.User)
+	if s == nil {
+		return radio.Status{}
 	}
+
+	var user radio.User
+	if maybeUser := fromProtoUser(s.User); maybeUser != nil {
+		user = *maybeUser
+	}
+
 	return radio.Status{
 		StreamUser:   fromProtoUser(s.StreamUser),
 		User:         user,

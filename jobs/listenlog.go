@@ -15,6 +15,7 @@ func ExecuteListenerLog(ctx context.Context, cfg config.Config) error {
 	if err != nil {
 		return err
 	}
+	defer store.Close()
 
 	m := cfg.Manager
 
