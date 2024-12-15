@@ -138,11 +138,12 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	r.Use(templates.ThemeCtx(storage))
 
 	// legacy urls that once pointed to our stream, redirect them to the new url
-	r.Get("/main.mp3", RedirectLegacyStream)
-	r.Get("/main", RedirectLegacyStream)
-	r.Get("/stream.mp3", RedirectLegacyStream)
-	r.Get("/stream", RedirectLegacyStream)
-	r.Get("/R-a-dio", RedirectLegacyStream)
+	redirectHandler := RedirectLegacyStream(cfg)
+	r.Get("/main.mp3", redirectHandler)
+	r.Get("/main", redirectHandler)
+	r.Get("/stream.mp3", redirectHandler)
+	r.Get("/stream", redirectHandler)
+	r.Get("/R-a-dio", redirectHandler)
 
 	// serve assets from the assets directory
 	r.Handle("/assets/*", http.StripPrefix("/assets/",
@@ -240,9 +241,17 @@ func Execute(ctx context.Context, cfg config.Config) error {
 }
 
 // RedirectLegacyStream redirects a request to the (new) icecast stream url
-func RedirectLegacyStream(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Location", "//stream.r-a-d.io/main.mp3")
-	w.WriteHeader(http.StatusMovedPermanently)
+func RedirectLegacyStream(cfg config.Config) http.HandlerFunc {
+	redirectUrl := config.Value(cfg, func(c config.Config) string {
+		url := c.Conf().Website.PublicStreamURL
+		url = strings.TrimPrefix(url, "https:")
+		url = strings.TrimPrefix(url, "http:")
+		return url
+	})
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Location", redirectUrl())
+		w.WriteHeader(http.StatusMovedPermanently)
+	}
 }
 
 // removePortFromAddress is a middleware that should be behind RealIP to

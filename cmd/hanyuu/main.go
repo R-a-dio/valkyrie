@@ -317,6 +317,8 @@ func main() {
 	if term.IsTerminal(int(os.Stdout.Fd())) {
 		lo = zerolog.ConsoleWriter{Out: os.Stdout}
 	}
+	lo = zerolog.ConsoleWriter{Out: os.Stdout}
+
 	logger := zerolog.New(lo).With().Timestamp().Logger()
 	// change the level to what the flag told us
 	level, err := zerolog.ParseLevel(logLevel)
