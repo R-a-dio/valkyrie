@@ -205,7 +205,7 @@ var _ radio.ManagerService = &ManagerServiceMock{}
 //
 //		// make and configure a mocked radio.ManagerService
 //		mockedManagerService := &ManagerServiceMock{
-//			CurrentListenersFunc: func(contextMoqParam context.Context) (eventstream.Stream[int64], error) {
+//			CurrentListenersFunc: func(contextMoqParam context.Context) (eventstream.Stream[radio.Listeners], error) {
 //				panic("mock out the CurrentListeners method")
 //			},
 //			CurrentSongFunc: func(contextMoqParam context.Context) (eventstream.Stream[*radio.SongUpdate], error) {
@@ -214,7 +214,7 @@ var _ radio.ManagerService = &ManagerServiceMock{}
 //			CurrentStatusFunc: func(contextMoqParam context.Context) (eventstream.Stream[radio.Status], error) {
 //				panic("mock out the CurrentStatus method")
 //			},
-//			CurrentThreadFunc: func(contextMoqParam context.Context) (eventstream.Stream[string], error) {
+//			CurrentThreadFunc: func(contextMoqParam context.Context) (eventstream.Stream[radio.Thread], error) {
 //				panic("mock out the CurrentThread method")
 //			},
 //			CurrentUserFunc: func(contextMoqParam context.Context) (eventstream.Stream[*radio.User], error) {
@@ -223,13 +223,13 @@ var _ radio.ManagerService = &ManagerServiceMock{}
 //			UpdateFromStorageFunc: func(contextMoqParam context.Context) error {
 //				panic("mock out the UpdateFromStorage method")
 //			},
-//			UpdateListenersFunc: func(contextMoqParam context.Context, n int64) error {
+//			UpdateListenersFunc: func(contextMoqParam context.Context, v radio.Listeners) error {
 //				panic("mock out the UpdateListeners method")
 //			},
 //			UpdateSongFunc: func(contextMoqParam context.Context, songUpdate *radio.SongUpdate) error {
 //				panic("mock out the UpdateSong method")
 //			},
-//			UpdateThreadFunc: func(contextMoqParam context.Context, s string) error {
+//			UpdateThreadFunc: func(contextMoqParam context.Context, v radio.Thread) error {
 //				panic("mock out the UpdateThread method")
 //			},
 //			UpdateUserFunc: func(contextMoqParam context.Context, user *radio.User) error {
@@ -243,7 +243,7 @@ var _ radio.ManagerService = &ManagerServiceMock{}
 //	}
 type ManagerServiceMock struct {
 	// CurrentListenersFunc mocks the CurrentListeners method.
-	CurrentListenersFunc func(contextMoqParam context.Context) (eventstream.Stream[int64], error)
+	CurrentListenersFunc func(contextMoqParam context.Context) (eventstream.Stream[radio.Listeners], error)
 
 	// CurrentSongFunc mocks the CurrentSong method.
 	CurrentSongFunc func(contextMoqParam context.Context) (eventstream.Stream[*radio.SongUpdate], error)
@@ -252,7 +252,7 @@ type ManagerServiceMock struct {
 	CurrentStatusFunc func(contextMoqParam context.Context) (eventstream.Stream[radio.Status], error)
 
 	// CurrentThreadFunc mocks the CurrentThread method.
-	CurrentThreadFunc func(contextMoqParam context.Context) (eventstream.Stream[string], error)
+	CurrentThreadFunc func(contextMoqParam context.Context) (eventstream.Stream[radio.Thread], error)
 
 	// CurrentUserFunc mocks the CurrentUser method.
 	CurrentUserFunc func(contextMoqParam context.Context) (eventstream.Stream[*radio.User], error)
@@ -261,13 +261,13 @@ type ManagerServiceMock struct {
 	UpdateFromStorageFunc func(contextMoqParam context.Context) error
 
 	// UpdateListenersFunc mocks the UpdateListeners method.
-	UpdateListenersFunc func(contextMoqParam context.Context, n int64) error
+	UpdateListenersFunc func(contextMoqParam context.Context, v radio.Listeners) error
 
 	// UpdateSongFunc mocks the UpdateSong method.
 	UpdateSongFunc func(contextMoqParam context.Context, songUpdate *radio.SongUpdate) error
 
 	// UpdateThreadFunc mocks the UpdateThread method.
-	UpdateThreadFunc func(contextMoqParam context.Context, s string) error
+	UpdateThreadFunc func(contextMoqParam context.Context, v radio.Thread) error
 
 	// UpdateUserFunc mocks the UpdateUser method.
 	UpdateUserFunc func(contextMoqParam context.Context, user *radio.User) error
@@ -308,8 +308,8 @@ type ManagerServiceMock struct {
 		UpdateListeners []struct {
 			// ContextMoqParam is the contextMoqParam argument value.
 			ContextMoqParam context.Context
-			// N is the n argument value.
-			N int64
+			// V is the v argument value.
+			V radio.Listeners
 		}
 		// UpdateSong holds details about calls to the UpdateSong method.
 		UpdateSong []struct {
@@ -322,8 +322,8 @@ type ManagerServiceMock struct {
 		UpdateThread []struct {
 			// ContextMoqParam is the contextMoqParam argument value.
 			ContextMoqParam context.Context
-			// S is the s argument value.
-			S string
+			// V is the v argument value.
+			V radio.Thread
 		}
 		// UpdateUser holds details about calls to the UpdateUser method.
 		UpdateUser []struct {
@@ -346,7 +346,7 @@ type ManagerServiceMock struct {
 }
 
 // CurrentListeners calls CurrentListenersFunc.
-func (mock *ManagerServiceMock) CurrentListeners(contextMoqParam context.Context) (eventstream.Stream[int64], error) {
+func (mock *ManagerServiceMock) CurrentListeners(contextMoqParam context.Context) (eventstream.Stream[radio.Listeners], error) {
 	if mock.CurrentListenersFunc == nil {
 		panic("ManagerServiceMock.CurrentListenersFunc: method is nil but ManagerService.CurrentListeners was just called")
 	}
@@ -442,7 +442,7 @@ func (mock *ManagerServiceMock) CurrentStatusCalls() []struct {
 }
 
 // CurrentThread calls CurrentThreadFunc.
-func (mock *ManagerServiceMock) CurrentThread(contextMoqParam context.Context) (eventstream.Stream[string], error) {
+func (mock *ManagerServiceMock) CurrentThread(contextMoqParam context.Context) (eventstream.Stream[radio.Thread], error) {
 	if mock.CurrentThreadFunc == nil {
 		panic("ManagerServiceMock.CurrentThreadFunc: method is nil but ManagerService.CurrentThread was just called")
 	}
@@ -538,21 +538,21 @@ func (mock *ManagerServiceMock) UpdateFromStorageCalls() []struct {
 }
 
 // UpdateListeners calls UpdateListenersFunc.
-func (mock *ManagerServiceMock) UpdateListeners(contextMoqParam context.Context, n int64) error {
+func (mock *ManagerServiceMock) UpdateListeners(contextMoqParam context.Context, v radio.Listeners) error {
 	if mock.UpdateListenersFunc == nil {
 		panic("ManagerServiceMock.UpdateListenersFunc: method is nil but ManagerService.UpdateListeners was just called")
 	}
 	callInfo := struct {
 		ContextMoqParam context.Context
-		N               int64
+		V               radio.Listeners
 	}{
 		ContextMoqParam: contextMoqParam,
-		N:               n,
+		V:               v,
 	}
 	mock.lockUpdateListeners.Lock()
 	mock.calls.UpdateListeners = append(mock.calls.UpdateListeners, callInfo)
 	mock.lockUpdateListeners.Unlock()
-	return mock.UpdateListenersFunc(contextMoqParam, n)
+	return mock.UpdateListenersFunc(contextMoqParam, v)
 }
 
 // UpdateListenersCalls gets all the calls that were made to UpdateListeners.
@@ -561,11 +561,11 @@ func (mock *ManagerServiceMock) UpdateListeners(contextMoqParam context.Context,
 //	len(mockedManagerService.UpdateListenersCalls())
 func (mock *ManagerServiceMock) UpdateListenersCalls() []struct {
 	ContextMoqParam context.Context
-	N               int64
+	V               radio.Listeners
 } {
 	var calls []struct {
 		ContextMoqParam context.Context
-		N               int64
+		V               radio.Listeners
 	}
 	mock.lockUpdateListeners.RLock()
 	calls = mock.calls.UpdateListeners
@@ -610,21 +610,21 @@ func (mock *ManagerServiceMock) UpdateSongCalls() []struct {
 }
 
 // UpdateThread calls UpdateThreadFunc.
-func (mock *ManagerServiceMock) UpdateThread(contextMoqParam context.Context, s string) error {
+func (mock *ManagerServiceMock) UpdateThread(contextMoqParam context.Context, v radio.Thread) error {
 	if mock.UpdateThreadFunc == nil {
 		panic("ManagerServiceMock.UpdateThreadFunc: method is nil but ManagerService.UpdateThread was just called")
 	}
 	callInfo := struct {
 		ContextMoqParam context.Context
-		S               string
+		V               radio.Thread
 	}{
 		ContextMoqParam: contextMoqParam,
-		S:               s,
+		V:               v,
 	}
 	mock.lockUpdateThread.Lock()
 	mock.calls.UpdateThread = append(mock.calls.UpdateThread, callInfo)
 	mock.lockUpdateThread.Unlock()
-	return mock.UpdateThreadFunc(contextMoqParam, s)
+	return mock.UpdateThreadFunc(contextMoqParam, v)
 }
 
 // UpdateThreadCalls gets all the calls that were made to UpdateThread.
@@ -633,11 +633,11 @@ func (mock *ManagerServiceMock) UpdateThread(contextMoqParam context.Context, s 
 //	len(mockedManagerService.UpdateThreadCalls())
 func (mock *ManagerServiceMock) UpdateThreadCalls() []struct {
 	ContextMoqParam context.Context
-	S               string
+	V               radio.Thread
 } {
 	var calls []struct {
 		ContextMoqParam context.Context
-		S               string
+		V               radio.Thread
 	}
 	mock.lockUpdateThread.RLock()
 	calls = mock.calls.UpdateThread
@@ -3099,7 +3099,7 @@ var _ radio.SongStorage = &SongStorageMock{}
 //			AddFavoriteFunc: func(song radio.Song, nick string) (bool, error) {
 //				panic("mock out the AddFavorite method")
 //			},
-//			AddPlayFunc: func(song radio.Song, streamer radio.User, ldiff *int64) error {
+//			AddPlayFunc: func(song radio.Song, streamer radio.User, ldiff *radio.Listeners) error {
 //				panic("mock out the AddPlay method")
 //			},
 //			CreateFunc: func(song radio.Song) (*radio.Song, error) {
@@ -3155,7 +3155,7 @@ type SongStorageMock struct {
 	AddFavoriteFunc func(song radio.Song, nick string) (bool, error)
 
 	// AddPlayFunc mocks the AddPlay method.
-	AddPlayFunc func(song radio.Song, streamer radio.User, ldiff *int64) error
+	AddPlayFunc func(song radio.Song, streamer radio.User, ldiff *radio.Listeners) error
 
 	// CreateFunc mocks the Create method.
 	CreateFunc func(song radio.Song) (*radio.Song, error)
@@ -3215,7 +3215,7 @@ type SongStorageMock struct {
 			// Streamer is the streamer argument value.
 			Streamer radio.User
 			// Ldiff is the ldiff argument value.
-			Ldiff *int64
+			Ldiff *radio.Listeners
 		}
 		// Create holds details about calls to the Create method.
 		Create []struct {
@@ -3357,14 +3357,14 @@ func (mock *SongStorageMock) AddFavoriteCalls() []struct {
 }
 
 // AddPlay calls AddPlayFunc.
-func (mock *SongStorageMock) AddPlay(song radio.Song, streamer radio.User, ldiff *int64) error {
+func (mock *SongStorageMock) AddPlay(song radio.Song, streamer radio.User, ldiff *radio.Listeners) error {
 	if mock.AddPlayFunc == nil {
 		panic("SongStorageMock.AddPlayFunc: method is nil but SongStorage.AddPlay was just called")
 	}
 	callInfo := struct {
 		Song     radio.Song
 		Streamer radio.User
-		Ldiff    *int64
+		Ldiff    *radio.Listeners
 	}{
 		Song:     song,
 		Streamer: streamer,
@@ -3383,12 +3383,12 @@ func (mock *SongStorageMock) AddPlay(song radio.Song, streamer radio.User, ldiff
 func (mock *SongStorageMock) AddPlayCalls() []struct {
 	Song     radio.Song
 	Streamer radio.User
-	Ldiff    *int64
+	Ldiff    *radio.Listeners
 } {
 	var calls []struct {
 		Song     radio.Song
 		Streamer radio.User
-		Ldiff    *int64
+		Ldiff    *radio.Listeners
 	}
 	mock.lockAddPlay.RLock()
 	calls = mock.calls.AddPlay
@@ -5019,7 +5019,7 @@ var _ radio.UserStorage = &UserStorageMock{}
 //			PermissionsFunc: func() ([]radio.UserPermission, error) {
 //				panic("mock out the Permissions method")
 //			},
-//			RecordListenersFunc: func(n int64, user radio.User) error {
+//			RecordListenersFunc: func(v radio.Listeners, user radio.User) error {
 //				panic("mock out the RecordListeners method")
 //			},
 //			UpdateFunc: func(user radio.User) (radio.User, error) {
@@ -5060,7 +5060,7 @@ type UserStorageMock struct {
 	PermissionsFunc func() ([]radio.UserPermission, error)
 
 	// RecordListenersFunc mocks the RecordListeners method.
-	RecordListenersFunc func(n int64, user radio.User) error
+	RecordListenersFunc func(v radio.Listeners, user radio.User) error
 
 	// UpdateFunc mocks the Update method.
 	UpdateFunc func(user radio.User) (radio.User, error)
@@ -5112,8 +5112,8 @@ type UserStorageMock struct {
 		}
 		// RecordListeners holds details about calls to the RecordListeners method.
 		RecordListeners []struct {
-			// N is the n argument value.
-			N int64
+			// V is the v argument value.
+			V radio.Listeners
 			// User is the user argument value.
 			User radio.User
 		}
@@ -5419,21 +5419,21 @@ func (mock *UserStorageMock) PermissionsCalls() []struct {
 }
 
 // RecordListeners calls RecordListenersFunc.
-func (mock *UserStorageMock) RecordListeners(n int64, user radio.User) error {
+func (mock *UserStorageMock) RecordListeners(v radio.Listeners, user radio.User) error {
 	if mock.RecordListenersFunc == nil {
 		panic("UserStorageMock.RecordListenersFunc: method is nil but UserStorage.RecordListeners was just called")
 	}
 	callInfo := struct {
-		N    int64
+		V    radio.Listeners
 		User radio.User
 	}{
-		N:    n,
+		V:    v,
 		User: user,
 	}
 	mock.lockRecordListeners.Lock()
 	mock.calls.RecordListeners = append(mock.calls.RecordListeners, callInfo)
 	mock.lockRecordListeners.Unlock()
-	return mock.RecordListenersFunc(n, user)
+	return mock.RecordListenersFunc(v, user)
 }
 
 // RecordListenersCalls gets all the calls that were made to RecordListeners.
@@ -5441,11 +5441,11 @@ func (mock *UserStorageMock) RecordListeners(n int64, user radio.User) error {
 //
 //	len(mockedUserStorage.RecordListenersCalls())
 func (mock *UserStorageMock) RecordListenersCalls() []struct {
-	N    int64
+	V    radio.Listeners
 	User radio.User
 } {
 	var calls []struct {
-		N    int64
+		V    radio.Listeners
 		User radio.User
 	}
 	mock.lockRecordListeners.RLock()
