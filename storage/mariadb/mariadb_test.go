@@ -31,8 +31,7 @@ func (setup *MariaDBSetup) Setup(ctx context.Context) error {
 
 	setup.dbname = "go-test"
 	// setup a container to test in
-	container, err := mariadb.RunContainer(ctx,
-		testcontainers.WithImage("mariadb:latest"),
+	container, err := mariadb.Run(ctx, "mariadb:latest",
 		mariadb.WithDatabase(setup.dbname),
 		mariadb.WithUsername("root"),
 		mariadb.WithPassword(""),

@@ -240,6 +240,10 @@ func (r router) Trace(pattern string, h http.HandlerFunc) {
 	r.r.Trace(pattern, middlewareRecordFinish(h).ServeHTTP)
 }
 
+func (r router) Find(rctx *chi.Context, method string, path string) string {
+	return r.r.Find(rctx, method, path)
+}
+
 // NotFound defines a handler to respond whenever a route could
 // not be found.
 func (r router) NotFound(h http.HandlerFunc) {

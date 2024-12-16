@@ -88,6 +88,7 @@ func NewStreamer(ctx context.Context, cfg config.Config,
 
 func (s *Streamer) checkFDStore(ctx context.Context, store *fdstore.Store) {
 	if store == nil {
+		zerolog.Ctx(ctx).Info().Msg("nothing to restore from fdstore")
 		return
 	}
 
