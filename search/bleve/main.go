@@ -53,7 +53,8 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	select {
 	case <-ctx.Done():
 		return srv.Close()
-	case <-util.Signal(syscall.SIGHUP):
+	case <-util.Signal(syscall.SIGUSR2):
+		zerolog.Ctx(ctx).Info().Msg("SIGUSR2 received")
 		err := fdstorage.AddListener(ln, "bleve", nil)
 		if err != nil {
 			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to store listener")
