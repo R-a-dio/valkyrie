@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/signal"
 	"runtime/debug"
-	"sync"
 	"syscall"
 	"time"
 
@@ -373,15 +372,6 @@ func executeCommand(ctx context.Context, errCh chan error) error {
 	signalCh := make(chan os.Signal, 2)
 	signal.Notify(signalCh, os.Interrupt, syscall.SIGHUP)
 
-	// we want to signal our service manager when we're ready, but for
-	// easy of use we just do it after one second so not every command has
-	// to implement this themselves. Most commands will also just fail early
-	// and return an error if they really can't start and thus stop the timer
-	// before it expires.
-	readyFn := sync.OnceFunc(func() {
-		_ = fdstore.Notify(fdstore.Ready)
-	})
-	readyTimer := time.AfterFunc(time.Second, readyFn)
 	defer func() {
 		// send that we're stopping before we quit
 		_ = fdstore.Notify(fdstore.Stopping)
@@ -392,12 +382,16 @@ func executeCommand(ctx context.Context, errCh chan error) error {
 	// do signal handling on the main goroutine
 	go func() {
 		code := subcommands.Execute(ctx, errCh)
-		// stop the ready timer
-		readyTimer.Stop()
 		// send a fake error over the errCh, this is so subcommands that don't use our
 		// `cmd` type don't hang the process, mostly for internal subcommands we register
 		errCh <- WithStatusCode(nil, int(code))
 	}()
+
+	// we need to signal systemd that we're ready, doing this "correctly" would mean doing
+	// it in each separate commands main loop, but we just do it here for now
+	if err := fdstore.Notify(fdstore.Ready); err != nil {
+		zerolog.Ctx(ctx).Error().Err(err).Msg("failed to send sd_notify READY")
+	}
 
 	// handle our signals, we only exit when either the command finishes running and
 	// tells us about it through errCh; or when we receive a SIGINT from outside
@@ -407,12 +401,6 @@ func executeCommand(ctx context.Context, errCh chan error) error {
 		select {
 		case sig = <-signalCh:
 		case err := <-errCh:
-			if err == nil {
-				// if there was no error, and we might exit early the readyTimer
-				// above will never have completed and systemd complaints, so call
-				// ready here too if we were just quick to exit
-				readyFn()
-			}
 			return err
 		}
 
