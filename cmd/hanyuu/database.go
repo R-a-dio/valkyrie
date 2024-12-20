@@ -169,10 +169,11 @@ func (d databaseCmd) addUser(ctx context.Context, cfg config.Config) error {
 	u := db.User(ctx)
 
 	// only allow adding a user this way if it doesn't exist yet
-	_, err = u.Get(name)
-	if err != nil && !errors.Is(errors.UserUnknown, err) {
-		fmt.Println("user already exists")
-		return err
+	if user, err := u.Get(name); user != nil {
+		if err != nil {
+			return errors.E(err, "failed to check for existing user")
+		}
+		return errors.E("user already exists")
 	}
 
 	hash, err := radio.GenerateHashFromPassword(passwd)
@@ -184,7 +185,7 @@ func (d databaseCmd) addUser(ctx context.Context, cfg config.Config) error {
 		Password: string(hash),
 		UserPermissions: radio.UserPermissions{
 			radio.PermActive: struct{}{},
-			radio.PermAdmin:  struct{}{},
+			radio.PermDev:    struct{}{},
 		},
 	}
 
@@ -193,6 +194,6 @@ func (d databaseCmd) addUser(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 
-	fmt.Println("successfully added user")
+	fmt.Printf("successfully added user %s\n", name)
 	return nil
 }
