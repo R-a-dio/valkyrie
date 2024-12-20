@@ -12,16 +12,10 @@ import (
 	"go.opentelemetry.io/otel/log/global"
 )
 
-var (
-	InstrumentationName    = "github.com/R-a-dio/valkyrie/telemetry/otelzerolog"
-	InstrumentationVersion = "0.1.0"
-)
-
-func Hook() zerolog.Hook {
+func Hook(instrumentation_name, instrumentation_version string) zerolog.Hook {
 	logger := global.GetLoggerProvider().Logger(
-		// TODO: make this use proper names and version
-		InstrumentationName,
-		log.WithInstrumentationVersion(InstrumentationVersion),
+		instrumentation_name,
+		log.WithInstrumentationVersion(instrumentation_version),
 	)
 
 	return &hook{logger}
@@ -31,22 +25,28 @@ type hook struct {
 	logger log.Logger
 }
 
-func (h hook) Run(e *zerolog.Event, level zerolog.Level, msg string) {
-	if !e.Enabled() {
+func (h hook) Run(e *zerolog.Event, zerolevel zerolog.Level, msg string) {
+	if !e.Enabled() { // check if zerolog is enabled
+		return
+	}
+
+	ctx := e.GetCtx()
+	level := convertLevel(zerolevel)
+
+	if !h.logger.Enabled(ctx, log.EnabledParameters{Severity: level}) {
+		// check if opentelemetry logging is enabled
 		return
 	}
 
 	r := log.Record{}
-	ctx := e.GetCtx()
 	now := time.Now()
+	r.SetSeverity(level)
+	r.SetSeverityText(zerolevel.String())
 
 	r.SetBody(log.StringValue(msg))
 
 	r.SetTimestamp(now)
 	r.SetObservedTimestamp(now)
-
-	r.SetSeverity(convertLevel(level))
-	r.SetSeverityText(level.String())
 
 	logData := make(map[string]interface{})
 	// create a string that appends } to the end of the buf variable you access via reflection

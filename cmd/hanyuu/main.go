@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime/debug"
+	"sync"
 	"syscall"
 	"time"
 
@@ -125,9 +126,20 @@ var versionCmd = cmd{
 	execute: printVersion,
 }
 
+var CommitHash = sync.OnceValue[string](func() string {
+	if info, ok := debug.ReadBuildInfo(); ok { // requires go version 1.12+
+		for _, setting := range info.Settings {
+			if setting.Key == "vcs.revision" {
+				return setting.Value
+			}
+		}
+	}
+	return "(devel)"
+})
+
 func printVersion(context.Context, config.Loader) error {
 	if info, ok := debug.ReadBuildInfo(); ok { // requires go version 1.12+
-		fmt.Printf("%s %s\n", info.Path, info.Main.Version)
+		fmt.Printf("%s %s\n", info.Path, CommitHash())
 		for _, mod := range info.Deps {
 			fmt.Printf("\t%s %s\n", mod.Path, mod.Version)
 		}
@@ -268,6 +280,11 @@ var bleveCmd = cmd{
 	noSIGUSR2: true,
 }
 
+var (
+	InstrumentationName    = "github.com/R-a-dio/valkyrie"
+	InstrumentationVersion = CommitHash()
+)
+
 func main() {
 	var disableStdout bool
 	// setup configuration file as top-level flag
@@ -326,7 +343,10 @@ func main() {
 		os.Exit(1)
 	}
 	// use the opentelemetry zerolog hook
-	logger = logger.Level(level).Hook(otelzerolog.Hook())
+	logger = logger.Level(level).Hook(otelzerolog.Hook(
+		InstrumentationName,
+		InstrumentationVersion,
+	))
 
 	// setup root context
 	ctx := context.Background()
