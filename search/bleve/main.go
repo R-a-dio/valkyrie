@@ -2,6 +2,7 @@ package bleve
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
 	"syscall"
@@ -318,16 +319,19 @@ func NewQuery(ctx context.Context, s string) (query.Query, error) {
 
 	bq, ok := q.(*query.BooleanQuery)
 	if !ok {
+		zerolog.Ctx(ctx).Warn().Str("type", fmt.Sprintf("%T", q)).Msg("query was not a BooleanQuery")
 		return q, nil
 	}
 
 	dq, ok := bq.Should.(*query.DisjunctionQuery)
 	if !ok {
+		zerolog.Ctx(ctx).Warn().Str("type", fmt.Sprintf("%T", q)).Msg("query was not a DisjunctionQuery")
 		return q, nil
 	}
 
 	cq, ok := bq.Must.(*query.ConjunctionQuery)
 	if !ok {
+		zerolog.Ctx(ctx).Warn().Str("type", fmt.Sprintf("%T", q)).Msg("query was not a ConjuctionQuery")
 		return q, nil
 	}
 	// move the disjuncts (OR) into the conjuncts (AND) query set
