@@ -22,13 +22,13 @@ import (
 	_ "github.com/R-a-dio/valkyrie/search/storage"  // storage search interface
 	_ "github.com/R-a-dio/valkyrie/storage/mariadb" // mariadb storage interface
 	"github.com/R-a-dio/valkyrie/telemetry"
+	"github.com/R-a-dio/valkyrie/telemetry/otelzerolog"
 	"github.com/R-a-dio/valkyrie/tracker"
 	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/website"
 	"github.com/Wessie/fdstore"
 	"github.com/google/subcommands"
 	"github.com/rs/zerolog"
-	"golang.org/x/term"
 )
 
 type executeFn func(context.Context, config.Loader) error
@@ -269,10 +269,12 @@ var bleveCmd = cmd{
 }
 
 func main() {
+	var disableStdout bool
 	// setup configuration file as top-level flag
 	flag.StringVar(&configFile, "config", "hanyuu.toml", "filepath to configuration file")
 	flag.StringVar(&logLevel, "loglevel", "info", "loglevel to use")
 	flag.BoolVar(&useTelemetry, "telemetry", false, "to enable telemetry")
+	flag.BoolVar(&disableStdout, "disable-stdout", false, "set to true to stop logs being printed to stdout")
 
 	// add all our top-level flags as important flags to subcommands
 	flag.VisitAll(func(f *flag.Flag) {
@@ -311,12 +313,10 @@ func main() {
 	var code int
 	// setup logger
 
-	// discard logs unless we are connected to a terminal
-	lo := io.Discard
-	if term.IsTerminal(int(os.Stdout.Fd())) {
-		lo = zerolog.ConsoleWriter{Out: os.Stdout}
+	var lo io.Writer = zerolog.ConsoleWriter{Out: os.Stdout}
+	if disableStdout { // discard logs if asked for
+		lo = io.Discard
 	}
-	lo = zerolog.ConsoleWriter{Out: os.Stdout}
 
 	logger := zerolog.New(lo).With().Timestamp().Logger()
 	// change the level to what the flag told us
@@ -325,7 +325,8 @@ func main() {
 		logger.Error().Err(err).Msg("failed to parse loglevel flag")
 		os.Exit(1)
 	}
-	logger = logger.Level(level).Hook(telemetry.Hook)
+	// use the opentelemetry zerolog hook
+	logger = logger.Level(level).Hook(otelzerolog.Hook())
 
 	// setup root context
 	ctx := context.Background()

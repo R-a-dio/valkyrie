@@ -9,37 +9,24 @@ import (
 	"github.com/R-a-dio/valkyrie/storage/mariadb"
 	"github.com/R-a-dio/valkyrie/website"
 	"github.com/XSAM/otelsql"
-	"github.com/agoda-com/opentelemetry-go/otelzerolog"
-	"github.com/agoda-com/opentelemetry-logs-go/exporters/otlp/otlplogs"
-	"github.com/agoda-com/opentelemetry-logs-go/exporters/otlp/otlplogs/otlplogsgrpc"
-	logsSDK "github.com/agoda-com/opentelemetry-logs-go/sdk/logs"
 	"github.com/jmoiron/sqlx"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/push"
 	"github.com/rs/zerolog"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/sdk/log"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 	"google.golang.org/grpc"
 )
-
-// temporary until otel gets log handling
-var LogProvider *logsSDK.LoggerProvider
-var logHook *otelzerolog.Hook
-
-var Hook = zerolog.HookFunc(func(e *zerolog.Event, level zerolog.Level, message string) {
-	if logHook == nil {
-		return
-	}
-
-	logHook.Run(e, level, message)
-})
 
 func Init(ctx context.Context, cfg config.Config, service string) (func(), error) {
 	tp, err := InitTracer(ctx, cfg, service)
@@ -58,9 +45,9 @@ func Init(ctx context.Context, cfg config.Config, service string) (func(), error
 	if err != nil {
 		return nil, err
 	}
+	// swap the next two lines once otlplog goes stable
+	global.SetLoggerProvider(lp)
 	// otel.SetLogProvider(lp)
-	LogProvider = lp
-	logHook = otelzerolog.NewHook(lp)
 
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
 	// done setting up, swap global functions to inject telemetry
@@ -172,15 +159,17 @@ func InitMetric(ctx context.Context, cfg config.Config, service string) (*metric
 	return mp, nil
 }
 
-func InitLogs(ctx context.Context, cfg config.Config, service string) (*logsSDK.LoggerProvider, error) {
+func InitLogs(ctx context.Context, cfg config.Config, service string) (*log.LoggerProvider, error) {
 	conf := cfg.Conf().Telemetry
 
-	logs_exporter, err := otlplogs.NewExporter(ctx,
-		otlplogs.WithClient(
-			otlplogsgrpc.NewClient(otlplogsgrpc.WithInsecure(),
-				otlplogsgrpc.WithEndpoint(conf.Endpoint),
-			),
-		),
+	logs_exporter, err := otlploggrpc.New(ctx,
+		otlploggrpc.WithInsecure(),
+		otlploggrpc.WithEndpoint(conf.Endpoint),
+		otlploggrpc.WithHeaders(map[string]string{
+			"Authorization": conf.Auth,
+			"organization":  "default",
+			"stream-name":   "default",
+		}),
 	)
 	if err != nil {
 		return nil, err
@@ -195,9 +184,9 @@ func InitLogs(ctx context.Context, cfg config.Config, service string) (*logsSDK.
 		return nil, err
 	}
 
-	lp := logsSDK.NewLoggerProvider(
-		logsSDK.WithBatcher(logs_exporter),
-		logsSDK.WithResource(res),
+	lp := log.NewLoggerProvider(
+		log.WithProcessor(log.NewBatchProcessor(logs_exporter)),
+		log.WithResource(res),
 	)
 
 	return lp, nil
