@@ -460,6 +460,11 @@ type QueueEntry struct {
 	ExpectedStartTime time.Time
 }
 
+func (qe QueueEntry) Copy() QueueEntry {
+	qe.Song = qe.Song.Copy()
+	return qe
+}
+
 func (qe QueueEntry) String() string {
 	est := qe.ExpectedStartTime.Format("2006-01-02 15:04:05")
 	if qe.IsUserRequest {
@@ -677,6 +682,19 @@ type DatabaseTrack struct {
 	LastRequested time.Time
 
 	RequestCount int
+}
+
+// Copy copies the song and returns it
+func (s Song) Copy() Song {
+	if s.DatabaseTrack != nil {
+		dt := *s.DatabaseTrack
+		s.DatabaseTrack = &dt
+	}
+	if s.LastPlayedBy != nil {
+		lpb := *s.LastPlayedBy
+		s.LastPlayedBy = &lpb
+	}
+	return s
 }
 
 // Requestable returns whether this song can be requested by a user

@@ -129,7 +129,7 @@ func (qs *QueueService) AddRequest(ctx context.Context, song radio.Song, identif
 	defer qs.mu.Unlock()
 
 	qs.append(ctx, radio.QueueEntry{
-		Song:           song,
+		Song:           song.Copy(),
 		IsUserRequest:  true,
 		UserIdentifier: identifier,
 	})
@@ -156,7 +156,7 @@ func (qs *QueueService) ReserveNext(ctx context.Context) (*radio.QueueEntry, err
 		return nil, errors.E(op, errors.QueueExhausted)
 	}
 
-	entry := qs.queue[qs.reservedIndex]
+	entry := qs.queue[qs.reservedIndex].Copy()
 	qs.reservedIndex++
 	qs.logger.Info().Str("entry", entry.String()).Msg("reserve in queue")
 
@@ -234,8 +234,10 @@ func (qs *QueueService) Entries(ctx context.Context) (radio.Queue, error) {
 	qs.mu.Lock()
 	defer qs.mu.Unlock()
 
-	all := make([]radio.QueueEntry, len(qs.queue))
-	copy(all, qs.queue)
+	all := make([]radio.QueueEntry, 0, len(qs.queue))
+	for _, e := range qs.queue {
+		all = append(all, e.Copy())
+	}
 	return all, nil
 }
 

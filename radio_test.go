@@ -577,3 +577,35 @@ func TestSongHashJSON(t *testing.T) {
 	}))
 	p.TestingRun(t)
 }
+
+func TestSongCopy(t *testing.T) {
+	a := arbitrary.DefaultArbitraries()
+	p := gopter.NewProperties(nil)
+	p.Property("copy is equal", a.ForAll(func(in Song) bool {
+		out := in.Copy()
+
+		return reflect.DeepEqual(in, out)
+	}))
+	p.Property("copy is an actual copy", a.ForAll(func(in Song, in2 DatabaseTrack) bool {
+		in.DatabaseTrack = &in2
+
+		out := in.Copy()
+
+		out.TrackID = out.TrackID + 2000
+		out.Artist = out.Artist + "added artist"
+		out.Title = out.Title + "added title"
+		out.Album = out.Album + "added album"
+		out.FilePath = out.FilePath + "added filepath"
+		out.Tags = out.Tags + "added tags"
+		out.Acceptor = out.Acceptor + "added acceptor"
+		out.LastEditor = out.LastEditor + "added lasteditor"
+		out.Priority = out.Priority + 20
+		out.Usable = !out.Usable
+		out.NeedReplacement = !out.NeedReplacement
+		out.RequestCount = out.RequestCount + 5
+		out.LastRequested = out.LastRequested.Add(time.Minute * 4)
+
+		return !reflect.DeepEqual(in, out)
+	}))
+	p.TestingRun(t)
+}
