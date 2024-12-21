@@ -325,7 +325,7 @@ func NewQuery(ctx context.Context, s string) (query.Query, error) {
 
 	dq, ok := bq.Should.(*query.DisjunctionQuery)
 	if !ok {
-		zerolog.Ctx(ctx).Warn().Str("type", fmt.Sprintf("%T", q)).Msg("query was not a DisjunctionQuery")
+		zerolog.Ctx(ctx).Warn().Str("type", fmt.Sprintf("%T", bq.Should)).Msg("query was not a DisjunctionQuery")
 		return q, nil
 	}
 
@@ -337,7 +337,7 @@ func NewQuery(ctx context.Context, s string) (query.Query, error) {
 		// move the should (OR) into the must (AND) query set
 		qq.AddMust(dq.Disjuncts...)
 	default:
-		zerolog.Ctx(ctx).Warn().Str("type", fmt.Sprintf("%T", q)).Msg("query is unknown type")
+		zerolog.Ctx(ctx).Warn().Str("type", fmt.Sprintf("%T", bq.Must)).Msg("query is unknown type")
 		return q, nil
 	}
 
