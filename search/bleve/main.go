@@ -329,13 +329,14 @@ func NewQuery(ctx context.Context, s string) (query.Query, error) {
 		return q, nil
 	}
 
+	// move the should (OR) into the must (AND) query set if possible
 	switch qq := bq.Must.(type) {
 	case *query.ConjunctionQuery:
-		// move the should (OR) into the must (AND) query set
 		qq.AddQuery(dq.Disjuncts...)
 	case *query.BooleanQuery:
-		// move the should (OR) into the must (AND) query set
 		qq.AddMust(dq.Disjuncts...)
+	case nil:
+		bq.Must = bleve.NewConjunctionQuery(dq.Disjuncts...)
 	default:
 		zerolog.Ctx(ctx).Warn().Str("type", fmt.Sprintf("%T", bq.Must)).Msg("query is unknown type")
 		return q, nil
