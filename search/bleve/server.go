@@ -1,7 +1,6 @@
 package bleve
 
 import (
-	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -12,10 +11,7 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/util/pool"
-	"github.com/R-a-dio/valkyrie/website"
 	"github.com/blevesearch/bleve/v2"
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
 	"github.com/vmihailenco/msgpack/v4"
 )
@@ -54,35 +50,6 @@ func zerologLoggerFunc(r *http.Request, status, size int, duration time.Duration
 		Int("response_size_bytes", size).
 		Dur("elapsed_ms", duration).
 		Msg("http request")
-}
-
-func NewServer(ctx context.Context, idx *index) (*http.Server, error) {
-	logger := zerolog.Ctx(ctx)
-	r := website.NewRouter()
-	r.Use(middleware.Recoverer)
-	r.Use(
-		hlog.NewHandler(*logger),
-		hlog.RemoteAddrHandler("ip"),
-		hlog.UserAgentHandler("user_agent"),
-		hlog.RequestIDHandler("req_id", "Request-Id"),
-		hlog.URLHandler("url"),
-		hlog.MethodHandler("method"),
-		hlog.ProtoHandler("protocol"),
-		hlog.CustomHeaderHandler("is_htmx", "Hx-Request"),
-		hlog.AccessHandler(zerologLoggerFunc),
-	)
-
-	r.Get(searchPath, SearchHandler(idx))
-	r.Get(searchJSONPath, SearchJSONHandler(idx))
-	r.Get(extendedPath, ExtendedSearchHandler(idx))
-	r.Get(indexStatsPath, IndexStatsHandler(idx))
-	r.Post(deletePath, DeleteHandler(idx))
-	r.Post(updatePath, UpdateHandler(idx))
-
-	srv := &http.Server{
-		Handler: r,
-	}
-	return srv, nil
 }
 
 func DeleteHandler(idx *index) http.HandlerFunc {
