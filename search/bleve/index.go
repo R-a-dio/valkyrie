@@ -5,15 +5,11 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"syscall"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
-	"github.com/R-a-dio/valkyrie/search"
-	"github.com/R-a-dio/valkyrie/util"
-	"github.com/Wessie/fdstore"
 	"github.com/blevesearch/bleve/v2"
 	"github.com/blevesearch/bleve/v2/mapping"
 	"github.com/blevesearch/bleve/v2/search/query"
@@ -22,52 +18,6 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 )
-
-func Execute(ctx context.Context, cfg config.Config) error {
-	const op errors.Op = "search/bleve.Execute"
-
-	idx, err := NewIndex(cfg.Conf().Search.IndexPath)
-	if err != nil {
-		return errors.E(op, err)
-	}
-	defer idx.index.Close()
-
-	srv, err := NewServer(ctx, idx)
-	if err != nil {
-		return errors.E(op, err)
-	}
-	defer srv.Close()
-
-	fdstorage := fdstore.NewStoreListenFDs()
-
-	endpoint := cfg.Conf().Search.Endpoint.URL()
-	ln, _, err := util.RestoreOrListen(fdstorage, "bleve", "tcp", endpoint.Host)
-	if err != nil {
-		return errors.E(op, err)
-	}
-
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- srv.Serve(ln)
-	}()
-
-	select {
-	case <-ctx.Done():
-		return srv.Close()
-	case <-util.Signal(syscall.SIGUSR2):
-		zerolog.Ctx(ctx).Info().Msg("SIGUSR2 received")
-		err := fdstorage.AddListener(ln, "bleve", nil)
-		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to store listener")
-		}
-		if err = fdstorage.Send(); err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to send store")
-		}
-		return srv.Close()
-	case err := <-errCh:
-		return err
-	}
-}
 
 type indexSong struct {
 	// main fields we're searching through
@@ -190,10 +140,6 @@ func (b *index) Delete(ctx context.Context, tids []radio.TrackID) error {
 		return errors.E(op, err)
 	}
 	return nil
-}
-
-func init() {
-	search.Register("bleve", true, Open)
 }
 
 func mixedTextMapping() *mapping.FieldMapping {
