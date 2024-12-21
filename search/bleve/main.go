@@ -329,13 +329,18 @@ func NewQuery(ctx context.Context, s string) (query.Query, error) {
 		return q, nil
 	}
 
-	cq, ok := bq.Must.(*query.ConjunctionQuery)
-	if !ok {
-		zerolog.Ctx(ctx).Warn().Str("type", fmt.Sprintf("%T", q)).Msg("query was not a ConjuctionQuery")
+	switch qq := bq.Must.(type) {
+	case *query.ConjunctionQuery:
+		// move the should (OR) into the must (AND) query set
+		qq.AddQuery(dq.Disjuncts...)
+	case *query.BooleanQuery:
+		// move the should (OR) into the must (AND) query set
+		qq.AddMust(dq.Disjuncts...)
+	default:
+		zerolog.Ctx(ctx).Warn().Str("type", fmt.Sprintf("%T", q)).Msg("query is unknown type")
 		return q, nil
 	}
-	// move the disjuncts (OR) into the conjuncts (AND) query set
-	cq.AddQuery(dq.Disjuncts...)
+
 	// set the original should to nil
 	bq.Should = nil
 
