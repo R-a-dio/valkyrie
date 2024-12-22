@@ -52,7 +52,7 @@ func zerologLoggerFunc(r *http.Request, status, size int, duration time.Duration
 		Msg("http request")
 }
 
-func DeleteHandler(idx *index) http.HandlerFunc {
+func DeleteHandler(idx *indexWrap) http.HandlerFunc {
 	const op errors.Op = "search/bleve.DeleteHandler"
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -75,7 +75,7 @@ func DeleteHandler(idx *index) http.HandlerFunc {
 	}
 }
 
-func UpdateHandler(idx *index) http.HandlerFunc {
+func UpdateHandler(idx *indexWrap) http.HandlerFunc {
 	const op errors.Op = "search/bleve.UpdateHandler"
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -106,7 +106,7 @@ func AsIntOrDefault(s string, def int) int {
 	return i
 }
 
-func IndexStatsHandler(idx *index) http.HandlerFunc {
+func IndexStatsHandler(idx *indexWrap) http.HandlerFunc {
 	const op errors.Op = "search/bleve.IndexStatsHandler"
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -116,7 +116,7 @@ func IndexStatsHandler(idx *index) http.HandlerFunc {
 		enc.Encode(stats)
 	}
 }
-func SearchHandler(idx *index) http.HandlerFunc {
+func SearchHandler(idx *indexWrap) http.HandlerFunc {
 	const op errors.Op = "search/bleve.SearchHandler"
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -138,7 +138,7 @@ func SearchHandler(idx *index) http.HandlerFunc {
 	}
 }
 
-func SearchJSONHandler(idx *index) http.HandlerFunc {
+func SearchJSONHandler(idx *indexWrap) http.HandlerFunc {
 	const op errors.Op = "search/bleve.SearchJSONHandler"
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -246,6 +246,6 @@ func bleveToRadio(result *bleve.SearchResult) (*radio.SearchResult, error) {
 	return &res, nil
 }
 
-func ExtendedSearchHandler(idx *index) http.HandlerFunc {
+func ExtendedSearchHandler(idx *indexWrap) http.HandlerFunc {
 	return nil
 }

@@ -2,21 +2,23 @@ package bleve
 
 import (
 	"context"
-	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/blevesearch/bleve/v2"
+	"github.com/blevesearch/bleve/v2/analysis/analyzer/keyword"
 	"github.com/blevesearch/bleve/v2/mapping"
-	"github.com/blevesearch/bleve/v2/search/query"
-	"github.com/rs/zerolog"
 	"github.com/vmihailenco/msgpack/v4"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+)
+
+const (
+	indexAnalyzerName = "radio"
+	queryAnalyzerName = "radio-query"
 )
 
 type indexSong struct {
@@ -29,7 +31,7 @@ type indexSong struct {
 	LastRequested time.Time `bleve:"lastrequested"`
 	LastPlayed    time.Time `bleve:"lastplayed"`
 	// keyword fields
-	ID       int    `bleve:"id"`
+	ID       string `bleve:"id"`
 	Acceptor string `bleve:"acceptor"`
 	Editor   string `bleve:"editor"`
 	// sorting fields
@@ -53,7 +55,7 @@ func toIndexSong(s radio.Song) *indexSong {
 		Tags:          s.Tags,
 		LastRequested: s.LastRequested,
 		LastPlayed:    s.LastPlayed,
-		ID:            int(s.TrackID),
+		ID:            s.TrackID.String(),
 		Acceptor:      s.Acceptor,
 		Editor:        s.LastEditor,
 		Priority:      s.Priority,
@@ -62,11 +64,15 @@ func toIndexSong(s radio.Song) *indexSong {
 	}
 }
 
-type index struct {
+type indexWrap struct {
 	index bleve.Index
 }
 
-func (b *index) SearchFromRequest(r *http.Request) (*bleve.SearchResult, error) {
+func (b *indexWrap) Close() error {
+	return b.index.Close()
+}
+
+func (b *indexWrap) SearchFromRequest(r *http.Request) (*bleve.SearchResult, error) {
 	const op errors.Op = "search/bleve.SearchFromRequest"
 
 	raw := r.FormValue("q")
@@ -80,7 +86,7 @@ func (b *index) SearchFromRequest(r *http.Request) (*bleve.SearchResult, error) 
 	return res, nil
 }
 
-func (b *index) Search(ctx context.Context, raw string, limit, offset int) (*bleve.SearchResult, error) {
+func (b *indexWrap) Search(ctx context.Context, raw string, limit, offset int) (*bleve.SearchResult, error) {
 	const op errors.Op = "search/bleve.Search"
 	ctx, span := otel.Tracer("").Start(ctx, string(op))
 	defer span.End()
@@ -101,7 +107,7 @@ func (b *index) Search(ctx context.Context, raw string, limit, offset int) (*ble
 	return result, nil
 }
 
-func (b *index) Index(ctx context.Context, songs []radio.Song) error {
+func (b *indexWrap) Index(ctx context.Context, songs []radio.Song) error {
 	const op errors.Op = "search/bleve.Index"
 	ctx, span := otel.Tracer("").Start(ctx, string(op))
 	defer span.End()
@@ -126,7 +132,7 @@ func (b *index) Index(ctx context.Context, songs []radio.Song) error {
 	return nil
 }
 
-func (b *index) Delete(ctx context.Context, tids []radio.TrackID) error {
+func (b *indexWrap) Delete(ctx context.Context, tids []radio.TrackID) error {
 	const op errors.Op = "search/bleve.Delete"
 	ctx, span := otel.Tracer("").Start(ctx, string(op))
 	defer span.End()
@@ -144,7 +150,7 @@ func (b *index) Delete(ctx context.Context, tids []radio.TrackID) error {
 
 func mixedTextMapping() *mapping.FieldMapping {
 	m := bleve.NewTextFieldMapping()
-	m.Analyzer = "radio"
+	m.Analyzer = indexAnalyzerName
 	m.Store = false
 	m.Index = true
 	return m
@@ -157,7 +163,7 @@ func constructIndexMapping() (mapping.IndexMapping, error) {
 	// create a mapping for our radio.Song type
 	sm := bleve.NewDocumentStaticMapping()
 	sm.StructTagKey = "bleve"
-	sm.DefaultAnalyzer = "radio-query"
+	sm.DefaultAnalyzer = indexAnalyzerName
 
 	title := mixedTextMapping()
 	sm.AddFieldMappingsAt("title", title)
@@ -187,9 +193,11 @@ func constructIndexMapping() (mapping.IndexMapping, error) {
 	priority.Store = false
 	sm.AddFieldMappingsAt("priority", priority)
 
-	id := bleve.NewNumericFieldMapping()
+	id := bleve.NewKeywordFieldMapping()
 	id.Index = true
 	id.Store = false
+	id.IncludeTermVectors = false
+	id.IncludeInAll = true
 	sm.AddFieldMappingsAt("id", id)
 
 	lr := bleve.NewDateTimeFieldMapping()
@@ -205,7 +213,8 @@ func constructIndexMapping() (mapping.IndexMapping, error) {
 	data := bleve.NewTextFieldMapping()
 	data.Index = false
 	data.Store = true
-	data.Analyzer = "keyword"
+	data.IncludeInAll = false
+	data.Analyzer = keyword.Name
 	sm.AddFieldMappingsAt("data", data)
 
 	// register the song mapping
@@ -219,13 +228,13 @@ func Open(ctx context.Context, cfg config.Config) (radio.SearchService, error) {
 	return NewClient(cfg.Conf().Search.Endpoint.URL()), nil
 }
 
-func NewIndex(indexPath string) (*index, error) {
+func NewIndex(indexPath string) (*indexWrap, error) {
 	const op errors.Op = "bleve.NewIndex"
 
 	idx, err := bleve.Open(indexPath)
 	if err == nil {
 		// happy path, we have an index and opened it
-		return &index{idx}, nil
+		return &indexWrap{idx}, nil
 	}
 
 	// check if error was not-exist
@@ -239,125 +248,13 @@ func NewIndex(indexPath string) (*index, error) {
 		return nil, errors.E(op, err)
 	}
 
-	idx, err = bleve.New(indexPath, mapping)
+	if indexPath == ":memory:" { // support memory-only index for testing purposes
+		idx, err = bleve.NewMemOnly(mapping)
+	} else {
+		idx, err = bleve.New(indexPath, mapping)
+	}
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
-	return &index{idx}, nil
-}
-
-func NewQuery(ctx context.Context, s string) (query.Query, error) {
-	const op errors.Op = "search/bleve.NewQuery"
-	ctx, span := otel.Tracer("").Start(ctx, string(op))
-	defer span.End()
-	if span.IsRecording() {
-		span.SetAttributes(attribute.KeyValue{
-			Key:   "query",
-			Value: attribute.StringValue(s),
-		})
-	}
-
-	qsq := bleve.NewQueryStringQuery(s)
-	q, err := qsq.Parse()
-	if err != nil {
-		return nil, err
-	}
-
-	bq, ok := q.(*query.BooleanQuery)
-	if !ok {
-		zerolog.Ctx(ctx).Warn().Str("type", fmt.Sprintf("%T", q)).Msg("query was not a BooleanQuery")
-		return q, nil
-	}
-
-	dq, ok := bq.Should.(*query.DisjunctionQuery)
-	if !ok {
-		zerolog.Ctx(ctx).Warn().Str("type", fmt.Sprintf("%T", bq.Should)).Msg("query was not a DisjunctionQuery")
-		return q, nil
-	}
-
-	// move the should (OR) into the must (AND) query set if possible
-	if bq.Must != nil {
-		cq, ok := bq.Must.(*query.ConjunctionQuery)
-		if !ok {
-			zerolog.Ctx(ctx).Warn().Str("type", fmt.Sprintf("%T", bq.Must)).Msg("query is unknown type")
-			return q, nil
-		}
-		cq.AddQuery(dq.Disjuncts...)
-	} else {
-		bq.Must = bleve.NewConjunctionQuery(dq.Disjuncts...)
-	}
-
-	// set the original should to nil
-	bq.Should = nil
-
-	// add a bit of fuzziness to queries that support it
-	//filterQuery(&q, AddFuzzy)
-	// remove wildcards that are just "match everything"
-	filterQuery(&q,
-		ChangeLoneWildcardIntoMatchAll,
-		RemoveRegexQuery,
-		// AddFuzzy,
-	)
-	return bq, nil
-}
-
-func filterQuery(q *query.Query, filter ...func(q *query.Query)) {
-	switch v := (*q).(type) {
-	case *query.BooleanQuery:
-		filterQuery(&v.Must, filter...)
-		filterQuery(&v.MustNot, filter...)
-		filterQuery(&v.Should, filter...)
-	case *query.ConjunctionQuery:
-		for i := range v.Conjuncts {
-			filterQuery(&v.Conjuncts[i], filter...)
-		}
-	case *query.DisjunctionQuery:
-		for i := range v.Disjuncts {
-			filterQuery(&v.Disjuncts[i], filter...)
-		}
-	case nil:
-	default:
-		for _, fn := range filter {
-			fn(q)
-		}
-	}
-}
-
-func RemoveRegexQuery(q *query.Query) {
-	rq, ok := (*q).(*query.RegexpQuery)
-	if !ok {
-		return
-	}
-	_ = rq
-	// TODO: implement this
-	return
-}
-
-func ChangeLoneWildcardIntoMatchAll(q *query.Query) {
-	wq, ok := (*q).(*query.WildcardQuery)
-	if !ok {
-		return
-	}
-	if strings.TrimSpace(wq.Wildcard) == "*" {
-		*q = bleve.NewMatchAllQuery()
-	}
-}
-
-func AddFuzzy(q *query.Query) {
-	const fuzzyMin = 3
-
-	switch fq := (*q).(type) {
-	case *query.MatchQuery:
-		if len(fq.Match) > fuzzyMin {
-			fq.SetFuzziness(1)
-		}
-	case *query.FuzzyQuery:
-		if len(fq.Term) > fuzzyMin && fq.Fuzziness == 0 {
-			fq.SetFuzziness(1)
-		}
-	case *query.MatchPhraseQuery:
-		if len(fq.MatchPhrase) > fuzzyMin {
-			fq.SetFuzziness(1)
-		}
-	}
+	return &indexWrap{idx}, nil
 }
