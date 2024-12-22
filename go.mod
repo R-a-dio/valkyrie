@@ -13,11 +13,10 @@ require (
 	github.com/Wessie/fdstore v1.2.3
 	github.com/XSAM/otelsql v0.36.0
 	github.com/adtac/go-akismet v0.0.0-20181220032308-0ca9e1023047
-	github.com/agoda-com/opentelemetry-go/otelzerolog v0.0.1
-	github.com/agoda-com/opentelemetry-logs-go v0.5.1
 	github.com/alevinval/sse v1.0.2
 	github.com/alexedwards/scs/v2 v2.8.0
 	github.com/blevesearch/bleve/v2 v2.4.4
+	github.com/blevesearch/bleve_index_api v1.2.0
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/davecgh/go-spew v1.1.1
@@ -26,6 +25,8 @@ require (
 	github.com/golang-migrate/migrate/v4 v4.18.1
 	github.com/google/subcommands v1.2.0
 	github.com/gorilla/csrf v1.7.2
+	github.com/ikawaha/kagome-dict/ipa v1.2.0
+	github.com/ikawaha/kagome/v2 v2.10.0
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/justincormack/go-memfd v0.0.0-20170219213707-6e4af0518993
 	github.com/jxskiss/base62 v1.1.0
@@ -56,7 +57,6 @@ require (
 	go.opentelemetry.io/otel/trace v1.33.0
 	golang.org/x/crypto v0.31.0
 	golang.org/x/exp v0.0.0-20241217172543-b2144cdd0a67
-	golang.org/x/term v0.27.0
 	golang.org/x/text v0.21.0
 	golang.org/x/tools v0.28.0
 	google.golang.org/grpc v1.69.2
@@ -65,14 +65,13 @@ require (
 require (
 	dario.cat/mergo v1.0.1 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
+	github.com/AdaLogics/go-fuzz-headers v0.0.0-20230811130428-ced1acdcaa24 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
-	github.com/Microsoft/hcsshim v0.12.9 // indirect
 	github.com/RoaringBitmap/roaring v1.9.4 // indirect
 	github.com/andybalholm/brotli v1.1.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.20.0 // indirect
-	github.com/blevesearch/bleve_index_api v1.2.0 // indirect
 	github.com/blevesearch/geo v0.1.20 // indirect
 	github.com/blevesearch/go-faiss v1.0.24 // indirect
 	github.com/blevesearch/go-porterstemmer v1.0.3 // indirect
@@ -90,7 +89,6 @@ require (
 	github.com/blevesearch/zapx/v15 v15.3.17 // indirect
 	github.com/blevesearch/zapx/v16 v16.1.10 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/containerd/containerd v1.7.24 // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/containerd/platforms v0.2.1 // indirect
 	github.com/cpuguy83/dockercfg v0.3.2 // indirect
@@ -109,6 +107,7 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.25.1 // indirect
+	github.com/ikawaha/kagome-dict v1.1.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/lufia/plan9stats v0.0.0-20240909124753-873cd0166683 // indirect
 	github.com/magiconair/properties v1.8.9 // indirect
@@ -143,6 +142,7 @@ require (
 	go.etcd.io/bbolt v1.3.11 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.33.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.19.0 // indirect
 	go.opentelemetry.io/otel/metric v1.33.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.4.0 // indirect
 	golang.org/x/net v0.33.0 // indirect

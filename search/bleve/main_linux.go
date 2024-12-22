@@ -66,7 +66,7 @@ func init() {
 	search.Register("bleve", true, Open)
 }
 
-func NewServer(ctx context.Context, idx *index) (*http.Server, error) {
+func NewServer(ctx context.Context, idx *indexWrap) (*http.Server, error) {
 	logger := zerolog.Ctx(ctx)
 	r := website.NewRouter()
 	r.Use(middleware.Recoverer)

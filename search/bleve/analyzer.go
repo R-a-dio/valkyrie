@@ -3,57 +3,62 @@ package bleve
 import (
 	"bytes"
 	"fmt"
+	"strings"
 
 	"github.com/blevesearch/bleve/v2/analysis"
-	"github.com/blevesearch/bleve/v2/analysis/analyzer/web"
-	"github.com/blevesearch/bleve/v2/analysis/lang/cjk"
 	"github.com/blevesearch/bleve/v2/analysis/token/lowercase"
 	"github.com/blevesearch/bleve/v2/analysis/token/ngram"
-	"github.com/blevesearch/bleve/v2/analysis/token/shingle"
 	"github.com/blevesearch/bleve/v2/analysis/token/unicodenorm"
+	"github.com/blevesearch/bleve/v2/analysis/token/unique"
 	"github.com/blevesearch/bleve/v2/analysis/tokenizer/whitespace"
 	"github.com/blevesearch/bleve/v2/registry"
+	"github.com/ikawaha/kagome-dict/ipa"
+	"github.com/ikawaha/kagome/v2/tokenizer"
 	"github.com/robpike/nihongo"
 )
 
-func AnalyzerConstructor(config map[string]interface{}, cache *registry.Cache) (analysis.Analyzer, error) {
-	tokenizer, err := cache.TokenizerNamed(web.Name)
-	if err != nil {
-		return nil, err
-	}
+const NgramFilterMin = 2
+const NgramFilterMax = 3
 
-	cjkWidth, err := cache.TokenFilterNamed(cjk.WidthName)
-	if err != nil {
-		return nil, err
-	}
+var _ analysis.Analyzer = new(multiAnalyzer)
 
-	cjkFilter, err := cache.TokenFilterNamed(cjk.BigramName)
-	if err != nil {
-		return nil, err
-	}
-	_ = cjkFilter
+type PrefilterFn func(in []byte) (out []byte)
 
-	toLowerFilter, err := cache.TokenFilterNamed(lowercase.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	rv := analysis.DefaultAnalyzer{
-		Tokenizer: tokenizer,
-		TokenFilters: []analysis.TokenFilter{
-			cjkWidth,
-			shingle.NewShingleFilter(2, 4, true, " ", "_"),
-			FilterFn(RomajiFilter),
-			toLowerFilter,
-			cjkFilter,
-			unicodenorm.MustNewUnicodeNormalizeFilter(unicodenorm.NFC),
-			NgramFilter(2, 3),
-		},
-	}
-	return &rv, nil
+type multiAnalyzer struct {
+	prefilter func(in []byte) (out []byte)
+	analyzers []analysis.Analyzer
 }
 
-func QueryAnalyzerConstructor(config map[string]any, cache *registry.Cache) (analysis.Analyzer, error) {
+func (ma *multiAnalyzer) Analyze(text []byte) analysis.TokenStream {
+	var res analysis.TokenStream
+
+	fmt.Println(string(text))
+	if ma.prefilter != nil {
+		new := ma.prefilter(text)
+		if !bytes.Equal(text, new) {
+			res = ma.analyze(res, new)
+		}
+	}
+
+	return ma.analyze(res, text)
+}
+
+func (ma *multiAnalyzer) analyze(res analysis.TokenStream, text []byte) analysis.TokenStream {
+	for _, a := range ma.analyzers {
+		res = append(res, a.Analyze(text)...)
+	}
+	return res
+}
+
+func NewMultiAnalyzer(pre PrefilterFn, a ...analysis.Analyzer) analysis.Analyzer {
+	return &multiAnalyzer{
+		prefilter: pre,
+		analyzers: a,
+	}
+}
+
+func AnalyzerConstructor(config map[string]interface{}, cache *registry.Cache) (analysis.Analyzer, error) {
+	// construct our normal analyzer
 	tokenizer, err := cache.TokenizerNamed(whitespace.Name)
 	if err != nil {
 		return nil, err
@@ -64,20 +69,42 @@ func QueryAnalyzerConstructor(config map[string]any, cache *registry.Cache) (ana
 		return nil, err
 	}
 
-	rv := analysis.DefaultAnalyzer{
+	normalizeFilter := unicodenorm.MustNewUnicodeNormalizeFilter(unicodenorm.NFC)
+
+	normal := &analysis.DefaultAnalyzer{
 		Tokenizer: tokenizer,
 		TokenFilters: []analysis.TokenFilter{
-			FilterFn(RomajiFilter),
 			toLowerFilter,
+			//shingle.NewShingleFilter(2, 4, true, " ", "_"),
+			normalizeFilter,
+			NgramFilter(NgramFilterMin, NgramFilterMax),
 		},
 	}
 
-	return &rv, nil
+	// construct the japanese specific analyzer
+	japanese := &analysis.DefaultAnalyzer{
+		Tokenizer: NewKagomeTokenizer(),
+		TokenFilters: []analysis.TokenFilter{
+			toLowerFilter,
+			normalizeFilter,
+			FilterFn(RomajiFilter),
+			NgramFilter(NgramFilterMin, NgramFilterMax),
+			unique.NewUniqueTermFilter(),
+		},
+	}
+
+	_ = normal
+	return japanese, nil
+	/*
+		return NewMultiAnalyzer(nihongo.Romaji,
+			japanese,
+			normal,
+		), nil
+	*/
 }
 
 func init() {
 	registry.RegisterAnalyzer("radio", AnalyzerConstructor)
-	registry.RegisterAnalyzer("radio-query", QueryAnalyzerConstructor)
 }
 
 type FilterFn func(input analysis.TokenStream) analysis.TokenStream
@@ -130,7 +157,7 @@ func NgramFilter(min, max int) analysis.TokenFilter {
 		for i, tok := range input {
 			if len(tok.Term) > max {
 				// add the original token if it's above max
-				rv = append(rv, tok)
+				//rv = append(rv, tok)
 			}
 			// add the ngram tokens if this isn't a shingle
 			if tok.Type != analysis.Shingle {
@@ -139,6 +166,117 @@ func NgramFilter(min, max int) analysis.TokenFilter {
 		}
 		return rv
 	})
+}
+
+type KagomeTokenizer struct {
+	tok *tokenizer.Tokenizer
+}
+
+func NewKagomeTokenizer() *KagomeTokenizer {
+	tok, err := tokenizer.New(ipa.Dict(), tokenizer.OmitBosEos())
+	if err != nil {
+		return nil
+	}
+
+	return &KagomeTokenizer{
+		tok: tok,
+	}
+}
+
+func (t *KagomeTokenizer) Tokenize(input []byte) analysis.TokenStream {
+	if len(input) < 1 {
+		return nil
+	}
+
+	var bytePos int
+	var surface []byte
+	var rv analysis.TokenStream
+	var tokenPos int
+
+	appendToken := func(token *analysis.Token) {
+		rv, tokenPos = append(rv, token), tokenPos+1
+	}
+
+	for _, m := range t.tok.Analyze(string(input), tokenizer.Search) {
+		bytePos += len(m.Surface) // add to the running byte count
+
+		surfaceLen := len(m.Surface) // record before we trim
+		m.Surface = strings.TrimSpace(m.Surface)
+		if len(m.Surface) == 0 && len(surface) > 0 {
+			// we found some whitespace, emit everything we've collected in the surface
+			token := &analysis.Token{
+				Term:     surface,
+				Position: tokenPos,
+				Start:    bytePos - len(surface) - surfaceLen,
+				End:      bytePos,
+				Type:     analysis.AlphaNumeric,
+			}
+
+			appendToken(token)
+			surface = nil
+			continue
+		}
+
+		if m.Class == tokenizer.KNOWN {
+			// we hit something that the tokenizer knows, this probably means some
+			// japanese text, emit whatever is in the current surface first and then
+			// handle the new token
+			if len(surface) > 0 {
+				token := &analysis.Token{
+					Term:     surface,
+					Position: tokenPos,
+					Start:    bytePos - len(surface),
+					End:      bytePos,
+					Type:     analysis.AlphaNumeric,
+				}
+
+				appendToken(token)
+				surface = nil
+			}
+
+			// now handle the KNOWN token
+			token := &analysis.Token{
+				Term:     []byte(m.Surface),
+				Position: tokenPos,
+				Start:    bytePos - len(m.Surface),
+				End:      bytePos,
+				Type:     analysis.Ideographic,
+			}
+			appendToken(token)
+			continue
+		}
+
+		surface = append(surface, m.Surface...)
+	}
+
+	// end of the input, might have a strangling surface
+	if len(surface) > 0 {
+		token := &analysis.Token{
+			Term:     surface,
+			Position: tokenPos,
+			Start:    bytePos - len(surface),
+			End:      bytePos,
+			Type:     analysis.AlphaNumeric,
+		}
+
+		rv = append(rv, token)
+	}
+
+	/*
+		fmt.Printf("%s ->	", string(input))
+		for _, token := range rv {
+			fmt.Printf("[%s]", string(token.Term))
+		}
+		fmt.Printf("\n")
+	*/
+
+	/*
+		for _, token := range rv {
+			fmt.Printf("TOKEN: %v\n", token)
+			fmt.Println(string(input[token.Start:token.End]))
+		}
+	*/
+	return rv
 }
 
 /*func KagomeFilter() (FilterFn, error) {
