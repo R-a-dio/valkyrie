@@ -3,7 +3,9 @@ package bleve
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"strings"
+	"unicode"
 
 	"github.com/blevesearch/bleve/v2/analysis"
 	"github.com/blevesearch/bleve/v2/analysis/token/lowercase"
@@ -184,13 +186,15 @@ func NewKagomeTokenizer() *KagomeTokenizer {
 }
 
 func (t *KagomeTokenizer) Tokenize(input []byte) analysis.TokenStream {
+	const DEBUG = false
 	if len(input) < 1 {
 		return nil
 	}
 
 	var bytePos int
 	var surface []byte
-	var rv analysis.TokenStream
+	var surfaceLen int
+	var rv = make(analysis.TokenStream, 0, 5)
 	var tokenPos int
 
 	appendToken := func(token *analysis.Token) {
@@ -198,17 +202,25 @@ func (t *KagomeTokenizer) Tokenize(input []byte) analysis.TokenStream {
 	}
 
 	for _, m := range t.tok.Analyze(string(input), tokenizer.Search) {
+		if DEBUG {
+			log.Println(m)
+			log.Println([]byte(m.Surface))
+		}
 		bytePos += len(m.Surface) // add to the running byte count
 
-		surfaceLen := len(m.Surface) // record before we trim
-		m.Surface = strings.TrimSpace(m.Surface)
+		// length before we trim
+		surfaceLen = len(m.Surface)
+		m.Surface = strings.TrimRightFunc(m.Surface, unicode.IsSpace)
+		// then adjust for anything that has been trimmed
+		surfaceLen = surfaceLen - len(m.Surface)
+
 		if len(m.Surface) == 0 && len(surface) > 0 {
 			// we found some whitespace, emit everything we've collected in the surface
 			token := &analysis.Token{
 				Term:     surface,
 				Position: tokenPos,
 				Start:    bytePos - len(surface) - surfaceLen,
-				End:      bytePos,
+				End:      bytePos - surfaceLen,
 				Type:     analysis.AlphaNumeric,
 			}
 
@@ -225,8 +237,8 @@ func (t *KagomeTokenizer) Tokenize(input []byte) analysis.TokenStream {
 				token := &analysis.Token{
 					Term:     surface,
 					Position: tokenPos,
-					Start:    bytePos - len(surface),
-					End:      bytePos,
+					Start:    bytePos - len(surface) - len(m.Surface),
+					End:      bytePos - len(m.Surface),
 					Type:     analysis.AlphaNumeric,
 				}
 
@@ -254,8 +266,8 @@ func (t *KagomeTokenizer) Tokenize(input []byte) analysis.TokenStream {
 		token := &analysis.Token{
 			Term:     surface,
 			Position: tokenPos,
-			Start:    bytePos - len(surface),
-			End:      bytePos,
+			Start:    bytePos - len(surface) - surfaceLen,
+			End:      bytePos - surfaceLen,
 			Type:     analysis.AlphaNumeric,
 		}
 

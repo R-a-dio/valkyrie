@@ -18,7 +18,6 @@ import (
 
 const (
 	indexAnalyzerName = "radio"
-	queryAnalyzerName = "radio-query"
 )
 
 type indexSong struct {
