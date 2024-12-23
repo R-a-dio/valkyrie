@@ -16,9 +16,25 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
-func NewQuery(ctx context.Context, query string) (*RadioQuery, error) {
+const MaxQuerySize = 512
 
+func NewQuery(ctx context.Context, query string) (*RadioQuery, error) {
+	if len(query) > MaxQuerySize { // cut off the query if it goes past our MaxQuerySize
+		// but in a nice way, where we remove any invalid utf8 characters from the end
+		query = CutoffAtRune(query[:MaxQuerySize])
+	}
 	return &RadioQuery{query}, nil
+}
+
+func CutoffAtRune(s string) string {
+	for len(s) > 0 {
+		r, size := utf8.DecodeLastRuneInString(s)
+		if r != utf8.RuneError {
+			break
+		}
+		s = s[:len(s)-size]
+	}
+	return s
 }
 
 type RadioQuery struct {
