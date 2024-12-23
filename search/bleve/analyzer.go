@@ -6,12 +6,14 @@ import (
 	"log"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/blevesearch/bleve/v2/analysis"
 	"github.com/blevesearch/bleve/v2/analysis/token/lowercase"
 	"github.com/blevesearch/bleve/v2/analysis/token/ngram"
 	"github.com/blevesearch/bleve/v2/analysis/token/unicodenorm"
 	"github.com/blevesearch/bleve/v2/analysis/token/unique"
+	"github.com/blevesearch/bleve/v2/analysis/tokenizer/character"
 	"github.com/blevesearch/bleve/v2/analysis/tokenizer/whitespace"
 	"github.com/blevesearch/bleve/v2/registry"
 	"github.com/ikawaha/kagome-dict/ipa"
@@ -171,7 +173,8 @@ func NgramFilter(min, max int) analysis.TokenFilter {
 }
 
 type KagomeTokenizer struct {
-	tok *tokenizer.Tokenizer
+	kagome     *tokenizer.Tokenizer
+	whitespace analysis.Tokenizer
 }
 
 func NewKagomeTokenizer() *KagomeTokenizer {
@@ -181,8 +184,19 @@ func NewKagomeTokenizer() *KagomeTokenizer {
 	}
 
 	return &KagomeTokenizer{
-		tok: tok,
+		kagome:     tok,
+		whitespace: character.NewCharacterTokenizer(func(r rune) bool { return !unicode.IsSpace(r) }),
 	}
+}
+
+// IsASCII checks if the input only contains ascii
+func IsASCII(input []byte) bool {
+	for _, c := range input {
+		if c >= utf8.RuneSelf {
+			return false
+		}
+	}
+	return true
 }
 
 func (t *KagomeTokenizer) Tokenize(input []byte) analysis.TokenStream {
@@ -190,10 +204,13 @@ func (t *KagomeTokenizer) Tokenize(input []byte) analysis.TokenStream {
 	if len(input) < 1 {
 		return nil
 	}
+	if IsASCII(input) { // check if we need kagome or can just use the standard whitespace tokenizer
+		return t.whitespace.Tokenize(input)
+	}
 
 	var bytePos int
 	var surface []byte
-	var surfaceLen int
+	var whitespaceLen int
 	var rv = make(analysis.TokenStream, 0, 5)
 	var tokenPos int
 
@@ -201,7 +218,7 @@ func (t *KagomeTokenizer) Tokenize(input []byte) analysis.TokenStream {
 		rv, tokenPos = append(rv, token), tokenPos+1
 	}
 
-	for _, m := range t.tok.Analyze(string(input), tokenizer.Search) {
+	for _, m := range t.kagome.Analyze(string(input), tokenizer.Search) {
 		if DEBUG {
 			log.Println(m)
 			log.Println([]byte(m.Surface))
@@ -209,18 +226,24 @@ func (t *KagomeTokenizer) Tokenize(input []byte) analysis.TokenStream {
 		bytePos += len(m.Surface) // add to the running byte count
 
 		// length before we trim
-		surfaceLen = len(m.Surface)
+		surfaceLen := len(m.Surface)
 		m.Surface = strings.TrimRightFunc(m.Surface, unicode.IsSpace)
-		// then adjust for anything that has been trimmed
-		surfaceLen = surfaceLen - len(m.Surface)
+		// then calculate how much whitespace we removed
+		whitespaceLen = surfaceLen - len(m.Surface)
+		if len(m.Surface) < surfaceLen {
+			// we removed something from the surface, add it to our running count and then mark
+			// the m.Surface as empty so we enter the next condition
+			surface = append(surface, m.Surface...)
+			m.Surface = m.Surface[:0]
+		}
 
 		if len(m.Surface) == 0 && len(surface) > 0 {
 			// we found some whitespace, emit everything we've collected in the surface
 			token := &analysis.Token{
 				Term:     surface,
 				Position: tokenPos,
-				Start:    bytePos - len(surface) - surfaceLen,
-				End:      bytePos - surfaceLen,
+				Start:    bytePos - len(surface) - whitespaceLen,
+				End:      bytePos - whitespaceLen,
 				Type:     analysis.AlphaNumeric,
 			}
 
@@ -266,8 +289,8 @@ func (t *KagomeTokenizer) Tokenize(input []byte) analysis.TokenStream {
 		token := &analysis.Token{
 			Term:     surface,
 			Position: tokenPos,
-			Start:    bytePos - len(surface) - surfaceLen,
-			End:      bytePos - surfaceLen,
+			Start:    bytePos - len(surface) - whitespaceLen,
+			End:      bytePos - whitespaceLen,
 			Type:     analysis.AlphaNumeric,
 		}
 
