@@ -472,3 +472,82 @@ func fromProtoListener(l *Listener) radio.Listener {
 		Start:     t(l.Start),
 	}
 }
+
+func toProtoProxyMetadataEvent(e radio.ProxyMetadataEvent) *ProxyMetadataEvent {
+	return &ProxyMetadataEvent{
+		User:      toProtoUser(&e.User),
+		MountName: e.MountName,
+		Metadata:  e.Metadata,
+	}
+}
+
+func fromProtoProxyMetadataEvent(e *ProxyMetadataEvent) radio.ProxyMetadataEvent {
+	return radio.ProxyMetadataEvent{
+		User:      *fromProtoUser(e.User),
+		MountName: e.MountName,
+		Metadata:  e.Metadata,
+	}
+}
+
+func toProtoProxySourceEvent(e radio.ProxySourceEvent) *ProxySourceEvent {
+	return &ProxySourceEvent{
+		User:      toProtoUser(&e.User),
+		MountName: e.MountName,
+		Event:     toProtoSourceEventType(e.Event),
+		ID:        toProtoSourceID(e.ID),
+	}
+}
+
+func fromProtoProxySourceEvent(e *ProxySourceEvent) radio.ProxySourceEvent {
+	return radio.ProxySourceEvent{
+		User:      *fromProtoUser(e.User),
+		MountName: e.MountName,
+		Event:     fromProtoSourceEventType(e.Event),
+		ID:        fromProtoSourceID(e.ID),
+	}
+}
+
+func toProtoSourceID(rid radio.SourceID) *SourceID {
+	return &SourceID{
+		ID: rid.String(),
+	}
+}
+
+func fromProtoSourceID(id *SourceID) radio.SourceID {
+	if id == nil || len(id.ID) == 0 {
+		return radio.SourceID{}
+	}
+
+	rid, err := xid.FromString(id.ID)
+	if err != nil {
+		return radio.SourceID{}
+	}
+
+	return radio.SourceID{ID: rid}
+}
+
+func toProtoSourceEventType(et radio.ProxySourceEventType) ProxySourceEventType {
+	switch et {
+	case radio.SourceDisconnect:
+		return ProxySourceEventType_Disconnect
+	case radio.SourceConnect:
+		return ProxySourceEventType_Connect
+	case radio.SourceLive:
+		return ProxySourceEventType_Live
+	default:
+		return ProxySourceEventType(et)
+	}
+}
+
+func fromProtoSourceEventType(et ProxySourceEventType) radio.ProxySourceEventType {
+	switch et {
+	case ProxySourceEventType_Disconnect:
+		return radio.SourceDisconnect
+	case ProxySourceEventType_Connect:
+		return radio.SourceConnect
+	case ProxySourceEventType_Live:
+		return radio.SourceLive
+	default:
+		return radio.ProxySourceEventType(et)
+	}
+}

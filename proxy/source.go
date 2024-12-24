@@ -10,7 +10,6 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/proxy/compat"
 	"github.com/R-a-dio/valkyrie/website/middleware"
-	"github.com/rs/xid"
 	"github.com/rs/zerolog/hlog"
 )
 
@@ -105,18 +104,14 @@ func (s *Server) PutSource(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func NewSourceID(r *http.Request) SourceID {
+func NewSourceID(r *http.Request) radio.SourceID {
 	if id, ok := hlog.IDFromRequest(r); ok {
-		return SourceID{id}
+		return radio.SourceID{id}
 	}
 	panic("NewSourceID called without hlog.RequestIDHandler middleware")
 }
 
-type SourceID struct {
-	xid.ID
-}
-
-func NewSourceClient(id SourceID, ua, ct, mount string, conn net.Conn, user radio.User, identifier Identifier, metadata *Metadata) *SourceClient {
+func NewSourceClient(id radio.SourceID, ua, ct, mount string, conn net.Conn, user radio.User, identifier Identifier, metadata *Metadata) *SourceClient {
 	meta := new(atomic.Pointer[Metadata])
 	if metadata != nil {
 		meta.Store(metadata)
@@ -135,7 +130,7 @@ func NewSourceClient(id SourceID, ua, ct, mount string, conn net.Conn, user radi
 }
 
 type SourceClient struct {
-	ID SourceID
+	ID radio.SourceID
 	// UserAgent is the User-Agent HTTP header passed by the client
 	UserAgent string
 	// ContentType is the Content-Type HTTP header passed by the client

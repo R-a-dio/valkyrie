@@ -20,7 +20,7 @@ func (srv *Server) storeSelf(ctx context.Context, store *fdstore.Store) error {
 
 	// store proxy state
 	srv.listenerMu.Lock()
-	_ = store.AddListener(srv.listener, "proxy", state)
+	_ = store.AddListener(srv.listener, fdstoreHTTPName, state)
 	srv.listenerMu.Unlock()
 
 	// store each mount in the proxy
@@ -65,7 +65,7 @@ func (m *Mount) storeSources(ctx context.Context, store *fdstore.Store) error {
 }
 
 type storedSource struct {
-	ID          SourceID
+	ID          radio.SourceID
 	Priority    uint
 	UserAgent   string
 	ContentType string

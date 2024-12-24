@@ -45,6 +45,25 @@ func (as AnnouncerShim) AnnounceRequest(ctx context.Context, ar *SongRequestAnno
 	return new(emptypb.Empty), err
 }
 
+func NewProxy(p radio.ProxyService) ProxyServer {
+	return ProxyShim{
+		proxy: p,
+	}
+}
+
+type ProxyShim struct {
+	UnimplementedProxyServer
+	proxy radio.ProxyService
+}
+
+func (ps ProxyShim) MetadataStream(_ *emptypb.Empty, s Proxy_MetadataStreamServer) error {
+	return streamToProtobuf(s, ps.proxy.MetadataStream, toProtoProxyMetadataEvent)
+}
+
+func (ps ProxyShim) SourceStream(_ *emptypb.Empty, s Proxy_SourceStreamServer) error {
+	return streamToProtobuf(s, ps.proxy.SourceStream, toProtoProxySourceEvent)
+}
+
 // NewManager returns a new shim around the service given
 func NewManager(m radio.ManagerService) ManagerServer {
 	return ManagerShim{

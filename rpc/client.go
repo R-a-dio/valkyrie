@@ -113,6 +113,30 @@ func (a AnnouncerClientRPC) AnnounceUser(ctx context.Context, u *radio.User) err
 	return err
 }
 
+func NewProxyService(c *grpc.ClientConn) radio.ProxyService {
+	return ProxyClientRPC{
+		rpc: NewProxyClient(c),
+	}
+}
+
+type ProxyClientRPC struct {
+	rpc ProxyClient
+}
+
+func (p ProxyClientRPC) MetadataStream(ctx context.Context) (eventstream.Stream[radio.ProxyMetadataEvent], error) {
+	c := func(ctx context.Context, e *emptypb.Empty, opts ...grpc.CallOption) (pbReceiver[*ProxyMetadataEvent], error) {
+		return p.rpc.MetadataStream(ctx, e, opts...)
+	}
+	return streamFromProtobuf(ctx, c, fromProtoProxyMetadataEvent)
+}
+
+func (p ProxyClientRPC) SourceStream(ctx context.Context) (eventstream.Stream[radio.ProxySourceEvent], error) {
+	c := func(ctx context.Context, e *emptypb.Empty, opts ...grpc.CallOption) (pbReceiver[*ProxySourceEvent], error) {
+		return p.rpc.SourceStream(ctx, e, opts...)
+	}
+	return streamFromProtobuf(ctx, c, fromProtoProxySourceEvent)
+}
+
 // NewManagerService returns a new client implementing radio.ManagerService
 func NewManagerService(c *grpc.ClientConn) radio.ManagerService {
 	return ManagerClientRPC{
