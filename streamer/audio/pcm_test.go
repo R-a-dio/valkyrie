@@ -3,6 +3,7 @@ package audio
 import (
 	"bytes"
 	"crypto/rand"
+	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -41,7 +42,7 @@ func TestPCMBuffer(t *testing.T) {
 	t.Logf("playback length reader: %s", pr.TotalLength())
 	t.Logf("playback progress reader: %s", pr.Progress())
 
-	n, err = pr.Read(data2)
+	n, err = io.ReadAtLeast(pr, data2, len(data2))
 	require.NoError(t, err)
 	require.Equal(t, len(data2), n, "failed to read full data")
 
@@ -56,7 +57,7 @@ func TestPCMBuffer(t *testing.T) {
 		_, _ = p.Write(data)
 	}()
 
-	n, err = pr.Read(data2)
+	n, err = io.ReadAtLeast(pr, data2, len(data2))
 	require.NoError(t, err)
 	require.Equal(t, len(data2), n, "failed to read full data")
 
