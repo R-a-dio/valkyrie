@@ -1298,7 +1298,8 @@ func (ts TrackStorage) Delete(id radio.TrackID) error {
 	return errors.E(op, errors.SongUnknown)
 }
 
-var trackRandomQuery = expand(`SELECT
+var trackRandomQuery = expand(`
+SELECT
 	{trackColumns},
 	{maybeSongColumns},
 	{lastplayedSelect},
@@ -1306,22 +1307,71 @@ var trackRandomQuery = expand(`SELECT
 FROM 
     tracks 
 JOIN
-    (SELECT tracks.id FROM tracks WHERE usable=1 ORDER BY rand() LIMIT 0,1) AS a ON tracks.id = a.id
+    (SELECT tracks.id FROM tracks WHERE usable=1 ORDER BY rand() LIMIT 0,?) AS a ON tracks.id = a.id
 LEFT JOIN
     esong on tracks.hash = esong.hash;
 `)
 
-func (ts TrackStorage) Random() (*radio.Song, error) {
+func (ts TrackStorage) Random(limit int) ([]radio.Song, error) {
 	const op errors.Op = "mariadb/TrackStorage.Random"
 	handle, deferFn := ts.handle.span(op)
 	defer deferFn()
 
-	var song radio.Song
+	var songs = []radio.Song{}
 
-	err := sqlx.Get(handle, &song, trackRandomQuery)
+	err := sqlx.Select(handle, &songs, trackRandomQuery, limit)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
 
-	return &song, nil
+	return songs, nil
+}
+
+var trackRandomFavoriteOfQuery = expand(`
+WITH
+	esong
+AS (SELECT DISTINCT
+		esong.*
+	FROM
+		enick
+	JOIN
+		efave ON efave.inick = enick.id
+	JOIN
+		esong ON esong.id = efave.isong
+	WHERE
+		enick.nick = ?)
+SELECT
+	{songColumns},
+	{trackColumns},
+	COALESCE(eplay.dt, TIMESTAMP('0000-00-00 00:00:00')) AS lastplayed,
+	NOW() AS synctime
+FROM
+	tracks
+JOIN
+	esong ON tracks.hash = esong.hash
+LEFT JOIN
+	(SELECT
+		MAX(dt) AS dt,
+		isong
+	FROM
+		eplay
+	GROUP BY
+		isong) AS eplay ON eplay.isong = esong.id
+WHERE
+	tracks.usable=1
+ORDER BY rand() LIMIT 0,?;
+`)
+
+func (ts TrackStorage) RandomFavoriteOf(nick string, limit int) ([]radio.Song, error) {
+	const op errors.Op = "mariadb/TrackStorage.RandomFavoriteOf"
+	handle, deferFn := ts.handle.span(op)
+	defer deferFn()
+
+	var songs = []radio.Song{}
+
+	err := sqlx.Select(handle, &songs, trackRandomFavoriteOfQuery, nick, limit)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+	return songs, nil
 }

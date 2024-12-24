@@ -4024,8 +4024,11 @@ var _ radio.TrackStorage = &TrackStorageMock{}
 //			QueueCandidatesFunc: func() ([]radio.TrackID, error) {
 //				panic("mock out the QueueCandidates method")
 //			},
-//			RandomFunc: func() (*radio.Song, error) {
+//			RandomFunc: func(limit int) ([]radio.Song, error) {
 //				panic("mock out the Random method")
+//			},
+//			RandomFavoriteOfFunc: func(nick string, limit int) ([]radio.Song, error) {
+//				panic("mock out the RandomFavoriteOf method")
 //			},
 //			UnusableFunc: func() ([]radio.Song, error) {
 //				panic("mock out the Unusable method")
@@ -4080,7 +4083,10 @@ type TrackStorageMock struct {
 	QueueCandidatesFunc func() ([]radio.TrackID, error)
 
 	// RandomFunc mocks the Random method.
-	RandomFunc func() (*radio.Song, error)
+	RandomFunc func(limit int) ([]radio.Song, error)
+
+	// RandomFavoriteOfFunc mocks the RandomFavoriteOf method.
+	RandomFavoriteOfFunc func(nick string, limit int) ([]radio.Song, error)
 
 	// UnusableFunc mocks the Unusable method.
 	UnusableFunc func() ([]radio.Song, error)
@@ -4141,6 +4147,15 @@ type TrackStorageMock struct {
 		}
 		// Random holds details about calls to the Random method.
 		Random []struct {
+			// Limit is the limit argument value.
+			Limit int
+		}
+		// RandomFavoriteOf holds details about calls to the RandomFavoriteOf method.
+		RandomFavoriteOf []struct {
+			// Nick is the nick argument value.
+			Nick string
+			// Limit is the limit argument value.
+			Limit int
 		}
 		// Unusable holds details about calls to the Unusable method.
 		Unusable []struct {
@@ -4183,6 +4198,7 @@ type TrackStorageMock struct {
 	lockNeedReplacement       sync.RWMutex
 	lockQueueCandidates       sync.RWMutex
 	lockRandom                sync.RWMutex
+	lockRandomFavoriteOf      sync.RWMutex
 	lockUnusable              sync.RWMutex
 	lockUpdateLastPlayed      sync.RWMutex
 	lockUpdateLastRequested   sync.RWMutex
@@ -4460,16 +4476,19 @@ func (mock *TrackStorageMock) QueueCandidatesCalls() []struct {
 }
 
 // Random calls RandomFunc.
-func (mock *TrackStorageMock) Random() (*radio.Song, error) {
+func (mock *TrackStorageMock) Random(limit int) ([]radio.Song, error) {
 	if mock.RandomFunc == nil {
 		panic("TrackStorageMock.RandomFunc: method is nil but TrackStorage.Random was just called")
 	}
 	callInfo := struct {
-	}{}
+		Limit int
+	}{
+		Limit: limit,
+	}
 	mock.lockRandom.Lock()
 	mock.calls.Random = append(mock.calls.Random, callInfo)
 	mock.lockRandom.Unlock()
-	return mock.RandomFunc()
+	return mock.RandomFunc(limit)
 }
 
 // RandomCalls gets all the calls that were made to Random.
@@ -4477,12 +4496,50 @@ func (mock *TrackStorageMock) Random() (*radio.Song, error) {
 //
 //	len(mockedTrackStorage.RandomCalls())
 func (mock *TrackStorageMock) RandomCalls() []struct {
+	Limit int
 } {
 	var calls []struct {
+		Limit int
 	}
 	mock.lockRandom.RLock()
 	calls = mock.calls.Random
 	mock.lockRandom.RUnlock()
+	return calls
+}
+
+// RandomFavoriteOf calls RandomFavoriteOfFunc.
+func (mock *TrackStorageMock) RandomFavoriteOf(nick string, limit int) ([]radio.Song, error) {
+	if mock.RandomFavoriteOfFunc == nil {
+		panic("TrackStorageMock.RandomFavoriteOfFunc: method is nil but TrackStorage.RandomFavoriteOf was just called")
+	}
+	callInfo := struct {
+		Nick  string
+		Limit int
+	}{
+		Nick:  nick,
+		Limit: limit,
+	}
+	mock.lockRandomFavoriteOf.Lock()
+	mock.calls.RandomFavoriteOf = append(mock.calls.RandomFavoriteOf, callInfo)
+	mock.lockRandomFavoriteOf.Unlock()
+	return mock.RandomFavoriteOfFunc(nick, limit)
+}
+
+// RandomFavoriteOfCalls gets all the calls that were made to RandomFavoriteOf.
+// Check the length with:
+//
+//	len(mockedTrackStorage.RandomFavoriteOfCalls())
+func (mock *TrackStorageMock) RandomFavoriteOfCalls() []struct {
+	Nick  string
+	Limit int
+} {
+	var calls []struct {
+		Nick  string
+		Limit int
+	}
+	mock.lockRandomFavoriteOf.RLock()
+	calls = mock.calls.RandomFavoriteOf
+	mock.lockRandomFavoriteOf.RUnlock()
 	return calls
 }
 

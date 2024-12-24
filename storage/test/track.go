@@ -496,9 +496,20 @@ func (suite *Suite) TestTrackRandom(t *testing.T) {
 	s := suite.Storage(t)
 	ts := s.Track(suite.ctx)
 
-	song, err := ts.Random()
-	assert.Error(t, err)
-	assert.Nil(t, song)
+	songs, err := ts.Random(100)
+	assert.NoError(t, err)
+	assert.Len(t, songs, 0)
+	// TODO: add actual retrieval tests
+}
+
+func (suite *Suite) TestTrackRandomFavoriteOf(t *testing.T) {
+	s := suite.Storage(t)
+	ts := s.Track(suite.ctx)
+
+	songs, err := ts.RandomFavoriteOf("test", 100)
+	assert.NoError(t, err)
+	assert.Len(t, songs, 0)
+	// TODO: add actual retrieval tests
 }
 
 func (suite *Suite) TestTrackDelete(t *testing.T) {
