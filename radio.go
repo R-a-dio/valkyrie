@@ -947,6 +947,8 @@ type TrackStorage interface {
 	NeedReplacement() ([]Song, error)
 	// Insert inserts a new track, errors if ID or TrackID is set
 	Insert(song Song) (TrackID, error)
+	// Random returns a random usable track or an error if not possible
+	Random() (*Song, error)
 	// UpdateMetadata updates track metadata only (artist/title/album/tags/filepath/needreplacement)
 	UpdateMetadata(song Song) error
 	// UpdateUsable sets usable to the state given

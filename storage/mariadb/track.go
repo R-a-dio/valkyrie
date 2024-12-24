@@ -1297,3 +1297,31 @@ func (ts TrackStorage) Delete(id radio.TrackID) error {
 
 	return errors.E(op, errors.SongUnknown)
 }
+
+var trackRandomQuery = expand(`SELECT
+	{trackColumns},
+	{maybeSongColumns},
+	{lastplayedSelect},
+	NOW() AS synctime
+FROM 
+    tracks 
+JOIN
+    (SELECT tracks.id FROM tracks WHERE usable=1 ORDER BY rand() LIMIT 0,1) AS a ON tracks.id = a.id
+LEFT JOIN
+    esong on tracks.hash = esong.hash;
+`)
+
+func (ts TrackStorage) Random() (*radio.Song, error) {
+	const op errors.Op = "mariadb/TrackStorage.Random"
+	handle, deferFn := ts.handle.span(op)
+	defer deferFn()
+
+	var song radio.Song
+
+	err := sqlx.Get(handle, &song, trackRandomQuery)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	return &song, nil
+}
