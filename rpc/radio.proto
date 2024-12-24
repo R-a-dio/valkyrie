@@ -57,6 +57,34 @@ service Manager {
     rpc UpdateListenerCount(google.protobuf.Int64Value) returns (google.protobuf.Empty);
 }
 
+service Proxy {
+    rpc SourceStream(google.protobuf.Empty) returns (stream ProxySourceEvent);
+    rpc MetadataStream(google.protobuf.Empty) returns (stream ProxyMetadataEvent);
+}
+
+message ProxySourceEvent {
+    User user = 1;
+    string mount_name = 2;
+    ProxySourceEventType event = 3;
+    SourceID ID = 4;
+}
+
+message SourceID {
+    string ID = 1;
+}
+
+enum ProxySourceEventType {
+    Disconnect = 0;
+    Connect = 1;
+    Live = 2;
+}
+
+message ProxyMetadataEvent {
+    User user = 1;
+    string mount_name = 2;
+    string metadata = 3;
+}
+
 message StatusResponse {
     // the current user that is streaming (or was streaming)
     User user = 1;

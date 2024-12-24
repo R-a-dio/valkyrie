@@ -481,6 +481,152 @@ var Manager_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
+	Proxy_SourceStream_FullMethodName   = "/radio.Proxy/SourceStream"
+	Proxy_MetadataStream_FullMethodName = "/radio.Proxy/MetadataStream"
+)
+
+// ProxyClient is the client API for Proxy service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type ProxyClient interface {
+	SourceStream(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ProxySourceEvent], error)
+	MetadataStream(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ProxyMetadataEvent], error)
+}
+
+type proxyClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewProxyClient(cc grpc.ClientConnInterface) ProxyClient {
+	return &proxyClient{cc}
+}
+
+func (c *proxyClient) SourceStream(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ProxySourceEvent], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &Proxy_ServiceDesc.Streams[0], Proxy_SourceStream_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[emptypb.Empty, ProxySourceEvent]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Proxy_SourceStreamClient = grpc.ServerStreamingClient[ProxySourceEvent]
+
+func (c *proxyClient) MetadataStream(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ProxyMetadataEvent], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &Proxy_ServiceDesc.Streams[1], Proxy_MetadataStream_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[emptypb.Empty, ProxyMetadataEvent]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Proxy_MetadataStreamClient = grpc.ServerStreamingClient[ProxyMetadataEvent]
+
+// ProxyServer is the server API for Proxy service.
+// All implementations must embed UnimplementedProxyServer
+// for forward compatibility.
+type ProxyServer interface {
+	SourceStream(*emptypb.Empty, grpc.ServerStreamingServer[ProxySourceEvent]) error
+	MetadataStream(*emptypb.Empty, grpc.ServerStreamingServer[ProxyMetadataEvent]) error
+	mustEmbedUnimplementedProxyServer()
+}
+
+// UnimplementedProxyServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedProxyServer struct{}
+
+func (UnimplementedProxyServer) SourceStream(*emptypb.Empty, grpc.ServerStreamingServer[ProxySourceEvent]) error {
+	return status.Errorf(codes.Unimplemented, "method SourceStream not implemented")
+}
+func (UnimplementedProxyServer) MetadataStream(*emptypb.Empty, grpc.ServerStreamingServer[ProxyMetadataEvent]) error {
+	return status.Errorf(codes.Unimplemented, "method MetadataStream not implemented")
+}
+func (UnimplementedProxyServer) mustEmbedUnimplementedProxyServer() {}
+func (UnimplementedProxyServer) testEmbeddedByValue()               {}
+
+// UnsafeProxyServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to ProxyServer will
+// result in compilation errors.
+type UnsafeProxyServer interface {
+	mustEmbedUnimplementedProxyServer()
+}
+
+func RegisterProxyServer(s grpc.ServiceRegistrar, srv ProxyServer) {
+	// If the following call pancis, it indicates UnimplementedProxyServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&Proxy_ServiceDesc, srv)
+}
+
+func _Proxy_SourceStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(emptypb.Empty)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ProxyServer).SourceStream(m, &grpc.GenericServerStream[emptypb.Empty, ProxySourceEvent]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Proxy_SourceStreamServer = grpc.ServerStreamingServer[ProxySourceEvent]
+
+func _Proxy_MetadataStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(emptypb.Empty)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ProxyServer).MetadataStream(m, &grpc.GenericServerStream[emptypb.Empty, ProxyMetadataEvent]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Proxy_MetadataStreamServer = grpc.ServerStreamingServer[ProxyMetadataEvent]
+
+// Proxy_ServiceDesc is the grpc.ServiceDesc for Proxy service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var Proxy_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "radio.Proxy",
+	HandlerType: (*ProxyServer)(nil),
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "SourceStream",
+			Handler:       _Proxy_SourceStream_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "MetadataStream",
+			Handler:       _Proxy_MetadataStream_Handler,
+			ServerStreams: true,
+		},
+	},
+	Metadata: "radio.proto",
+}
+
+const (
 	Announcer_AnnounceSong_FullMethodName    = "/radio.Announcer/AnnounceSong"
 	Announcer_AnnounceRequest_FullMethodName = "/radio.Announcer/AnnounceRequest"
 	Announcer_AnnounceUser_FullMethodName    = "/radio.Announcer/AnnounceUser"

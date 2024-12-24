@@ -391,6 +391,36 @@ type ManagerService interface {
 	CurrentStatus(context.Context) (eventstream.Stream[Status], error)
 }
 
+type ProxyService interface {
+	MetadataStream(context.Context) (eventstream.Stream[ProxyMetadataEvent], error)
+	SourceStream(context.Context) (eventstream.Stream[ProxySourceEvent], error)
+}
+
+type ProxyMetadataEvent struct {
+	MountName string
+	Metadata  string
+	User      User
+}
+
+type ProxySourceEvent struct {
+	ID        SourceID
+	MountName string
+	User      User
+	Event     ProxySourceEventType
+}
+
+type ProxySourceEventType int
+
+type SourceID struct {
+	xid.ID
+}
+
+const (
+	SourceDisconnect ProxySourceEventType = iota
+	SourceConnect
+	SourceLive
+)
+
 type StreamerService interface {
 	Start(context.Context) error
 	Stop(ctx context.Context, force bool) error

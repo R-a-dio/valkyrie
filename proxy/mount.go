@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/streamer/icecast"
@@ -239,7 +240,7 @@ func (m *Mount) AddSource(ctx context.Context, source *SourceClient) {
 	}
 }
 
-func (m *Mount) RemoveSource(ctx context.Context, id SourceID) {
+func (m *Mount) RemoveSource(ctx context.Context, id radio.SourceID) {
 	m.SourcesMu.Lock()
 	defer m.SourcesMu.Unlock()
 

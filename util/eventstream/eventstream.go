@@ -29,18 +29,32 @@ type request[T any] struct {
 	compareFn func(new, old T) bool
 }
 
+// NewEventStream returns a new EventStream with an initial value set to
+// initial
 func NewEventStream[M any](initial M) *EventStream[M] {
-	es := &EventStream[M]{
-		shutdownCh: make(chan struct{}),
-		closeCh:    make(chan struct{}),
-		lengthCh:   make(chan int),
-		reqs:       make(chan request[M]),
-		last:       atomic.Pointer[M]{},
-	}
-
+	es := newEventStream[M](true)
 	es.last.Store(&initial)
 	go es.run()
 	return es
+}
+
+// NewEventStreamNoInit returns a new EventStream that doesn't have an
+// initial value and does not send the last seen value when a sub connects
+func NewEventStreamNoInit[M any]() *EventStream[M] {
+	es := newEventStream[M](false)
+	go es.run()
+	return es
+}
+
+func newEventStream[M any](sendInit bool) *EventStream[M] {
+	return &EventStream[M]{
+		shutdownCh:  make(chan struct{}),
+		closeCh:     make(chan struct{}),
+		lengthCh:    make(chan int),
+		reqs:        make(chan request[M]),
+		last:        atomic.Pointer[M]{},
+		sendInitial: sendInit,
+	}
 }
 
 type EventStream[M any] struct {
@@ -53,6 +67,9 @@ type EventStream[M any] struct {
 	// lengthCh is the channel used to receive length responses after
 	// calling .length()
 	lengthCh chan int
+	// sendInitial indicates if we should send our last seen value to
+	// new subscribers or not
+	sendInitial bool
 
 	// reqs is the request channel to the manager goroutine
 	reqs chan request[M]
@@ -80,7 +97,9 @@ func (es *EventStream[M]) run() {
 				continue
 			}
 			// send our last/initial value
-			req.ch <- *es.last.Load()
+			if es.sendInitial {
+				req.ch <- *es.last.Load()
+			}
 			// add the channel
 			subs = append(subs, req.ch)
 		case LEAVE:

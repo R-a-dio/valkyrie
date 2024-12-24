@@ -30,6 +30,7 @@ type Server struct {
 	storage    radio.UserStorageService
 	manager    radio.ManagerService
 	http       *http.Server
+	events     *EventHandler
 }
 
 func zerologLoggerFunc(r *http.Request, status, size int, duration time.Duration) {
@@ -53,6 +54,7 @@ func NewServer(ctx context.Context, cfg config.Config, manager radio.ManagerServ
 		proxy:   pm,
 		manager: manager,
 		storage: uss,
+		events:  eh,
 	}
 
 	// older icecast source clients still use the SOURCE method instead of PUT
@@ -105,7 +107,7 @@ func (srv *Server) Start(ctx context.Context, fdstorage *fdstore.Store) error {
 
 	addr := srv.cfg.Conf().Proxy.ListenAddr.String()
 
-	ln, state, err := util.RestoreOrListen(fdstorage, "proxy", "tcp", addr)
+	ln, state, err := util.RestoreOrListen(fdstorage, fdstoreHTTPName, "tcp", addr)
 	if err != nil {
 		return err
 	}

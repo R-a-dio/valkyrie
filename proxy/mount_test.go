@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/rs/xid"
 	"github.com/stretchr/testify/assert"
@@ -77,7 +78,7 @@ func TestMostPriority(t *testing.T) {
 	prio := func(p uint) *MountSourceClient {
 		return &MountSourceClient{
 			Source: &SourceClient{
-				ID: SourceID{xid.New()},
+				ID: radio.SourceID{xid.New()},
 			},
 			Priority: p,
 		}
@@ -133,7 +134,7 @@ func TestMountRemoveSource(t *testing.T) {
 
 	user := newTestUser("test", "test")
 	req := httptest.NewRequest("PUT", mountName, conn2)
-	id := SourceID{xid.New()}
+	id := radio.SourceID{xid.New()}
 	identifier := IdentFromRequest(req)
 	metadata := &Metadata{}
 	_ = conn1
@@ -144,7 +145,7 @@ func TestMountRemoveSource(t *testing.T) {
 	assert.Equal(t, 1, getSourcesLength(mount), "should have one source")
 	assert.True(t, getSource(mount, 0).MW.GetLive(), "only source should be live")
 
-	mount.RemoveSource(ctx, SourceID{})
+	mount.RemoveSource(ctx, radio.SourceID{})
 	assert.Equal(t, 1, getSourcesLength(mount), "should still have one source")
 	mount.RemoveSource(ctx, source.ID)
 	assert.Equal(t, 0, getSourcesLength(mount), "should have no sources")
