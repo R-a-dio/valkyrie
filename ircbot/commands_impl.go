@@ -450,6 +450,7 @@ func RandomTrackRequest(e Event) error {
 
 	var songs []radio.Song
 	var err error
+	var limit = 100
 
 	// we select random song from a specific set of songs, either:
 	// - favorites of the caller
@@ -468,7 +469,7 @@ func RandomTrackRequest(e Event) error {
 			nickname = nick
 		}
 
-		songs, err = e.Storage.Song(e.Ctx).FavoritesOfDatabase(nickname)
+		songs, err = e.Storage.Track(e.Ctx).RandomFavoriteOf(nickname, limit)
 		if err != nil {
 			return errors.E(op, err)
 		}
@@ -482,10 +483,15 @@ func RandomTrackRequest(e Event) error {
 		songs = res.Songs
 	} else {
 		// purely random, just select from all tracks
-		songs, err = e.Storage.Track(e.Ctx).All()
+		songs, err = e.Storage.Track(e.Ctx).Random(limit)
 		if err != nil {
 			return errors.E(op, err)
 		}
+	}
+
+	if len(songs) == 0 {
+		e.Echo("no songs were found")
+		return nil
 	}
 
 	rand := config.NewRand(false)
@@ -521,7 +527,7 @@ func RandomTrackRequest(e Event) error {
 		}
 	}
 
-	e.Echo("None of the songs found could be requested")
+	e.Echo("none of the songs found could be requested")
 	return nil
 }
 
