@@ -88,6 +88,7 @@ type partialTrackStorage interface {
 	All() ([]radio.Song, error)
 	AllRaw() ([]radio.Song, error)
 	Unusable() ([]radio.Song, error)
+	Random() (*radio.Song, error)
 	NeedReplacement() ([]radio.Song, error)
 	BeforeLastRequested(before time.Time) ([]radio.Song, error)
 	QueueCandidates() ([]radio.TrackID, error)

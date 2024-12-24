@@ -492,6 +492,15 @@ func genAsType[F, T any](g gopter.Gen) gopter.Gen {
 	}).WithShrinker(nil)
 }
 
+func (suite *Suite) TestTrackRandom(t *testing.T) {
+	s := suite.Storage(t)
+	ts := s.Track(suite.ctx)
+
+	song, err := ts.Random()
+	assert.Error(t, err)
+	assert.Nil(t, song)
+}
+
 func (suite *Suite) TestTrackDelete(t *testing.T) {
 	s := suite.Storage(t)
 	ts := s.Track(suite.ctx)

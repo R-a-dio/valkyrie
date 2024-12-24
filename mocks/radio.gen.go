@@ -4024,6 +4024,9 @@ var _ radio.TrackStorage = &TrackStorageMock{}
 //			QueueCandidatesFunc: func() ([]radio.TrackID, error) {
 //				panic("mock out the QueueCandidates method")
 //			},
+//			RandomFunc: func() (*radio.Song, error) {
+//				panic("mock out the Random method")
+//			},
 //			UnusableFunc: func() ([]radio.Song, error) {
 //				panic("mock out the Unusable method")
 //			},
@@ -4075,6 +4078,9 @@ type TrackStorageMock struct {
 
 	// QueueCandidatesFunc mocks the QueueCandidates method.
 	QueueCandidatesFunc func() ([]radio.TrackID, error)
+
+	// RandomFunc mocks the Random method.
+	RandomFunc func() (*radio.Song, error)
 
 	// UnusableFunc mocks the Unusable method.
 	UnusableFunc func() ([]radio.Song, error)
@@ -4133,6 +4139,9 @@ type TrackStorageMock struct {
 		// QueueCandidates holds details about calls to the QueueCandidates method.
 		QueueCandidates []struct {
 		}
+		// Random holds details about calls to the Random method.
+		Random []struct {
+		}
 		// Unusable holds details about calls to the Unusable method.
 		Unusable []struct {
 		}
@@ -4173,6 +4182,7 @@ type TrackStorageMock struct {
 	lockInsert                sync.RWMutex
 	lockNeedReplacement       sync.RWMutex
 	lockQueueCandidates       sync.RWMutex
+	lockRandom                sync.RWMutex
 	lockUnusable              sync.RWMutex
 	lockUpdateLastPlayed      sync.RWMutex
 	lockUpdateLastRequested   sync.RWMutex
@@ -4446,6 +4456,33 @@ func (mock *TrackStorageMock) QueueCandidatesCalls() []struct {
 	mock.lockQueueCandidates.RLock()
 	calls = mock.calls.QueueCandidates
 	mock.lockQueueCandidates.RUnlock()
+	return calls
+}
+
+// Random calls RandomFunc.
+func (mock *TrackStorageMock) Random() (*radio.Song, error) {
+	if mock.RandomFunc == nil {
+		panic("TrackStorageMock.RandomFunc: method is nil but TrackStorage.Random was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockRandom.Lock()
+	mock.calls.Random = append(mock.calls.Random, callInfo)
+	mock.lockRandom.Unlock()
+	return mock.RandomFunc()
+}
+
+// RandomCalls gets all the calls that were made to Random.
+// Check the length with:
+//
+//	len(mockedTrackStorage.RandomCalls())
+func (mock *TrackStorageMock) RandomCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockRandom.RLock()
+	calls = mock.calls.Random
+	mock.lockRandom.RUnlock()
 	return calls
 }
 

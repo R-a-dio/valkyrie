@@ -2,6 +2,7 @@ package mariadb_test
 
 import (
 	"context"
+	"log"
 	"strings"
 	"testing"
 
@@ -116,15 +117,19 @@ func (setup *MariaDBSetup) RunMigrations(ctx context.Context, cfg config.Config)
 }
 
 func (setup *MariaDBSetup) TearDown(ctx context.Context) error {
-	if setup.container != nil {
-		setup.container.Terminate(ctx)
+	if setup.storage != nil {
+		setup.storage.Close()
 	}
 	if setup.db != nil {
 		setup.db.Close()
 	}
-	if setup.storage != nil {
-		setup.storage.Close()
+	if setup.container != nil {
+		err := setup.container.Terminate(ctx)
+		if err != nil {
+			log.Println("error terminating testcontainer:", err)
+		}
 	}
+
 	return nil
 }
 
