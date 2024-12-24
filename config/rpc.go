@@ -72,6 +72,26 @@ func (m *managerService) UpdateFromStorage(ctx context.Context) error {
 
 var _ radio.ManagerService = &managerService{}
 
+func newProxyService(cfg Config) radio.ProxyService {
+	return &proxyService{
+		Value(cfg, func(c Config) radio.ProxyService {
+			return rpc.NewProxyService(rpc.PrepareConn(cfg.Conf().Proxy.RPCAddr.String()))
+		}),
+	}
+}
+
+type proxyService struct {
+	fn func() radio.ProxyService
+}
+
+func (p *proxyService) MetadataStream(ctx context.Context) (eventstream.Stream[radio.ProxyMetadataEvent], error) {
+	return p.fn().MetadataStream(ctx)
+}
+
+func (p *proxyService) SourceStream(ctx context.Context) (eventstream.Stream[radio.ProxySourceEvent], error) {
+	return p.fn().SourceStream(ctx)
+}
+
 func newStreamerService(cfg Config, conn func() *grpc.ClientConn) radio.StreamerService {
 	return &streamerService{
 		Value(cfg, func(c Config) radio.StreamerService {

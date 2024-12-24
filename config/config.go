@@ -293,6 +293,7 @@ type Config struct {
 	Tracker  radio.ListenerTrackerService
 	Queue    radio.QueueService
 	IRC      radio.AnnounceService
+	Proxy    radio.ProxyService
 }
 
 type reload struct {
@@ -316,6 +317,7 @@ func newConfig(c config) Config {
 	cfg.Tracker = newTrackerService(cfg)
 	cfg.Queue = newQueueService(cfg, streamerConn)
 	cfg.IRC = newIRCService(cfg)
+	cfg.Proxy = newProxyService(cfg)
 
 	cfg.StoreConf(c)
 	return cfg
