@@ -112,5 +112,15 @@ func TestRoundtrip(tt *testing.T) {
 		return assert.EqualExportedValues(tt, in, out)
 	}))
 
+	toAndFrom(tt, p, a, "proxy-metadata-event", toProtoProxyMetadataEvent, fromProtoProxyMetadataEvent)
+	toAndFrom(tt, p, a, "proxy-source-event", toProtoProxySourceEvent, fromProtoProxySourceEvent)
+
 	p.TestingRun(tt)
+}
+
+func toAndFrom[A any, B any](t *testing.T, p *gopter.Properties, a *arbitrary.Arbitraries, name string, to func(A) B, from func(B) A) {
+	p.Property(name, a.ForAll(func(in A) bool {
+		out := from(to(in))
+		return assert.EqualExportedValues(t, in, out)
+	}))
 }
