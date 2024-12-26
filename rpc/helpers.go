@@ -551,3 +551,23 @@ func fromProtoSourceEventType(et ProxySourceEventType) radio.ProxySourceEventTyp
 		return radio.ProxySourceEventType(et)
 	}
 }
+
+func toProtoProxySource(s radio.ProxySource) *ProxySource {
+	return &ProxySource{
+		User:      toProtoUser(&s.User),
+		MountName: s.MountName,
+		UserAgent: s.UserAgent,
+		Address:   s.Address,
+		Metadata:  s.Metadata,
+	}
+}
+
+func fromProtoProxySource(s *ProxySource) radio.ProxySource {
+	return radio.ProxySource{
+		User:      *fromProtoUser(s.User),
+		MountName: s.MountName,
+		UserAgent: s.UserAgent,
+		Address:   s.Address,
+		Metadata:  s.Metadata,
+	}
+}

@@ -92,6 +92,14 @@ func (p *proxyService) SourceStream(ctx context.Context) (eventstream.Stream[rad
 	return p.fn().SourceStream(ctx)
 }
 
+func (p *proxyService) KickSource(ctx context.Context, id radio.SourceID) error {
+	return p.fn().KickSource(ctx, id)
+}
+
+func (p *proxyService) ListSources(ctx context.Context) ([]radio.ProxySource, error) {
+	return p.fn().ListSources(ctx)
+}
+
 func newStreamerService(cfg Config, conn func() *grpc.ClientConn) radio.StreamerService {
 	return &streamerService{
 		Value(cfg, func(c Config) radio.StreamerService {

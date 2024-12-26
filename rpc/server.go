@@ -64,6 +64,27 @@ func (ps ProxyShim) SourceStream(_ *emptypb.Empty, s Proxy_SourceStreamServer) e
 	return streamToProtobuf(s, ps.proxy.SourceStream, toProtoProxySourceEvent)
 }
 
+func (ps ProxyShim) KickSource(ctx context.Context, id *SourceID) (*emptypb.Empty, error) {
+	err := ps.proxy.KickSource(ctx, fromProtoSourceID(id))
+	return new(emptypb.Empty), err
+}
+
+func (ps ProxyShim) ListSources(ctx context.Context, _ *emptypb.Empty) (*ProxyListResponse, error) {
+	sl, err := ps.proxy.ListSources(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	sources := make([]*ProxySource, len(sl))
+	for i, s := range sl {
+		sources[i] = toProtoProxySource(s)
+	}
+
+	return &ProxyListResponse{
+		Sources: sources,
+	}, nil
+}
+
 // NewManager returns a new shim around the service given
 func NewManager(m radio.ManagerService) ManagerServer {
 	return ManagerShim{

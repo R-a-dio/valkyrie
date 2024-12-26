@@ -394,6 +394,16 @@ type ManagerService interface {
 type ProxyService interface {
 	MetadataStream(context.Context) (eventstream.Stream[ProxyMetadataEvent], error)
 	SourceStream(context.Context) (eventstream.Stream[ProxySourceEvent], error)
+	KickSource(context.Context, SourceID) error
+	ListSources(context.Context) ([]ProxySource, error)
+}
+
+type ProxySource struct {
+	MountName string
+	Address   string
+	UserAgent string
+	Metadata  string
+	User      User
 }
 
 type ProxyMetadataEvent struct {
