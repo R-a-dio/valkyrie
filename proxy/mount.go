@@ -244,41 +244,40 @@ func (m *Mount) RemoveSource(ctx context.Context, id radio.SourceID) {
 	m.SourcesMu.Lock()
 	defer m.SourcesMu.Unlock()
 
-	var removed *MountSourceClient
+	// check if any of the sources we remove are live, we can't do the liveSourceSwap
+	// in the DeleteFunc itself since it will see an m.Sources that doesn't have the
+	// delete processed yet.
+	var anyWasLive bool
 
 	m.Sources = slices.DeleteFunc(m.Sources, func(msc *MountSourceClient) bool {
 		if msc.Source.ID != id {
 			return false
 		}
-		removed = msc
+
+		msc.logger.Info().
+			Str("req_id", msc.Source.ID.String()).
+			Any("identifier", msc.Source.Identifier).
+			Msg("removing source client")
+
+		// see if the source we removed is the live source
+		anyWasLive = anyWasLive || msc.MW.GetLive()
+
+		// close the sources connection to us
+		// - if this is a normal cooperative remove the source goroutine itself has
+		//	 already closed the conn, and this will do nothing
+		// - if this is a forced removal the source goroutine would still be running
+		//	 and by closing the connection we stop the RunMountSourceClient goroutine
+		msc.Source.conn.Close()
+
+		// send an event that we disconnected
+		m.events.eventSourceDisconnect(ctx, msc.Source)
 		return true
 	})
 
-	if removed == nil {
-		// didn't remove anything
-		return
-	}
-
-	removed.logger.Info().
-		Str("req_id", removed.Source.ID.String()).
-		Any("identifier", removed.Source.Identifier).
-		Msg("removing source client")
-
-	// see if the source we removed is the live source
-	if removed.MW.GetLive() {
-		// and swap to another source if possible
+	// if any of the removed sources was live we ask for a source swap
+	if anyWasLive {
 		m.liveSourceSwap(ctx)
 	}
-
-	// close the sources connection to us
-	// - if this is a normal cooperative remove the source goroutine itself has
-	//	 already closed the conn, and this will do nothing
-	// - if this is a forced removal the source goroutine would still be running
-	//	 and by closing the connection we stop the RunMountSourceClient goroutine
-	removed.Source.conn.Close()
-
-	// send an event that we disconnected
-	m.events.eventSourceDisconnect(ctx, removed.Source)
 }
 
 // liveSourceSwap moves the live-ness flag to the highest priority source
@@ -294,6 +293,7 @@ func (m *Mount) liveSourceSwap(ctx context.Context) {
 		return
 	}
 
+	m.logger.Info().Msg("no source client available to swap to")
 	// nobody to swap with, so that means we're empty send a nil event
 	m.events.eventNewLiveSource(ctx, m.Name, nil)
 	// nobody here, clean ourselves up
