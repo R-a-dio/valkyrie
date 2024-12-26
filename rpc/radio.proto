@@ -60,6 +60,20 @@ service Manager {
 service Proxy {
     rpc SourceStream(google.protobuf.Empty) returns (stream ProxySourceEvent);
     rpc MetadataStream(google.protobuf.Empty) returns (stream ProxyMetadataEvent);
+    rpc KickSource(SourceID) returns (google.protobuf.Empty);
+    rpc ListSources(google.protobuf.Empty) returns (ProxyListResponse);
+}
+
+message ProxyListResponse {
+    repeated ProxySource sources = 1;
+}
+
+message ProxySource {
+    User user = 1;
+    string mount_name = 2;
+    string address = 3;
+    string user_agent = 4;
+    string metadata = 5;
 }
 
 message ProxySourceEvent {

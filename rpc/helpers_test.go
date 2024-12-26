@@ -114,6 +114,7 @@ func TestRoundtrip(tt *testing.T) {
 
 	toAndFrom(tt, p, a, "proxy-metadata-event", toProtoProxyMetadataEvent, fromProtoProxyMetadataEvent)
 	toAndFrom(tt, p, a, "proxy-source-event", toProtoProxySourceEvent, fromProtoProxySourceEvent)
+	toAndFrom(tt, p, a, "proxy-source", toProtoProxySource, fromProtoProxySource)
 
 	p.TestingRun(tt)
 }

@@ -137,6 +137,25 @@ func (p ProxyClientRPC) SourceStream(ctx context.Context) (eventstream.Stream[ra
 	return streamFromProtobuf(ctx, c, fromProtoProxySourceEvent)
 }
 
+func (p ProxyClientRPC) KickSource(ctx context.Context, id radio.SourceID) error {
+	_, err := p.rpc.KickSource(ctx, toProtoSourceID(id))
+	return err
+}
+
+func (p ProxyClientRPC) ListSources(ctx context.Context) ([]radio.ProxySource, error) {
+	s, err := p.rpc.ListSources(ctx, new(emptypb.Empty))
+	if err != nil {
+		return nil, err
+	}
+
+	ss := make([]radio.ProxySource, len(s.Sources))
+	for i, ps := range s.Sources {
+		ss[i] = fromProtoProxySource(ps)
+	}
+
+	return ss, nil
+}
+
 // NewManagerService returns a new client implementing radio.ManagerService
 func NewManagerService(c *grpc.ClientConn) radio.ManagerService {
 	return ManagerClientRPC{

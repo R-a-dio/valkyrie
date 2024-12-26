@@ -14,3 +14,11 @@ func (srv *Server) MetadataStream(ctx context.Context) (eventstream.Stream[radio
 func (srv *Server) SourceStream(ctx context.Context) (eventstream.Stream[radio.ProxySourceEvent], error) {
 	return srv.events.sourceStream.SubStream(ctx), nil
 }
+
+func (srv *Server) KickSource(ctx context.Context, id radio.SourceID) error {
+	return nil
+}
+
+func (srv *Server) ListSources(ctx context.Context) ([]radio.ProxySource, error) {
+	return nil, nil
+}
