@@ -265,10 +265,17 @@ func (m *Mount) RemoveSource(ctx context.Context, id radio.SourceID) {
 		Msg("removing source client")
 
 	// see if the source we removed is the live source
-	if removed.MW.Live {
+	if removed.MW.GetLive() {
 		// and swap to another source if possible
 		m.liveSourceSwap(ctx)
 	}
+
+	// close the sources connection to us
+	// - if this is a normal cooperative remove the source goroutine itself has
+	//	 already closed the conn, and this will do nothing
+	// - if this is a forced removal the source goroutine would still be running
+	//	 and by closing the connection we stop the RunMountSourceClient goroutine
+	removed.Source.conn.Close()
 
 	// send an event that we disconnected
 	m.events.eventSourceDisconnect(ctx, removed.Source)
