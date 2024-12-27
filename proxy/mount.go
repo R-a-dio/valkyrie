@@ -449,3 +449,9 @@ func (mmw *MountMetadataWriter) GetLive() bool {
 	defer mmw.mu.RUnlock()
 	return mmw.Live
 }
+
+func (mmw *MountMetadataWriter) GetMetadata() string {
+	mmw.mu.RLock()
+	defer mmw.mu.RUnlock()
+	return mmw.Metadata
+}
