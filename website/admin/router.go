@@ -92,6 +92,8 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 		r.Post("/schedule", p(radio.PermScheduleEdit, s.PostSchedule))
 		r.Get("/tracker", p(radio.PermListenerView, s.GetListeners))
 		r.Post("/tracker/remove", p(radio.PermListenerKick, s.PostRemoveListener))
+		r.Get("/proxy", p(radio.PermDJ, s.GetProxy))
+		r.Post("/proxy/remove", p(radio.PermProxyKick, s.PostRemoveSource))
 
 		// proxy to the grafana host
 		grafana, _ := url.Parse("http://localhost:3000")
