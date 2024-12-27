@@ -106,7 +106,7 @@ func (s *Server) PutSource(w http.ResponseWriter, r *http.Request) {
 
 func NewSourceID(r *http.Request) radio.SourceID {
 	if id, ok := hlog.IDFromRequest(r); ok {
-		return radio.SourceID{id}
+		return radio.SourceID{ID: id}
 	}
 	panic("NewSourceID called without hlog.RequestIDHandler middleware")
 }

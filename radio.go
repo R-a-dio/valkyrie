@@ -226,7 +226,7 @@ const (
 	PermScheduleEdit   = "schedule_edit"   // User can edit the schedule
 	PermListenerView   = "listener_view"   // User can view the listener list
 	PermListenerKick   = "listener_kick"   // User can kick listeners
-	PermProxyKick      = "proxy_kick"      // User can kick streamers
+	PermProxyKick      = "proxy_kick"      // User can kick streamers"
 	PermGrafanaView    = "grafana_view"    // User can view grafana
 )
 
@@ -423,6 +423,11 @@ type ProxySourceEventType int
 
 type SourceID struct {
 	xid.ID
+}
+
+func ParseSourceID(s string) (SourceID, error) {
+	id, err := xid.FromString(s)
+	return SourceID{id}, err
 }
 
 const (
