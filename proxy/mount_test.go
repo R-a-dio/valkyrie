@@ -258,3 +258,57 @@ func TestMountMetadataWriterSendMetadata(t *testing.T) {
 	assert.True(t, called, "metadataFn should've been called after going live")
 	assert.Equal(t, meta.Value, calledValue)
 }
+
+type adjustPriorityTestCase struct {
+	name     string
+	sources  []*MountSourceClient
+	expected []uint
+}
+
+func TestMountAdjustPriority(t *testing.T) {
+	// helper functions to create MountSourceClient in the test cases
+	prio := func(p uint) *MountSourceClient {
+		return &MountSourceClient{
+			Source: &SourceClient{
+				ID: radio.SourceID{xid.New()},
+			},
+			Priority: p,
+		}
+	}
+	prioSlice := func(ps ...uint) []*MountSourceClient {
+		var sources = make([]*MountSourceClient, 0, len(ps))
+		for _, p := range ps {
+			sources = append(sources, prio(p))
+		}
+		return sources
+	}
+
+	prioCase := func(name string, sources []*MountSourceClient, expected []uint) adjustPriorityTestCase {
+		return adjustPriorityTestCase{
+			name:     name,
+			sources:  sources,
+			expected: expected,
+		}
+	}
+
+	testCases := []adjustPriorityTestCase{
+		{"empty", prioSlice(), nil},
+		{"nil", nil, nil},
+		prioCase("simple gaps", prioSlice(5, 10, 15, 20), []uint{0, 1, 2, 3}),
+		prioCase("simple sequential", prioSlice(0, 1, 2, 3, 4, 5), []uint{0, 1, 2, 3, 4, 5}),
+		prioCase("reversed", prioSlice(10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0), []uint{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}),
+		prioCase("random", prioSlice(8, 2, 1, 7, 4, 5, 0, 10, 9, 3, 6), []uint{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}),
+		prioCase("large gaps", prioSlice(500, 1510, 11215, 122320), []uint{0, 1, 2, 3}),
+	}
+	for _, c := range testCases {
+		t.Run(c.name, func(t *testing.T) {
+			adjustPriority(c.sources)
+
+			for i, s := range c.sources {
+				if !assert.Equal(t, c.expected[i], s.Priority) {
+					t.Log(c.expected[i], s.Priority)
+				}
+			}
+		})
+	}
+}
