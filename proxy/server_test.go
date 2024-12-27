@@ -136,6 +136,11 @@ func TestServer(t *testing.T) {
 		assert.Equal(c, 2, getSourcesLength(mount), "should have two sources")
 	}, time.Second, time.Millisecond*50, "mount should exist")
 
+	// see if ListSources returns out sources
+	sources, err := srv.ListSources(ctx)
+	assert.NoError(t, err)
+	assert.Len(t, sources, 2)
+
 	// see if we can send metadata
 	metaFn, err := icecast.Metadata(conn1Uri, icecast.Auth(username, pw))
 	if assert.NoError(t, err) {

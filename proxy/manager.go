@@ -132,6 +132,44 @@ func (pm *ProxyManager) AddSourceClient(source *SourceClient) error {
 	return nil
 }
 
+func (pm *ProxyManager) RemoveSourceClient(ctx context.Context, id radio.SourceID) error {
+	pm.mountsMu.Lock()
+	defer pm.mountsMu.Unlock()
+
+	for _, mount := range pm.mounts {
+		mount.RemoveSource(ctx, id)
+	}
+
+	return nil
+}
+
+func (pm *ProxyManager) ListSources(ctx context.Context) ([]radio.ProxySource, error) {
+	pm.mountsMu.Lock()
+	defer pm.mountsMu.Unlock()
+
+	var res []radio.ProxySource
+
+	addSources := func(mount *Mount) {
+		mount.SourcesMu.RLock()
+		defer mount.SourcesMu.RUnlock()
+		for _, source := range mount.Sources {
+			res = append(res, radio.ProxySource{
+				MountName: source.Source.MountName,
+				UserAgent: source.Source.UserAgent,
+				Metadata:  source.MW.GetMetadata(),
+				User:      source.Source.User,
+				Address:   source.Source.conn.RemoteAddr().String(),
+			})
+		}
+	}
+
+	for _, mount := range pm.mounts {
+		addSources(mount)
+	}
+
+	return res, nil
+}
+
 func (pm *ProxyManager) SendMetadata(ctx context.Context, metadata *Metadata) error {
 	if metadata == nil {
 		panic("nil metadata in SendMetadata")

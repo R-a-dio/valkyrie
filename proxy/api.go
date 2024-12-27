@@ -16,9 +16,9 @@ func (srv *Server) SourceStream(ctx context.Context) (eventstream.Stream[radio.P
 }
 
 func (srv *Server) KickSource(ctx context.Context, id radio.SourceID) error {
-	return nil
+	return srv.proxy.RemoveSourceClient(ctx, id)
 }
 
 func (srv *Server) ListSources(ctx context.Context) ([]radio.ProxySource, error) {
-	return nil, nil
+	return srv.proxy.ListSources(ctx)
 }
