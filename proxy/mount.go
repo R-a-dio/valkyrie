@@ -20,6 +20,7 @@ import (
 )
 
 const mountTimeout = time.Second * 5
+const ADJUST_PRIORITY_THRESHOLD = 100000
 
 type Mount struct {
 	logger zerolog.Logger
@@ -166,6 +167,22 @@ func mostPriority(sources []*MountSourceClient) *MountSourceClient {
 	})
 }
 
+// adjustPriority lowers the priority values in the sources list passed
+// by subtracing the current minimum priority from all the other values
+func adjustPriority(sources []*MountSourceClient) {
+	if len(sources) == 0 {
+		return
+	}
+
+	slices.SortStableFunc(sources, func(a, b *MountSourceClient) int {
+		return cmp.Compare(a.Priority, b.Priority)
+	})
+
+	for i := range sources {
+		sources[i].Priority = uint(i)
+	}
+}
+
 // MountSourceClient is a SourceClient with extra fields for mount-specific
 // bookkeeping
 type MountSourceClient struct {
@@ -228,6 +245,10 @@ func (m *Mount) AddSource(ctx context.Context, source *SourceClient) {
 	msc.Priority = leastPriority(m.Sources)
 	m.Sources = append(m.Sources, msc)
 	go m.RunMountSourceClient(ctx, msc)
+
+	if msc.Priority > ADJUST_PRIORITY_THRESHOLD {
+		adjustPriority(m.Sources)
+	}
 
 	// send an event that we connected
 	m.events.eventSourceConnect(ctx, source)
