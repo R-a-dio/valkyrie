@@ -50,13 +50,13 @@ type Server struct {
 
 func (s *Server) Start(ctx context.Context, fds *fdstore.Store) error {
 	var err error
-
+	var recorderState []byte
 	logger := zerolog.Ctx(ctx)
 
 	httpAddr := s.cfg.Conf().Tracker.ListenAddr.String()
 	grpcAddr := s.cfg.Conf().Tracker.RPCAddr.String()
 
-	s.httpLn, _, err = util.RestoreOrListen(fds, HttpLn, "tcp", httpAddr)
+	s.httpLn, recorderState, err = util.RestoreOrListen(fds, HttpLn, "tcp", httpAddr)
 	if err != nil {
 		return err
 	}
@@ -66,7 +66,9 @@ func (s *Server) Start(ctx context.Context, fds *fdstore.Store) error {
 		return err
 	}
 
-	s.recorder.restoreSelf(ctx, fds)
+	if len(recorderState) > 0 {
+		s.recorder.UnmarshalJSON(recorderState)
+	}
 
 	logger.Info().Str("address", s.httpLn.Addr().String()).Msg("tracker http started listening")
 	logger.Info().Str("address", s.grpcLn.Addr().String()).Msg("tracker grpc started listening")
@@ -86,8 +88,7 @@ func (s *Server) Start(ctx context.Context, fds *fdstore.Store) error {
 
 	select {
 	case <-ctx.Done():
-		s.grpc.Stop()
-		return s.http.Close()
+		return s.Close()
 	case err := <-errCh:
 		return err
 	}
@@ -95,8 +96,24 @@ func (s *Server) Start(ctx context.Context, fds *fdstore.Store) error {
 
 func (s *Server) Close() error {
 	s.grpc.Stop()
-
 	return s.http.Close()
+}
+
+func (s *Server) Shutdown(ctx context.Context) error {
+	const op errors.Op = "tracker/Server.Shutdown"
+	// stop the grpc server, this one can't mutate any extra state so a normal stop
+	// should be fine
+	s.grpc.Stop()
+
+	// stutdown the http server, this one does mutate state, so we need a "graceful"
+	// shutdown that waits for in-flight requests to finish
+	err := s.http.Shutdown(ctx)
+	if err != nil {
+		return errors.E(op, err)
+	}
+
+	// TODO: wait for the recorder state to actually handle all in-flight requests
+	return nil
 }
 
 func NewServer(ctx context.Context, cfg config.Config) *Server {
@@ -166,6 +183,8 @@ func ListenerAdd(ctx context.Context, recorder *Recorder) http.HandlerFunc {
 		w.Header().Set(ICECAST_AUTH_HEADER, "1")
 		w.WriteHeader(http.StatusOK)
 
+		// use an extra indirect function such that NewListener is executed in the goroutine instead
+		// of the handler
 		go func() {
 			recorder.ListenerAdd(ctx, NewListener(cid, r))
 		}()
