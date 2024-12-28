@@ -2,125 +2,40 @@ package tracker
 
 import (
 	"context"
-	"net"
-	"time"
+	"syscall"
 
-	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
-	"github.com/R-a-dio/valkyrie/errors"
-	"github.com/R-a-dio/valkyrie/rpc"
+	"github.com/R-a-dio/valkyrie/util"
+	"github.com/Wessie/fdstore"
 	"github.com/rs/zerolog"
-	"google.golang.org/grpc"
 )
-
-const (
-	// UpdateListenersTickrate is the period between two UpdateListeners
-	// calls done to the manager
-	UpdateListenersTickrate = time.Second * 10
-	// SyncListenersTickrate is the period between two sync operations
-	SyncListenersTickrate = time.Minute * 10
-
-	RemoveStaleTickrate = time.Hour * 24
-	RemoveStalePeriod   = time.Minute * 5
-)
-
-func NewGRPCServer(ctx context.Context, lts radio.ListenerTrackerService) *grpc.Server {
-	gs := rpc.NewGrpcServer(ctx)
-	rpc.RegisterListenerTrackerServer(gs, rpc.NewListenerTracker(lts))
-	return gs
-}
 
 func Execute(ctx context.Context, cfg config.Config) error {
-	// setup recorder
-	var recorder = NewRecorder(ctx, cfg)
 
-	// setup periodic task to update the manager of our listener count
-	go PeriodicallyUpdateListeners(ctx, cfg.Manager, recorder, UpdateListenersTickrate)
-	// setup periodic task to keep recorder state in sync with icecast
-	go PeriodicallySyncListeners(ctx, cfg, recorder, SyncListenersTickrate)
+	fds := fdstore.NewStoreListenFDs()
 
-	// setup the HTTP server that icecast will be poking
-	srv := NewServer(ctx, cfg.Conf().Tracker.ListenAddr.String(), recorder)
+	srv := NewServer(ctx, cfg)
 
-	// setup the GRPC server that the rest will be poking
-	grpcSrv := NewGRPCServer(ctx, recorder)
-	// and a listener for the GRPC server
-	ln, err := net.Listen("tcp", cfg.Conf().Tracker.RPCAddr.String())
-	if err != nil {
-		return err
-	}
-
-	errCh := make(chan error, 2)
+	errCh := make(chan error, 1)
 	go func() {
-		errCh <- grpcSrv.Serve(ln)
-	}()
-	go func() {
-		errCh <- srv.ListenAndServe()
+		errCh <- srv.Start(ctx, fds)
 	}()
 
 	select {
 	case <-ctx.Done():
 		return srv.Close()
+	case <-util.Signal(syscall.SIGUSR2):
+		if err := srv.Shutdown(ctx); err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to close server")
+		}
+		if err := srv.storeSelf(ctx, fds); err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to store self")
+		}
+		if err := fds.Send(); err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to send store")
+		}
+		return nil
 	case err := <-errCh:
 		return err
 	}
-}
-
-func PeriodicallyUpdateListeners(ctx context.Context,
-	manager radio.ManagerService,
-	recorder *Recorder,
-	tickrate time.Duration,
-) {
-	ticker := time.NewTicker(tickrate)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			err := manager.UpdateListeners(ctx, recorder.ListenerAmount())
-			if err != nil {
-				zerolog.Ctx(ctx).Error().Err(err).Msg("failed update listeners")
-			}
-		}
-	}
-}
-
-func PeriodicallySyncListeners(ctx context.Context, cfg config.Config,
-	recorder *Recorder,
-	tickrate time.Duration,
-) {
-	ticker := time.NewTicker(tickrate)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			err := periodicallySyncListeners(ctx, cfg, recorder)
-			if err != nil {
-				zerolog.Ctx(ctx).Error().Err(err).Msg("failed sync listeners")
-			}
-		}
-	}
-}
-
-func periodicallySyncListeners(ctx context.Context, cfg config.Config, recorder *Recorder) error {
-	const op errors.Op = "tracker/periodicallySyncListeners"
-
-	recorder.syncing.Store(true)
-	defer recorder.syncing.Store(false)
-
-	ctx, cancel := context.WithTimeout(ctx, time.Second*5)
-	defer cancel()
-
-	list, err := GetIcecastListClients(ctx, cfg)
-	if err != nil {
-		return errors.E(op, err)
-	}
-
-	recorder.Sync(ctx, list)
-	return nil
 }
