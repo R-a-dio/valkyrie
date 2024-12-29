@@ -400,8 +400,9 @@ type ProxyService interface {
 
 type ProxySource struct {
 	User      User
+	ID        SourceID
 	MountName string
-	Address   string
+	IP        string
 	UserAgent string
 	Metadata  string
 	Priority  uint32

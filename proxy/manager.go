@@ -154,11 +154,12 @@ func (pm *ProxyManager) ListSources(ctx context.Context) ([]radio.ProxySource, e
 		defer mount.SourcesMu.RUnlock()
 		for _, source := range mount.Sources {
 			res = append(res, radio.ProxySource{
+				ID:        source.Source.ID,
 				MountName: source.Source.MountName,
 				UserAgent: source.Source.UserAgent,
 				Metadata:  source.MW.GetMetadata(),
 				User:      source.Source.User,
-				Address:   source.Source.conn.RemoteAddr().String(),
+				IP:        source.Source.conn.RemoteAddr().String(),
 				Priority:  source.Priority,
 			})
 		}

@@ -555,9 +555,10 @@ func fromProtoSourceEventType(et ProxySourceEventType) radio.ProxySourceEventTyp
 func toProtoProxySource(s radio.ProxySource) *ProxySource {
 	return &ProxySource{
 		User:      toProtoUser(&s.User),
+		ID:        toProtoSourceID(s.ID),
 		MountName: s.MountName,
 		UserAgent: s.UserAgent,
-		Address:   s.Address,
+		Ip:        s.IP,
 		Metadata:  s.Metadata,
 		Priority:  s.Priority,
 	}
@@ -566,9 +567,10 @@ func toProtoProxySource(s radio.ProxySource) *ProxySource {
 func fromProtoProxySource(s *ProxySource) radio.ProxySource {
 	return radio.ProxySource{
 		User:      *fromProtoUser(s.User),
+		ID:        fromProtoSourceID(s.ID),
 		MountName: s.MountName,
 		UserAgent: s.UserAgent,
-		Address:   s.Address,
+		IP:        s.Ip,
 		Metadata:  s.Metadata,
 		Priority:  s.Priority,
 	}
