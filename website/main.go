@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -49,8 +50,17 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	const op errors.Op = "website/Execute"
 	logger := zerolog.Ctx(ctx)
 
-	if cfg.Conf().Website.DJImagePath == "" {
+	if path := cfg.Conf().Website.DJImagePath; path == "" {
 		return errors.E(op, "Website.DJImagePath is not configured")
+	} else {
+		// try and create the DJImagePath
+		if err := os.MkdirAll(path, 0664); err != nil {
+			return errors.E(op, "failed to create Website.DJImagePath", err)
+		}
+		// and the DJImagePath tmp dir where we store temporary uploads
+		if err := os.MkdirAll(filepath.Join(path, os.TempDir()), 0664); err != nil {
+			return errors.E(op, "failed to create Website.DJImagePath tmp dir", err)
+		}
 	}
 
 	// database access
