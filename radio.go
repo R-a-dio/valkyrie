@@ -399,17 +399,18 @@ type ProxyService interface {
 }
 
 type ProxySource struct {
+	User      User
 	MountName string
 	Address   string
 	UserAgent string
 	Metadata  string
-	User      User
+	Priority  uint32
 }
 
 type ProxyMetadataEvent struct {
+	User      User
 	MountName string
 	Metadata  string
-	User      User
 }
 
 type ProxySourceEvent struct {

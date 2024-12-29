@@ -143,7 +143,7 @@ func (m *Mount) Close() error {
 
 // leastPriority returns the priority index that would put
 // you at the lowest priority for next source consideration
-func leastPriority(sources []*MountSourceClient) uint {
+func leastPriority(sources []*MountSourceClient) uint32 {
 	if len(sources) == 0 {
 		return 0
 	}
@@ -179,7 +179,7 @@ func adjustPriority(sources []*MountSourceClient) {
 	})
 
 	for i := range sources {
-		sources[i].Priority = uint(i)
+		sources[i].Priority = uint32(i)
 	}
 }
 
@@ -191,7 +191,7 @@ type MountSourceClient struct {
 	Source *SourceClient
 	// Priority is the Priority for live-ness determination
 	// lower is higher Priority
-	Priority uint
+	Priority uint32
 	// MW is the writer this source is writing to
 	MW *MountMetadataWriter
 

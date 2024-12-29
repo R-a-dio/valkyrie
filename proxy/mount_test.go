@@ -15,12 +15,12 @@ import (
 
 func TestLeastPriority(t *testing.T) {
 	// helper functions to create MountSourceClient in the test cases
-	prio := func(p uint) *MountSourceClient {
+	prio := func(p uint32) *MountSourceClient {
 		return &MountSourceClient{
 			Priority: p,
 		}
 	}
-	prioSlice := func(ps ...uint) []*MountSourceClient {
+	prioSlice := func(ps ...uint32) []*MountSourceClient {
 		var sources = make([]*MountSourceClient, 0, len(ps))
 		for _, p := range ps {
 			sources = append(sources, prio(p))
@@ -75,7 +75,7 @@ type mostPriorityTestCase struct {
 
 func TestMostPriority(t *testing.T) {
 	// helper functions to create MountSourceClient in the test cases
-	prio := func(p uint) *MountSourceClient {
+	prio := func(p uint32) *MountSourceClient {
 		return &MountSourceClient{
 			Source: &SourceClient{
 				ID: radio.SourceID{xid.New()},
@@ -83,7 +83,7 @@ func TestMostPriority(t *testing.T) {
 			Priority: p,
 		}
 	}
-	prioSlice := func(ps ...uint) []*MountSourceClient {
+	prioSlice := func(ps ...uint32) []*MountSourceClient {
 		var sources = make([]*MountSourceClient, 0, len(ps))
 		for _, p := range ps {
 			sources = append(sources, prio(p))
@@ -267,7 +267,7 @@ type adjustPriorityTestCase struct {
 
 func TestMountAdjustPriority(t *testing.T) {
 	// helper functions to create MountSourceClient in the test cases
-	prio := func(p uint) *MountSourceClient {
+	prio := func(p uint32) *MountSourceClient {
 		return &MountSourceClient{
 			Source: &SourceClient{
 				ID: radio.SourceID{xid.New()},
@@ -275,7 +275,7 @@ func TestMountAdjustPriority(t *testing.T) {
 			Priority: p,
 		}
 	}
-	prioSlice := func(ps ...uint) []*MountSourceClient {
+	prioSlice := func(ps ...uint32) []*MountSourceClient {
 		var sources = make([]*MountSourceClient, 0, len(ps))
 		for _, p := range ps {
 			sources = append(sources, prio(p))

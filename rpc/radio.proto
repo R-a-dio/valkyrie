@@ -74,6 +74,7 @@ message ProxySource {
     string address = 3;
     string user_agent = 4;
     string metadata = 5;
+    uint32 priority = 6;
 }
 
 message ProxySourceEvent {

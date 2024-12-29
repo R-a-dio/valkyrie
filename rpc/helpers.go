@@ -559,6 +559,7 @@ func toProtoProxySource(s radio.ProxySource) *ProxySource {
 		UserAgent: s.UserAgent,
 		Address:   s.Address,
 		Metadata:  s.Metadata,
+		Priority:  s.Priority,
 	}
 }
 
@@ -569,5 +570,6 @@ func fromProtoProxySource(s *ProxySource) radio.ProxySource {
 		UserAgent: s.UserAgent,
 		Address:   s.Address,
 		Metadata:  s.Metadata,
+		Priority:  s.Priority,
 	}
 }

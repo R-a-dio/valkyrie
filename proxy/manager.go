@@ -159,6 +159,7 @@ func (pm *ProxyManager) ListSources(ctx context.Context) ([]radio.ProxySource, e
 				Metadata:  source.MW.GetMetadata(),
 				User:      source.Source.User,
 				Address:   source.Source.conn.RemoteAddr().String(),
+				Priority:  source.Priority,
 			})
 		}
 	}

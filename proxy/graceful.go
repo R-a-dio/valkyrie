@@ -66,7 +66,7 @@ func (m *Mount) storeSources(ctx context.Context, store *fdstore.Store) error {
 
 type storedSource struct {
 	ID          radio.SourceID
-	Priority    uint
+	Priority    uint32
 	UserAgent   string
 	ContentType string
 	MountName   string
