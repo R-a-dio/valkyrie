@@ -234,6 +234,14 @@ func (v *Value[T]) Latest() T {
 	return *v.last.Load()
 }
 
+// NewStaticValue returns a Value that stores the static variable, should really
+// only be used in testing
+func NewStaticValue[T any](static T) *Value[T] {
+	var value Value[T]
+	value.last.Store(&static)
+	return &value
+}
+
 type CallbackTimer struct {
 	fn func()
 
