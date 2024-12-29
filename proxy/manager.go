@@ -134,9 +134,10 @@ func (pm *ProxyManager) AddSourceClient(source *SourceClient) error {
 
 func (pm *ProxyManager) RemoveSourceClient(ctx context.Context, id radio.SourceID) error {
 	pm.mountsMu.Lock()
-	defer pm.mountsMu.Unlock()
+	mounts := maps.Clone(pm.mounts)
+	pm.mountsMu.Unlock()
 
-	for _, mount := range pm.mounts {
+	for _, mount := range mounts {
 		mount.RemoveSource(ctx, id)
 	}
 
