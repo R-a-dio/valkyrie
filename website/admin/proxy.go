@@ -1,8 +1,10 @@
 package admin
 
 import (
+	"cmp"
 	"html/template"
 	"net/http"
+	"slices"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
@@ -14,7 +16,7 @@ type ProxyInput struct {
 	middleware.Input
 	CSRFTokenInput template.HTML
 
-	Sources []radio.ProxySource
+	Sources map[string][]radio.ProxySource
 }
 
 func (ProxyInput) TemplateBundle() string {
@@ -29,10 +31,23 @@ func NewProxyInput(ps radio.ProxyService, r *http.Request) (*ProxyInput, error) 
 		return nil, errors.E(op, err)
 	}
 
+	// generate a mapping of mountname to sources
+	sm := make(map[string][]radio.ProxySource, 3)
+	for _, source := range sources {
+		sm[source.MountName] = append(sm[source.MountName], source)
+	}
+
+	// then sort the sources by their priority value
+	for _, sources := range sm {
+		slices.SortStableFunc(sources, func(a, b radio.ProxySource) int {
+			return cmp.Compare(a.Priority, b.Priority)
+		})
+	}
+
 	input := &ProxyInput{
 		Input:          middleware.InputFromRequest(r),
 		CSRFTokenInput: csrf.TemplateField(r),
-		Sources:        sources,
+		Sources:        sm,
 	}
 	return input, nil
 }
