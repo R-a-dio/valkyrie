@@ -27,6 +27,8 @@ const (
 	failedLoginMessageKey = "admin-failed-login-message"
 )
 
+const MAX_USERNAME_LENGTH = 50
+
 type userContextKey struct{}
 
 func NewAuthentication(storage radio.StorageService, tmpl templates.Executor, sessions *scs.SessionManager) Authentication {
@@ -237,7 +239,7 @@ func (a *authentication) postLogin(w http.ResponseWriter, r *http.Request) error
 	}
 
 	username := r.PostFormValue("username")
-	if username == "" || len(username) > 50 {
+	if username == "" || len(username) > MAX_USERNAME_LENGTH {
 		return errors.E(op, errors.LoginError, "empty or long username")
 	}
 
