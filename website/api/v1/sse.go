@@ -43,11 +43,13 @@ func (a *API) runStatusUpdates(ctx context.Context) {
 		}
 
 		if status.Thread != previous.Thread {
+			log.Debug().Str("event", EventThread).Any("value", status).Msg("sending")
+			a.sse.SendThread(status.Thread)
 			// TODO: add an actual sendThread as well
 			// TODO: see if we need this hack at all
 			// send a queue after a thread update, since our default theme
 			// uses the queue template for the thread location
-			go a.sendQueue(ctx)
+			//go a.sendQueue(ctx)
 		}
 
 		// only pass an update through if the song is different from the previous one
@@ -323,6 +325,10 @@ func (s *Stream) MessageCache(event EventName, data templates.TemplateSelectable
 	}
 }
 
+func (s *Stream) SendThread(data radio.Thread) {
+	s.SendEvent(EventThread, s.NewMessage(EventThread, Thread(data)))
+}
+
 func (s *Stream) SendStreamer(data radio.User) {
 	s.SendEvent(EventStreamer, s.NewMessage(EventStreamer, Streamer(data)))
 }
@@ -366,6 +372,16 @@ func (NowPlaying) TemplateName() string {
 }
 
 func (NowPlaying) TemplateBundle() string {
+	return "home"
+}
+
+type Thread radio.Thread
+
+func (Thread) TemplateName() string {
+	return "thread"
+}
+
+func (Thread) TemplateBundle() string {
 	return "home"
 }
 

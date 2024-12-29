@@ -147,6 +147,11 @@ func TestStreamSendInputs(t *testing.T) {
 		stream.SendLastPlayed([]radio.Song{})
 		assert.Equal(t, "lastplayed", name)
 	})
+
+	t.Run("SendThread", func(t *testing.T) {
+		stream.SendThread(radio.Thread(""))
+		assert.Equal(t, "thread", name)
+	})
 }
 
 func TestStreamSlowSub(t *testing.T) {
