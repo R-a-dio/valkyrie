@@ -126,13 +126,22 @@ func setupMonitoringProxy(cfg config.Config) *httputil.ReverseProxy {
 	monitoringUserHeader := config.Value(cfg, func(c config.Config) string {
 		return c.Conf().Website.AdminMonitoringUserHeader
 	})
+	monitoringRoleHeader := config.Value(cfg, func(c config.Config) string {
+		return c.Conf().Website.AdminMonitoringRoleHeader
+	})
+
 	// proxy to the grafana host
 	return &httputil.ReverseProxy{
 		Rewrite: func(pr *httputil.ProxyRequest) {
 			pr.SetURL(monitoringURL())
+			pr.SetXForwarded()
+			pr.Out.Host = pr.In.Host
 
 			u := vmiddleware.UserFromContext(pr.In.Context())
 			pr.Out.Header.Add(monitoringUserHeader(), u.Username)
+			if u.UserPermissions.Has(radio.PermAdmin) {
+				pr.Out.Header.Add(monitoringRoleHeader(), "Admin")
+			}
 		},
 	}
 }

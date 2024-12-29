@@ -45,6 +45,7 @@ var defaultConfig = config{
 		PublicStreamURL:           "http://localhost:8000/main.mp3",
 		AdminMonitoringURL:        "http://grafana:3000",
 		AdminMonitoringUserHeader: "x-proxy-user",
+		AdminMonitoringRoleHeader: "x-proxy-role",
 	},
 	Streamer: streamer{
 		RPCAddr:         MustParseAddrPort(":4545"),
@@ -203,6 +204,7 @@ type website struct {
 	AdminMonitoringURL URL
 	// AdminMonitoringUserHeader is the header to use for passing in the username
 	AdminMonitoringUserHeader string
+	AdminMonitoringRoleHeader string
 }
 
 // streamer contains all the fields only relevant to the streamer

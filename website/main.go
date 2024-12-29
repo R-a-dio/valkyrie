@@ -287,7 +287,7 @@ func removePortFromAddress(next http.Handler) http.Handler {
 
 func skipCSRFProtection(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/admin/grafana") {
+		if strings.HasPrefix(r.URL.Path, "/admin/telemetry") {
 			r = csrf.UnsafeSkipCheck(r)
 		}
 		next.ServeHTTP(w, r)
