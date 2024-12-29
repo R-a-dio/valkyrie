@@ -401,6 +401,7 @@ type ProxyService interface {
 type ProxySource struct {
 	User      User
 	ID        SourceID
+	Start     time.Time
 	MountName string
 	IP        string
 	UserAgent string

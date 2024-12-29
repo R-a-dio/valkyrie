@@ -31,7 +31,7 @@ func TestLeastPriority(t *testing.T) {
 	testCases := []struct {
 		name     string
 		sources  []*MountSourceClient
-		expected uint
+		expected uint32
 	}{
 		{
 			name:     "empty",
@@ -262,7 +262,7 @@ func TestMountMetadataWriterSendMetadata(t *testing.T) {
 type adjustPriorityTestCase struct {
 	name     string
 	sources  []*MountSourceClient
-	expected []uint
+	expected []uint32
 }
 
 func TestMountAdjustPriority(t *testing.T) {
@@ -283,7 +283,7 @@ func TestMountAdjustPriority(t *testing.T) {
 		return sources
 	}
 
-	prioCase := func(name string, sources []*MountSourceClient, expected []uint) adjustPriorityTestCase {
+	prioCase := func(name string, sources []*MountSourceClient, expected []uint32) adjustPriorityTestCase {
 		return adjustPriorityTestCase{
 			name:     name,
 			sources:  sources,
@@ -294,11 +294,11 @@ func TestMountAdjustPriority(t *testing.T) {
 	testCases := []adjustPriorityTestCase{
 		{"empty", prioSlice(), nil},
 		{"nil", nil, nil},
-		prioCase("simple gaps", prioSlice(5, 10, 15, 20), []uint{0, 1, 2, 3}),
-		prioCase("simple sequential", prioSlice(0, 1, 2, 3, 4, 5), []uint{0, 1, 2, 3, 4, 5}),
-		prioCase("reversed", prioSlice(10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0), []uint{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}),
-		prioCase("random", prioSlice(8, 2, 1, 7, 4, 5, 0, 10, 9, 3, 6), []uint{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}),
-		prioCase("large gaps", prioSlice(500, 1510, 11215, 122320), []uint{0, 1, 2, 3}),
+		prioCase("simple gaps", prioSlice(5, 10, 15, 20), []uint32{0, 1, 2, 3}),
+		prioCase("simple sequential", prioSlice(0, 1, 2, 3, 4, 5), []uint32{0, 1, 2, 3, 4, 5}),
+		prioCase("reversed", prioSlice(10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0), []uint32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}),
+		prioCase("random", prioSlice(8, 2, 1, 7, 4, 5, 0, 10, 9, 3, 6), []uint32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}),
+		prioCase("large gaps", prioSlice(500, 1510, 11215, 122320), []uint32{0, 1, 2, 3}),
 	}
 	for _, c := range testCases {
 		t.Run(c.name, func(t *testing.T) {

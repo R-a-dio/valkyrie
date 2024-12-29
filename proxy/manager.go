@@ -155,6 +155,7 @@ func (pm *ProxyManager) ListSources(ctx context.Context) ([]radio.ProxySource, e
 		for _, source := range mount.Sources {
 			res = append(res, radio.ProxySource{
 				ID:        source.Source.ID,
+				Start:     source.Source.Start,
 				MountName: source.Source.MountName,
 				UserAgent: source.Source.UserAgent,
 				Metadata:  source.MW.GetMetadata(),

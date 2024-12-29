@@ -76,6 +76,7 @@ message ProxySource {
     string metadata = 5;
     uint32 priority = 6;
     SourceID ID = 7;
+    google.protobuf.Timestamp start_time = 8;
 }
 
 message ProxySourceEvent {

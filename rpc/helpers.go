@@ -556,6 +556,7 @@ func toProtoProxySource(s radio.ProxySource) *ProxySource {
 	return &ProxySource{
 		User:      toProtoUser(&s.User),
 		ID:        toProtoSourceID(s.ID),
+		StartTime: tp(s.Start),
 		MountName: s.MountName,
 		UserAgent: s.UserAgent,
 		Ip:        s.IP,
@@ -568,6 +569,7 @@ func fromProtoProxySource(s *ProxySource) radio.ProxySource {
 	return radio.ProxySource{
 		User:      *fromProtoUser(s.User),
 		ID:        fromProtoSourceID(s.ID),
+		Start:     t(s.StartTime),
 		MountName: s.MountName,
 		UserAgent: s.UserAgent,
 		IP:        s.Ip,

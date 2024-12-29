@@ -119,6 +119,7 @@ func NewSourceClient(id radio.SourceID, ua, ct, mount string, conn net.Conn, use
 
 	return &SourceClient{
 		ID:          id,
+		Start:       time.Now(),
 		UserAgent:   ua,
 		ContentType: ct,
 		MountName:   mount,
@@ -131,6 +132,8 @@ func NewSourceClient(id radio.SourceID, ua, ct, mount string, conn net.Conn, use
 
 type SourceClient struct {
 	ID radio.SourceID
+	// Start is the time the client connected at
+	Start time.Time
 	// UserAgent is the User-Agent HTTP header passed by the client
 	UserAgent string
 	// ContentType is the Content-Type HTTP header passed by the client
