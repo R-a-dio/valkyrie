@@ -94,6 +94,7 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 		r.Post("/tracker/remove", p(radio.PermListenerKick, s.PostRemoveListener))
 		r.Get("/proxy", p(radio.PermDJ, s.GetProxy))
 		r.Post("/proxy/remove", p(radio.PermProxyKick, s.PostRemoveSource))
+		r.Get("/booth", p(radio.PermDJ, s.GetBooth))
 
 		// setup monitoring endpoint
 		proxy := setupMonitoringProxy(s.Config)
