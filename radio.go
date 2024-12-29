@@ -204,7 +204,7 @@ func AllUserPermissions() []UserPermission {
 		PermListenerView,
 		PermListenerKick,
 		PermProxyKick,
-		PermGrafanaView,
+		PermTelemetryView,
 	}
 }
 
@@ -227,7 +227,7 @@ const (
 	PermListenerView   = "listener_view"   // User can view the listener list
 	PermListenerKick   = "listener_kick"   // User can kick listeners
 	PermProxyKick      = "proxy_kick"      // User can kick streamers"
-	PermGrafanaView    = "grafana_view"    // User can view grafana
+	PermTelemetryView  = "telemetry_view"  // User can view telemetry backend
 )
 
 // User is an user account in the database

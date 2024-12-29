@@ -39,10 +39,12 @@ var defaultConfig = config{
 		DSN:        "radio@unix(/run/mysqld/mysqld.sock)/radio?parseTime=true",
 	},
 	Website: website{
-		WebsiteAddr:     MustParseAddrPort("localhost:3241"),
-		DJImageMaxSize:  10 * 1024 * 1024,
-		DJImagePath:     "/radio/dj-images",
-		PublicStreamURL: "http://localhost:8000/main.mp3",
+		WebsiteAddr:               MustParseAddrPort("localhost:3241"),
+		DJImageMaxSize:            10 * 1024 * 1024,
+		DJImagePath:               "/radio/dj-images",
+		PublicStreamURL:           "http://localhost:8000/main.mp3",
+		AdminMonitoringURL:        "http://grafana:3000",
+		AdminMonitoringUserHeader: "x-proxy-user",
 	},
 	Streamer: streamer{
 		RPCAddr:         MustParseAddrPort(":4545"),
@@ -196,6 +198,11 @@ type website struct {
 	AkismetKey string
 	// AkismetBlog is the string to send as the blog value in the akismet api
 	AkismetBlog string
+
+	// AdminMonitoringURL is the url to proxy admin/telemetry/ requests to
+	AdminMonitoringURL URL
+	// AdminMonitoringUserHeader is the header to use for passing in the username
+	AdminMonitoringUserHeader string
 }
 
 // streamer contains all the fields only relevant to the streamer

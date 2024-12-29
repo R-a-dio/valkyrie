@@ -95,10 +95,9 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 		r.Get("/proxy", p(radio.PermDJ, s.GetProxy))
 		r.Post("/proxy/remove", p(radio.PermProxyKick, s.PostRemoveSource))
 
-		// proxy to the grafana host
-		grafana, _ := url.Parse("http://localhost:3000")
-		proxy := httputil.NewSingleHostReverseProxy(grafana)
-		r.Handle("/grafana/*", p(radio.PermGrafanaView, proxy.ServeHTTP))
+		// setup monitoring endpoint
+		proxy := setupMonitoringProxy(s.Config)
+		r.Handle("/telemetry/*", p(radio.PermTelemetryView, proxy.ServeHTTP))
 
 		// debug handlers, might not be needed later
 		r.Post("/api/streamer/stop", p(radio.PermAdmin, s.PostStreamerStop))
@@ -118,4 +117,22 @@ func (s *State) PostStreamerStop(w http.ResponseWriter, r *http.Request) {
 
 func (s *State) errorHandler(w http.ResponseWriter, r *http.Request, err error, msg string) {
 	shared.ErrorHandler(s.TemplateExecutor, w, r, err)
+}
+
+func setupMonitoringProxy(cfg config.Config) *httputil.ReverseProxy {
+	monitoringURL := config.Value(cfg, func(c config.Config) *url.URL {
+		return c.Conf().Website.AdminMonitoringURL.URL()
+	})
+	monitoringUserHeader := config.Value(cfg, func(c config.Config) string {
+		return c.Conf().Website.AdminMonitoringUserHeader
+	})
+	// proxy to the grafana host
+	return &httputil.ReverseProxy{
+		Rewrite: func(pr *httputil.ProxyRequest) {
+			pr.SetURL(monitoringURL())
+
+			u := vmiddleware.UserFromContext(pr.In.Context())
+			pr.Out.Header.Add(monitoringUserHeader(), u.Username)
+		},
+	}
 }
