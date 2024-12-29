@@ -1,9 +1,9 @@
 //==========================================================
 // head-support.js
 //
-// An extension to htmx 1.0 to add head tag merging.
+// An extension to add head tag merging.
 //==========================================================
-(function () {
+(function(){
 
     var api = null;
 
@@ -74,7 +74,7 @@
                             }
                         } else {
                             // if this is a merge, we remove this content since it is not in the new head
-                            if (api.triggerEvent(document.body, "htmx:removingHeadElement", { headElement: currentHeadElt }) !== false) {
+                            if (api.triggerEvent(document.body, "htmx:removingHeadElement", {headElement: currentHeadElt}) !== false) {
                                 removed.push(currentHeadElt);
                             }
                         }
@@ -90,7 +90,7 @@
                     log("adding: ", newNode);
                     var newElt = document.createRange().createContextualFragment(newNode.outerHTML);
                     log(newElt);
-                    if (api.triggerEvent(document.body, "htmx:addingHeadElement", { headElement: newElt }) !== false) {
+                    if (api.triggerEvent(document.body, "htmx:addingHeadElement", {headElement: newElt}) !== false) {
                         currentHead.appendChild(newElt);
                         added.push(newElt);
                     }
@@ -99,29 +99,32 @@
                 // remove all removed elements, after we have appended the new elements to avoid
                 // additional network requests for things like style sheets
                 for (const removedElement of removed) {
-                    if (api.triggerEvent(document.body, "htmx:removingHeadElement", { headElement: removedElement }) !== false) {
+                    if (api.triggerEvent(document.body, "htmx:removingHeadElement", {headElement: removedElement}) !== false) {
                         currentHead.removeChild(removedElement);
                     }
                 }
 
-                api.triggerEvent(document.body, "htmx:afterHeadMerge", { added: added, kept: preserved, removed: removed });
+                api.triggerEvent(document.body, "htmx:afterHeadMerge", {added: added, kept: preserved, removed: removed});
             }
         }
     }
 
     htmx.defineExtension("head-support", {
-        init: function (apiRef) {
+        init: function(apiRef) {
             // store a reference to the internal API.
             api = apiRef;
 
-            htmx.on('htmx:afterSwap', function (evt) {
-                var serverResponse = evt.detail.xhr.response;
-                if (api.triggerEvent(document.body, "htmx:beforeHeadMerge", evt.detail)) {
-                    mergeHead(serverResponse, evt.detail.boosted ? "merge" : "append");
+            htmx.on('htmx:afterSwap', function(evt){
+                let xhr = evt.detail.xhr;
+                if (xhr) {
+                    var serverResponse = xhr.response;
+                    if (api.triggerEvent(document.body, "htmx:beforeHeadMerge", evt.detail)) {
+                        mergeHead(serverResponse, evt.detail.boosted ? "merge" : "append");
+                    }
                 }
             })
 
-            htmx.on('htmx:historyRestore', function (evt) {
+            htmx.on('htmx:historyRestore', function(evt){
                 if (api.triggerEvent(document.body, "htmx:beforeHeadMerge", evt.detail)) {
                     if (evt.detail.cacheMiss) {
                         mergeHead(evt.detail.serverResponse, "merge");
@@ -131,7 +134,7 @@
                 }
             })
 
-            htmx.on('htmx:historyItemCreated', function (evt) {
+            htmx.on('htmx:historyItemCreated', function(evt){
                 var historyItem = evt.detail.item;
                 historyItem.head = document.head.outerHTML;
             })
