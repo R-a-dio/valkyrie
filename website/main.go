@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/search"
@@ -68,14 +69,16 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	if err != nil {
 		return errors.E(op, err)
 	}
-	// RPC clients
-	streamer := cfg.Streamer
-	manager := cfg.Manager
 
 	// RPC values
-	statusValue := util.StreamValue(ctx, manager.CurrentStatus)
+	statusValue := util.StreamValue(ctx, cfg.Manager.CurrentStatus)
+	userValue := util.StreamValue(ctx, cfg.Manager.CurrentUser)
+
 	// templates
+	specialTheme := util.NewTypedValue(new(radio.Theme)) // "special" theme, such as holidays or high-prio themes
+	// construct our stateful template functions, it uses the latest values from the manager
 	templateFuncs := templates.NewStatefulFunctions(statusValue)
+	// construct our templates from files on disk
 	siteTemplates, err := templates.FromDirectory(
 		cfg.Conf().TemplatePath,
 		templateFuncs,
@@ -145,7 +148,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	// shared input handling, stuff the base template needs
 	r.Use(vmiddleware.InputMiddleware(cfg, statusValue))
 	// theme state management
-	r.Use(templates.ThemeCtx(storage))
+	r.Use(templates.ThemeCtx(specialTheme, userValue))
 
 	// legacy urls that once pointed to our stream, redirect them to the new url
 	redirectHandler := RedirectLegacyStream(cfg)
@@ -165,13 +168,14 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	// it's mostly self-contained to the /api/* route, except for /request that
 	// leaked out at some point
 	logger.Info().Str("event", "init").Str("part", "api_v0").Msg("")
-	v0, err := phpapi.NewAPI(ctx, cfg, storage, streamer, statusValue)
+	v0, err := phpapi.NewAPI(ctx, cfg, storage, statusValue)
 	if err != nil {
 		return errors.E(op, err)
 	}
 	r.Route("/api", v0.Route)
 	r.Route(`/request/{TrackID:[0-9]+}`, v0.RequestRoute)
 
+	// version 1 of the api
 	logger.Info().Str("event", "init").Str("part", "api_v1").Msg("")
 	v1, err := v1.NewAPI(ctx, cfg, executor, afero.NewReadOnlyFs(afero.NewOsFs()), songSecret)
 	if err != nil {
@@ -204,8 +208,6 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		dpass,
 		newsCache,
 		executor,
-		manager,
-		streamer,
 		storage,
 		searchService,
 	)))

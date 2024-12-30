@@ -19,8 +19,6 @@ func NewState(
 	dp secret.Secret,
 	newsCache *shared.NewsCache,
 	exec templates.Executor,
-	manager radio.ManagerService,
-	streamer radio.StreamerService,
 	storage radio.StorageService,
 	search radio.SearchService) State {
 
@@ -29,8 +27,8 @@ func NewState(
 		Daypass:   dp,
 		News:      newsCache,
 		Templates: exec,
-		Manager:   manager,
-		Streamer:  streamer,
+		Manager:   cfg.Manager,
+		Streamer:  cfg.Streamer,
 		Storage:   storage,
 		Search:    search,
 	}

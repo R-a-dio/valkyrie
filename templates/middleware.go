@@ -18,19 +18,64 @@ const ThemeAdminCookieName = "admin-theme"
 const ThemeDefault = "default-dark"
 const ThemeAdminDefault = "admin-dark"
 
-func ThemeCtx(storage radio.StorageService) func(http.Handler) http.Handler {
+func cookieEncode(theme string, overwrite_dj, overwrite_holiday bool) string {
+	switch {
+	case overwrite_dj && overwrite_holiday:
+		return theme + ":11"
+	case !overwrite_dj && overwrite_holiday:
+		return theme + ":01"
+	case overwrite_dj && !overwrite_holiday:
+		return theme + ":10"
+	default:
+		return theme + ":00"
+	}
+}
+
+func cookieDecode(value string) (theme string, overwrite_dj, overwrite_holiday bool) {
+	start := len(value) - 3
+	if start < 0 {
+		return value, false, false
+	}
+	if value[start] != ':' {
+		return value, false, false
+	}
+
+	return value[:start], value[start+1] == '1', value[start+2] == '1'
+}
+
+// ThemeCtx adds a theme entry into the context of the request, that is acquirable by
+// calling GetTheme on the request context.
+//
+// What theme to insert is a priority system that looks like this:
+//  1. user-picked (with overwrite-holiday enabled)
+//  2. holiday-theme
+//  3. user-picked (with overwrite-dj enabled)
+//  4. dj-theme
+//  5. user-picked
+//  6. default-theme
+func ThemeCtx(specialTheme *util.TypedValue[*radio.Theme], userValue *util.Value[*radio.User]) func(http.Handler) http.Handler {
+	// construct our decider
+	decider := decideTheme(specialTheme, userValue)
+
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			theme := ThemeDefault
-			cookieName := ThemeCookieName
+			// figure out what default and cookie to use
+			theme, cookieName := ThemeDefault, ThemeCookieName
 			if strings.HasPrefix(r.URL.Path, "/admin") {
-				theme = ThemeAdminDefault
-				cookieName = ThemeAdminCookieName
+				theme, cookieName = ThemeAdminDefault, ThemeAdminCookieName
 			}
 
+			// retrieve our cookie
 			if cookie, err := r.Cookie(cookieName); err == nil {
 				theme = cookie.Value
 			}
+
+			// then run the theme through the decider, this will handle holiday themes, dj themes and the
+			// user configured stuff from the cookie
+			theme = decider(theme)
+
+			// or if the user set a theme in the url query (?theme=<thing>) we use that and ignore
+			// the cookie setting completely
 			if tmp := r.URL.Query().Get("theme"); tmp != "" {
 				theme = tmp
 			}
@@ -38,6 +83,26 @@ func ThemeCtx(storage radio.StorageService) func(http.Handler) http.Handler {
 			ctx := SetTheme(r.Context(), theme, false)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
+	}
+}
+
+func decideTheme(holiday *util.TypedValue[*radio.Theme], user *util.Value[*radio.User]) func(string) string {
+	return func(value string) string {
+		name, overwrite_dj, overwrite_holiday := cookieDecode(value)
+		if holidayTheme := holiday.Load(); holidayTheme != nil && holidayTheme.Name != "" {
+			if overwrite_holiday {
+				return name
+			}
+			return holidayTheme.Name
+		}
+
+		if djTheme := user.Latest().DJ.Theme.Name; djTheme != "" {
+			if overwrite_dj {
+				return name
+			}
+			return djTheme
+		}
+		return name
 	}
 }
 
@@ -57,6 +122,8 @@ func GetTheme(ctx context.Context) string {
 	return theme
 }
 
+// SetTheme sets a theme in the context given, does nothing if a theme already exists
+// unless override is set to true
 func SetTheme(ctx context.Context, theme string, override bool) context.Context {
 	if !override {
 		if exists := ctx.Value(themeKey{}); exists != nil {
@@ -97,9 +164,10 @@ func SetThemeHandler(cookieName string, resolve func(string) string) http.Handle
 		// and change the theme so the new page actually uses our new theme set
 		r = r.WithContext(SetTheme(r.Context(), theme, true))
 
+		// then redirect the request internally to the top of the stack
 		err := util.RedirectToServer(w, r)
 		if err != nil {
-			hlog.FromRequest(r).Error().Err(err).Msg("SetThemeHandler")
+			hlog.FromRequest(r).Error().Err(err).Msg("failed to redirect SetThemeHandler request")
 			w.WriteHeader(http.StatusOK)
 			return
 		}
