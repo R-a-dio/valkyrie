@@ -284,9 +284,9 @@ SELECT
 	COALESCE(djs.css, '') AS 'dj.css',
 	COALESCE(djs.djcolor, '') AS 'dj.color',
 	COALESCE(themes.id, 0) AS 'dj.theme.id',
-	COALESCE(themes.name, 'default') AS 'dj.theme.name',
-	COALESCE(themes.display_name, 'default') AS 'dj.theme.displayname',
-	COALESCE(themes.author, 'unknown') AS 'dj.theme.author'
+	COALESCE(themes.name, '') AS 'dj.theme.name',
+	COALESCE(themes.display_name, '') AS 'dj.theme.displayname',
+	COALESCE(themes.author, '') AS 'dj.theme.author'
 FROM
 	users
 LEFT JOIN
@@ -431,9 +431,9 @@ func (us UserStorage) All() ([]radio.User, error) {
 		COALESCE(djs.css, '') AS 'dj.css',
 		COALESCE(djs.djcolor, '') AS 'dj.color',
 		COALESCE(themes.id, 0) AS 'dj.theme.id',
-		COALESCE(themes.name, 'default') AS 'dj.theme.name',
-		COALESCE(themes.display_name, 'default') AS 'dj.theme.displayname',
-		COALESCE(themes.author, 'unknown') AS 'dj.theme.author'
+		COALESCE(themes.name, '') AS 'dj.theme.name',
+		COALESCE(themes.display_name, '') AS 'dj.theme.displayname',
+		COALESCE(themes.author, '') AS 'dj.theme.author'
 	FROM
 		users
 	LEFT JOIN
