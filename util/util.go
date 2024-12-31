@@ -38,7 +38,7 @@ func IsHTMX(r *http.Request) bool {
 	return r.Header.Get("Hx-Request") == "true" && r.Header.Get("Hx-History-Restore-Request") != "true"
 }
 
-func RedirectBack(r *http.Request) *http.Request {
+func RedirectBack(r *http.Request) (nr *http.Request, success bool) {
 	var changed bool
 
 	if hxHeader := r.Header.Get("Hx-Current-Url"); hxHeader != "" {
@@ -67,6 +67,13 @@ func RedirectBack(r *http.Request) *http.Request {
 			chiCtx.RoutePath = ""
 		}
 	}
+	return r, changed
+}
+
+// RedirectPath modifies r's path to the newpath given
+func RedirectPath(r *http.Request, newpath string) *http.Request {
+	r.URL.Path = newpath
+	r.RequestURI = r.URL.RequestURI()
 	return r
 }
 

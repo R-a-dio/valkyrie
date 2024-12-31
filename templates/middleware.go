@@ -62,6 +62,7 @@ func ThemeCtx(specialTheme *util.TypedValue[*radio.Theme], userValue *util.Value
 			// figure out what default and cookie to use
 			theme, cookieName := ThemeDefault, ThemeCookieName
 			if strings.HasPrefix(r.URL.Path, "/admin") {
+				// different for the admin route
 				theme, cookieName = ThemeAdminDefault, ThemeAdminCookieName
 			}
 
@@ -133,23 +134,32 @@ func SetTheme(ctx context.Context, theme string, override bool) context.Context 
 	return context.WithValue(ctx, themeKey{}, theme)
 }
 
-func SetThemeHandler(cookieName string, resolve func(string) string) http.Handler {
+func SetThemeHandler(cookieName string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// get the theme value from the url query, we do not want to call ParseForm
 		// because otherwise we populate a whole bunch of fields on the request that
 		// we might want to proxy back into the server later
-		theme := resolve(r.URL.Query().Get("theme"))
+		query := r.URL.Query()
+		theme := query.Get("theme")
+		overwrite_dj := query.Has("overwrite-dj")
+		overwrite_holiday := query.Has("overwrite-holiday")
 
 		http.SetCookie(w, &http.Cookie{
 			Name:     cookieName,
-			Value:    theme,
+			Value:    cookieEncode(theme, overwrite_dj, overwrite_holiday),
 			Path:     "/",
 			SameSite: http.SameSiteStrictMode,
 			Expires:  time.Now().Add(time.Hour * 24 * 400),
 			HttpOnly: true,
 		})
 
-		r = util.RedirectBack(r)
+		// redirect the request back to where we came from, this isn't guaranteed to work but
+		// should have a pretty high chance of working
+		r, ok := util.RedirectBack(r)
+		if !ok {
+			// somehow failed to redirect, return user to home page
+			r = util.RedirectPath(r, "/")
+		}
 
 		if !util.IsHTMX(r) {
 			// not a htmx request so probably no-js, send a http redirect to refresh

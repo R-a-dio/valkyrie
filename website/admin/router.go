@@ -71,7 +71,6 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 		p := vmiddleware.RequirePermission
 		r.Handle("/set-theme", templates.SetThemeHandler(
 			templates.ThemeAdminCookieName,
-			s.Templates.ResolveThemeName,
 		))
 		r.HandleFunc("/", s.GetHome)
 		r.Get("/profile", s.GetProfile)

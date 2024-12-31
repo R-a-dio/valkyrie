@@ -52,7 +52,11 @@ func (a *API) PostRequest(w http.ResponseWriter, r *http.Request) {
 
 	if !util.IsHTMX(r) {
 		// for non-htmx users we redirect them back to where they came from
-		r = util.RedirectBack(r)
+		r, ok := util.RedirectBack(r)
+		if !ok {
+			// or to the homepage if RedirectBack fails
+			r = util.RedirectPath(r, "/")
+		}
 		// use 303 (See Other) so that it does a GET request instead of a POST
 		http.Redirect(w, r, r.URL.String(), http.StatusSeeOther)
 		return

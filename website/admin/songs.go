@@ -129,7 +129,7 @@ func (s *State) PostSongs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// otherwise just return to the existing listing
-	r = util.RedirectBack(r)
+	r, _ = util.RedirectBack(r) // TODO: why is this here?
 	s.GetSongs(w, r)
 }
 
