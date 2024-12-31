@@ -43,7 +43,7 @@ SET
 	djs.css=:dj.css,
 	djs.djcolor=:dj.color,
 	djs.role=:dj.role,
-	djs.theme_id=:dj.theme.id,
+	djs.theme_name=:dj.theme,
 	djs.regex=:dj.regex
 WHERE
 	users.id=:id AND djs.id=:dj.id;
@@ -152,7 +152,7 @@ INSERT INTO djs (
 	css,
 	djcolor,
 	role,
-	theme_id,
+	theme_name,
 	regex
 ) VALUES (
 	:name,
@@ -163,7 +163,7 @@ INSERT INTO djs (
 	:css,
 	:color,
 	:role,
-	:theme.id,
+	:theme,
 	:regex
 );
 `
@@ -283,16 +283,11 @@ SELECT
 
 	COALESCE(djs.css, '') AS 'dj.css',
 	COALESCE(djs.djcolor, '') AS 'dj.color',
-	COALESCE(themes.id, 0) AS 'dj.theme.id',
-	COALESCE(themes.name, '') AS 'dj.theme.name',
-	COALESCE(themes.display_name, '') AS 'dj.theme.displayname',
-	COALESCE(themes.author, '') AS 'dj.theme.author'
+	COALESCE(djs.theme_name, '') AS 'dj.theme'
 FROM
 	users
 LEFT JOIN
 	djs ON users.djid = djs.id
-LEFT JOIN
-	themes ON djs.theme_id = themes.id
 LEFT JOIN
 	permissions ON users.id=permissions.user_id
 WHERE
@@ -430,16 +425,11 @@ func (us UserStorage) All() ([]radio.User, error) {
 	
 		COALESCE(djs.css, '') AS 'dj.css',
 		COALESCE(djs.djcolor, '') AS 'dj.color',
-		COALESCE(themes.id, 0) AS 'dj.theme.id',
-		COALESCE(themes.name, '') AS 'dj.theme.name',
-		COALESCE(themes.display_name, '') AS 'dj.theme.displayname',
-		COALESCE(themes.author, '') AS 'dj.theme.author'
+		COALESCE(djs.theme_name, '') AS 'dj.theme'
 	FROM
 		users
 	LEFT JOIN
-		djs ON djs.id = users.djid
-	LEFT JOIN
-		themes ON djs.theme_id = themes.id;
+		djs ON djs.id = users.djid;
 	`
 	var users []radio.User
 

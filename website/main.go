@@ -75,7 +75,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	userValue := util.StreamValue(ctx, cfg.Manager.CurrentUser)
 
 	// templates
-	specialTheme := util.NewTypedValue(new(radio.Theme)) // "special" theme, such as holidays or high-prio themes
+	specialTheme := util.NewTypedValue(new(radio.ThemeName)) // "special" theme, such as holidays or high-prio themes
 	// construct our stateful template functions, it uses the latest values from the manager
 	templateFuncs := templates.NewStatefulFunctions(statusValue)
 	// construct our templates from files on disk

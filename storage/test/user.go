@@ -118,7 +118,7 @@ func (suite *Suite) TestUserCreate(t *testing.T) {
 	other, err := us.Get(user.Username)
 	require.NoError(t, err, "expected no error")
 	require.NotNil(t, other, "expected user back")
-	other.DJ.Theme = radio.Theme{} // zero this since it applies defaults
+	other.DJ.Theme = "" // zero this since it applies defaults
 	require.Zero(t, other.DJ, "expected no DJ")
 	compareUser(t, false, user, *other)
 }
@@ -224,11 +224,7 @@ var testDJ = radio.DJ{
 	Role:     "staff",
 	CSS:      "unused",
 	Color:    "also unused",
-	Theme: radio.Theme{
-		Name:        "default",
-		DisplayName: "default",
-		Author:      "unknown",
-	},
+	Theme:    "",
 }
 
 func (suite *Suite) TestUserPermissions(t *testing.T) {

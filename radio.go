@@ -295,7 +295,7 @@ type DJ struct {
 
 	CSS   string
 	Color string
-	Theme Theme
+	Theme ThemeName
 }
 
 // TrackState is the state of a Track in storage
@@ -306,14 +306,13 @@ const (
 	TrackStatePlayable
 )
 
-// ThemeID is the identifier of a website theme
-type ThemeID uint32
+type ThemeName = string
 
 // Theme is a website theme
 type Theme struct {
-	ID          ThemeID
-	Name        string
+	Name        ThemeName
 	DisplayName string
+	Description string
 	Author      string
 }
 

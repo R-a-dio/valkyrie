@@ -87,8 +87,8 @@ func BenchmarkCookieEncode(b *testing.B) {
 
 func BenchmarkDecideTheme(b *testing.B) {
 	fn := func(holiday, user string) func(string) string {
-		holidayV := util.NewTypedValue(&radio.Theme{Name: holiday})
-		userV := util.NewStaticValue(&radio.User{DJ: radio.DJ{Theme: radio.Theme{Name: user}}})
+		holidayV := util.NewTypedValue(&holiday)
+		userV := util.NewStaticValue(&radio.User{DJ: radio.DJ{Theme: user}})
 		return decideTheme(holidayV, userV)
 	}
 

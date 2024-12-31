@@ -219,10 +219,7 @@ SELECT
 	COALESCE(djs.role, '') AS 'lastplayedby.dj.role',
 	COALESCE(djs.css, '') AS 'lastplayedby.dj.css',
 	COALESCE(djs.djcolor, '') AS 'lastplayedby.dj.color',
-	COALESCE(themes.id, 0) AS 'lastplayedby.dj.theme.id',
-	COALESCE(themes.name, 'default') AS 'lastplayedby.dj.theme.name',
-	COALESCE(themes.display_name, 'default') AS 'lastplayedby.dj.theme.displayname',
-	COALESCE(themes.author, 'unknown') AS 'lastplayedby.dj.theme.author',
+	COALESCE(djs.theme_name, '') AS 'lastplayedby.dj.theme',
 	NOW() AS synctime
 FROM
 	esong
@@ -234,8 +231,6 @@ LEFT JOIN
 	djs ON eplay.djs_id = djs.id
 LEFT JOIN
 	users ON djs.id = users.djid
-LEFT JOIN
-	themes ON djs.theme_id = themes.id
 WHERE
 	eplay.id < ?
 ORDER BY

@@ -39,10 +39,7 @@ const newsColumns = `
 
 	COALESCE(djs.css, '') AS 'user.dj.css',
 	COALESCE(djs.djcolor, '') AS 'user.dj.color',
-	COALESCE(themes.id, CAST(0 AS UNSIGNED INT)) AS 'user.dj.theme.id',
-	COALESCE(themes.name, 'default') AS 'user.dj.theme.name',
-	COALESCE(themes.display_name, 'default') AS 'user.dj.theme.displayname',
-	COALESCE(themes.author, 'unknown') AS 'user.dj.theme.author'
+	COALESCE(djs.theme_name, '') AS 'user.dj.theme'
 `
 
 // NewsStorage implements radio.NewsStorage
@@ -59,8 +56,6 @@ LEFT JOIN
 	users ON users.id = radio_news.user_id
 LEFT JOIN
 	djs ON users.djid = djs.id
-LEFT JOIN
-	themes ON djs.theme_id = themes.id
 LEFT JOIN
 	permissions ON users.id = permissions.user_id
 WHERE
@@ -252,8 +247,6 @@ LEFT JOIN
 LEFT JOIN
 	djs ON users.djid = djs.id
 LEFT JOIN
-	themes ON djs.theme_id = themes.id
-LEFT JOIN
 	permissions ON users.id = permissions.user_id
 GROUP BY
 	radio_news.id
@@ -295,8 +288,6 @@ LEFT JOIN
 	users ON radio_news.user_id = users.id
 LEFT JOIN
 	djs ON users.djid = djs.id
-LEFT JOIN
-	themes ON djs.theme_id = themes.id
 LEFT JOIN
 	permissions ON users.id = permissions.user_id
 WHERE
@@ -371,18 +362,13 @@ func (ns NewsStorage) Comments(postid radio.NewsPostID) ([]radio.NewsComment, er
 	
 		COALESCE(djs.css, '') AS 'user.dj.css',
 		COALESCE(djs.djcolor, '') AS 'user.dj.color',
-		COALESCE(themes.id, CAST(0 AS UNSIGNED INT)) AS 'user.dj.theme.id',
-		COALESCE(themes.name, 'default') AS 'user.dj.theme.name',
-		COALESCE(themes.display_name, 'default') AS 'user.dj.theme.displayname',
-		COALESCE(themes.author, 'unknown') AS 'user.dj.theme.author'
+		COALESCE(djs.theme_name, '') AS 'user.dj.theme'
 	FROM
 		radio_comments
 	LEFT JOIN
 		users ON users.id = radio_comments.user_id
 	LEFT JOIN
 		djs ON users.djid = djs.id
-	LEFT JOIN
-		themes ON djs.theme_id = themes.id
 	LEFT JOIN
 		permissions ON users.id = permissions.user_id
 	WHERE
@@ -448,18 +434,13 @@ func (ns NewsStorage) CommentsPublic(postid radio.NewsPostID) ([]radio.NewsComme
 	 
 		COALESCE(djs.css, '') AS 'user.dj.css',
 		COALESCE(djs.djcolor, '') AS 'user.dj.color',
-		COALESCE(themes.id, 0) AS 'user.dj.theme.id',
-		COALESCE(themes.name, 'default') AS 'user.dj.theme.name',
-		COALESCE(themes.display_name, 'default') AS 'user.dj.theme.displayname',
-		COALESCE(themes.author, 'unknown') AS 'user.dj.theme.author'
+		COALESCE(djs.theme_name, '') AS 'user.dj.theme'
 	FROM
 		radio_comments
 	LEFT JOIN
 		users ON users.id = radio_comments.user_id
 	LEFT JOIN
 		djs ON users.djid = djs.id
-	LEFT JOIN
-		themes ON djs.theme_id = themes.id
 	LEFT JOIN
 		permissions ON users.id = permissions.user_id
 	WHERE

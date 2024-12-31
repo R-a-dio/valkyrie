@@ -335,7 +335,7 @@ func toProtoDJ(d radio.DJ) *DJ {
 		Role:     d.Role,
 		Css:      d.CSS,
 		Color:    d.Color,
-		Theme:    toProtoTheme(d.Theme),
+		Theme:    d.Theme,
 	}
 }
 
@@ -354,29 +354,7 @@ func fromProtoDJ(d *DJ) radio.DJ {
 		Role:     d.Role,
 		CSS:      d.Css,
 		Color:    d.Color,
-		Theme:    fromProtoTheme(d.Theme),
-	}
-}
-
-func toProtoTheme(t radio.Theme) *Theme {
-	return &Theme{
-		Id:          uint64(t.ID),
-		Name:        t.Name,
-		DisplayName: t.DisplayName,
-		Author:      t.Author,
-	}
-}
-
-func fromProtoTheme(t *Theme) radio.Theme {
-	if t == nil {
-		return radio.Theme{}
-	}
-
-	return radio.Theme{
-		ID:          radio.ThemeID(t.Id),
-		Name:        t.Name,
-		DisplayName: t.DisplayName,
-		Author:      t.Author,
+		Theme:    d.Theme,
 	}
 }
 

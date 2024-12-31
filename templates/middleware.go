@@ -53,7 +53,7 @@ func cookieDecode(value string) (theme string, overwrite_dj, overwrite_holiday b
 //  4. dj-theme
 //  5. user-picked
 //  6. default-theme
-func ThemeCtx(specialTheme *util.TypedValue[*radio.Theme], userValue *util.Value[*radio.User]) func(http.Handler) http.Handler {
+func ThemeCtx(specialTheme *util.TypedValue[*radio.ThemeName], userValue *util.Value[*radio.User]) func(http.Handler) http.Handler {
 	// construct our decider
 	decider := decideTheme(specialTheme, userValue)
 
@@ -87,17 +87,17 @@ func ThemeCtx(specialTheme *util.TypedValue[*radio.Theme], userValue *util.Value
 	}
 }
 
-func decideTheme(holiday *util.TypedValue[*radio.Theme], user *util.Value[*radio.User]) func(string) string {
+func decideTheme(holiday *util.TypedValue[*radio.ThemeName], user *util.Value[*radio.User]) func(string) string {
 	return func(value string) string {
 		name, overwrite_dj, overwrite_holiday := cookieDecode(value)
-		if holidayTheme := holiday.Load(); holidayTheme != nil && holidayTheme.Name != "" {
+		if holidayTheme := holiday.Load(); holidayTheme != nil && *holidayTheme != "" {
 			if overwrite_holiday {
 				return name
 			}
-			return holidayTheme.Name
+			return *holidayTheme
 		}
 
-		if djTheme := user.Latest().DJ.Theme.Name; djTheme != "" {
+		if djTheme := user.Latest().DJ.Theme; djTheme != "" {
 			if overwrite_dj {
 				return name
 			}

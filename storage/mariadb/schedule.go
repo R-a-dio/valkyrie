@@ -37,10 +37,7 @@ SELECT
 	COALESCE(ub_djs.role, '') AS 'updatedby.dj.role',
 	COALESCE(ub_djs.css, '') AS 'updatedby.dj.css',
 	COALESCE(ub_djs.djcolor, '') AS 'updatedby.dj.color',
-	COALESCE(ub_themes.id, 0) AS 'updatedby.dj.theme.id',
-	COALESCE(ub_themes.name, '') AS 'updatedby.dj.theme.name',
-	COALESCE(ub_themes.display_name, '') AS 'updatedby.dj.theme.displayname',
-	COALESCE(ub_themes.author, '') AS 'updatedby.dj.theme.author',
+	COALESCE(ub_djs.theme_name, '') AS 'updatedby.dj.theme',
 
 	COALESCE(ow.id, 0) AS 'owner.id',
 	COALESCE(ow.user, '') AS 'owner.username',
@@ -61,10 +58,7 @@ SELECT
 	COALESCE(ow_djs.role, '') AS 'owner.dj.role',
 	COALESCE(ow_djs.css, '') AS 'owner.dj.css',
 	COALESCE(ow_djs.djcolor, '') AS 'owner.dj.color',
-	COALESCE(ow_themes.id, 0) AS 'owner.dj.theme.id',
-	COALESCE(ow_themes.name, 'default') AS 'owner.dj.theme.name',
-	COALESCE(ow_themes.display_name, 'default') AS 'owner.dj.theme.displayname',
-	COALESCE(ow_themes.author, 'unknown') AS 'owner.dj.theme.author'
+	COALESCE(ow_djs.theme_name, '') AS 'owner.dj.theme'
 FROM
 	schedule
 RIGHT JOIN
@@ -74,13 +68,9 @@ JOIN
 LEFT JOIN
 	djs AS ub_djs ON ub.djid = ub_djs.id
 LEFT JOIN
-	themes AS ub_themes ON ub_djs.theme_id = ub_themes.id
-LEFT JOIN
 	users AS ow ON schedule.owner = ow.id
 LEFT JOIN
 	djs AS ow_djs ON ow.djid = ow_djs.id
-LEFT JOIN
-	themes AS ow_themes ON ow_djs.theme_id = ow_themes.id
 ORDER BY
 	schedule.weekday;
 `
@@ -179,10 +169,7 @@ func (ss ScheduleStorage) History(day radio.ScheduleDay, limit, offset int64) ([
 		COALESCE(ub_djs.role, '') AS 'updatedby.dj.role',
 		COALESCE(ub_djs.css, '') AS 'updatedby.dj.css',
 		COALESCE(ub_djs.djcolor, '') AS 'updatedby.dj.color',
-		COALESCE(ub_themes.id, 0) AS 'updatedby.dj.theme.id',
-		COALESCE(ub_themes.name, '') AS 'updatedby.dj.theme.name',
-		COALESCE(ub_themes.display_name, '') AS 'updatedby.dj.theme.displayname',
-		COALESCE(ub_themes.author, '') AS 'updatedby.dj.theme.author',
+		COALESCE(ub_djs.theme_name, '') AS 'updatedby.dj.theme',
 
 		COALESCE(ow.id, 0) AS 'owner.id',
 		COALESCE(ow.user, '') AS 'owner.username',
@@ -203,10 +190,7 @@ func (ss ScheduleStorage) History(day radio.ScheduleDay, limit, offset int64) ([
 		COALESCE(ow_djs.role, '') AS 'owner.dj.role',
 		COALESCE(ow_djs.css, '') AS 'owner.dj.css',
 		COALESCE(ow_djs.djcolor, '') AS 'owner.dj.color',
-		COALESCE(ow_themes.id, 0) AS 'owner.dj.theme.id',
-		COALESCE(ow_themes.name, 'default') AS 'owner.dj.theme.name',
-		COALESCE(ow_themes.display_name, 'default') AS 'owner.dj.theme.displayname',
-		COALESCE(ow_themes.author, 'unknown') AS 'owner.dj.theme.author'
+		COALESCE(ow_djs.theme_name, '') AS 'owner.dj.theme'
 	FROM
 		schedule
 	JOIN
@@ -214,13 +198,9 @@ func (ss ScheduleStorage) History(day radio.ScheduleDay, limit, offset int64) ([
 	LEFT JOIN
 		djs AS ub_djs ON ub.djid = ub_djs.id
 	LEFT JOIN
-		themes AS ub_themes ON ub_djs.theme_id = ub_themes.id
-	LEFT JOIN
 		users AS ow ON schedule.owner = ow.id
 	LEFT JOIN
 		djs AS ow_djs ON ow.djid = ow_djs.id
-	LEFT JOIN
-		themes AS ow_themes ON ow_djs.theme_id = ow_themes.id
 	WHERE
 		weekday=?
 	ORDER BY
