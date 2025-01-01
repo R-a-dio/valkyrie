@@ -12,9 +12,7 @@ function now() {
     return Date.now() - timeOffset
 }
 
-htmx.createEventSource = function (url) {
-    console.log(url);
-    es = new EventSource(url);
+function debugEventSource(url) {
     es.addEventListener("streamer", (event) => {
         console.log(event.data);
     });
@@ -33,10 +31,17 @@ htmx.createEventSource = function (url) {
     es.addEventListener("time", (event) => {
         timeOffset = Date.now() - event.data;
         console.log("using time offset of:", timeOffset);
-    })
-    return es;
+    });
+    es.addEventListener("thread", (event) => {
+        console.log(event.data);
+    });
 }
-//htmx.logAll();
+
+htmx.createEventSource = function (url) {
+    es = new EventSource(url);
+    return es
+}
+
 htmx.on('htmx:load', (event) => {
     // unhide any elements that want to be visible if there is javascript
     document.querySelectorAll(".is-hidden-without-js").forEach((elt) => {
@@ -113,7 +118,7 @@ htmx.on('htmx:targetError', (event) => {
     if (event.srcElement.href) {
         target = event.srcElement.href;
     }
-    
+
     htmx.ajax('GET', target, {target: 'body', swap: 'outerHTML', headers: {'HX-Request': 'false'}});
 });
 
