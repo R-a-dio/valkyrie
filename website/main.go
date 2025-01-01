@@ -70,12 +70,13 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		return errors.E(op, err)
 	}
 
-	// RPC values
+	// status RPC value
 	statusValue := util.StreamValue(ctx, cfg.Manager.CurrentStatus)
-	userValue := util.StreamValue(ctx, cfg.Manager.CurrentUser)
+
+	// template value, for deciding what theme to use
+	themeValues := templates.NewThemeValues()
 
 	// templates
-	specialTheme := util.NewTypedValue(new(radio.ThemeName)) // "special" theme, such as holidays or high-prio themes
 	// construct our stateful template functions, it uses the latest values from the manager
 	templateFuncs := templates.NewStatefulFunctions(statusValue)
 	// construct our templates from files on disk
@@ -87,6 +88,27 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		return errors.E(op, err)
 	}
 	executor := siteTemplates.Executor()
+
+	// user RPC value
+	_ = util.StreamValue(ctx, cfg.Manager.CurrentUser, func(ctx context.Context, u *radio.User) {
+		// if either no user, or no theme set, unset the DJ theme
+		if u == nil || u.DJ.Theme == "" {
+			themeValues.StoreDJ("")
+			return
+		}
+
+		// check if the theme configured by the DJ actually exists
+		resolved := siteTemplates.ResolveThemeName(u.DJ.Theme)
+		if resolved != u.DJ.Theme {
+			// if input and output are not the same it means the theme didn't exist
+			// and we shouldn't use it, so just unset it
+			themeValues.StoreDJ("")
+			return
+		}
+
+		themeValues.StoreDJ(resolved)
+	})
+
 	// daypass generation
 	dpass, err := secret.NewSecret(secret.DaypassLength)
 	if err != nil {
@@ -148,7 +170,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	// shared input handling, stuff the base template needs
 	r.Use(vmiddleware.InputMiddleware(cfg, statusValue))
 	// theme state management
-	r.Use(templates.ThemeCtx(specialTheme, userValue))
+	r.Use(templates.ThemeCtx(themeValues))
 
 	// legacy urls that once pointed to our stream, redirect them to the new url
 	redirectHandler := RedirectLegacyStream(cfg)

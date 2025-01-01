@@ -43,6 +43,23 @@ func cookieDecode(value string) (theme string, overwrite_dj, overwrite_holiday b
 	return value[:start], value[start+1] == '1', value[start+2] == '1'
 }
 
+type ThemeValues struct {
+	holiday util.TypedValue[radio.ThemeName]
+	dj      util.TypedValue[radio.ThemeName]
+}
+
+func NewThemeValues() *ThemeValues {
+	return &ThemeValues{}
+}
+
+func (tv *ThemeValues) StoreHoliday(theme radio.ThemeName) {
+	tv.holiday.Store(theme)
+}
+
+func (tv *ThemeValues) StoreDJ(theme radio.ThemeName) {
+	tv.dj.Store(theme)
+}
+
 // ThemeCtx adds a theme entry into the context of the request, that is acquirable by
 // calling GetTheme on the request context.
 //
@@ -53,15 +70,14 @@ func cookieDecode(value string) (theme string, overwrite_dj, overwrite_holiday b
 //  4. dj-theme
 //  5. user-picked
 //  6. default-theme
-func ThemeCtx(specialTheme *util.TypedValue[*radio.ThemeName], userValue *util.Value[*radio.User]) func(http.Handler) http.Handler {
-	// construct our decider
-	decider := decideTheme(specialTheme, userValue)
-
+func ThemeCtx(tv *ThemeValues) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// figure out what default and cookie to use
 			theme, cookieName := ThemeDefault, ThemeCookieName
-			if strings.HasPrefix(r.URL.Path, "/admin") {
+
+			isAdmin := strings.HasPrefix(r.URL.Path, "/admin")
+			if isAdmin {
 				// different for the admin route
 				theme, cookieName = ThemeAdminDefault, ThemeAdminCookieName
 			}
@@ -73,7 +89,9 @@ func ThemeCtx(specialTheme *util.TypedValue[*radio.ThemeName], userValue *util.V
 
 			// then run the theme through the decider, this will handle holiday themes, dj themes and the
 			// user configured stuff from the cookie
-			theme = decider(theme)
+			if !isAdmin { // but only if we're not loading admin pages, the special themes wont have support for those
+				theme = tv.decide(theme)
+			}
 
 			// or if the user set a theme in the url query (?theme=<thing>) we use that and ignore
 			// the cookie setting completely
@@ -87,24 +105,26 @@ func ThemeCtx(specialTheme *util.TypedValue[*radio.ThemeName], userValue *util.V
 	}
 }
 
-func decideTheme(holiday *util.TypedValue[*radio.ThemeName], user *util.Value[*radio.User]) func(string) string {
-	return func(value string) string {
-		name, overwrite_dj, overwrite_holiday := cookieDecode(value)
-		if holidayTheme := holiday.Load(); holidayTheme != nil && *holidayTheme != "" {
-			if overwrite_holiday {
-				return name
-			}
-			return *holidayTheme
-		}
+func (tv *ThemeValues) decide(value string) radio.ThemeName {
+	name, overwrite_dj, overwrite_holiday := cookieDecode(value)
 
-		if djTheme := user.Latest().DJ.Theme; djTheme != "" {
-			if overwrite_dj {
-				return name
-			}
-			return djTheme
-		}
+	if overwrite_holiday {
 		return name
 	}
+
+	if holidayTheme := tv.holiday.Load(); holidayTheme != "" {
+		return holidayTheme
+	}
+
+	if overwrite_dj {
+		return name
+	}
+
+	if djTheme := tv.dj.Load(); djTheme != "" {
+		return djTheme
+	}
+
+	return name
 }
 
 // GetTheme returns the theme from the given context.
