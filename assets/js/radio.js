@@ -104,6 +104,19 @@ htmx.on('htmx:afterSettle', (event) => {
     }
 });
 
+// this error means the target element doesn't exist in the page
+htmx.on('htmx:targetError', (event) => {
+    // if we're broken, reload the current page
+    let target = document.location.href
+    // or if we somehow can figure out where we intended to go (what triggered this error)
+    // use that instead
+    if (event.srcElement.href) {
+        target = event.srcElement.href;
+    }
+    
+    htmx.ajax('GET', target, {target: 'body', swap: 'outerHTML', headers: {'HX-Request': 'false'}});
+});
+
 function prettyDuration(d) {
     if (d < 0) {
         if (d > -60) {
