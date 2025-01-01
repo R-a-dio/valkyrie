@@ -44,20 +44,42 @@ func cookieDecode(value string) (theme string, overwrite_dj, overwrite_holiday b
 }
 
 type ThemeValues struct {
-	holiday util.TypedValue[radio.ThemeName]
-	dj      util.TypedValue[radio.ThemeName]
+	resolver func(string) string
+	holiday  util.TypedValue[radio.ThemeName]
+	dj       util.TypedValue[radio.ThemeName]
 }
 
-func NewThemeValues() *ThemeValues {
-	return &ThemeValues{}
+func NewThemeValues(resolver func(string) string) *ThemeValues {
+	if resolver == nil {
+		resolver = func(s string) string { return s }
+	}
+
+	return &ThemeValues{
+		resolver: resolver,
+	}
+}
+
+func (tv *ThemeValues) resolve(theme radio.ThemeName) radio.ThemeName {
+	if theme == "" {
+		return theme
+	}
+	// resolve the theme that was passed in
+	resolved := tv.resolver(theme)
+	if resolved != theme {
+		// if input and output are not the same it means the theme didn't exist
+		// and we shouldn't use it, so just unset it
+		return ""
+	}
+
+	return resolved
 }
 
 func (tv *ThemeValues) StoreHoliday(theme radio.ThemeName) {
-	tv.holiday.Store(theme)
+	tv.holiday.Store(tv.resolve(theme))
 }
 
 func (tv *ThemeValues) StoreDJ(theme radio.ThemeName) {
-	tv.dj.Store(theme)
+	tv.dj.Store(tv.resolve(theme))
 }
 
 // ThemeCtx adds a theme entry into the context of the request, that is acquirable by

@@ -73,9 +73,6 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	// status RPC value
 	statusValue := util.StreamValue(ctx, cfg.Manager.CurrentStatus)
 
-	// template value, for deciding what theme to use
-	themeValues := templates.NewThemeValues()
-
 	// templates
 	// construct our stateful template functions, it uses the latest values from the manager
 	templateFuncs := templates.NewStatefulFunctions(statusValue)
@@ -89,6 +86,8 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	}
 	executor := siteTemplates.Executor()
 
+	// template value, for deciding what theme to use
+	themeValues := templates.NewThemeValues(siteTemplates.ResolveThemeName)
 	// user RPC value
 	_ = util.StreamValue(ctx, cfg.Manager.CurrentUser, func(ctx context.Context, u *radio.User) {
 		// if either no user, or no theme set, unset the DJ theme
@@ -97,16 +96,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 			return
 		}
 
-		// check if the theme configured by the DJ actually exists
-		resolved := siteTemplates.ResolveThemeName(u.DJ.Theme)
-		if resolved != u.DJ.Theme {
-			// if input and output are not the same it means the theme didn't exist
-			// and we shouldn't use it, so just unset it
-			themeValues.StoreDJ("")
-			return
-		}
-
-		themeValues.StoreDJ(resolved)
+		themeValues.StoreDJ(u.DJ.Theme)
 	})
 
 	// daypass generation
