@@ -47,13 +47,14 @@ type Site struct {
 	// fs is the source fs for our template files
 	fs fs.FS
 
+	themes *util.TypedValue[Themes]
+	cache  *util.Map[cacheKey, *template.Template]
+
 	// mu protects the fields below it
-	mu               sync.RWMutex
-	themes           Themes
+	mu sync.RWMutex
 	themeNamesPublic []string
 	themeNamesAdmin  []string
 
-	cache *util.Map[cacheKey, *template.Template]
 }
 
 type cacheKey string
@@ -61,14 +62,21 @@ type cacheKey string
 func (s *Site) Reload() error {
 	const op errors.Op = "templates/Reload"
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	if err :=  s.load(); err != nil {
+		return errors.E(op, err)
+	}
+
+	return nil
+}
+
+func (s *Site) load() error {
+	const op errors.Op = "templates/Site.load"
 
 	themes, err := LoadThemes(s.fs, s.fnMap)
 	if err != nil {
 		return errors.E(op, err)
 	}
-	s.themes = themes
+	s.themes.Store(themes)
 	s.populateNames()
 	s.cache.Clear()
 
@@ -85,7 +93,7 @@ func (s *Site) Executor() Executor {
 
 func (s *Site) populateNames() {
 	// populate the theme name lists, one for public, one for admin
-	names := maps.Keys(s.themes)
+	names := maps.Keys(s.themes.Load())
 	slices.Sort(names)
 
 	s.themeNamesAdmin = make([]string, 0, len(s.themeNamesAdmin))
@@ -126,7 +134,7 @@ func (s *Site) Template(theme, page string) (*template.Template, error) {
 // devTemplate is the Template implementation used during development such that
 // all files are reread and reparsed on every invocation.
 func (s *Site) devTemplate(theme, page string) (*template.Template, error) {
-	const op errors.Op = "templates/devTemplate"
+	const op errors.Op = "templates/Site.devTemplate"
 
 	if err := s.Reload(); err != nil {
 		return nil, errors.E(op, err)
@@ -148,7 +156,7 @@ func (s *Site) devTemplate(theme, page string) (*template.Template, error) {
 // prodTemplate is the Template implementation used for production, this implementation
 // caches a *template.Template after its first use
 func (s *Site) prodTemplate(theme, page string) (*template.Template, error) {
-	const op errors.Op = "templates/prodTemplate"
+	const op errors.Op = "templates/Site.prodTemplate"
 
 	// resolve theme name so that it's either an existing theme or default
 	theme = s.ResolveThemeName(theme)
@@ -174,20 +182,18 @@ func (s *Site) prodTemplate(theme, page string) (*template.Template, error) {
 }
 
 func (s *Site) Theme(name string) ThemeBundle {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	if ps, ok := s.themes[name]; ok {
+	themes := s.themes.Load()
+	
+	if ps, ok := themes[name]; ok {
 		return ps
 	}
-	return s.themes[DEFAULT_DIR]
+	return themes[DEFAULT_DIR]
 }
 
 func (s *Site) ResolveThemeName(name string) string {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	if _, ok := s.themes[name]; ok {
+	themes := s.themes.Load()
+	
+	if _, ok := themes[name]; ok {
 		return name
 	}
 	return DEFAULT_DIR
@@ -216,10 +222,11 @@ func FromFS(fsys fs.FS, state *StatefulFuncs) (*Site, error) {
 	tmpl := Site{
 		fs:    fsys,
 		fnMap: fnMap,
+		themes: new(util.TypedValue[Themes]),
 		cache: new(util.Map[cacheKey, *template.Template]),
 	}
 
-	if err = tmpl.Reload(); err != nil {
+	if err = tmpl.load(); err != nil {
 		return nil, errors.E(op, err)
 	}
 
