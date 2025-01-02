@@ -7,6 +7,8 @@ var timeUpdateTimer = 0;
 var progressUpdateTimer = 0;
 // Stream instance for the stream audio player
 var stream = undefined;
+// Audio element for the admin player
+var admin_player = new Audio();
 
 function now() {
     return Date.now() - timeOffset
@@ -96,6 +98,54 @@ htmx.on('htmx:load', (event) => {
             }
         });
     }
+
+    if (!admin_player.dataset.haslistener) {
+        admin_player = new Audio();
+        admin_player.crossOrigin = 'anonymous';
+        admin_player.preload = "none";
+        admin_player.dataset.haslistener = true;
+        admin_player.volume = 0.1;
+        let update = (ev) => {
+            curMin = Math.floor(admin_player.currentTime / 60).toString();
+            curSec = Math.floor(admin_player.currentTime % 60).toString();
+            durMin = Math.floor(admin_player.duration / 60).toString();
+            durSec = Math.floor(admin_player.duration % 60).toString();
+            document.querySelector("#admin-player-time").innerText =
+                curMin + ":" + curSec.padStart(2, '0') + " / " +
+                durMin + ":" + durSec.padStart(2, '0');
+            document.querySelector("#admin-player-progress").value =
+                (admin_player.currentTime / admin_player.duration) * 100.0;
+        };
+        admin_player.addEventListener("timeupdate", update);
+        admin_player.addEventListener("durationchange", update);
+    }
+
+    let admin_volume = document.querySelector("#admin-player-volume");
+    if (admin_volume && !admin_volume.dataset.haslistener) {
+        admin_volume.dataset.haslistener = true;
+        admin_volume.value = 10.0;
+        admin_volume.addEventListener("input", (ev) => {
+            vol = parseFloat(ev.target.value) / 100.0;
+            if (admin_player)
+                admin_player.volume = vol;
+        });
+    } else {
+        // If we lost track of the volume slider, we should reset the player.
+        admin_player.pause();
+        admin_player.src = "";
+        admin_player.removeAttribute("src");
+        admin_player.load();
+    }
+
+    let progress = document.querySelector("#admin-player-progress");
+    if (progress && !progress.dataset.haslistener) {
+        progress.dataset = haslistener = true;
+        progress.addEventListener("input", (ev) => {
+            prog = parseFloat(ev.target.value) / 100.0;
+            if (admin_player && admin_player.duration)
+                admin_player.currentTime = admin_player.duration * prog;
+        });
+    }
 });
 
 htmx.on('htmx:afterSettle', (event) => {
@@ -167,6 +217,24 @@ function prettyProgress(d) {
     d = Math.max(d, 0) / 1000;
     var mins = Math.floor(d / 60), secs = Math.floor(d % 60);
     return String(mins).padStart(2, "0") + ":" + String(secs).padStart(2, "0");
+}
+
+function adminPlayerPlay(src) {
+    if (admin_player) {
+        admin_player.pause();
+        admin_player.currentTime = 0;
+        admin_player.src = src;
+        admin_player.play();
+    }
+}
+
+function adminPlayerPlayPause() {
+    if (admin_player && admin_player.src) {
+        if (admin_player.paused)
+            admin_player.play();
+        else
+            admin_player.pause();
+    }
 }
 
 // updateTimes looks for all <time> elements and applies timeago logic to it
