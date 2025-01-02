@@ -48,22 +48,50 @@ type Server struct {
 	h http.Handler
 }
 
+func cloneListener(ln net.Listener) (net.Listener, error) {
+	const op errors.Op = "tracker/cloneListener"
+
+	clone, err := ln.(fdstore.Filer).File()
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	ln, err = net.FileListener(clone)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	return ln, nil
+}
+
 func (s *Server) Start(ctx context.Context, fds *fdstore.Store) error {
-	var err error
-	var recorderState []byte
+	const op errors.Op = "tracker/Server.Start"
 	logger := zerolog.Ctx(ctx)
 
 	httpAddr := s.cfg.Conf().Tracker.ListenAddr.String()
 	grpcAddr := s.cfg.Conf().Tracker.RPCAddr.String()
 
-	s.httpLn, recorderState, err = util.RestoreOrListen(fds, HttpLn, "tcp", httpAddr)
+	// get hold of our http listener
+	httpLn, recorderState, err := util.RestoreOrListen(fds, HttpLn, "tcp", httpAddr)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 
-	s.grpcLn, _, err = util.RestoreOrListen(fds, GrpcLn, "tcp", grpcAddr)
+	s.httpLn, err = cloneListener(httpLn)
 	if err != nil {
-		return err
+		// log the error but other than that just continue
+		logger.Error().Err(err).Msg("failed to clone http listener")
+	}
+
+	grpcLn, _, err := util.RestoreOrListen(fds, GrpcLn, "tcp", grpcAddr)
+	if err != nil {
+		return errors.E(op, err)
+	}
+
+	s.grpcLn, err = cloneListener(grpcLn)
+	if err != nil {
+		// log the error but other than that just continue, since the rest will still function
+		logger.Error().Err(err).Msg("failed to clone grpc listener")
 	}
 
 	if len(recorderState) > 0 {
@@ -80,10 +108,10 @@ func (s *Server) Start(ctx context.Context, fds *fdstore.Store) error {
 
 	errCh := make(chan error, 2)
 	go func() {
-		errCh <- s.grpc.Serve(s.grpcLn)
+		errCh <- s.grpc.Serve(grpcLn)
 	}()
 	go func() {
-		errCh <- s.http.Serve(s.httpLn)
+		errCh <- s.http.Serve(httpLn)
 	}()
 
 	select {
