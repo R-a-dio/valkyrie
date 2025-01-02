@@ -213,6 +213,11 @@ func (s *Streamer) userChange(ctx context.Context, user *radio.User, timer *util
 		return
 	}
 
+	// we're not supposed to be streaming, don't start if that was asked of us
+	// but we also need to stop if we are somehow already running, do this with
+	// force because the only way this should happen is if we got kicked from
+	// icecast.
+	s.Stop(context.WithoutCancel(ctx), true)
 	zerolog.Ctx(ctx).Info().
 		Str("me", s.StreamUser.Username).
 		Str("user", user.Username).
