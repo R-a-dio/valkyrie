@@ -30,13 +30,13 @@ func TestStream(t *testing.T) {
 	ctx = zerolog.New(zerolog.NewTestWriter(t)).WithContext(ctx)
 
 	exec := &mocks.ExecutorMock{
-		ExecuteAllFunc: func(input templates.TemplateSelectable) (map[string][]byte, error) {
+		ExecuteAllFunc: func(input templates.TemplateSelectable) (map[radio.ThemeName][]byte, error) {
 			jsonData, err := json.MarshalIndent(input, "", "  ")
 			if err != nil {
 				return nil, err
 			}
 
-			return map[string][]byte{
+			return map[radio.ThemeName][]byte{
 				"json": jsonData,
 			}, nil
 		},
@@ -119,7 +119,7 @@ func TestStreamSendInputs(t *testing.T) {
 	var name string
 
 	exec := &mocks.ExecutorMock{
-		ExecuteAllFunc: func(input templates.TemplateSelectable) (map[string][]byte, error) {
+		ExecuteAllFunc: func(input templates.TemplateSelectable) (map[radio.ThemeName][]byte, error) {
 			name = input.TemplateName()
 			return nil, nil
 		},
@@ -156,7 +156,7 @@ func TestStreamSendInputs(t *testing.T) {
 
 func TestStreamSlowSub(t *testing.T) {
 	exec := &mocks.ExecutorMock{
-		ExecuteAllFunc: func(input templates.TemplateSelectable) (map[string][]byte, error) {
+		ExecuteAllFunc: func(input templates.TemplateSelectable) (map[radio.ThemeName][]byte, error) {
 			return nil, nil
 		},
 	}

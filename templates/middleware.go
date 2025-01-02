@@ -18,40 +18,40 @@ const ThemeAdminCookieName = "admin-theme"
 const ThemeDefault = "default-dark"
 const ThemeAdminDefault = "admin-dark"
 
-func cookieEncode(theme string, overwrite_dj, overwrite_holiday bool) string {
+func cookieEncode(theme radio.ThemeName, overwrite_dj, overwrite_holiday bool) string {
 	switch {
 	case overwrite_dj && overwrite_holiday:
-		return theme + ":11"
+		return string(theme + ":11")
 	case !overwrite_dj && overwrite_holiday:
-		return theme + ":01"
+		return string(theme + ":01")
 	case overwrite_dj && !overwrite_holiday:
-		return theme + ":10"
+		return string(theme + ":10")
 	default:
-		return theme + ":00"
+		return string(theme + ":00")
 	}
 }
 
-func cookieDecode(value string) (theme string, overwrite_dj, overwrite_holiday bool) {
+func cookieDecode(value string) (theme radio.ThemeName, overwrite_dj, overwrite_holiday bool) {
 	start := len(value) - 3
 	if start < 0 {
-		return value, false, false
+		return radio.ThemeName(value), false, false
 	}
 	if value[start] != ':' {
-		return value, false, false
+		return radio.ThemeName(value), false, false
 	}
 
-	return value[:start], value[start+1] == '1', value[start+2] == '1'
+	return radio.ThemeName(value[:start]), value[start+1] == '1', value[start+2] == '1'
 }
 
 type ThemeValues struct {
-	resolver func(string) string
+	resolver func(radio.ThemeName) radio.ThemeName
 	holiday  util.TypedValue[radio.ThemeName]
 	dj       util.TypedValue[radio.ThemeName]
 }
 
-func NewThemeValues(resolver func(string) string) *ThemeValues {
+func NewThemeValues(resolver func(radio.ThemeName) radio.ThemeName) *ThemeValues {
 	if resolver == nil {
-		resolver = func(s string) string { return s }
+		resolver = func(s radio.ThemeName) radio.ThemeName { return s }
 	}
 
 	return &ThemeValues{
@@ -109,19 +109,22 @@ func ThemeCtx(tv *ThemeValues) func(http.Handler) http.Handler {
 				theme = cookie.Value
 			}
 
+			var themeResolved radio.ThemeName
 			// then run the theme through the decider, this will handle holiday themes, dj themes and the
 			// user configured stuff from the cookie
 			if !isAdmin { // but only if we're not loading admin pages, the special themes wont have support for those
-				theme = tv.decide(theme)
+				themeResolved = tv.decide(theme)
+			} else {
+				themeResolved = tv.resolve(radio.ThemeName(theme))
 			}
 
 			// or if the user set a theme in the url query (?theme=<thing>) we use that and ignore
 			// the cookie setting completely
 			if tmp := r.URL.Query().Get("theme"); tmp != "" {
-				theme = tmp
+				themeResolved = tv.resolve(radio.ThemeName(tmp))
 			}
 
-			ctx := SetTheme(r.Context(), theme, false)
+			ctx := SetTheme(r.Context(), themeResolved, false)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -151,13 +154,13 @@ func (tv *ThemeValues) decide(value string) radio.ThemeName {
 
 // GetTheme returns the theme from the given context.
 // panics if no ThemeKey is found, so make sure ThemeCtx is used
-func GetTheme(ctx context.Context) string {
+func GetTheme(ctx context.Context) radio.ThemeName {
 	v := ctx.Value(themeKey{})
 	if v == nil {
 		panic("GetTheme called without ThemeCtx used")
 	}
 
-	theme, ok := v.(string)
+	theme, ok := v.(radio.ThemeName)
 	if !ok {
 		panic("non-string themeKey found in context")
 	}
@@ -167,7 +170,7 @@ func GetTheme(ctx context.Context) string {
 
 // SetTheme sets a theme in the context given, does nothing if a theme already exists
 // unless override is set to true
-func SetTheme(ctx context.Context, theme string, override bool) context.Context {
+func SetTheme(ctx context.Context, theme radio.ThemeName, override bool) context.Context {
 	if !override {
 		if exists := ctx.Value(themeKey{}); exists != nil {
 			return ctx
@@ -182,7 +185,7 @@ func SetThemeHandler(cookieName string) http.Handler {
 		// because otherwise we populate a whole bunch of fields on the request that
 		// we might want to proxy back into the server later
 		query := r.URL.Query()
-		theme := query.Get("theme")
+		theme := radio.ThemeName(query.Get("theme")) // TODO: use a resolver here?
 		overwrite_dj := query.Has("overwrite-dj")
 		overwrite_holiday := query.Has("overwrite-holiday")
 

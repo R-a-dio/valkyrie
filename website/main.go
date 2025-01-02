@@ -317,7 +317,7 @@ func AssetsHandler(assetsPath string, site *templates.Site) http.Handler {
 type assetsFS struct {
 	base fs.FS
 	site interface {
-		Theme(name string) templates.ThemeBundle
+		Theme(name radio.ThemeName) templates.ThemeBundle
 	}
 }
 
@@ -344,5 +344,5 @@ func (fsys assetsFS) Open(name string) (fs.File, error) {
 	}
 
 	// find theme and pass through the assets fs
-	return fsys.site.Theme(theme).Assets().Open(rest)
+	return fsys.site.Theme(radio.ThemeName(theme)).Assets().Open(rest)
 }

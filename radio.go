@@ -306,7 +306,7 @@ const (
 	TrackStatePlayable
 )
 
-type ThemeName = string
+type ThemeName string
 
 // Theme is a website theme
 type Theme struct {

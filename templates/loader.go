@@ -15,6 +15,7 @@ import (
 	"sync"
 	"text/tabwriter"
 
+	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/util"
 	"golang.org/x/exp/maps"
@@ -51,10 +52,9 @@ type Site struct {
 	cache  *util.Map[cacheKey, *template.Template]
 
 	// mu protects the fields below it
-	mu sync.RWMutex
-	themeNamesPublic []string
-	themeNamesAdmin  []string
-
+	mu               sync.RWMutex
+	themeNamesPublic []radio.ThemeName
+	themeNamesAdmin  []radio.ThemeName
 }
 
 type cacheKey string
@@ -62,7 +62,7 @@ type cacheKey string
 func (s *Site) Reload() error {
 	const op errors.Op = "templates/Reload"
 
-	if err :=  s.load(); err != nil {
+	if err := s.load(); err != nil {
 		return errors.E(op, err)
 	}
 
@@ -83,8 +83,12 @@ func (s *Site) load() error {
 	return nil
 }
 
+func IsAdminTheme(name radio.ThemeName) bool {
+	return strings.HasPrefix(string(name), ADMIN_PREFIX)
+}
+
 type TemplateSelector interface {
-	Template(theme, page string) (*template.Template, error)
+	Template(theme radio.ThemeName, page string) (*template.Template, error)
 }
 
 func (s *Site) Executor() Executor {
@@ -96,10 +100,10 @@ func (s *Site) populateNames() {
 	names := maps.Keys(s.themes.Load())
 	slices.Sort(names)
 
-	s.themeNamesAdmin = make([]string, 0, len(s.themeNamesAdmin))
-	s.themeNamesPublic = make([]string, 0, len(s.themeNamesPublic))
+	s.themeNamesAdmin = make([]radio.ThemeName, 0, len(s.themeNamesAdmin))
+	s.themeNamesPublic = make([]radio.ThemeName, 0, len(s.themeNamesPublic))
 	for _, name := range names {
-		if strings.HasPrefix(name, ADMIN_PREFIX) {
+		if IsAdminTheme(name) {
 			s.themeNamesAdmin = append(s.themeNamesAdmin, name)
 		} else {
 			s.themeNamesPublic = append(s.themeNamesPublic, name)
@@ -107,14 +111,14 @@ func (s *Site) populateNames() {
 	}
 }
 
-func (s *Site) ThemeNames() []string {
+func (s *Site) ThemeNames() []radio.ThemeName {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	return s.themeNamesPublic
 }
 
-func (s *Site) ThemeNamesAdmin() []string {
+func (s *Site) ThemeNamesAdmin() []radio.ThemeName {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -124,7 +128,7 @@ func (s *Site) ThemeNamesAdmin() []string {
 // Template returns a Template associated with the theme and page name given.
 //
 // If theme does not exist it uses the default-theme
-func (s *Site) Template(theme, page string) (*template.Template, error) {
+func (s *Site) Template(theme radio.ThemeName, page string) (*template.Template, error) {
 	if s.Production {
 		return s.prodTemplate(theme, page)
 	}
@@ -133,7 +137,7 @@ func (s *Site) Template(theme, page string) (*template.Template, error) {
 
 // devTemplate is the Template implementation used during development such that
 // all files are reread and reparsed on every invocation.
-func (s *Site) devTemplate(theme, page string) (*template.Template, error) {
+func (s *Site) devTemplate(theme radio.ThemeName, page string) (*template.Template, error) {
 	const op errors.Op = "templates/Site.devTemplate"
 
 	if err := s.Reload(); err != nil {
@@ -155,13 +159,13 @@ func (s *Site) devTemplate(theme, page string) (*template.Template, error) {
 
 // prodTemplate is the Template implementation used for production, this implementation
 // caches a *template.Template after its first use
-func (s *Site) prodTemplate(theme, page string) (*template.Template, error) {
+func (s *Site) prodTemplate(theme radio.ThemeName, page string) (*template.Template, error) {
 	const op errors.Op = "templates/Site.prodTemplate"
 
 	// resolve theme name so that it's either an existing theme or default
 	theme = s.ResolveThemeName(theme)
 	// merge theme and page into a key we can use for our cache map
-	key := cacheKey(theme + "/" + page)
+	key := cacheKey(string(theme) + "/" + page)
 
 	if tmpl, ok := s.cache.Load(key); ok {
 		return tmpl, nil
@@ -181,18 +185,18 @@ func (s *Site) prodTemplate(theme, page string) (*template.Template, error) {
 	return tmpl, nil
 }
 
-func (s *Site) Theme(name string) ThemeBundle {
+func (s *Site) Theme(name radio.ThemeName) ThemeBundle {
 	themes := s.themes.Load()
-	
+
 	if ps, ok := themes[name]; ok {
 		return ps
 	}
 	return themes[DEFAULT_DIR]
 }
 
-func (s *Site) ResolveThemeName(name string) string {
+func (s *Site) ResolveThemeName(name radio.ThemeName) radio.ThemeName {
 	themes := s.themes.Load()
-	
+
 	if _, ok := themes[name]; ok {
 		return name
 	}
@@ -220,10 +224,10 @@ func FromFS(fsys fs.FS, state *StatefulFuncs) (*Site, error) {
 
 	var err error
 	tmpl := Site{
-		fs:    fsys,
-		fnMap: fnMap,
+		fs:     fsys,
+		fnMap:  fnMap,
 		themes: new(util.TypedValue[Themes]),
-		cache: new(util.Map[cacheKey, *template.Template]),
+		cache:  new(util.Map[cacheKey, *template.Template]),
 	}
 
 	if err = tmpl.load(); err != nil {
@@ -316,11 +320,11 @@ func createRoot(fnMap template.FuncMap) *template.Template {
 }
 
 // Themes is a map of ThemeName to ThemeBundle
-type Themes map[string]ThemeBundle
+type Themes map[radio.ThemeName]ThemeBundle
 
 // ThemeBundle contains the pages that construct a specific theme as a set of TemplateBundle's
 type ThemeBundle struct {
-	name   string
+	name   radio.ThemeName
 	pages  map[string]*TemplateBundle
 	assets fs.FS
 }
@@ -392,7 +396,7 @@ func LoadThemes(fsys fs.FS, fnMap template.FuncMap) (Themes, error) {
 	// have 'public' themes and 'admin' themes so split those apart
 	var publicDirs, adminDirs []string
 	for _, dir := range subdirs {
-		if strings.HasPrefix(dir, ADMIN_PREFIX) {
+		if IsAdminTheme(radio.ThemeName(dir)) {
 			adminDirs = append(adminDirs, dir)
 		} else {
 			publicDirs = append(publicDirs, dir)
@@ -451,7 +455,7 @@ func (ls *loadState) loadThemes(themes Themes, defaultDir string, dirs []string)
 	}
 
 	// construct the bundle for the default
-	themes[defaultDir] = ThemeBundle{defaultDir, defaults.bundle, assetsFs}
+	themes[radio.ThemeName(defaultDir)] = ThemeBundle{radio.ThemeName(defaultDir), defaults.bundle, assetsFs}
 
 	// and now we have to do it for all the leftover directories
 	for _, dir := range dirs {
@@ -470,7 +474,7 @@ func (ls *loadState) loadThemes(themes Themes, defaultDir string, dirs []string)
 			return errors.E(op, err)
 		}
 
-		themes[dir] = ThemeBundle{dir, bundle, assetsFs}
+		themes[radio.ThemeName(dir)] = ThemeBundle{radio.ThemeName(dir), bundle, assetsFs}
 	}
 	return nil
 }

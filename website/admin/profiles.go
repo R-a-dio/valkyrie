@@ -569,7 +569,7 @@ func (pf *ProfileForm) Update(form url.Values) {
 		pf.DJ.Regex = form.Get("dj.regex")
 	}
 	if form.Has("dj.theme.name") {
-		pf.DJ.Theme = form.Get("dj.theme.name")
+		pf.DJ.Theme = radio.ThemeName(form.Get("dj.theme.name"))
 	}
 	if form.Has("dj.text") {
 		pf.DJ.Text = form.Get("dj.text")
@@ -611,7 +611,7 @@ func (pf *ProfileForm) ToValues() url.Values {
 		values.Set("dj.priority", strconv.FormatInt(int64(pf.DJ.Priority), 10))
 		values.Set("dj.regex", pf.DJ.Regex)
 		if pf.DJ.Theme != "" {
-			values.Set("dj.theme.name", pf.DJ.Theme)
+			values.Set("dj.theme.name", string(pf.DJ.Theme))
 		}
 	}
 

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"slices"
 
+	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/util/pool"
@@ -22,9 +23,9 @@ type TemplateSelectable interface {
 
 type Executor interface {
 	Execute(w io.Writer, r *http.Request, input TemplateSelectable) error
-	ExecuteTemplate(ctx context.Context, theme, page, template string, output io.Writer, input any) error
-	ExecuteAll(input TemplateSelectable) (map[string][]byte, error)
-	ExecuteAllAdmin(input TemplateSelectable) (map[string][]byte, error)
+	ExecuteTemplate(ctx context.Context, theme radio.ThemeName, page, template string, output io.Writer, input any) error
+	ExecuteAll(input TemplateSelectable) (map[radio.ThemeName][]byte, error)
+	ExecuteAllAdmin(input TemplateSelectable) (map[radio.ThemeName][]byte, error)
 }
 
 type executor struct {
@@ -52,7 +53,7 @@ func (e *executor) Execute(w io.Writer, r *http.Request, input TemplateSelectabl
 
 // ExecuteTemplate selects a theme, page and template and feeds it the input given and writing the template output
 // to the output writer. Output is buffered until template execution is done before writing to output.
-func (e *executor) ExecuteTemplate(ctx context.Context, theme, page string, template string, output io.Writer, input any) error {
+func (e *executor) ExecuteTemplate(ctx context.Context, theme radio.ThemeName, page string, template string, output io.Writer, input any) error {
 	const op errors.Op = "templates/Executor.ExecuteTemplate"
 
 	// tracing support
@@ -84,7 +85,7 @@ func (e *executor) ExecuteTemplate(ctx context.Context, theme, page string, temp
 }
 
 // ExecuteAll executes the template selected in all public themes
-func (e *executor) ExecuteAll(input TemplateSelectable) (map[string][]byte, error) {
+func (e *executor) ExecuteAll(input TemplateSelectable) (map[radio.ThemeName][]byte, error) {
 	const op errors.Op = "templates/Executor.ExecuteAll"
 
 	res, err := e.executeAll(input, e.site.ThemeNames())
@@ -94,10 +95,10 @@ func (e *executor) ExecuteAll(input TemplateSelectable) (map[string][]byte, erro
 	return res, nil
 }
 
-func (e *executor) executeAll(input TemplateSelectable, themes []string) (map[string][]byte, error) {
+func (e *executor) executeAll(input TemplateSelectable, themes []radio.ThemeName) (map[radio.ThemeName][]byte, error) {
 	const op errors.Op = "templates/Executor.executeAll"
 
-	var out = make(map[string][]byte)
+	var out = make(map[radio.ThemeName][]byte)
 
 	b := bufferPool.Get()
 	defer bufferPool.Put(b)
@@ -120,7 +121,7 @@ func (e *executor) executeAll(input TemplateSelectable, themes []string) (map[st
 }
 
 // ExecuteAllAdmin executes the template selected in all admin themes
-func (e *executor) ExecuteAllAdmin(input TemplateSelectable) (map[string][]byte, error) {
+func (e *executor) ExecuteAllAdmin(input TemplateSelectable) (map[radio.ThemeName][]byte, error) {
 	const op errors.Op = "templates/Executor.ExecuteAllAdmin"
 
 	res, err := e.executeAll(input, e.site.ThemeNamesAdmin())

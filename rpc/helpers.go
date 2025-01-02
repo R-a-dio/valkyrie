@@ -335,7 +335,7 @@ func toProtoDJ(d radio.DJ) *DJ {
 		Role:     d.Role,
 		Css:      d.CSS,
 		Color:    d.Color,
-		Theme:    d.Theme,
+		Theme:    string(d.Theme),
 	}
 }
 
@@ -354,7 +354,7 @@ func fromProtoDJ(d *DJ) radio.DJ {
 		Role:     d.Role,
 		CSS:      d.Css,
 		Color:    d.Color,
-		Theme:    d.Theme,
+		Theme:    radio.ThemeName(d.Theme),
 	}
 }
 

@@ -5,6 +5,7 @@ package mocks
 
 import (
 	"context"
+	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/templates"
 	"io"
 	"net/http"
@@ -24,13 +25,13 @@ var _ templates.Executor = &ExecutorMock{}
 //			ExecuteFunc: func(w io.Writer, r *http.Request, input templates.TemplateSelectable) error {
 //				panic("mock out the Execute method")
 //			},
-//			ExecuteAllFunc: func(input templates.TemplateSelectable) (map[string][]byte, error) {
+//			ExecuteAllFunc: func(input templates.TemplateSelectable) (map[radio.ThemeName][]byte, error) {
 //				panic("mock out the ExecuteAll method")
 //			},
-//			ExecuteAllAdminFunc: func(input templates.TemplateSelectable) (map[string][]byte, error) {
+//			ExecuteAllAdminFunc: func(input templates.TemplateSelectable) (map[radio.ThemeName][]byte, error) {
 //				panic("mock out the ExecuteAllAdmin method")
 //			},
-//			ExecuteTemplateFunc: func(ctx context.Context, theme string, page string, template string, output io.Writer, input any) error {
+//			ExecuteTemplateFunc: func(ctx context.Context, theme radio.ThemeName, page string, template string, output io.Writer, input any) error {
 //				panic("mock out the ExecuteTemplate method")
 //			},
 //		}
@@ -44,13 +45,13 @@ type ExecutorMock struct {
 	ExecuteFunc func(w io.Writer, r *http.Request, input templates.TemplateSelectable) error
 
 	// ExecuteAllFunc mocks the ExecuteAll method.
-	ExecuteAllFunc func(input templates.TemplateSelectable) (map[string][]byte, error)
+	ExecuteAllFunc func(input templates.TemplateSelectable) (map[radio.ThemeName][]byte, error)
 
 	// ExecuteAllAdminFunc mocks the ExecuteAllAdmin method.
-	ExecuteAllAdminFunc func(input templates.TemplateSelectable) (map[string][]byte, error)
+	ExecuteAllAdminFunc func(input templates.TemplateSelectable) (map[radio.ThemeName][]byte, error)
 
 	// ExecuteTemplateFunc mocks the ExecuteTemplate method.
-	ExecuteTemplateFunc func(ctx context.Context, theme string, page string, template string, output io.Writer, input any) error
+	ExecuteTemplateFunc func(ctx context.Context, theme radio.ThemeName, page string, template string, output io.Writer, input any) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -78,7 +79,7 @@ type ExecutorMock struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Theme is the theme argument value.
-			Theme string
+			Theme radio.ThemeName
 			// Page is the page argument value.
 			Page string
 			// Template is the template argument value.
@@ -136,7 +137,7 @@ func (mock *ExecutorMock) ExecuteCalls() []struct {
 }
 
 // ExecuteAll calls ExecuteAllFunc.
-func (mock *ExecutorMock) ExecuteAll(input templates.TemplateSelectable) (map[string][]byte, error) {
+func (mock *ExecutorMock) ExecuteAll(input templates.TemplateSelectable) (map[radio.ThemeName][]byte, error) {
 	if mock.ExecuteAllFunc == nil {
 		panic("ExecutorMock.ExecuteAllFunc: method is nil but Executor.ExecuteAll was just called")
 	}
@@ -168,7 +169,7 @@ func (mock *ExecutorMock) ExecuteAllCalls() []struct {
 }
 
 // ExecuteAllAdmin calls ExecuteAllAdminFunc.
-func (mock *ExecutorMock) ExecuteAllAdmin(input templates.TemplateSelectable) (map[string][]byte, error) {
+func (mock *ExecutorMock) ExecuteAllAdmin(input templates.TemplateSelectable) (map[radio.ThemeName][]byte, error) {
 	if mock.ExecuteAllAdminFunc == nil {
 		panic("ExecutorMock.ExecuteAllAdminFunc: method is nil but Executor.ExecuteAllAdmin was just called")
 	}
@@ -200,13 +201,13 @@ func (mock *ExecutorMock) ExecuteAllAdminCalls() []struct {
 }
 
 // ExecuteTemplate calls ExecuteTemplateFunc.
-func (mock *ExecutorMock) ExecuteTemplate(ctx context.Context, theme string, page string, template string, output io.Writer, input any) error {
+func (mock *ExecutorMock) ExecuteTemplate(ctx context.Context, theme radio.ThemeName, page string, template string, output io.Writer, input any) error {
 	if mock.ExecuteTemplateFunc == nil {
 		panic("ExecutorMock.ExecuteTemplateFunc: method is nil but Executor.ExecuteTemplate was just called")
 	}
 	callInfo := struct {
 		Ctx      context.Context
-		Theme    string
+		Theme    radio.ThemeName
 		Page     string
 		Template string
 		Output   io.Writer
@@ -231,7 +232,7 @@ func (mock *ExecutorMock) ExecuteTemplate(ctx context.Context, theme string, pag
 //	len(mockedExecutor.ExecuteTemplateCalls())
 func (mock *ExecutorMock) ExecuteTemplateCalls() []struct {
 	Ctx      context.Context
-	Theme    string
+	Theme    radio.ThemeName
 	Page     string
 	Template string
 	Output   io.Writer
@@ -239,7 +240,7 @@ func (mock *ExecutorMock) ExecuteTemplateCalls() []struct {
 } {
 	var calls []struct {
 		Ctx      context.Context
-		Theme    string
+		Theme    radio.ThemeName
 		Page     string
 		Template string
 		Output   io.Writer

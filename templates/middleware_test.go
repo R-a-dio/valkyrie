@@ -4,12 +4,11 @@ import (
 	"testing"
 
 	radio "github.com/R-a-dio/valkyrie"
-	"github.com/R-a-dio/valkyrie/util"
 	"github.com/stretchr/testify/assert"
 )
 
 type cookieTest struct {
-	theme        string
+	theme        radio.ThemeName
 	dj           bool
 	holiday      bool
 	expected     string
@@ -86,7 +85,7 @@ func BenchmarkCookieEncode(b *testing.B) {
 }
 
 func BenchmarkDecideTheme(b *testing.B) {
-	fn := func(holiday, user radio.ThemeName) func(radio.ThemeName) radio.ThemeName {
+	fn := func(holiday, user radio.ThemeName) func(string) radio.ThemeName {
 		tv := NewThemeValues(nil)
 		tv.StoreHoliday(holiday)
 		tv.StoreDJ(user)

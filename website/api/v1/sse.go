@@ -360,7 +360,7 @@ type request struct {
 type messageGen func(r *http.Request) ([]byte, error)
 
 type message struct {
-	encoded map[string][]byte
+	encoded map[radio.ThemeName][]byte
 	genFn   messageGen
 }
 

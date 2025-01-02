@@ -10,6 +10,7 @@ import (
 	"testing/fstest"
 	"time"
 
+	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/mocks"
 	"github.com/R-a-dio/valkyrie/templates"
 	"golang.org/x/tools/txtar"
@@ -120,7 +121,7 @@ func FuzzLoadThemes(f *testing.F) {
 func TestExecuteTemplate(t *testing.T) {
 	type args struct {
 		fsys  fs.FS
-		theme string
+		theme radio.ThemeName
 	}
 	tests := []struct {
 		name       string
