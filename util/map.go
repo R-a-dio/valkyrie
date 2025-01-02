@@ -9,6 +9,10 @@ type Map[K, V any] struct {
 	m sync.Map
 }
 
+func (m *Map[K, V]) Clear() {
+	m.m.Clear()
+}
+
 func (m *Map[K, V]) CompareAndDelete(key K, old V) (deleted bool) {
 	return m.m.CompareAndDelete(key, old)
 }

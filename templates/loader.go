@@ -16,6 +16,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/R-a-dio/valkyrie/util"
 	"golang.org/x/exp/maps"
 )
 
@@ -51,8 +52,11 @@ type Site struct {
 	themes           Themes
 	themeNamesPublic []string
 	themeNamesAdmin  []string
-	cache            map[string]*template.Template
+
+	cache *util.Map[cacheKey, *template.Template]
 }
+
+type cacheKey string
 
 func (s *Site) Reload() error {
 	const op errors.Op = "templates/Reload"
@@ -66,6 +70,7 @@ func (s *Site) Reload() error {
 	}
 	s.themes = themes
 	s.populateNames()
+	s.cache.Clear()
 
 	return nil
 }
@@ -148,9 +153,9 @@ func (s *Site) prodTemplate(theme, page string) (*template.Template, error) {
 	// resolve theme name so that it's either an existing theme or default
 	theme = s.ResolveThemeName(theme)
 	// merge theme and page into a key we can use for our cache map
-	key := theme + "/" + page
+	key := cacheKey(theme + "/" + page)
 
-	if tmpl, ok := s.cache[key]; ok {
+	if tmpl, ok := s.cache.Load(key); ok {
 		return tmpl, nil
 	}
 
@@ -164,7 +169,7 @@ func (s *Site) prodTemplate(theme, page string) (*template.Template, error) {
 		return nil, errors.E(op, err)
 	}
 
-	s.cache[key] = tmpl
+	s.cache.Store(key, tmpl)
 	return tmpl, nil
 }
 
@@ -211,14 +216,12 @@ func FromFS(fsys fs.FS, state *StatefulFuncs) (*Site, error) {
 	tmpl := Site{
 		fs:    fsys,
 		fnMap: fnMap,
-		cache: make(map[string]*template.Template),
+		cache: new(util.Map[cacheKey, *template.Template]),
 	}
 
-	tmpl.themes, err = LoadThemes(fsys, fnMap)
-	if err != nil {
+	if err = tmpl.Reload(); err != nil {
 		return nil, errors.E(op, err)
 	}
-	tmpl.populateNames()
 
 	return &tmpl, nil
 }
@@ -305,15 +308,17 @@ func createRoot(fnMap template.FuncMap) *template.Template {
 	return template.New("root").Funcs(fnMap)
 }
 
+// Themes is a map of ThemeName to ThemeBundle
 type Themes map[string]ThemeBundle
 
-// ThemeBundle
+// ThemeBundle contains the pages that construct a specific theme as a set of TemplateBundle's
 type ThemeBundle struct {
 	name   string
 	pages  map[string]*TemplateBundle
 	assets fs.FS
 }
 
+// Page returns the TemplateBundle associated with the page name given
 func (tb ThemeBundle) Page(name string) (*TemplateBundle, error) {
 	const op errors.Op = "templates/ThemeBundle.Page"
 
