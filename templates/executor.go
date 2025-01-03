@@ -14,7 +14,13 @@ import (
 	"go.opentelemetry.io/otel"
 )
 
-var bufferPool = pool.NewResetPool(func() *bytes.Buffer { return new(bytes.Buffer) })
+var bufferPool = pool.NewResetPool(func() *bytes.Buffer {
+	// use NewBuffer with an allocated zero length slice such that
+	// a template with no output using .Bytes doesn't see a literal nil
+	// value, this matters because our SSE package omits data entries if
+	// a literal nil is passed to it, but not if it's a zero-length slice
+	return bytes.NewBuffer([]byte{})
+})
 
 type TemplateSelectable interface {
 	TemplateBundle() string
