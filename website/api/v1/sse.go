@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -25,6 +26,7 @@ func (a *API) runStatusUpdates(ctx context.Context) {
 	log := zerolog.Ctx(ctx).With().Str("sse", "updates").Logger()
 
 	var previous radio.Status
+	var listeners atomic.Int64
 
 	// we don't care about the actual value, and the goroutine it spawns should keep everything
 	// alive aslong as the ctx isn't canceled
@@ -32,6 +34,8 @@ func (a *API) runStatusUpdates(ctx context.Context) {
 		// always send listeners, this acts as a keep-alive for the long-polling but also gives us
 		// a bit more up to date listener count display
 		a.sse.SendListeners(i)
+		// also store it for the status update to use below
+		listeners.Store(i)
 	})
 
 	_ = util.StreamValue(ctx, a.manager.CurrentStatus, func(ctx context.Context, status radio.Status) {
@@ -54,6 +58,11 @@ func (a *API) runStatusUpdates(ctx context.Context) {
 
 		// only pass an update through if the song is different from the previous one
 		if !status.Song.EqualTo(previous.Song) {
+			// update the listener count with a more recent value
+			// FIXME: this doesn't actually change the status retrieved inside the templates
+			// 		by calling the Status function
+			status.Listeners = listeners.Load()
+
 			log.Debug().Str("event", EventMetadata).Any("value", status).Msg("sending")
 			a.sse.SendNowPlaying(status)
 			go a.sendQueue(ctx)
