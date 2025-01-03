@@ -188,7 +188,8 @@ func (s *State) postSubmit(r *http.Request) (SubmissionForm, error) {
 	form, err := NewSubmissionForm(s.Storage.Track(r.Context()), filepath.Join(s.Conf().MusicPath, "pending"), r)
 	if err != nil {
 		hlog.FromRequest(r).Error().Err(err).Msg("")
-		return newSubmissionForm(s.Storage.Track(r.Context()), r, nil), errors.E(op, err)
+		return newSubmissionForm(s.Storage.Track(r.Context()), r, map[string]string{
+			"track": "Internal server error"}), errors.E(op, err)
 	}
 
 	// ParseForm just saved a temporary file that we want to delete if any other error
@@ -225,7 +226,7 @@ func (s *State) postSubmit(r *http.Request) (SubmissionForm, error) {
 	// Add the pending entry to the database
 	err = s.Storage.Submissions(r.Context()).InsertSubmission(*song)
 	if err != nil {
-		form.Errors["postprocessing"] = "Internal error, yell at someone in IRC"
+		form.Errors["track"] = "Internal error, yell at someone in IRC"
 		return *form, errors.E(op, err, errors.InternalServer)
 	}
 
