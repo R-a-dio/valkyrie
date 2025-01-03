@@ -38,7 +38,7 @@ func (StaffInput) TemplateBundle() string {
 	return "staff"
 }
 
-func (s State) GetStaff(w http.ResponseWriter, r *http.Request) {
+func (s *State) GetStaff(w http.ResponseWriter, r *http.Request) {
 	input, err := NewStaffInput(s.Storage, r)
 	if err != nil {
 		s.errorHandler(w, r, err)

@@ -87,7 +87,7 @@ func NewFavesInput(ss radio.SongStorage, rs radio.RequestStorage, r *http.Reques
 	}, nil
 }
 
-func (s State) GetFaves(w http.ResponseWriter, r *http.Request) {
+func (s *State) GetFaves(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	input, err := NewFavesInput(
@@ -121,7 +121,7 @@ func (s State) GetFaves(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s State) PostFaves(w http.ResponseWriter, r *http.Request) {
+func (s *State) PostFaves(w http.ResponseWriter, r *http.Request) {
 }
 
 type FaveDownloadEntry struct {

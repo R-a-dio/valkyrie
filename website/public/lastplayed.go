@@ -53,7 +53,7 @@ func NewLastPlayedInput(s radio.SongStorageService, r *http.Request) (*LastPlaye
 	}, nil
 }
 
-func (s State) getLastPlayed(w http.ResponseWriter, r *http.Request) error {
+func (s *State) getLastPlayed(w http.ResponseWriter, r *http.Request) error {
 	input, err := NewLastPlayedInput(s.Storage, r)
 	if err != nil {
 		return err
@@ -62,7 +62,7 @@ func (s State) getLastPlayed(w http.ResponseWriter, r *http.Request) error {
 	return s.Templates.Execute(w, r, input)
 }
 
-func (s State) GetLastPlayed(w http.ResponseWriter, r *http.Request) {
+func (s *State) GetLastPlayed(w http.ResponseWriter, r *http.Request) {
 	err := s.getLastPlayed(w, r)
 	if err != nil {
 		s.errorHandler(w, r, err)

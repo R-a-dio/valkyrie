@@ -94,7 +94,7 @@ func NewNewsInput(cache *shared.NewsCache, ns radio.NewsStorageService, r *http.
 	}, nil
 }
 
-func (s State) GetNews(w http.ResponseWriter, r *http.Request) {
+func (s *State) GetNews(w http.ResponseWriter, r *http.Request) {
 	input, err := NewNewsInput(s.News, s.Storage, r)
 	if err != nil {
 		s.errorHandler(w, r, err)
@@ -210,7 +210,7 @@ func NewNewsEntryInput(cache *shared.NewsCache, ns radio.NewsStorage, r *http.Re
 	}, nil
 }
 
-func (s State) GetNewsEntry(w http.ResponseWriter, r *http.Request) {
+func (s *State) GetNewsEntry(w http.ResponseWriter, r *http.Request) {
 	input, err := NewNewsEntryInput(s.News, s.Storage.News(r.Context()), r)
 	if err != nil {
 		s.errorHandler(w, r, err)
@@ -224,7 +224,7 @@ func (s State) GetNewsEntry(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s State) PostNewsEntry(w http.ResponseWriter, r *http.Request) {
+func (s *State) PostNewsEntry(w http.ResponseWriter, r *http.Request) {
 	const op errors.Op = "website/public.PostNewsEntry"
 
 	comment, err := ParsePostNewsEntryForm(r)

@@ -20,7 +20,7 @@ func NewHelpInput(r *http.Request) HelpInput {
 	}
 }
 
-func (s State) GetHelp(w http.ResponseWriter, r *http.Request) {
+func (s *State) GetHelp(w http.ResponseWriter, r *http.Request) {
 	input := NewHelpInput(r)
 
 	err := s.Templates.Execute(w, r, input)

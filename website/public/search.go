@@ -103,7 +103,7 @@ func NewSearchSharedInput(s radio.SearchService, rs radio.RequestStorage, r *htt
 	}, nil
 }
 
-func (s State) GetSearch(w http.ResponseWriter, r *http.Request) {
+func (s *State) GetSearch(w http.ResponseWriter, r *http.Request) {
 	input, err := NewSearchInput(
 		s.Search,
 		s.Storage.Request(r.Context()),

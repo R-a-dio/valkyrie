@@ -20,7 +20,7 @@ func NewChatInput(r *http.Request) ChatInput {
 	}
 }
 
-func (s State) GetChat(w http.ResponseWriter, r *http.Request) {
+func (s *State) GetChat(w http.ResponseWriter, r *http.Request) {
 	input := NewChatInput(r)
 
 	err := s.Templates.Execute(w, r, input)

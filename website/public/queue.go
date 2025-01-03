@@ -29,7 +29,7 @@ func NewQueueInput(qs radio.QueueService, r *http.Request) (*QueueInput, error) 
 	}, nil
 }
 
-func (s State) getQueue(w http.ResponseWriter, r *http.Request) error {
+func (s *State) getQueue(w http.ResponseWriter, r *http.Request) error {
 	input, err := NewQueueInput(s.Queue, r)
 	if err != nil {
 		return err
@@ -38,7 +38,7 @@ func (s State) getQueue(w http.ResponseWriter, r *http.Request) error {
 	return s.Templates.Execute(w, r, input)
 }
 
-func (s State) GetQueue(w http.ResponseWriter, r *http.Request) {
+func (s *State) GetQueue(w http.ResponseWriter, r *http.Request) {
 	err := s.getQueue(w, r)
 	if err != nil {
 		s.errorHandler(w, r, err)

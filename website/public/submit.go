@@ -72,7 +72,7 @@ func getIdentifier(r *http.Request) (string, bool) {
 	return r.RemoteAddr, false
 }
 
-func (s State) canSubmitSong(r *http.Request) (time.Duration, error) {
+func (s *State) canSubmitSong(r *http.Request) (time.Duration, error) {
 	const op errors.Op = "website.canSubmitSong"
 
 	identifier, isUser := getIdentifier(r)
@@ -98,7 +98,7 @@ func (s State) canSubmitSong(r *http.Request) (time.Duration, error) {
 	return since, errors.E(op, errors.UserCooldown)
 }
 
-func (s State) GetSubmit(w http.ResponseWriter, r *http.Request) {
+func (s *State) GetSubmit(w http.ResponseWriter, r *http.Request) {
 	err := s.getSubmit(w, r, nil)
 	if err != nil {
 		hlog.FromRequest(r).Error().Err(err).Msg("")
@@ -106,7 +106,7 @@ func (s State) GetSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s State) getSubmit(w http.ResponseWriter, r *http.Request, form *SubmissionForm) error {
+func (s *State) getSubmit(w http.ResponseWriter, r *http.Request, form *SubmissionForm) error {
 	const op errors.Op = "website.getSubmit"
 
 	ctx := r.Context()
@@ -120,7 +120,7 @@ func (s State) getSubmit(w http.ResponseWriter, r *http.Request, form *Submissio
 	return s.Templates.Execute(w, r, input)
 }
 
-func (s State) PostSubmit(w http.ResponseWriter, r *http.Request) {
+func (s *State) PostSubmit(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	// setup response function that differs between htmx/non-htmx request
@@ -172,7 +172,7 @@ func (s State) PostSubmit(w http.ResponseWriter, r *http.Request) {
 	responseFn(back)
 }
 
-func (s State) postSubmit(w http.ResponseWriter, r *http.Request) (SubmissionForm, error) {
+func (s *State) postSubmit(w http.ResponseWriter, r *http.Request) (SubmissionForm, error) {
 	const op errors.Op = "website.PostSubmit"
 
 	// find out if the client is allowed to upload

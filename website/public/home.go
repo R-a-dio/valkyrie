@@ -27,7 +27,7 @@ func (HomeInput) TemplateBundle() string {
 	return "home"
 }
 
-func (s State) GetHome(w http.ResponseWriter, r *http.Request) {
+func (s *State) GetHome(w http.ResponseWriter, r *http.Request) {
 	err := s.getHome(w, r)
 	if err != nil {
 		hlog.FromRequest(r).Error().Err(err).Msg("")
