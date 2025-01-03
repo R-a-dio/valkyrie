@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"reflect"
-	"sync"
 	"testing"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -85,16 +84,12 @@ func NewSuite(ctx context.Context, ts TestSetup) *Suite {
 	return &Suite{
 		ctx:        ctx,
 		ToBeTested: ts,
-		storageMap: make(map[string]radio.StorageService),
 	}
 }
 
 type Suite struct {
 	ctx        context.Context
 	ToBeTested TestSetup
-
-	storageMu  sync.Mutex
-	storageMap map[string]radio.StorageService
 }
 
 func (suite *Suite) BeforeTest(testName string) error {

@@ -17,8 +17,7 @@ func TestCheckVersion(t *testing.T) {
 	testcontainers.Logger = testcontainers.TestLogger(t)
 
 	// setup a container to test in
-	container, err := mariadb.RunContainer(ctx,
-		testcontainers.WithImage("mariadb:latest"),
+	container, err := mariadb.Run(ctx, "mariadb:latest",
 		mariadb.WithDatabase("test"),
 		mariadb.WithUsername("root"),
 		mariadb.WithPassword(""),

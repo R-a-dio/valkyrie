@@ -228,7 +228,7 @@ func fromProtoQueueID(id *QueueID) radio.QueueID {
 		return radio.QueueID{}
 	}
 
-	return radio.QueueID{rid}
+	return radio.QueueID{ID: rid}
 }
 
 func EncodeQueueEntry(entry radio.QueueEntry) ([]byte, error) {
