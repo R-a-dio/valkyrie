@@ -209,7 +209,7 @@ func (ann *announceService) AnnounceRequest(ctx context.Context, song radio.Song
 	message := "Requested:{green} '%s'"
 
 	// Get queue from streamer
-	songQueue, err := ann.bot.Streamer.Queue(ctx)
+	songQueue, err := ann.bot.Queue.Entries(ctx)
 	if err != nil {
 		return errors.E(op, err)
 	}

@@ -28,7 +28,7 @@ func NewState(
 		News:      newsCache,
 		Templates: exec,
 		Manager:   cfg.Manager,
-		Streamer:  cfg.Streamer,
+		Queue:     cfg.Queue,
 		Storage:   storage,
 		Search:    search,
 	}
@@ -41,7 +41,7 @@ type State struct {
 	News      *shared.NewsCache
 	Templates templates.Executor
 	Manager   radio.ManagerService
-	Streamer  radio.StreamerService
+	Queue     radio.QueueService
 	Storage   radio.StorageService
 	Search    radio.SearchService
 }

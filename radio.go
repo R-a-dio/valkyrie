@@ -443,6 +443,7 @@ type StreamerService interface {
 	Stop(ctx context.Context, force bool) error
 
 	RequestSong(context.Context, Song, string) error
+	// Deprecated: use QueueService
 	Queue(context.Context) (Queue, error)
 }
 

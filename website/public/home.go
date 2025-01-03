@@ -35,13 +35,13 @@ func (s State) GetHome(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s State) getHome(w http.ResponseWriter, r *http.Request) error {
+func (s *State) getHome(w http.ResponseWriter, r *http.Request) error {
 	const op errors.Op = "website/public.getHome"
 
 	input := NewHomeInput(r)
 	ctx := r.Context()
 
-	queue, err := s.Streamer.Queue(ctx)
+	queue, err := s.Queue.Entries(ctx)
 	if err != nil {
 		hlog.FromRequest(r).Error().Err(err).Msg("streamer queue unavailable")
 		// continue with an empty queue instead

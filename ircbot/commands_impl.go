@@ -148,7 +148,7 @@ func StreamerQueueLength(e Event) error {
 	message := "There are %d requests (%s), %d randoms (%s), total of %d songs (%s)"
 
 	// Get queue from streamer
-	songQueue, err := e.Bot.Streamer.Queue(e.Ctx)
+	songQueue, err := e.Bot.Queue.Entries(e.Ctx)
 	if err != nil {
 		return errors.E(op, err)
 	}

@@ -30,7 +30,7 @@ import (
 func NewAPI(ctx context.Context, cfg config.Config, storage radio.StorageService,
 	statusValue *util.Value[radio.Status]) (*API, error) {
 
-	status, err := newV0Status(ctx, storage, cfg.Streamer, statusValue)
+	status, err := newV0Status(ctx, storage, cfg.Queue, statusValue)
 	if err != nil {
 		return nil, err
 	}
@@ -400,11 +400,11 @@ func (a *API) postRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func newV0Status(ctx context.Context, storage radio.SongStorageService,
-	streamer radio.StreamerService, status *util.Value[radio.Status]) (*v0Status, error) {
+	queue radio.QueueService, status *util.Value[radio.Status]) (*v0Status, error) {
 
 	s := v0Status{
 		songs:            storage,
-		streamer:         streamer,
+		queue:            queue,
 		status:           status,
 		updatePeriod:     time.Second * 2,
 		longUpdatePeriod: time.Second * 10,
@@ -428,8 +428,8 @@ func newV0Status(ctx context.Context, storage radio.SongStorageService,
 type v0Status struct {
 	// song storage to get last played songs
 	songs radio.SongStorageService
-	// streamer for queue contents
-	streamer radio.StreamerService
+	// queue for queue contents
+	queue radio.QueueService
 	// status value
 	status *util.Value[radio.Status]
 
@@ -536,7 +536,7 @@ func (s *v0Status) createStatusJSON(ctx context.Context) (v0StatusJSON, error) {
 	if last.ListCreatedOn.IsZero() ||
 		now.Sub(last.ListCreatedOn) < s.longUpdatePeriod {
 
-		q, err := s.streamer.Queue(ctx)
+		q, err := s.queue.Entries(ctx)
 		if err != nil {
 			return last, err
 		}

@@ -83,7 +83,7 @@ func (a *API) runStatusUpdates(ctx context.Context) {
 }
 
 func (a *API) sendQueue(ctx context.Context) {
-	q, err := a.streamer.Queue(ctx)
+	q, err := a.queue.Entries(ctx)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Str("sse", "queue").Msg("")
 		return

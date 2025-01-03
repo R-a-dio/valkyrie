@@ -39,6 +39,7 @@ func NewAPI(ctx context.Context, cfg config.Config,
 		sse:        NewStream(templates),
 		manager:    cfg.Manager,
 		streamer:   cfg.Streamer,
+		queue:      cfg.Queue,
 		storage:    sg,
 		songSecret: songSecret,
 		fs:         fs,
@@ -58,6 +59,7 @@ type API struct {
 	sse        *Stream
 	manager    radio.ManagerService
 	streamer   radio.StreamerService
+	queue      radio.QueueService
 	storage    radio.StorageService
 	songSecret secret.Secret
 	fs         afero.Fs
