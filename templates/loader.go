@@ -591,7 +591,7 @@ func readDirFilter(fsys fs.FS, name string, fn func(fs.DirEntry) bool) ([]fs.Dir
 func readDirFilterString(fsys fs.FS, name string, fn func(fs.DirEntry) bool) ([]string, error) {
 	const op errors.Op = "templates/readDirFilterString"
 
-	entries, err := readDirFilter(fsys, ".", fn)
+	entries, err := readDirFilter(fsys, name, fn)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}

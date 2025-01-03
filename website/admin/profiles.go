@@ -593,7 +593,7 @@ func (pf *ProfileForm) ToValues() url.Values {
 	values.Set("username", pf.Username)
 	values.Set("ip", pf.IP)
 	values.Set("email", pf.Email)
-	for perm, _ := range pf.UserPermissions {
+	for perm := range pf.UserPermissions {
 		values.Add("permissions", string(perm))
 	}
 
