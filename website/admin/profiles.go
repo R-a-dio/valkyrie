@@ -190,7 +190,7 @@ func (s *State) getProfile(w http.ResponseWriter, r *http.Request) error {
 //
 // The expected form as input is defined in templates/partials/form_admin_profile
 func (s *State) PostProfile(w http.ResponseWriter, r *http.Request) {
-	form, err := s.postProfile(w, r)
+	form, err := s.postProfile(r)
 	if err != nil {
 		s.errorHandler(w, r, err, "failed post profile")
 		return
@@ -205,7 +205,7 @@ func (s *State) PostProfile(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, r.URL.String(), http.StatusSeeOther)
 }
 
-func (s *State) postProfile(w http.ResponseWriter, r *http.Request) (*ProfileForm, error) {
+func (s *State) postProfile(r *http.Request) (*ProfileForm, error) {
 	const op errors.Op = "website/admin.postProfile"
 
 	ctx := r.Context()

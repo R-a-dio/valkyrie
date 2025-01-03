@@ -205,9 +205,8 @@ func TestPostSongs(t *testing.T) {
 		}
 
 		req := prepReq(user, testValues)
-		w := httptest.NewRecorder()
 
-		form, err := state.postSongs(w, req)
+		form, err := state.postSongs(req)
 		if assert.NoError(t, err) {
 			if assert.NotNil(t, form) {
 				assert.Equal(t, *testSong, form.Song)
@@ -241,9 +240,8 @@ func TestPostSongs(t *testing.T) {
 		values.Set("action", "delete")
 
 		req := prepReq(user, values)
-		w := httptest.NewRecorder()
 
-		form, err := state.postSongs(w, req)
+		form, err := state.postSongs(req)
 		if assert.NoError(t, err) {
 			assert.Nil(t, form, "delete action should return nothing")
 			checkExist(t, false, c.FilePath)
@@ -276,9 +274,8 @@ func TestPostSongs(t *testing.T) {
 		values.Set("action", "delete")
 
 		req := prepReq(user, values)
-		w := httptest.NewRecorder()
 
-		form, err := state.postSongs(w, req)
+		form, err := state.postSongs(req)
 		if assert.NoError(t, err) {
 			assert.Nil(t, form, "delete action should return nothing")
 			checkExist(t, false, fullPath)
@@ -302,9 +299,8 @@ func TestPostSongs(t *testing.T) {
 		values.Set("action", "delete")
 
 		req := prepReq(user, values)
-		w := httptest.NewRecorder()
 
-		form, err := state.postSongs(w, req)
+		form, err := state.postSongs(req)
 		if assert.Error(t, err) {
 			assert.True(t, errors.Is(errors.AccessDenied, err), "error should be AccessDenied")
 		}
@@ -328,9 +324,8 @@ func TestPostSongs(t *testing.T) {
 		req := prepReq(user, testValues)
 		// remove the context that carries the user
 		req = req.WithContext(context.Background())
-		w := httptest.NewRecorder()
 
-		form, err := state.postSongs(w, req)
+		form, err := state.postSongs(req)
 		if assert.Error(t, err) {
 			assert.True(t, errors.Is(errors.AccessDenied, err), "error should be AccessDenied")
 		}
@@ -355,9 +350,8 @@ func TestPostSongs(t *testing.T) {
 		values.Set("action", "mark-replacement")
 
 		req := prepReq(user, values)
-		w := httptest.NewRecorder()
 
-		form, err := state.postSongs(w, req)
+		form, err := state.postSongs(req)
 		if assert.NoError(t, err) {
 			require.NotNil(t, form)
 			assert.True(t, form.Song.NeedReplacement)
@@ -386,9 +380,8 @@ func TestPostSongs(t *testing.T) {
 		values.Set("action", "unmark-replacement")
 
 		req := prepReq(user, values)
-		w := httptest.NewRecorder()
 
-		form, err := state.postSongs(w, req)
+		form, err := state.postSongs(req)
 		if assert.NoError(t, err) {
 			require.NotNil(t, form)
 			assert.False(t, form.Song.NeedReplacement)

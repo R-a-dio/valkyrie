@@ -421,10 +421,9 @@ func TestPostProfile(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, test.Path, body)
 			req.Header.Add("Content-Type", ct)
 			req = middleware.RequestWithUser(req, &test.User)
-			w := httptest.NewRecorder()
 
 			// do the request
-			form, err := state.postProfile(w, req)
+			form, err := state.postProfile(req)
 
 			if test.Error != nil { // test should error
 				if assert.Error(t, err, "test should have errored") {

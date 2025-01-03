@@ -79,9 +79,8 @@ func TestPostSubmit(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/submit", body)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
-	w := httptest.NewRecorder()
 
 	// send request
-	_, err = state.postSubmit(w, req)
+	_, err = state.postSubmit(req)
 	require.NoError(t, err)
 }

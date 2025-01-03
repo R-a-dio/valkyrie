@@ -110,7 +110,7 @@ func (s *State) GetSongs(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *State) PostSongs(w http.ResponseWriter, r *http.Request) {
-	form, err := s.postSongs(w, r)
+	form, err := s.postSongs(r)
 	if err != nil {
 		s.errorHandler(w, r, err, "")
 		return
@@ -133,7 +133,7 @@ func (s *State) PostSongs(w http.ResponseWriter, r *http.Request) {
 	s.GetSongs(w, r)
 }
 
-func (s *State) postSongs(w http.ResponseWriter, r *http.Request) (*SongsForm, error) {
+func (s *State) postSongs(r *http.Request) (*SongsForm, error) {
 	const op errors.Op = "website/admin.postSongs"
 	ctx := r.Context()
 

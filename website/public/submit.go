@@ -138,7 +138,7 @@ func (s *State) PostSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// parse and validate the form
-	form, err := s.postSubmit(w, r)
+	form, err := s.postSubmit(r)
 	if err != nil {
 		// for unknown reason if we send a response without reading the body the connection is
 		// hard-reset instead and our response goes missing, so discard the body up to our
@@ -172,7 +172,7 @@ func (s *State) PostSubmit(w http.ResponseWriter, r *http.Request) {
 	responseFn(back)
 }
 
-func (s *State) postSubmit(w http.ResponseWriter, r *http.Request) (SubmissionForm, error) {
+func (s *State) postSubmit(r *http.Request) (SubmissionForm, error) {
 	const op errors.Op = "website.PostSubmit"
 
 	// find out if the client is allowed to upload

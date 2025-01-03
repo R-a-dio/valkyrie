@@ -253,9 +253,8 @@ func TestPostPending(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "/admin/pending", body)
 			req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 			req = middleware.RequestWithUser(req, &test.User)
-			w := httptest.NewRecorder()
 
-			form, err := state.postPending(w, req)
+			form, err := state.postPending(req)
 
 			if test.ShouldRollback {
 				// should only rollback if there was an error

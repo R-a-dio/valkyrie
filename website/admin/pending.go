@@ -134,7 +134,7 @@ func (s *State) PostPending(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	form, err := s.postPending(w, r)
+	form, err := s.postPending(r)
 	if err == nil {
 		// success handle the response back to the client
 		if util.IsHTMX(r) {
@@ -180,7 +180,7 @@ func (s *State) PostPending(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *State) postPending(w http.ResponseWriter, r *http.Request) (PendingForm, error) {
+func (s *State) postPending(r *http.Request) (PendingForm, error) {
 	const op errors.Op = "website/admin.postPending"
 
 	if err := r.ParseForm(); err != nil {
@@ -207,17 +207,17 @@ func (s *State) postPending(w http.ResponseWriter, r *http.Request) (PendingForm
 	// continue somewhere else depending on the status
 	switch form.Status {
 	case radio.SubmissionAccepted:
-		return s.postPendingDoAccept(w, r, form)
+		return s.postPendingDoAccept(r, form)
 	case radio.SubmissionDeclined:
-		return s.postPendingDoDecline(w, r, form)
+		return s.postPendingDoDecline(r, form)
 	case radio.SubmissionReplacement:
-		return s.postPendingDoReplace(w, r, form)
+		return s.postPendingDoReplace(r, form)
 	}
 
 	return form, errors.E(op, errors.InvalidArgument)
 }
 
-func (s *State) postPendingDoReplace(w http.ResponseWriter, r *http.Request, form PendingForm) (PendingForm, error) {
+func (s *State) postPendingDoReplace(r *http.Request, form PendingForm) (PendingForm, error) {
 	const op errors.Op = "website/admin.postPendingDoReplace"
 	var ctx = r.Context()
 
@@ -281,7 +281,7 @@ func (s *State) postPendingDoReplace(w http.ResponseWriter, r *http.Request, for
 	return newPendingForm(r), nil
 }
 
-func (s *State) postPendingDoDecline(w http.ResponseWriter, r *http.Request, form PendingForm) (PendingForm, error) {
+func (s *State) postPendingDoDecline(r *http.Request, form PendingForm) (PendingForm, error) {
 	const op errors.Op = "website/admin.postPendingDoDecline"
 	var ctx = r.Context()
 
@@ -325,7 +325,7 @@ func pendingPath(cfg config.Config) string {
 	return filepath.Join(cfg.Conf().MusicPath, "pending")
 }
 
-func (s *State) postPendingDoAccept(w http.ResponseWriter, r *http.Request, form PendingForm) (PendingForm, error) {
+func (s *State) postPendingDoAccept(r *http.Request, form PendingForm) (PendingForm, error) {
 	const op errors.Op = "website/admin.postPendingDoAccept"
 	var ctx = r.Context()
 	var new = form // make a copy so we can return the retrieved form when something goes wrong
