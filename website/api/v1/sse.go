@@ -287,6 +287,16 @@ func (s *Stream) Shutdown() {
 	}
 }
 
+// trimSpace is like bytes.TrimSpace but in that in preserves non-nilness of
+// the input slice
+func trimSpace(v []byte) []byte {
+	v = bytes.TrimSpace(v)
+	if v == nil {
+		return []byte{}
+	}
+	return v
+}
+
 func (s *Stream) NewMessage(event EventName, data templates.TemplateSelectable) message {
 	m, err := s.templates.ExecuteAll(data)
 	if err != nil {
@@ -297,7 +307,7 @@ func (s *Stream) NewMessage(event EventName, data templates.TemplateSelectable) 
 
 	// encode template results to server-side-event format
 	for k, v := range m {
-		v = bytes.TrimSpace(v)
+		v = trimSpace(v)
 		m[k] = sse.Event{Name: event, Data: v}.Encode()
 	}
 	return message{
@@ -320,7 +330,7 @@ func (s *Stream) MessageCache(event EventName, data templates.TemplateSelectable
 			return nil, errors.E(op, err)
 		}
 
-		data := bytes.TrimSpace(buf.Bytes())
+		data := trimSpace(buf.Bytes())
 		return sse.Event{Name: event, Data: data}.Encode(), nil
 	}
 }
