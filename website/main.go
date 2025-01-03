@@ -51,6 +51,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	const op errors.Op = "website/Execute"
 	logger := zerolog.Ctx(ctx)
 
+	// check directory existences
 	if path := cfg.Conf().Website.DJImagePath; path == "" {
 		return errors.E(op, "Website.DJImagePath is not configured")
 	} else {
@@ -61,6 +62,18 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		// and the DJImagePath tmp dir where we store temporary uploads
 		if err := os.MkdirAll(filepath.Join(path, os.TempDir()), 0664); err != nil {
 			return errors.E(op, "failed to create Website.DJImagePath tmp dir", err)
+		}
+	}
+	if path := cfg.Conf().MusicPath; path == "" {
+		return errors.E(op, "MusicPath is not configured")
+	} else {
+		// try and create MusicPath
+		if err := os.MkdirAll(path, 0664); err != nil {
+			return errors.E(op, "failed to create MusicPath", err)
+		}
+		// and the pending dir where we store pending songs
+		if err := os.MkdirAll(filepath.Join(path, "pending"), 0664); err != nil {
+			return errors.E(op, "failed to create MusicPath pending dir", err)
 		}
 	}
 
