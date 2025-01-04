@@ -88,7 +88,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 
 	// templates
 	// construct our stateful template functions, it uses the latest values from the manager
-	templateFuncs := templates.NewStatefulFunctions(statusValue)
+	templateFuncs := templates.NewStatefulFunctions(cfg, statusValue)
 	// construct our templates from files on disk
 	siteTemplates, err := templates.FromDirectory(
 		cfg.Conf().TemplatePath,

@@ -4,22 +4,27 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"os"
 	"reflect"
 	"strings"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/util"
+	"github.com/dustin/go-humanize"
 )
 
-func NewStatefulFunctions(status *util.Value[radio.Status]) *StatefulFuncs {
+func NewStatefulFunctions(cfg config.Config, status *util.Value[radio.Status]) *StatefulFuncs {
 	return &StatefulFuncs{
+		Config: cfg,
 		status: status,
 	}
 }
 
 type StatefulFuncs struct {
+	config.Config
 	status *util.Value[radio.Status]
 }
 
@@ -27,9 +32,26 @@ func (sf *StatefulFuncs) Status() radio.Status {
 	return sf.status.Latest()
 }
 
+func (sf *StatefulFuncs) SongFileSize(song radio.Song) string {
+	path := util.AbsolutePath(sf.Conf().MusicPath, song.FilePath)
+
+	fi, err := os.Stat(path)
+	if err != nil {
+		return "??? MiB"
+	}
+
+	size := fi.Size()
+	if size < 0 {
+		return "??? MiB"
+	}
+
+	return humanize.IBytes(uint64(size))
+}
+
 func (sf *StatefulFuncs) FuncMap() template.FuncMap {
 	return map[string]any{
-		"Status": sf.Status,
+		"Status":       sf.Status,
+		"SongFileSize": sf.SongFileSize,
 	}
 }
 
