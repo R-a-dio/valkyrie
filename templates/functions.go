@@ -32,8 +32,27 @@ func (sf *StatefulFuncs) Status() radio.Status {
 	return sf.status.Latest()
 }
 
-func (sf *StatefulFuncs) SongFileSize(song radio.Song) string {
-	path := util.AbsolutePath(sf.Conf().MusicPath, song.FilePath)
+func (sf *StatefulFuncs) SongFileSize(song any) string {
+	var path string
+	switch s := song.(type) {
+	case radio.Song:
+		path = s.FilePath
+	case *radio.Song:
+		if s != nil {
+			path = s.FilePath
+		}
+	case radio.PendingSong:
+		path = s.FilePath
+	case *radio.PendingSong:
+		if s != nil {
+			path = s.FilePath
+		}
+	default:
+		return "??? MiB"
+	}
+
+	// make the path absolute
+	path = util.AbsolutePath(sf.Conf().MusicPath, path)
 
 	fi, err := os.Stat(path)
 	if err != nil {
