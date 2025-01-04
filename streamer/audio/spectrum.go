@@ -22,7 +22,7 @@ func Spectrum(ctx context.Context, filename string) (*os.File, error) {
 		"-y", "-v", "error", "-hide_banner",
 		"-i", filename,
 		"-filter_complex", "[0:a:0]aresample=48000:resampler=soxr,showspectrumpic=s=640x512,crop=780:544:70:50[o]",
-		"-map", "[o]", "-frames:v", "1", "-q:v", "3", "-",
+		"-map", "[o]", "-frames:v", "1", "-q:v", "3", "-f", "webp", "-",
 	)
 	cmd.Stdout = f.File
 

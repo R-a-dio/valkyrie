@@ -237,6 +237,19 @@ function adminPlayerPlayPause() {
     }
 }
 
+function adminShowSpectrogram() {
+    let img = document.querySelector("#admin-player-spec-image");
+    let modal = document.querySelector("#admin-player-spec-modal");
+    if (img && modal && admin_player.src) {
+        // Only the pending endpoint supports spectrograms, but
+        // the player is used for both pending and database.
+        if (admin_player.src.includes("pending")) {
+            img.src = admin_player.src + "?spectrum=true";
+            modal.classList.add("is-active");
+        }
+    }
+}
+
 // updateTimes looks for all <time> elements and applies timeago logic to it
 function updateTimes() {
     if (timeUpdateTimer) {
