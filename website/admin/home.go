@@ -19,16 +19,21 @@ type HomeInput struct {
 
 	CanTemplateReload bool
 	TemplateReload    TemplateReloadInput
+
+	CanSetHolidayTheme bool
+	HolidayTheme       radio.ThemeName
 }
 
-func NewHomeInput(r *http.Request, dp secret.Secret) HomeInput {
+func NewHomeInput(r *http.Request, dp secret.Secret, ht radio.ThemeName) HomeInput {
 	input := middleware.InputFromRequest(r)
 	return HomeInput{
-		Input:             input,
-		Daypass:           dp.Get(nil),
-		CSRFTokenInput:    csrf.TemplateField(r),
-		CanTemplateReload: input.User.UserPermissions.Has(radio.PermAdmin),
-		CanKillStreamer:   input.User.UserPermissions.Has(radio.PermDJ),
+		Input:              input,
+		Daypass:            dp.Get(nil),
+		HolidayTheme:       ht,
+		CSRFTokenInput:     csrf.TemplateField(r),
+		CanTemplateReload:  input.User.UserPermissions.Has(radio.PermAdmin),
+		CanKillStreamer:    input.User.UserPermissions.Has(radio.PermDJ),
+		CanSetHolidayTheme: input.User.UserPermissions.Has(radio.PermAdmin),
 	}
 }
 
@@ -37,7 +42,7 @@ func (HomeInput) TemplateBundle() string {
 }
 
 func (s *State) GetHome(w http.ResponseWriter, r *http.Request) {
-	input := NewHomeInput(r, s.Daypass)
+	input := NewHomeInput(r, s.Daypass, s.ThemeConfig.LoadHoliday())
 
 	err := s.TemplateExecutor.Execute(w, r, input)
 	if err != nil {
@@ -54,7 +59,7 @@ type TemplateReloadInput struct {
 func (s *State) PostReloadTemplates(w http.ResponseWriter, r *http.Request) {
 	err := s.Templates.Reload()
 
-	input := NewHomeInput(r, s.Daypass)
+	input := NewHomeInput(r, s.Daypass, s.ThemeConfig.LoadHoliday())
 	input.TemplateReload = TemplateReloadInput{
 		Reloaded: err == nil,
 		Error:    err,
@@ -63,6 +68,19 @@ func (s *State) PostReloadTemplates(w http.ResponseWriter, r *http.Request) {
 	err = s.TemplateExecutor.Execute(w, r, input)
 	if err != nil {
 		s.errorHandler(w, r, err, "failed to reload templates")
+		return
+	}
+}
+
+func (s *State) PostSetHolidayTheme(w http.ResponseWriter, r *http.Request) {
+	theme := r.PostFormValue("theme")
+	s.ThemeConfig.StoreHoliday(radio.ThemeName(theme))
+
+	input := NewHomeInput(r, s.Daypass, s.ThemeConfig.LoadHoliday())
+
+	err := s.TemplateExecutor.Execute(w, r, input)
+	if err != nil {
+		s.errorHandler(w, r, err, "failed to set holiday theme")
 		return
 	}
 }

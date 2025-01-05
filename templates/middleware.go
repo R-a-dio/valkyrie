@@ -78,6 +78,10 @@ func (tv *ThemeValues) StoreHoliday(theme radio.ThemeName) {
 	tv.holiday.Store(tv.resolve(theme))
 }
 
+func (tv *ThemeValues) LoadHoliday() radio.ThemeName {
+	return tv.holiday.Load()
+}
+
 func (tv *ThemeValues) StoreDJ(theme radio.ThemeName) {
 	tv.dj.Store(tv.resolve(theme))
 }

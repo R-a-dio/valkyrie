@@ -121,11 +121,6 @@ func (s *State) PostStreamerStop(w http.ResponseWriter, r *http.Request) {
 	s.Streamer.Stop(r.Context(), false)
 }
 
-func (s *State) PostSetHolidayTheme(w http.ResponseWriter, r *http.Request) {
-	theme := r.PostFormValue("theme")
-	s.ThemeConfig.StoreHoliday(radio.ThemeName(theme))
-}
-
 func (s *State) errorHandler(w http.ResponseWriter, r *http.Request, err error, msg string) {
 	shared.ErrorHandler(s.TemplateExecutor, w, r, err)
 }
