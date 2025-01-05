@@ -214,6 +214,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	r.Route("/admin", admin.Route(ctx, admin.NewState(
 		ctx,
 		cfg,
+		themeValues,
 		dpass,
 		songSecret,
 		newsCache,

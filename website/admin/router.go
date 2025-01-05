@@ -21,7 +21,8 @@ import (
 func NewState(
 	_ context.Context,
 	cfg config.Config,
-	dp secret.Secret,
+	tv *templates.ThemeValues,
+	daypass secret.Secret,
 	songSecret secret.Secret,
 	newsCache *shared.NewsCache,
 	storage radio.StorageService,
@@ -34,7 +35,8 @@ func NewState(
 ) State {
 	return State{
 		Config:           cfg,
-		Daypass:          dp,
+		ThemeConfig:      tv,
+		Daypass:          daypass,
 		SongSecret:       songSecret,
 		News:             newsCache,
 		Storage:          storage,
@@ -50,6 +52,7 @@ func NewState(
 type State struct {
 	config.Config
 
+	ThemeConfig      *templates.ThemeValues
 	Daypass          secret.Secret
 	SongSecret       secret.Secret
 	News             *shared.NewsCache
@@ -102,6 +105,9 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 		// debug handlers, might not be needed later
 		r.Post("/api/streamer/stop", p(radio.PermAdmin, s.PostStreamerStop))
 		r.Post("/api/website/reload-templates", p(radio.PermAdmin, s.PostReloadTemplates))
+		r.Post("/api/website/set-holiday-theme", p(radio.PermAdmin, s.PostSetHolidayTheme))
+
+		// error handlers
 		r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
 			shared.ErrorHandler(s.TemplateExecutor, w, r, shared.ErrMethodNotAllowed)
 		})
@@ -113,6 +119,11 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 
 func (s *State) PostStreamerStop(w http.ResponseWriter, r *http.Request) {
 	s.Streamer.Stop(r.Context(), false)
+}
+
+func (s *State) PostSetHolidayTheme(w http.ResponseWriter, r *http.Request) {
+	theme := r.PostFormValue("theme")
+	s.ThemeConfig.StoreHoliday(radio.ThemeName(theme))
 }
 
 func (s *State) errorHandler(w http.ResponseWriter, r *http.Request, err error, msg string) {
