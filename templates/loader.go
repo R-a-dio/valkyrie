@@ -12,13 +12,13 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"sync"
 	"text/tabwriter"
+
+	"maps"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/util"
-	"golang.org/x/exp/maps"
 )
 
 const (
@@ -49,12 +49,18 @@ type Site struct {
 	fs fs.FS
 
 	themes *util.TypedValue[Themes]
+	names  *util.TypedValue[themeNames]
 	cache  *util.Map[cacheKey, *template.Template]
+}
 
-	// mu protects the fields below it
-	mu               sync.RWMutex
-	themeNamesPublic []radio.ThemeName
-	themeNamesAdmin  []radio.ThemeName
+const (
+	adminThemeNameFn  = "AdminThemeNames"
+	publicThemeNameFn = "PublicThemeNames"
+)
+
+type themeNames struct {
+	public []radio.ThemeName
+	admin  []radio.ThemeName
 }
 
 type cacheKey string
@@ -77,7 +83,7 @@ func (s *Site) load() error {
 		return errors.E(op, err)
 	}
 	s.themes.Store(themes)
-	s.populateNames()
+	s.populateNames(themes)
 	s.cache.Clear()
 
 	return nil
@@ -95,34 +101,25 @@ func (s *Site) Executor() Executor {
 	return newExecutor(s)
 }
 
-func (s *Site) populateNames() {
-	// populate the theme name lists, one for public, one for admin
-	names := maps.Keys(s.themes.Load())
-	slices.Sort(names)
-
-	s.themeNamesAdmin = make([]radio.ThemeName, 0, len(s.themeNamesAdmin))
-	s.themeNamesPublic = make([]radio.ThemeName, 0, len(s.themeNamesPublic))
-	for _, name := range names {
+func (s *Site) populateNames(themes Themes) {
+	var names themeNames
+	for _, name := range slices.Sorted(maps.Keys(themes)) {
 		if IsAdminTheme(name) {
-			s.themeNamesAdmin = append(s.themeNamesAdmin, name)
+			names.admin = append(names.admin, name)
 		} else {
-			s.themeNamesPublic = append(s.themeNamesPublic, name)
+			names.public = append(names.public, name)
 		}
 	}
+
+	s.names.Store(names)
 }
 
 func (s *Site) ThemeNames() []radio.ThemeName {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	return s.themeNamesPublic
+	return s.names.Load().public
 }
 
 func (s *Site) ThemeNamesAdmin() []radio.ThemeName {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	return s.themeNamesAdmin
+	return s.names.Load().admin
 }
 
 // Template returns a Template associated with the theme and page name given.
@@ -227,8 +224,13 @@ func FromFS(fsys fs.FS, state *StatefulFuncs) (*Site, error) {
 		fs:     fsys,
 		fnMap:  fnMap,
 		themes: new(util.TypedValue[Themes]),
+		names:  new(util.TypedValue[themeNames]),
 		cache:  new(util.Map[cacheKey, *template.Template]),
 	}
+
+	// add our theme name functions before loading the files
+	fnMap[publicThemeNameFn] = tmpl.ThemeNames
+	fnMap[adminThemeNameFn] = tmpl.ThemeNamesAdmin
 
 	if err = tmpl.load(); err != nil {
 		return nil, errors.E(op, err)
