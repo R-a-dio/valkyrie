@@ -310,10 +310,10 @@ type ThemeName string
 
 // Theme is a website theme
 type Theme struct {
-	Name        ThemeName
-	DisplayName string
-	Description string
-	Author      string
+	Name        ThemeName `toml:"-"`
+	DisplayName string    `toml:"DisplayName"`
+	Description string    `toml:"Description"`
+	Author      string    `toml:"Author"`
 }
 
 type SongInfo struct {

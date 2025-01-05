@@ -101,8 +101,8 @@ var defaultFunctions = map[string]any{
 	"AllUserPermissions":          radio.AllUserPermissions,
 	"HasField":                    HasField,
 	"SongPair":                    SongPair,
-	publicThemeNameFn:             func() []radio.ThemeName { return nil }, // placeholder
-	adminThemeNameFn:              func() []radio.ThemeName { return nil }, // placeholder
+	publicThemeNameFn:             func() []radio.Theme { return nil }, // placeholder
+	adminThemeNameFn:              func() []radio.Theme { return nil }, // placeholder
 }
 
 type SongPairing struct {

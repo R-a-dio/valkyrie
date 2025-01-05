@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"html/template"
 	"io/fs"
+	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 
 	"maps"
 
+	"github.com/BurntSushi/toml"
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/util"
@@ -24,6 +26,8 @@ import (
 const (
 	// the extension used for template files
 	TEMPLATE_EXT = ".tmpl"
+	// the filename to be used for extra theme information
+	INFORMATION_FILE = "info.toml"
 	// the directory for static assets
 	ASSETS_DIR = "assets"
 	// the directory name used for partial templates, these are under <theme>/partials
@@ -54,13 +58,15 @@ type Site struct {
 }
 
 const (
-	adminThemeNameFn  = "AdminThemeNames"
-	publicThemeNameFn = "PublicThemeNames"
+	adminThemeNameFn  = "AdminThemes"
+	publicThemeNameFn = "PublicThemes"
 )
 
 type themeNames struct {
-	public []radio.ThemeName
-	admin  []radio.ThemeName
+	publicNames  []radio.ThemeName
+	publicThemes []radio.Theme
+	adminNames   []radio.ThemeName
+	adminThemes  []radio.Theme
 }
 
 type cacheKey string
@@ -103,11 +109,14 @@ func (s *Site) Executor() Executor {
 
 func (s *Site) populateNames(themes Themes) {
 	var names themeNames
+
 	for _, name := range slices.Sorted(maps.Keys(themes)) {
 		if IsAdminTheme(name) {
-			names.admin = append(names.admin, name)
+			names.adminNames = append(names.adminNames, name)
+			names.adminThemes = append(names.adminThemes, themes[name].Theme)
 		} else {
-			names.public = append(names.public, name)
+			names.publicNames = append(names.publicNames, name)
+			names.publicThemes = append(names.publicThemes, themes[name].Theme)
 		}
 	}
 
@@ -115,11 +124,19 @@ func (s *Site) populateNames(themes Themes) {
 }
 
 func (s *Site) ThemeNames() []radio.ThemeName {
-	return s.names.Load().public
+	return s.names.Load().publicNames
 }
 
 func (s *Site) ThemeNamesAdmin() []radio.ThemeName {
-	return s.names.Load().admin
+	return s.names.Load().adminNames
+}
+
+func (s *Site) Themes() []radio.Theme {
+	return s.names.Load().publicThemes
+}
+
+func (s *Site) ThemesAdmin() []radio.Theme {
+	return s.names.Load().adminThemes
 }
 
 // Template returns a Template associated with the theme and page name given.
@@ -229,8 +246,8 @@ func FromFS(fsys fs.FS, state *StatefulFuncs) (*Site, error) {
 	}
 
 	// add our theme name functions before loading the files
-	fnMap[publicThemeNameFn] = tmpl.ThemeNames
-	fnMap[adminThemeNameFn] = tmpl.ThemeNamesAdmin
+	fnMap[publicThemeNameFn] = tmpl.Themes
+	fnMap[adminThemeNameFn] = tmpl.ThemesAdmin
 
 	if err = tmpl.load(); err != nil {
 		return nil, errors.E(op, err)
@@ -326,7 +343,7 @@ type Themes map[radio.ThemeName]ThemeBundle
 
 // ThemeBundle contains the pages that construct a specific theme as a set of TemplateBundle's
 type ThemeBundle struct {
-	name   radio.ThemeName
+	radio.Theme
 	pages  map[string]*TemplateBundle
 	assets fs.FS
 }
@@ -456,8 +473,19 @@ func (ls *loadState) loadThemes(themes Themes, defaultDir string, dirs []string)
 		return errors.E(op, err)
 	}
 
+	info, err := ls.loadThemeInformation(defaultDir)
+	if err != nil {
+		// this isn't a fatal error, just print a warning
+		// FIXME: use proper logger(?)
+		log.Println("failed to load theme information file:", err)
+	}
+
 	// construct the bundle for the default
-	themes[radio.ThemeName(defaultDir)] = ThemeBundle{radio.ThemeName(defaultDir), defaults.bundle, assetsFs}
+	themes[radio.ThemeName(defaultDir)] = ThemeBundle{
+		Theme:  info,
+		pages:  defaults.bundle,
+		assets: assetsFs,
+	}
 
 	// and now we have to do it for all the leftover directories
 	for _, dir := range dirs {
@@ -476,9 +504,33 @@ func (ls *loadState) loadThemes(themes Themes, defaultDir string, dirs []string)
 			return errors.E(op, err)
 		}
 
-		themes[radio.ThemeName(dir)] = ThemeBundle{radio.ThemeName(dir), bundle, assetsFs}
+		info, err := ls.loadThemeInformation(dir)
+		if err != nil {
+			// this isn't a fatal error, just print a warning
+			// FIXME: use proper logger(?)
+			log.Println("failed to load theme information file:", err)
+		}
+
+		themes[radio.ThemeName(dir)] = ThemeBundle{
+			Theme:  info,
+			pages:  bundle,
+			assets: assetsFs,
+		}
 	}
 	return nil
+}
+
+func (ls *loadState) loadThemeInformation(dir string) (radio.Theme, error) {
+	const op errors.Op = "templates/loadState.loadThemeInformation"
+
+	var theme radio.Theme
+	theme.Name = radio.ThemeName(dir)
+
+	_, err := toml.DecodeFS(ls.fs, path.Join(dir, INFORMATION_FILE), &theme)
+	if err != nil {
+		return theme, errors.E(op, err)
+	}
+	return theme, nil
 }
 
 // loadSubDir searches a subdirectory of the FS used in the creation of the loader.
