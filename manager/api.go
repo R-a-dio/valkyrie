@@ -55,6 +55,22 @@ func (m *Manager) UpdateUser(ctx context.Context, u *radio.User) error {
 	_, span := otel.Tracer("").Start(ctx, string(op))
 	defer span.End()
 
+	// update the user from storage here, this is a temporary fix until the
+	// new guest system is introduced since this really just works around a
+	// small update issue with the users display name
+	{
+		new, err := m.Storage.User(ctx).GetByID(u.ID)
+		if err != nil {
+			// if this fails just log and ignore
+			zerolog.Ctx(ctx).Error().
+				Err(err).
+				Uint64("user_id", uint64(u.ID)).
+				Msg("failed to freshen user from storage")
+		} else {
+			u = new
+		}
+	}
+
 	m.userStream.Send(u)
 	if u != nil {
 		m.logger.Info().Str("username", u.Username).Msg("updating stream user")
