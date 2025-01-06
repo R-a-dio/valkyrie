@@ -104,7 +104,7 @@ htmx.on('htmx:load', (event) => {
         admin_player.crossOrigin = 'anonymous';
         admin_player.preload = "none";
         admin_player.dataset.haslistener = true;
-        admin_player.volume = 0.1;
+        admin_player.volume = localStorage.getItem("admin-player-volume") === null ? 0.1 : localStorage.getItem("admin-player-volume") / 100;
         let update = (ev) => {
             curMin = Math.floor(admin_player.currentTime / 60).toString();
             curSec = Math.floor(admin_player.currentTime % 60).toString();
