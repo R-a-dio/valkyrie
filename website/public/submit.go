@@ -7,17 +7,18 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/streamer/audio"
+	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/util/secret"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/gorilla/csrf"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
 )
 
@@ -95,7 +96,7 @@ func (s *State) canSubmitSong(r *http.Request) (time.Duration, error) {
 		return 0, nil
 	}
 
-	return since, errors.E(op, errors.UserCooldown)
+	return since, nil
 }
 
 func (s *State) GetSubmit(w http.ResponseWriter, r *http.Request) {
@@ -146,7 +147,11 @@ func (s *State) PostSubmit(w http.ResponseWriter, r *http.Request) {
 		_ = http.NewResponseController(w).SetReadDeadline(time.Now().Add(time.Minute))
 		_, _ = io.CopyN(io.Discard, r.Body, formMaxSize)
 
-		hlog.FromRequest(r).Error().Err(err).Msg("")
+		s.errorHandler(w, r, err)
+		return
+	}
+	// if any form errors occurred return here
+	if len(form.Errors) > 0 {
 		responseFn(form)
 		return
 	}
@@ -174,22 +179,28 @@ func (s *State) PostSubmit(w http.ResponseWriter, r *http.Request) {
 
 func (s *State) postSubmit(r *http.Request) (SubmissionForm, error) {
 	const op errors.Op = "website.PostSubmit"
+	ctx := r.Context()
 
 	// find out if the client is allowed to upload
 	cooldown, err := s.canSubmitSong(r)
 	if err != nil {
-		return newSubmissionForm(s.Storage.Track(r.Context()), r, map[string]string{
-			"cooldown": strconv.FormatInt(int64(cooldown/time.Second), 10),
-		}), errors.E(op, err)
+		return newSubmissionForm(s.Storage.Track(ctx), r, nil), errors.E(op, err)
+	}
+	if cooldown > 0 {
+		// submitter has a cooldown to wait out
+		return newSubmissionForm(s.Storage.Track(ctx), r, map[string]string{
+			"cooldown": templates.PrettyDuration(cooldown),
+		}), nil
 	}
 
 	// start parsing the form, it's multipart encoded due to file upload and we manually
 	// handle some details due to reasons described in NewSubmissionForm
 	form, err := NewSubmissionForm(s.Storage.Track(r.Context()), filepath.Join(s.Conf().MusicPath, "pending"), r)
 	if err != nil {
-		hlog.FromRequest(r).Error().Err(err).Msg("")
-		return newSubmissionForm(s.Storage.Track(r.Context()), r, map[string]string{
-			"track": "Internal server error"}), errors.E(op, err)
+		if form == nil {
+			return newSubmissionForm(s.Storage.Track(ctx), r, nil), errors.E(op, err)
+		}
+		return *form, errors.E(op, err)
 	}
 
 	// ParseForm just saved a temporary file that we want to delete if any other error
@@ -201,16 +212,22 @@ func (s *State) postSubmit(r *http.Request) (SubmissionForm, error) {
 		}
 	}()
 
-	// Run a sanity check on the form input
+	// Run a sanity check on the form input, this should also catch any errors that
+	// occured during the forms parsing above
 	if !form.Validate(s.Storage.Track(r.Context()), s.Daypass) {
-		return *form, errors.E(op, errors.InvalidForm)
+		return *form, nil
 	}
 
 	// Probe the uploaded file for more information
 	song, err := PendingFromProbe(form.File)
 	if err != nil {
-		form.Errors["track"] = "File invalid; probably not an audio file."
-		return *form, errors.E(op, err, errors.InternalServer)
+		// the error here can either be that something is wrong with our ffprobe setup
+		// (file missing or something) or that the file just failed to pass through. We
+		// are going to assume it's the latter, but add a log of the actual error so we
+		// can atleast tell if the former happened at a later point
+		zerolog.Ctx(ctx).Error().Err(err).Msg("failed to probe submitted file")
+		form.Errors["track"] = "file is invalid."
+		return *form, nil
 	}
 
 	// Copy information over from the form and request to the PendingSong
@@ -226,7 +243,7 @@ func (s *State) postSubmit(r *http.Request) (SubmissionForm, error) {
 	// Add the pending entry to the database
 	err = s.Storage.Submissions(r.Context()).InsertSubmission(*song)
 	if err != nil {
-		form.Errors["track"] = "Internal error, yell at someone in IRC"
+		form.Errors["track"] = "internal error, yell at someone in IRC"
 		return *form, errors.E(op, err, errors.InternalServer)
 	}
 
@@ -334,7 +351,7 @@ func NewSubmissionForm(ts radio.TrackStorage, tempdir string, r *http.Request) (
 
 	err := r.ParseMultipartForm(formMaxSize)
 	if err != nil {
-		return nil, errors.E(op, err)
+		return nil, errors.E(op, err, errors.InvalidForm)
 	}
 
 	getValue := func(req *http.Request, name string) string {
@@ -355,7 +372,9 @@ func NewSubmissionForm(ts radio.TrackStorage, tempdir string, r *http.Request) (
 	if replacement := getValue(r, "replacement"); replacement != "" {
 		tid, err := radio.ParseTrackID(replacement)
 		if err != nil {
-			return nil, errors.E(op, err)
+			// invalid replacement form value, probably not a number
+			sf.Errors["replacement"] = "not a number"
+			return &sf, nil
 		}
 		if tid != 0 { // 0 is our no replacement indicator
 			sf.Replacement = &tid
@@ -365,59 +384,61 @@ func NewSubmissionForm(ts radio.TrackStorage, tempdir string, r *http.Request) (
 	// now handle the uploaded file
 	tracks := r.MultipartForm.File["track"]
 	if len(tracks) != 1 {
-		return nil, errors.E(op, errors.InvalidForm)
+		if len(tracks) == 0 {
+			// no files uploaded
+			sf.Errors["track"] = "no file selected"
+		} else {
+			// too many files uploaded
+			sf.Errors["track"] = "too many files selected"
+		}
+
+		return &sf, nil
 	}
 	track := tracks[0]
 
-	// wrapped into a function for easier temporary file cleanup if
-	// something goes wrong.
-	err = func() error {
-		// we want to use the extension given by the user as our extension
-		// on the server, but we can't trust it yet. Run clean on it and
-		// then check if we allow this extension
-		path := filepath.Clean("/" + track.Filename)
-		ext := filepath.Ext(path)
-		if !AllowedExtension(ext) {
-			return errors.E(op, errors.InvalidForm, "extension not allowed", errors.Info(ext))
-		}
-		// remove any * because CreateTemp uses them for the random replacement
-		ext = strings.ReplaceAll(ext, "*", "")
+	// we want to use the extension given by the user as our extension
+	// on the server, but we can't trust it yet. Run clean on it and
+	// then check if we allow this extension
+	path := filepath.Clean("/" + track.Filename)
+	ext := filepath.Ext(path)
+	if !AllowedExtension(ext) {
+		// not an allowed extension
+		sf.Errors["track"] = "file format not allowed"
+		return &sf, nil
+	}
+	// remove any * because CreateTemp uses them for the random replacement
+	ext = strings.ReplaceAll(ext, "*", "")
 
-		// create the resting place for the uploaded file
-		f, err := os.CreateTemp(tempdir, "pending-*"+ext)
-		if err != nil {
-			return errors.E(op, err, errors.Info("failed to create temp file"))
-		}
-		defer f.Close()
-
-		// open the uploaded file for copying
-		uploaded, err := track.Open()
-		if err != nil {
-			return errors.E(op, err, errors.Info("failed to open multipart file"))
-		}
-		defer uploaded.Close()
-
-		// copy over the uploaded file to the resting place
-		n, err := io.CopyN(f, uploaded, formMaxFileLength)
-		if err != nil && !errors.IsE(err, io.EOF) {
-			os.Remove(f.Name())
-			return errors.E(op, err, errors.Info("copying to temp file failed"))
-		}
-		if n >= formMaxFileLength {
-			os.Remove(f.Name())
-			return errors.E(op, err)
-		}
-
-		// record the filename the user supplied
-		sf.OriginalFilename = track.Filename
-		// and the filename of the resting place
-		sf.File = f.Name()
-		return nil
-	}()
+	// create the resting place for the uploaded file
+	f, err := os.CreateTemp(tempdir, "pending-*"+ext)
 	if err != nil {
-		return nil, err
+		return &sf, errors.E(op, err, errors.InternalServer)
+	}
+	defer f.Close()
+
+	// open the uploaded file for copying
+	uploaded, err := track.Open()
+	if err != nil {
+		return &sf, errors.E(op, err, errors.InternalServer)
+	}
+	defer uploaded.Close()
+
+	// copy over the uploaded file to the resting place
+	n, err := io.CopyN(f, uploaded, formMaxFileLength)
+	if err != nil && !errors.IsE(err, io.EOF) {
+		os.Remove(f.Name())
+		return &sf, errors.E(op, err, errors.InternalServer)
+	}
+	if n >= formMaxFileLength {
+		os.Remove(f.Name())
+		sf.Errors["track"] = "file too large"
+		return &sf, nil
 	}
 
+	// record the filename the user supplied
+	sf.OriginalFilename = track.Filename
+	// and the filename of the resting place
+	sf.File = f.Name()
 	return &sf, nil
 }
 
