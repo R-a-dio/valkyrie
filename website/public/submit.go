@@ -446,12 +446,17 @@ func NewSubmissionForm(ts radio.TrackStorage, tempdir string, r *http.Request) (
 // if a daypass was supplied if it was a valid one. Populates sf.Errors with
 // any errors that occur and what input field caused it.
 func (sf *SubmissionForm) Validate(ts radio.TrackStorage, dp secret.Secret) bool {
-	sf.Errors = make(map[string]string)
-	if sf.File == "" {
-		sf.Errors["track"] = "no temporary file"
+	if sf.Errors == nil {
+		sf.Errors = make(map[string]string)
 	}
-	if sf.OriginalFilename == "" {
-		sf.Errors["track"] = "no file selected"
+	if sf.Errors["track"] == "" {
+		// only add track errors if there isn't already one
+		if sf.File == "" {
+			sf.Errors["track"] = "no temporary file"
+		}
+		if sf.OriginalFilename == "" {
+			sf.Errors["track"] = "no file selected"
+		}
 	}
 	if sf.Comment == "" {
 		sf.Errors["comment"] = "no comment supplied"
