@@ -74,6 +74,8 @@ type ProfileForm struct {
 	PasswordChangeForm ProfilePasswordChangeForm
 	// Errors that occured while parsing the form
 	Errors map[string]string
+	// Success indicates if a previous change succeeded
+	Success bool
 
 	// newPermissions holds the permissions list received from the client
 	newPermissions radio.UserPermissions
@@ -194,6 +196,10 @@ func (s *State) PostProfile(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.errorHandler(w, r, err, "failed post profile")
 		return
+	}
+
+	if form != nil && len(form.Errors) == 0 {
+		form.Success = true
 	}
 
 	err = s.TemplateExecutor.Execute(w, r, form)
