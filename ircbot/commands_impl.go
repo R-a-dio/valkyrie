@@ -196,7 +196,7 @@ func StreamerUserInfo(e Event) error {
 	const op errors.Op = "irc/StreamerUserInfo"
 
 	name := e.Arguments["DJ"]
-	if name == "" || !HasAccess(e.Client, e.Event) {
+	if name == "" || !e.HasStreamAccess(AccessPurposeNone) {
 		// simple path if people are just asking for the current dj
 		status := e.Bot.StatusValue.Latest()
 		e.EchoPublic("Current DJ: {green}%s", status.StreamerName)
@@ -339,7 +339,7 @@ func ThreadURL(e Event) error {
 	thread := e.Arguments["thread"]
 	thread = strings.TrimSpace(thread)
 
-	if thread != "" && HasStreamAccess(e.Client, e.Event) {
+	if thread != "" && e.HasStreamAccess(AccessPurposeThread) {
 		err := e.Bot.Manager.UpdateThread(e.Ctx, thread)
 		if err != nil {
 			return errors.E(op, err)
@@ -364,7 +364,7 @@ func ChannelTopic(e Event) error {
 	}
 
 	newTopic := e.Arguments["topic"]
-	if newTopic != "" && HasAccess(e.Client, e.Event) {
+	if newTopic != "" && e.HasAccess() {
 		// we want to set the topic and have access for it
 		match := reTopicBit.FindStringSubmatch(channel.Topic)
 		if match == nil || len(match) < 2 {
@@ -389,14 +389,14 @@ func ChannelTopic(e Event) error {
 func KillStreamer(e Event) error {
 	const op errors.Op = "irc/KillStreamer"
 
-	if !HasStreamAccess(e.Client, e.Event) {
+	if !e.HasStreamAccess(AccessPurposeKill) {
 		return nil
 	}
 
 	force := e.Arguments.Bool("force")
 	if force {
 		// check if the user has the authorization to use force
-		ok, err := HasDeveloperAccess(e)
+		ok, err := e.HasDeveloperAccess()
 		if err != nil {
 			return errors.E(op, err)
 		}
@@ -756,7 +756,7 @@ func LastRequestInfo(e Event) error {
 func TrackInfo(e Event) error {
 	const op errors.Op = "irc/TrackInfo"
 
-	if !HasAccess(e.Client, e.Event) {
+	if !e.HasAccess() {
 		return nil
 	}
 

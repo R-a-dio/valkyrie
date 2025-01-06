@@ -9,7 +9,7 @@ import (
 )
 
 // IsAuthed checks if the source of the event is authenticated with nickserv
-func IsAuthed(e Event) bool {
+func (e *Event) IsAuthed() bool {
 	nick := e.Source.Name
 	// wait at maximum timeout seconds for a reply before giving up
 	timeout := time.Second * 3
@@ -67,12 +67,12 @@ func IsAuthed(e Event) bool {
 
 // HasAccess checks if the user that send the PRIVMSG to us has access +h or higher in
 // the channel it came from; HasAccess panics if the event is not PRIVMSG
-func HasAccess(c *girc.Client, e girc.Event) bool {
+func (e *Event) HasAccess() bool {
 	if e.Command != girc.PRIVMSG {
 		panic("HasAccess called with non-PRIVMSG event")
 	}
 
-	user := c.LookupUser(e.Source.Name)
+	user := e.Client.LookupUser(e.Source.Name)
 	if user == nil {
 		return false
 	}
@@ -85,23 +85,34 @@ func HasAccess(c *girc.Client, e girc.Event) bool {
 	return perms.IsAdmin() || perms.HalfOp
 }
 
+type AccessPurpose int
+
+const (
+	AccessPurposeNone AccessPurpose = iota
+	AccessPurposeThread
+	AccessPurposeKill
+)
+
 // HasStreamAccess is similar to HasAccess but also includes special casing for streamers
 // that don't have channel access, but do have the authorization to access the stream
-func HasStreamAccess(c *girc.Client, e girc.Event) bool {
-	// TODO: implement this
-	return HasAccess(c, e)
+func (e *Event) HasStreamAccess(purpose AccessPurpose) bool {
+	if e.HasAccess() {
+		return true
+	}
+
+	return e.Bot.Guest.IsGuest(e.Source.Name, purpose)
 }
 
-func HasDeveloperAccess(e Event) (bool, error) {
+func (e *Event) HasDeveloperAccess() (bool, error) {
 	const op errors.Op = "irc/HasDeveloperAccess"
 
 	// for security purposes we also require devs to always have channel access
-	if !HasAccess(e.Client, e.Event) {
+	if !e.HasAccess() {
 		return false, nil
 	}
 
 	// we also require them to have authed with nickserv
-	if !IsAuthed(e) {
+	if !e.IsAuthed() {
 		return false, nil
 	}
 

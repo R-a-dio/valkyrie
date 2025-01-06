@@ -117,6 +117,8 @@ func NewBot(ctx context.Context, cfg config.Config) (*Bot, error) {
 		c:        girc.New(ircConf),
 	}
 
+	b.Guest = NewGuestSystem(ctx, cfg, b.c)
+
 	if err = RegisterCommonHandlers(b, b.c); err != nil {
 		return nil, err
 	}
@@ -134,6 +136,7 @@ type Bot struct {
 
 	// interfaces to other components
 	Searcher radio.SearchService
+	Guest    *GuestSystem
 
 	// Values used by commands
 	StatusValue    *util.Value[radio.Status]
