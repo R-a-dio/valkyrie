@@ -147,6 +147,8 @@ func (s *State) PostPending(w http.ResponseWriter, r *http.Request) {
 	}
 
 	hlog.FromRequest(r).Error().Err(err).Msg("failed post pending")
+	// FIXME: do proper error propagation somehow
+	form.Errors["internal"] = err.Error()
 
 	// failed, handle the input and see if we can get info back to the user
 	if util.IsHTMX(r) {
