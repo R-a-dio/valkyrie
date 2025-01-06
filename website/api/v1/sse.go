@@ -65,7 +65,7 @@ func (a *API) runStatusUpdates(ctx context.Context) {
 
 			log.Debug().Str("event", EventMetadata).Any("value", status).Msg("sending")
 			a.sse.SendNowPlaying(status)
-			go a.sendQueue(ctx)
+			go a.sendQueue(ctx, status.StreamUser)
 			go a.sendLastPlayed(ctx)
 		}
 
@@ -74,19 +74,24 @@ func (a *API) runStatusUpdates(ctx context.Context) {
 			status.User.DJ != previous.User.DJ {
 			log.Debug().Str("event", EventStreamer).Any("value", status.User).Msg("sending")
 			a.sse.SendStreamer(status.User)
-			// TODO(wessie): queue is technically only used for the automated streamer
-			// and should probably have an extra event trigger here to make it disappear
+			// send the queue for this user, this should fix a small desync issue where metadata
+			// is updated before the user
+			go a.sendQueue(ctx, status.StreamUser)
 		}
 
 		previous = status
 	})
 }
 
-func (a *API) sendQueue(ctx context.Context) {
-	q, err := a.queue.Entries(ctx)
-	if err != nil {
-		zerolog.Ctx(ctx).Error().Err(err).Str("sse", "queue").Msg("")
-		return
+func (a *API) sendQueue(ctx context.Context, user *radio.User) {
+	var q radio.Queue
+	if user != nil && radio.IsRobot(*user) {
+		rq, err := a.queue.Entries(ctx)
+		if err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Str("sse", "queue").Msg("")
+			return
+		}
+		q = rq
 	}
 
 	zerolog.Ctx(ctx).Debug().Str("event", EventQueue).Any("value", q).Msg("sending")
