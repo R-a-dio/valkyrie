@@ -146,9 +146,10 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		hlog.CustomHeaderHandler("is_htmx", "Hx-Request"),
 		hlog.AccessHandler(zerologLoggerFunc),
 	)
-	// recover from panics and clean our IP of a port number
+	// clean our IP of a port number
 	r.Use(removePortFromAddress)
-	r.Use(middleware.Recoverer)
+	// recover from panics
+	r.Use(vmiddleware.Recoverer)
 	// session handling
 	sessionManager := vmiddleware.NewSessionManager(ctx, storage)
 	r.Use(sessionManager.LoadAndSave)

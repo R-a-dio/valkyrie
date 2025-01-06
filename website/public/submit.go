@@ -160,7 +160,7 @@ func (s *State) PostSubmit(w http.ResponseWriter, r *http.Request) {
 	identifier, _ := getIdentifier(r)
 	err = s.Storage.Submissions(ctx).UpdateSubmissionTime(identifier)
 	if err != nil {
-		hlog.FromRequest(r).Error().Err(err).Msg("")
+		hlog.FromRequest(r).Error().Err(err).Msg("failed updating submission time")
 		responseFn(form)
 		return
 	}
