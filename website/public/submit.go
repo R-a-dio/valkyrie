@@ -347,7 +347,7 @@ func newSubmissionForm(ts radio.TrackStorage, r *http.Request, errs map[string]s
 func NewSubmissionForm(ts radio.TrackStorage, tempdir string, r *http.Request) (*SubmissionForm, error) {
 	const op errors.Op = "public.NewSubmissionForm"
 
-	sf := newSubmissionForm(ts, r, nil)
+	sf := newSubmissionForm(ts, r, map[string]string{})
 
 	err := r.ParseMultipartForm(formMaxSize)
 	if err != nil {
