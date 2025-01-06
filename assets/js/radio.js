@@ -219,34 +219,30 @@ function prettyProgress(d) {
     return String(mins).padStart(2, "0") + ":" + String(secs).padStart(2, "0");
 }
 
-function adminPlayerPlay(src) {
+function adminPlayerPlayPause(src) {
     if (admin_player) {
-        admin_player.pause();
-        admin_player.currentTime = 0;
-        admin_player.src = src;
-        admin_player.play();
-    }
-}
-
-function adminPlayerPlayPause() {
-    if (admin_player && admin_player.src) {
-        if (admin_player.paused)
-            admin_player.play();
-        else
+        if (src && admin_player.currentSrc.includes(src)) {
+            if (admin_player.paused) {
+                admin_player.play();
+            } else {
+                admin_player.pause();
+            }
+        } else {
             admin_player.pause();
+            admin_player.currentTime = 0;
+            admin_player.src = src;
+            admin_player.play();
+        }
     }
 }
 
-function adminShowSpectrogram() {
+function adminShowSpectrogram(src) {
     let img = document.querySelector("#admin-player-spec-image");
     let modal = document.querySelector("#admin-player-spec-modal");
-    if (img && modal && admin_player.src) {
-        // Only the pending endpoint supports spectrograms, but
-        // the player is used for both pending and database.
-        if (admin_player.src.includes("pending")) {
-            img.src = admin_player.src + "?spectrum=true";
-            modal.classList.add("is-active");
-        }
+
+    if (src && src.includes("pending")) {
+        img.src = src + "?spectrum=true";
+        modal.classList.add("is-active");
     }
 }
 
