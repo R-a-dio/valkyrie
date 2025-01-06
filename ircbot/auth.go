@@ -85,22 +85,18 @@ func (e *Event) HasAccess() bool {
 	return perms.IsAdmin() || perms.HalfOp
 }
 
-type AccessPurpose int
-
-const (
-	AccessPurposeNone AccessPurpose = iota
-	AccessPurposeThread
-	AccessPurposeKill
-)
-
 // HasStreamAccess is similar to HasAccess but also includes special casing for streamers
 // that don't have channel access, but do have the authorization to access the stream
-func (e *Event) HasStreamAccess(purpose AccessPurpose) bool {
+func (e *Event) HasStreamAccess(action radio.GuestAction) bool {
 	if e.HasAccess() {
 		return true
 	}
 
-	return e.Bot.Guest.IsGuest(e.Source.Name, purpose)
+	ok, err := e.Bot.Guest.CanDo(e.Ctx, e.Source.Name, action)
+	if err != nil {
+		return false
+	}
+	return ok
 }
 
 func (e *Event) HasDeveloperAccess() (bool, error) {

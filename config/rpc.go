@@ -9,6 +9,33 @@ import (
 	"google.golang.org/grpc"
 )
 
+func newGuestService(cfg Config) radio.GuestService {
+	return &guestService{
+		Value(cfg, func(c Config) radio.GuestService {
+			return nil
+			//return rpc.NewGuestService(rpc.PrepareConn(cfg.Conf().Manager.RPCAddr.String()))
+		}),
+	}
+}
+
+type guestService struct {
+	fn func() radio.GuestService
+}
+
+func (g *guestService) Auth(ctx context.Context, nick string) (*radio.User, error) {
+	return g.fn().Auth(ctx, nick)
+}
+
+func (g *guestService) Deauth(ctx context.Context, nick string) error {
+	return g.fn().Deauth(ctx, nick)
+}
+
+func (g *guestService) CanDo(ctx context.Context, nick string, action radio.GuestAction) (bool, error) {
+	return g.fn().CanDo(ctx, nick, action)
+}
+
+var _ radio.GuestService = &guestService{}
+
 func newManagerService(cfg Config) radio.ManagerService {
 	return &managerService{
 		Value(cfg, func(c Config) radio.ManagerService {

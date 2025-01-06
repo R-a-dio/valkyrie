@@ -156,6 +156,14 @@ func (up UserPermissions) has(perm UserPermission) bool {
 	return ok
 }
 
+func NewUserPermissions(perms ...UserPermission) UserPermissions {
+	up := make(UserPermissions, len(perms))
+	for _, perm := range perms {
+		up[perm] = struct{}{}
+	}
+	return up
+}
+
 // Scan implements sql.Scanner
 //
 // Done in a way that it expects all permissions to be a single string or []byte
@@ -205,6 +213,7 @@ func AllUserPermissions() []UserPermission {
 		PermListenerKick,
 		PermProxyKick,
 		PermTelemetryView,
+		PermGuest,
 	}
 }
 
@@ -228,6 +237,7 @@ const (
 	PermListenerKick   = "listener_kick"   // User can kick listeners
 	PermProxyKick      = "proxy_kick"      // User can kick streamers"
 	PermTelemetryView  = "telemetry_view"  // User can view telemetry backend
+	PermGuest          = "guest"           // User is a guest
 )
 
 // User is an user account in the database
@@ -1473,3 +1483,18 @@ type ScheduleEntry struct {
 	// Notification indicates if we should notify users of this entry
 	Notification bool
 }
+
+type GuestService interface {
+	Auth(ctx context.Context, nick string) (*User, error)
+	Deauth(ctx context.Context, nick string) error
+
+	CanDo(ctx context.Context, nick string, can GuestAction) (ok bool, err error)
+}
+
+type GuestAction int
+
+const (
+	GuestNone GuestAction = iota
+	GuestKill
+	GuestThread
+)

@@ -196,7 +196,7 @@ func StreamerUserInfo(e Event) error {
 	const op errors.Op = "irc/StreamerUserInfo"
 
 	name := e.Arguments["DJ"]
-	if name == "" || !e.HasStreamAccess(AccessPurposeNone) {
+	if name == "" || !e.HasStreamAccess(radio.GuestNone) {
 		// simple path if people are just asking for the current dj
 		status := e.Bot.StatusValue.Latest()
 		e.EchoPublic("Current DJ: {green}%s", status.StreamerName)
@@ -339,7 +339,7 @@ func ThreadURL(e Event) error {
 	thread := e.Arguments["thread"]
 	thread = strings.TrimSpace(thread)
 
-	if thread != "" && e.HasStreamAccess(AccessPurposeThread) {
+	if thread != "" && e.HasStreamAccess(radio.GuestThread) {
 		err := e.Bot.Manager.UpdateThread(e.Ctx, thread)
 		if err != nil {
 			return errors.E(op, err)
@@ -389,7 +389,7 @@ func ChannelTopic(e Event) error {
 func KillStreamer(e Event) error {
 	const op errors.Op = "irc/KillStreamer"
 
-	if !e.HasStreamAccess(AccessPurposeKill) {
+	if !e.HasStreamAccess(radio.GuestKill) {
 		return nil
 	}
 

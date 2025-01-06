@@ -303,6 +303,7 @@ type Config struct {
 	Queue    radio.QueueService
 	IRC      radio.AnnounceService
 	Proxy    radio.ProxyService
+	Guest    radio.GuestService
 }
 
 type reload struct {
@@ -323,6 +324,7 @@ func newConfig(c config) Config {
 	// TODO: handle reloads by closing rpc connections
 	cfg.Streamer = newStreamerService(cfg, streamerConn)
 	cfg.Manager = newManagerService(cfg)
+	cfg.Guest = newGuestService(cfg)
 	cfg.Tracker = newTrackerService(cfg)
 	cfg.Queue = newQueueService(cfg, streamerConn)
 	cfg.IRC = newIRCService(cfg)
