@@ -995,10 +995,17 @@ func (ts TrackStorage) Insert(song radio.Song) (radio.TrackID, error) {
 	// insert into track table
 	new, err := namedExecLastInsertId(handle, trackInsertQuery, song)
 	if err != nil {
-		return 0, errors.E(op, err, song)
+		if IsDuplicateKeyErr(err) {
+			return 0, errors.E(op, err, errors.Duplicate)
+		}
+		return 0, errors.E(op, err)
 	}
 
-	return radio.TrackID(new), tx.Commit()
+	if err = tx.Commit(); err != nil {
+		return 0, errors.E(op, err)
+	}
+
+	return radio.TrackID(new), nil
 }
 
 const trackUpdateMetadataQuery = `

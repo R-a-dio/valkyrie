@@ -362,6 +362,7 @@ const (
 	LoginError                         // Login error
 	SubmissionUnknown                  // Submission does not exist
 	Spam                               // Comment is spam
+	Duplicate                          // Duplicate where one isn't allowed
 )
 
 func (k Kind) String() string {
@@ -442,6 +443,8 @@ func (k Kind) String() string {
 		return "submission does not exist"
 	case Spam:
 		return "this is SPAM"
+	case Duplicate:
+		return "duplicate entry"
 	}
 
 	return "unknown error kind"
