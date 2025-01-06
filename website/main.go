@@ -2,6 +2,7 @@ package website
 
 import (
 	"context"
+	"encoding/json"
 	"io/fs"
 	"net"
 	"net/http"
@@ -250,15 +251,16 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	fdstorage := fdstore.NewStoreListenFDs()
 
 	// get a listener for the website server
-	ln, _, err := util.RestoreOrListen(fdstorage, "website", "tcp", server.Addr)
+	ln, state, err := util.RestoreOrListen(fdstorage, "website", "tcp", server.Addr)
 	if err != nil {
 		return err
 	}
-
 	zerolog.Ctx(ctx).Info().Str("address", server.Addr).Msg("website started listening")
 
-	// add the listener to the storage again for the next time we restart
-	_ = fdstorage.AddListener(ln, "website", []byte(server.Addr))
+	// restore the state from the previous process
+	var ws websiteStorage
+	_ = json.Unmarshal(state, &ws)
+	themeValues.StoreHoliday(ws.HolidayTheme)
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -269,6 +271,14 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	case <-ctx.Done():
 		return server.Close()
 	case <-util.Signal(syscall.SIGUSR2):
+		// store our "not really persistent" state
+		state, _ := json.Marshal(websiteStorage{
+			HolidayTheme: themeValues.LoadHoliday(),
+		})
+
+		if err := fdstorage.AddListener(ln, "website", state); err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to store listener")
+		}
 		if err := fdstorage.Send(); err != nil {
 			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to send store")
 		}
@@ -276,6 +286,10 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	case err = <-errCh:
 		return err
 	}
+}
+
+type websiteStorage struct {
+	HolidayTheme radio.ThemeName
 }
 
 // RedirectLegacyStream redirects a request to the (new) icecast stream url
