@@ -38,8 +38,13 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 
+	gs, err := NewGuestService(ctx, cfg, store)
+	if err != nil {
+		return err
+	}
+
 	// setup a http server for our RPC API
-	srv, err := NewGRPCServer(ctx, m)
+	srv, err := NewGRPCServer(ctx, m, gs)
 	if err != nil {
 		return err
 	}

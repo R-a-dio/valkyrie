@@ -481,6 +481,184 @@ var Manager_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
+	Guest_Auth_FullMethodName   = "/radio.Guest/Auth"
+	Guest_Deauth_FullMethodName = "/radio.Guest/Deauth"
+	Guest_CanDo_FullMethodName  = "/radio.Guest/CanDo"
+)
+
+// GuestClient is the client API for Guest service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type GuestClient interface {
+	Auth(ctx context.Context, in *GuestUser, opts ...grpc.CallOption) (*User, error)
+	Deauth(ctx context.Context, in *GuestUser, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	CanDo(ctx context.Context, in *GuestCanDo, opts ...grpc.CallOption) (*wrapperspb.BoolValue, error)
+}
+
+type guestClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewGuestClient(cc grpc.ClientConnInterface) GuestClient {
+	return &guestClient{cc}
+}
+
+func (c *guestClient) Auth(ctx context.Context, in *GuestUser, opts ...grpc.CallOption) (*User, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(User)
+	err := c.cc.Invoke(ctx, Guest_Auth_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *guestClient) Deauth(ctx context.Context, in *GuestUser, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, Guest_Deauth_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *guestClient) CanDo(ctx context.Context, in *GuestCanDo, opts ...grpc.CallOption) (*wrapperspb.BoolValue, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(wrapperspb.BoolValue)
+	err := c.cc.Invoke(ctx, Guest_CanDo_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// GuestServer is the server API for Guest service.
+// All implementations must embed UnimplementedGuestServer
+// for forward compatibility.
+type GuestServer interface {
+	Auth(context.Context, *GuestUser) (*User, error)
+	Deauth(context.Context, *GuestUser) (*emptypb.Empty, error)
+	CanDo(context.Context, *GuestCanDo) (*wrapperspb.BoolValue, error)
+	mustEmbedUnimplementedGuestServer()
+}
+
+// UnimplementedGuestServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedGuestServer struct{}
+
+func (UnimplementedGuestServer) Auth(context.Context, *GuestUser) (*User, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Auth not implemented")
+}
+func (UnimplementedGuestServer) Deauth(context.Context, *GuestUser) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Deauth not implemented")
+}
+func (UnimplementedGuestServer) CanDo(context.Context, *GuestCanDo) (*wrapperspb.BoolValue, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CanDo not implemented")
+}
+func (UnimplementedGuestServer) mustEmbedUnimplementedGuestServer() {}
+func (UnimplementedGuestServer) testEmbeddedByValue()               {}
+
+// UnsafeGuestServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to GuestServer will
+// result in compilation errors.
+type UnsafeGuestServer interface {
+	mustEmbedUnimplementedGuestServer()
+}
+
+func RegisterGuestServer(s grpc.ServiceRegistrar, srv GuestServer) {
+	// If the following call pancis, it indicates UnimplementedGuestServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&Guest_ServiceDesc, srv)
+}
+
+func _Guest_Auth_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GuestUser)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GuestServer).Auth(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Guest_Auth_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GuestServer).Auth(ctx, req.(*GuestUser))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Guest_Deauth_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GuestUser)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GuestServer).Deauth(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Guest_Deauth_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GuestServer).Deauth(ctx, req.(*GuestUser))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Guest_CanDo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GuestCanDo)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GuestServer).CanDo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Guest_CanDo_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GuestServer).CanDo(ctx, req.(*GuestCanDo))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// Guest_ServiceDesc is the grpc.ServiceDesc for Guest service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var Guest_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "radio.Guest",
+	HandlerType: (*GuestServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Auth",
+			Handler:    _Guest_Auth_Handler,
+		},
+		{
+			MethodName: "Deauth",
+			Handler:    _Guest_Deauth_Handler,
+		},
+		{
+			MethodName: "CanDo",
+			Handler:    _Guest_CanDo_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "radio.proto",
+}
+
+const (
 	Proxy_SourceStream_FullMethodName   = "/radio.Proxy/SourceStream"
 	Proxy_MetadataStream_FullMethodName = "/radio.Proxy/MetadataStream"
 	Proxy_KickSource_FullMethodName     = "/radio.Proxy/KickSource"

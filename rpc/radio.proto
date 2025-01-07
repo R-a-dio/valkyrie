@@ -57,6 +57,27 @@ service Manager {
     rpc UpdateListenerCount(google.protobuf.Int64Value) returns (google.protobuf.Empty);
 }
 
+service Guest {
+    rpc Auth(GuestUser) returns (User);
+    rpc Deauth(GuestUser) returns (google.protobuf.Empty);
+    rpc CanDo(GuestCanDo) returns (google.protobuf.BoolValue);
+}
+
+message GuestUser {
+    string name = 1;
+}
+
+enum GuestAction {
+    None = 0;
+    Kick = 1;
+    Thread = 2;
+}
+
+message GuestCanDo {
+    GuestUser user = 1;
+    GuestAction action = 2;
+}
+
 service Proxy {
     rpc SourceStream(google.protobuf.Empty) returns (stream ProxySourceEvent);
     rpc MetadataStream(google.protobuf.Empty) returns (stream ProxyMetadataEvent);

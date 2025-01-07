@@ -9,6 +9,7 @@ import (
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/mocks"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGuestExpire(t *testing.T) {
@@ -29,7 +30,8 @@ func TestGuestExpire(t *testing.T) {
 		},
 	}
 
-	gs := NewGuestService(ctx, cfg, uss)
+	gs, err := NewGuestService(ctx, cfg, uss)
+	require.NoError(t, err)
 
 	nick := "test-user"
 	gs.Auth(ctx, nick)
@@ -77,7 +79,8 @@ func TestGuestCanDo(t *testing.T) {
 		},
 	}
 
-	gs := NewGuestService(ctx, cfg, uss)
+	gs, err := NewGuestService(ctx, cfg, uss)
+	require.NoError(t, err)
 
 	nick := "test"
 	ok, err := gs.CanDo(ctx, nick, radio.GuestNone)

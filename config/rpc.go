@@ -12,8 +12,7 @@ import (
 func newGuestService(cfg Config) radio.GuestService {
 	return &guestService{
 		Value(cfg, func(c Config) radio.GuestService {
-			return nil
-			//return rpc.NewGuestService(rpc.PrepareConn(cfg.Conf().Manager.RPCAddr.String()))
+			return rpc.NewGuestService(rpc.PrepareConn(cfg.Conf().Manager.RPCAddr.String()))
 		}),
 	}
 }

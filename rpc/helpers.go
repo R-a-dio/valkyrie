@@ -555,3 +555,30 @@ func fromProtoProxySource(s *ProxySource) radio.ProxySource {
 		Priority:  s.Priority,
 	}
 }
+
+func toProtoGuestUser(nick string) *GuestUser {
+	return &GuestUser{
+		Name: nick,
+	}
+}
+
+func fromProtoGuestUser(user *GuestUser) (nick string) {
+	if user == nil {
+		return ""
+	}
+	return user.Name
+}
+
+func toProtoGuestCanDo(nick string, action radio.GuestAction) *GuestCanDo {
+	return &GuestCanDo{
+		User:   toProtoGuestUser(nick),
+		Action: GuestAction(action),
+	}
+}
+
+func fromProtoGuestCanDo(gcd *GuestCanDo) (nick string, action radio.GuestAction) {
+	if gcd == nil {
+		return "", radio.GuestNone
+	}
+	return gcd.User.GetName(), radio.GuestAction(gcd.GetAction())
+}

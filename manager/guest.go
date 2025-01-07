@@ -25,7 +25,7 @@ type GuestService struct {
 	Authorized map[GuestNick]*Guest
 }
 
-func NewGuestService(ctx context.Context, cfg config.Config, us radio.UserStorageService) *GuestService {
+func NewGuestService(ctx context.Context, cfg config.Config, us radio.UserStorageService) (*GuestService, error) {
 	gs := &GuestService{
 		us:         us,
 		Authorized: map[GuestNick]*Guest{},
@@ -33,7 +33,7 @@ func NewGuestService(ctx context.Context, cfg config.Config, us radio.UserStorag
 
 	// TODO: add timeout from config
 	go gs.loopExpire(ctx, time.Hour*24)
-	return gs
+	return gs, nil
 }
 
 func (gs *GuestService) username(nick GuestNick) (username string) {

@@ -14,9 +14,10 @@ import (
 )
 
 // NewGRPCServer sets up a net/http server ready to serve RPC requests
-func NewGRPCServer(ctx context.Context, m *Manager) (*grpc.Server, error) {
+func NewGRPCServer(ctx context.Context, m *Manager, g *GuestService) (*grpc.Server, error) {
 	gs := rpc.NewGrpcServer(ctx)
 	rpc.RegisterManagerServer(gs, rpc.NewManager(m))
+	rpc.RegisterGuestServer(gs, rpc.NewGuest(g))
 
 	return gs, nil
 }

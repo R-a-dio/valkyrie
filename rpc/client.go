@@ -156,6 +156,31 @@ func (p ProxyClientRPC) ListSources(ctx context.Context) ([]radio.ProxySource, e
 	return ss, nil
 }
 
+func NewGuestService(c *grpc.ClientConn) radio.GuestService {
+	return GuestClientRPC{
+		rpc: NewGuestClient(c),
+	}
+}
+
+type GuestClientRPC struct {
+	rpc GuestClient
+}
+
+func (g GuestClientRPC) Auth(ctx context.Context, nick string) (*radio.User, error) {
+	u, err := g.rpc.Auth(ctx, toProtoGuestUser(nick))
+	return fromProtoUser(u), err
+}
+
+func (g GuestClientRPC) Deauth(ctx context.Context, nick string) error {
+	_, err := g.rpc.Deauth(ctx, toProtoGuestUser(nick))
+	return err
+}
+
+func (g GuestClientRPC) CanDo(ctx context.Context, nick string, action radio.GuestAction) (bool, error) {
+	b, err := g.rpc.CanDo(ctx, toProtoGuestCanDo(nick, action))
+	return b.GetValue(), err
+}
+
 // NewManagerService returns a new client implementing radio.ManagerService
 func NewManagerService(c *grpc.ClientConn) radio.ManagerService {
 	return ManagerClientRPC{

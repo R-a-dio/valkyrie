@@ -85,6 +85,32 @@ func (ps ProxyShim) ListSources(ctx context.Context, _ *emptypb.Empty) (*ProxyLi
 	}, nil
 }
 
+func NewGuest(g radio.GuestService) GuestServer {
+	return GuestShim{
+		guest: g,
+	}
+}
+
+type GuestShim struct {
+	UnimplementedGuestServer
+	guest radio.GuestService
+}
+
+func (g GuestShim) Auth(ctx context.Context, user *GuestUser) (*User, error) {
+	u, err := g.guest.Auth(ctx, fromProtoGuestUser(user))
+	return toProtoUser(u), err
+}
+
+func (g GuestShim) Deauth(ctx context.Context, user *GuestUser) (*emptypb.Empty, error) {
+	err := g.guest.Deauth(ctx, user.GetName())
+	return new(emptypb.Empty), err
+}
+
+func (g GuestShim) CanDo(ctx context.Context, gcd *GuestCanDo) (*wrapperspb.BoolValue, error) {
+	ok, err := g.guest.CanDo(ctx, gcd.GetUser().GetName(), radio.GuestAction(gcd.GetAction()))
+	return wrapperspb.Bool(ok), err
+}
+
 // NewManager returns a new shim around the service given
 func NewManager(m radio.ManagerService) ManagerServer {
 	return ManagerShim{
