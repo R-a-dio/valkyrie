@@ -8,6 +8,7 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/mocks"
+	"github.com/R-a-dio/valkyrie/util/eventstream"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -29,7 +30,13 @@ func TestGuestExpire(t *testing.T) {
 			return us, mocks.CommitTx(t), nil
 		},
 	}
-	m := &mocks.ManagerServiceMock{}
+
+	es := eventstream.NewEventStream[*radio.User](nil)
+	m := &mocks.ManagerServiceMock{
+		CurrentUserFunc: func(contextMoqParam context.Context) (eventstream.Stream[*radio.User], error) {
+			return es.SubStream(contextMoqParam), nil
+		},
+	}
 
 	gs, err := NewGuestService(ctx, cfg, m, uss)
 	require.NoError(t, err)
@@ -79,7 +86,13 @@ func TestGuestCanDo(t *testing.T) {
 			return us, mocks.CommitTx(t), nil
 		},
 	}
-	m := &mocks.ManagerServiceMock{}
+
+	es := eventstream.NewEventStream[*radio.User](nil)
+	m := &mocks.ManagerServiceMock{
+		CurrentUserFunc: func(contextMoqParam context.Context) (eventstream.Stream[*radio.User], error) {
+			return es.SubStream(contextMoqParam), nil
+		},
+	}
 
 	gs, err := NewGuestService(ctx, cfg, m, uss)
 	require.NoError(t, err)

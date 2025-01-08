@@ -33,9 +33,14 @@ func TestManager(t *testing.T) {
 	}
 	initThread := ""
 
+	var updateUser *radio.User
+
 	us := &mocks.UserStorageMock{
 		GetByDJIDFunc: func(dJID radio.DJID) (*radio.User, error) {
 			return &initUser, nil
+		},
+		GetByIDFunc: func(userID radio.UserID) (*radio.User, error) {
+			return updateUser, nil
 		},
 	}
 	sts := &mocks.StatusStorageMock{
@@ -175,6 +180,7 @@ func TestManager(t *testing.T) {
 			},
 		}
 
+		updateUser = user
 		err = m.UpdateUser(ctx, user)
 		require.NoError(t, err)
 		// should show up in the user stream
