@@ -2,6 +2,7 @@ package manager
 
 import (
 	"context"
+	"net"
 	"strings"
 	"sync"
 	"time"
@@ -53,19 +54,23 @@ func (gs *GuestService) username(nick GuestNick) (username string) {
 	return GUEST_PREFIX + nick
 }
 
-func (gs *GuestService) getOrCreateUser(ctx context.Context, username string, passwd string) (*radio.User, error) {
+func (gs *GuestService) getOrCreateUser(ctx context.Context, username string, passwd string) (*radio.User, bool, error) {
 	const op errors.Op = "manager/GuestService.getOrCreateUser"
 	user, err := gs.us.User(ctx).Get(username)
 	if err == nil {
 		// success straight away
-		return user, nil
+		return user, false, nil
 	}
 
 	if !errors.Is(errors.UserUnknown, err) {
-		return nil, errors.E(op, err)
+		return nil, false, errors.E(op, err)
 	}
 
-	return gs.createUser(ctx, username, passwd)
+	user, err = gs.createUser(ctx, username, passwd)
+	if err != nil {
+		return nil, false, errors.E(op, err)
+	}
+	return user, true, nil
 }
 
 func (gs *GuestService) createUser(ctx context.Context, username string, passwd string) (*radio.User, error) {
@@ -113,7 +118,21 @@ func (gs *GuestService) createUser(ctx context.Context, username string, passwd 
 	return &user, nil
 }
 
+// updateUserIP
 func (gs *GuestService) updateUserIP(ctx context.Context, user *radio.User, addr string) error {
+	const op errors.Op = "manager/GuestService.updateUserIP"
+
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return errors.E(op, err)
+	}
+
+	user.IP = host
+
+	_, err = gs.us.User(ctx).Update(*user)
+	if err != nil {
+		return errors.E(op, err)
+	}
 	return nil
 }
 
@@ -130,7 +149,7 @@ func (gs *GuestService) Auth(ctx context.Context, nick GuestNick) (*radio.User, 
 		return nil, "", errors.E(op, err)
 	}
 
-	user, err := gs.getOrCreateUser(ctx, gs.username(nick), passwd)
+	user, created, err := gs.getOrCreateUser(ctx, gs.username(nick), passwd)
 	if err != nil {
 		return nil, "", errors.E(op, err)
 	}
@@ -141,6 +160,8 @@ func (gs *GuestService) Auth(ctx context.Context, nick GuestNick) (*radio.User, 
 		err := gs.updateUserIP(ctx, user, gs.proxyAddress())
 		if err != nil {
 			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to set guest users IP address")
+		} else {
+			user.IP = gs.proxyAddress()
 		}
 	}
 
@@ -148,6 +169,10 @@ func (gs *GuestService) Auth(ctx context.Context, nick GuestNick) (*radio.User, 
 		Nick:     nick,
 		User:     user,
 		AuthTime: time.Now(),
+	}
+
+	if created {
+		return user, passwd, nil
 	}
 	return user, "", nil
 }
@@ -166,20 +191,6 @@ func (gs *GuestService) Deauth(ctx context.Context, nick GuestNick) error {
 
 	// remove the nick from the authorization list
 	delete(gs.Authorized, nick)
-
-	// retrieve the user from storage
-	user, err := gs.us.User(ctx).Get(gs.username(nick))
-	if err != nil {
-		return errors.E(op, err)
-	}
-
-	// remove their active status
-	delete(user.UserPermissions, radio.PermActive)
-	// and update storage with it
-	_, err = gs.us.User(ctx).Update(*user)
-	if err != nil {
-		return errors.E(op, err)
-	}
 
 	return nil
 }
