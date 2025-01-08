@@ -243,6 +243,8 @@ func (m *Manager) statusFromStreams() radio.Status {
 // runStatusUpdates is in charge of keeping m.status up-to-date from the other
 // data streams.
 func (m *Manager) runStatusUpdates(ctx context.Context, ready chan struct{}) {
+	m.running.Store(true)
+
 	userCh := m.userStream.Sub()
 	defer m.userStream.Leave(userCh)
 	<-userCh // eat initial value
@@ -264,7 +266,7 @@ func (m *Manager) runStatusUpdates(ctx context.Context, ready chan struct{}) {
 	// communicate that we are ready to handle events
 	close(ready)
 
-	for {
+	for m.running.Load() {
 		var sendStatus = true
 
 		select {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -149,8 +150,8 @@ func NewManager(ctx context.Context, store radio.StorageService, state []byte) (
 
 // Manager manages shared state between different processes
 type Manager struct {
-	logger *zerolog.Logger
-
+	logger  *zerolog.Logger
+	running atomic.Bool
 	Storage radio.StorageService
 
 	// mu protects the fields below and their contents
@@ -191,6 +192,7 @@ func (m *Manager) loadStreamStatus(ctx context.Context) (*radio.Status, error) {
 
 // CloseSubs calls CloseSubs on all internal manager streams
 func (m *Manager) CloseSubs() {
+	m.running.Store(false)
 	m.listenerStream.CloseSubs()
 	m.threadStream.CloseSubs()
 	m.songStream.CloseSubs()
@@ -200,6 +202,7 @@ func (m *Manager) CloseSubs() {
 
 // Shutdown calls Shutdown on all internal manager streams
 func (m *Manager) Shutdown() {
+	m.running.Store(false)
 	m.listenerStream.Shutdown()
 	m.threadStream.Shutdown()
 	m.songStream.Shutdown()
