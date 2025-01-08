@@ -59,7 +59,7 @@ func (m *Manager) UpdateUser(ctx context.Context, u *radio.User) error {
 	// update the user from storage here, this is a temporary fix until the
 	// new guest system is introduced since this really just works around a
 	// small update issue with the users display name
-	{
+	if u != nil {
 		new, err := m.Storage.User(ctx).GetByID(u.ID)
 		if err != nil {
 			// if this fails just log and ignore
