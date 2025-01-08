@@ -38,7 +38,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 
-	gs, err := NewGuestService(ctx, cfg, store)
+	gs, err := NewGuestService(ctx, cfg, m, store)
 	if err != nil {
 		return err
 	}

@@ -10,6 +10,7 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/R-a-dio/valkyrie/util"
 	"github.com/rs/zerolog"
 )
 
@@ -31,13 +32,20 @@ type GuestService struct {
 	Authorized map[GuestNick]*Guest
 }
 
-func NewGuestService(ctx context.Context, cfg config.Config, us radio.UserStorageService) (*GuestService, error) {
+func NewGuestService(ctx context.Context, cfg config.Config, m radio.ManagerService, us radio.UserStorageService) (*GuestService, error) {
 	const op errors.Op = "manager/NewGuestService"
 
 	gs := &GuestService{
 		us: us,
 		proxyAddress: config.Value(cfg, func(c config.Config) string {
-			return c.Conf().Manager.GuestProxyAddr.String()
+			host, _, err := net.SplitHostPort(string(c.Conf().Manager.GuestProxyAddr))
+
+			addrs, err := net.DefaultResolver.LookupIP(ctx, "ip4", host)
+			if err != nil || len(addrs) == 0 {
+				zerolog.Ctx(ctx).Error().Err(err).Msg("failed to resolve guest proxy host")
+				return ""
+			}
+			return addrs[0].String()
 		}),
 		Authorized: map[GuestNick]*Guest{},
 	}
@@ -46,6 +54,23 @@ func NewGuestService(ctx context.Context, cfg config.Config, us radio.UserStorag
 		return nil, errors.E(op, "Manager.GuestProxyAddr is not configured")
 	}
 
+	util.StreamValue(ctx, m.CurrentUser, func(ctx context.Context, user *radio.User) {
+		// nothing to do if the user got unset completely
+		if user == nil {
+			return
+		}
+
+		gs.mu.Lock()
+		defer gs.mu.Lock()
+
+		for _, guest := range gs.Authorized {
+			if guest.User.ID != user.ID {
+				continue
+			}
+			guest.HasStreamed = true
+		}
+		return
+	})
 	go gs.loopExpire(ctx, time.Duration(cfg.Conf().Manager.GuestAuthPeriod))
 	return gs, nil
 }
@@ -210,11 +235,17 @@ func (gs *GuestService) CanDo(ctx context.Context, nick GuestNick, action radio.
 	// some actions are limited per auth
 	switch action {
 	case radio.GuestKill:
+		// guests can't kill if they've been "live" once this auth period
+		if guest.HasStreamed {
+			return false, nil
+		}
+		// guests can't kill if they hit the kill limit
 		if guest.KillAttempts >= GUEST_KILL_LIMIT {
 			return false, nil
 		}
 		guest.KillAttempts++
 	case radio.GuestThread:
+		// guests can't set the thread if they've done it too many times
 		if guest.ThreadSets >= GUEST_THREAD_LIMIT {
 			return false, nil
 		}
@@ -258,6 +289,9 @@ type Guest struct {
 	User *radio.User
 	// AuthTime is the time this guest got authorized
 	AuthTime time.Time
+
+	// HasStreamed indicates if this guest has been "live" on the stream
+	HasStreamed bool
 	// ThreadSets is the amount of times this guest has used their .thread privilege
 	ThreadSets int
 	// KillAttempts is the amount of times this guest has used their .kill privilege

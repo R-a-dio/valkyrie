@@ -29,8 +29,9 @@ func TestGuestExpire(t *testing.T) {
 			return us, mocks.CommitTx(t), nil
 		},
 	}
+	m := &mocks.ManagerServiceMock{}
 
-	gs, err := NewGuestService(ctx, cfg, uss)
+	gs, err := NewGuestService(ctx, cfg, m, uss)
 	require.NoError(t, err)
 
 	nick := "test-user"
@@ -78,8 +79,9 @@ func TestGuestCanDo(t *testing.T) {
 			return us, mocks.CommitTx(t), nil
 		},
 	}
+	m := &mocks.ManagerServiceMock{}
 
-	gs, err := NewGuestService(ctx, cfg, uss)
+	gs, err := NewGuestService(ctx, cfg, m, uss)
 	require.NoError(t, err)
 
 	nick := "test"

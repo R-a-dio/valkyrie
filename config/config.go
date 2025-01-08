@@ -63,7 +63,7 @@ var defaultConfig = config{
 		RPCAddr:         MustParseAddrPort(":4646"),
 		StreamURL:       "",
 		FallbackNames:   []string{"fallback"},
-		GuestProxyAddr:  MustParseAddrPort("proxy:9123"),
+		GuestProxyAddr:  "localhost:9123",
 		GuestAuthPeriod: Duration(time.Hour * 24),
 	},
 	Search: search{
@@ -261,7 +261,7 @@ type manager struct {
 	// fallback stream
 	FallbackNames []string
 
-	GuestProxyAddr  AddrPort
+	GuestProxyAddr  URL
 	GuestAuthPeriod Duration
 }
 
