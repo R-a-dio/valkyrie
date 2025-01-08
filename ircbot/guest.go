@@ -31,13 +31,16 @@ func GuestAuth(e Event) error {
 		return nil
 	}
 
-	u, err := e.Bot.Guest.Auth(e.Ctx, nick)
+	u, pwd, err := e.Bot.Guest.Auth(e.Ctx, nick)
 	if err != nil {
 		e.EchoPrivate("something went wrong")
 		return err
 	}
 
 	e.Client.Cmd.Message(nick, Fmt("you are now authorized to stream, your username is %s", u.Username))
+	if pwd != "" {
+		e.Client.Cmd.Message(nick, Fmt("and your password is {yellow}%s{clear} please store this somewhere", pwd))
+	}
 	e.EchoPublic("%s is/are authorized to guest DJ. Stick around for a comfy fire.", nick)
 	return nil
 }

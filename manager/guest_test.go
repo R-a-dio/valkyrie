@@ -98,5 +98,4 @@ func TestGuestCanDo(t *testing.T) {
 	if assert.NoError(t, err) {
 		assert.False(t, ok)
 	}
-
 }

@@ -490,7 +490,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type GuestClient interface {
-	Auth(ctx context.Context, in *GuestUser, opts ...grpc.CallOption) (*User, error)
+	Auth(ctx context.Context, in *GuestUser, opts ...grpc.CallOption) (*GuestAuthResponse, error)
 	Deauth(ctx context.Context, in *GuestUser, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	CanDo(ctx context.Context, in *GuestCanDo, opts ...grpc.CallOption) (*wrapperspb.BoolValue, error)
 }
@@ -503,9 +503,9 @@ func NewGuestClient(cc grpc.ClientConnInterface) GuestClient {
 	return &guestClient{cc}
 }
 
-func (c *guestClient) Auth(ctx context.Context, in *GuestUser, opts ...grpc.CallOption) (*User, error) {
+func (c *guestClient) Auth(ctx context.Context, in *GuestUser, opts ...grpc.CallOption) (*GuestAuthResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(User)
+	out := new(GuestAuthResponse)
 	err := c.cc.Invoke(ctx, Guest_Auth_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -537,7 +537,7 @@ func (c *guestClient) CanDo(ctx context.Context, in *GuestCanDo, opts ...grpc.Ca
 // All implementations must embed UnimplementedGuestServer
 // for forward compatibility.
 type GuestServer interface {
-	Auth(context.Context, *GuestUser) (*User, error)
+	Auth(context.Context, *GuestUser) (*GuestAuthResponse, error)
 	Deauth(context.Context, *GuestUser) (*emptypb.Empty, error)
 	CanDo(context.Context, *GuestCanDo) (*wrapperspb.BoolValue, error)
 	mustEmbedUnimplementedGuestServer()
@@ -550,7 +550,7 @@ type GuestServer interface {
 // pointer dereference when methods are called.
 type UnimplementedGuestServer struct{}
 
-func (UnimplementedGuestServer) Auth(context.Context, *GuestUser) (*User, error) {
+func (UnimplementedGuestServer) Auth(context.Context, *GuestUser) (*GuestAuthResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Auth not implemented")
 }
 func (UnimplementedGuestServer) Deauth(context.Context, *GuestUser) (*emptypb.Empty, error) {

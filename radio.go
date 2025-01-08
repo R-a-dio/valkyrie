@@ -3,11 +3,13 @@ package radio
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"crypto/sha1"
 	"database/sql/driver"
 	"encoding/hex"
 	"fmt"
 	"math"
+	"math/big"
 	"strconv"
 	"strings"
 	"time"
@@ -273,6 +275,23 @@ func GenerateHashFromPassword(passwd string) (string, error) {
 		return "", err
 	}
 	return string(h), nil
+}
+
+func GenerateRandomPassword(length int) (string, error) {
+	const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+	charsetLen := big.NewInt(int64(len(charset)))
+
+	var res []byte
+	for range length {
+		n, err := rand.Int(rand.Reader, charsetLen)
+		if err != nil {
+			return "", err
+		}
+
+		res = append(res, charset[n.Int64()])
+	}
+
+	return string(res), nil
 }
 
 // DJID is an identifier corresponding to a dj
@@ -1485,7 +1504,7 @@ type ScheduleEntry struct {
 }
 
 type GuestService interface {
-	Auth(ctx context.Context, nick string) (*User, error)
+	Auth(ctx context.Context, nick string) (user *User, passwd string, err error)
 	Deauth(ctx context.Context, nick string) error
 
 	CanDo(ctx context.Context, nick string, can GuestAction) (ok bool, err error)

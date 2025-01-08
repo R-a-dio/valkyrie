@@ -2,6 +2,7 @@ package manager
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 )
 
 const (
+	GUEST_PASSWORD_LENGTH  = 20
 	GUEST_PREFIX           = "guest_"
 	GUEST_EXPIRE_LOOP_TICK = time.Minute * 5
 	GUEST_THREAD_LIMIT     = 3
@@ -40,7 +42,7 @@ func (gs *GuestService) username(nick GuestNick) (username string) {
 	return GUEST_PREFIX + nick
 }
 
-func (gs *GuestService) getOrCreateUser(ctx context.Context, username string) (*radio.User, error) {
+func (gs *GuestService) getOrCreateUser(ctx context.Context, username string, passwd string) (*radio.User, error) {
 	const op errors.Op = "manager/GuestSystem.getOrCreateUser"
 	user, err := gs.us.User(ctx).Get(username)
 	if err == nil {
@@ -52,10 +54,10 @@ func (gs *GuestService) getOrCreateUser(ctx context.Context, username string) (*
 		return nil, errors.E(op, err)
 	}
 
-	return gs.createUser(ctx, username)
+	return gs.createUser(ctx, username, passwd)
 }
 
-func (gs *GuestService) createUser(ctx context.Context, username string) (*radio.User, error) {
+func (gs *GuestService) createUser(ctx context.Context, username string, passwd string) (*radio.User, error) {
 	const op errors.Op = "manager/GuestSystem.createUser"
 
 	us, tx, err := gs.us.UserTx(ctx, nil)
@@ -64,10 +66,16 @@ func (gs *GuestService) createUser(ctx context.Context, username string) (*radio
 	}
 	defer tx.Rollback()
 
+	hashed, err := radio.GenerateHashFromPassword(passwd)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+
 	// create the user
 	user := radio.User{
 		Username:        username,
-		UserPermissions: radio.NewUserPermissions(radio.PermActive, radio.PermDJ, radio.PermDatabaseView),
+		Password:        hashed,
+		UserPermissions: radio.NewUserPermissions(radio.PermActive, radio.PermDJ, radio.PermDatabaseView, radio.PermGuest),
 		CreatedAt:       time.Now(),
 	}
 
@@ -95,14 +103,21 @@ func (gs *GuestService) createUser(ctx context.Context, username string) (*radio
 }
 
 // AddGuest adds the nick given as a guest user
-func (gs *GuestService) Auth(ctx context.Context, nick GuestNick) (*radio.User, error) {
-	const op errors.Op = "manager/GuestSystem.Auth"
+func (gs *GuestService) Auth(ctx context.Context, nick GuestNick) (*radio.User, string, error) {
+	const op errors.Op = "manager/GuestService.Auth"
+	nick = strings.ToLower(nick)
+
 	gs.mu.Lock()
 	defer gs.mu.Unlock()
 
-	user, err := gs.getOrCreateUser(ctx, gs.username(nick))
+	passwd, err := radio.GenerateRandomPassword(GUEST_PASSWORD_LENGTH)
 	if err != nil {
-		return nil, errors.E(op, err)
+		return nil, "", errors.E(op, err)
+	}
+
+	user, err := gs.getOrCreateUser(ctx, gs.username(nick), passwd)
+	if err != nil {
+		return nil, "", errors.E(op, err)
 	}
 
 	gs.Authorized[nick] = &Guest{
@@ -110,11 +125,13 @@ func (gs *GuestService) Auth(ctx context.Context, nick GuestNick) (*radio.User, 
 		User:     user,
 		AuthTime: time.Now(),
 	}
-	return user, nil
+	return user, "", nil
 }
 
 func (gs *GuestService) Deauth(ctx context.Context, nick GuestNick) error {
-	const op errors.Op = "manager/GuestSystem.Deauth"
+	const op errors.Op = "manager/GuestService.Deauth"
+	nick = strings.ToLower(nick)
+
 	gs.mu.Lock()
 	defer gs.mu.Unlock()
 
@@ -144,6 +161,9 @@ func (gs *GuestService) Deauth(ctx context.Context, nick GuestNick) error {
 }
 
 func (gs *GuestService) CanDo(ctx context.Context, nick GuestNick, action radio.GuestAction) (ok bool, err error) {
+	const op errors.Op = "manager/GuestService.CanDo"
+	nick = strings.ToLower(nick)
+
 	gs.mu.Lock()
 	defer gs.mu.Unlock()
 
