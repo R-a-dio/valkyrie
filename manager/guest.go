@@ -9,6 +9,7 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/rs/zerolog"
 )
 
 const (
@@ -22,19 +23,29 @@ const (
 var _ radio.GuestService = &GuestService{}
 
 type GuestService struct {
-	us         radio.UserStorageService
+	us           radio.UserStorageService
+	proxyAddress func() string
+
 	mu         sync.Mutex
 	Authorized map[GuestNick]*Guest
 }
 
 func NewGuestService(ctx context.Context, cfg config.Config, us radio.UserStorageService) (*GuestService, error) {
+	const op errors.Op = "manager/NewGuestService"
+
 	gs := &GuestService{
-		us:         us,
+		us: us,
+		proxyAddress: config.Value(cfg, func(c config.Config) string {
+			return c.Conf().Manager.GuestProxyAddr.String()
+		}),
 		Authorized: map[GuestNick]*Guest{},
 	}
 
-	// TODO: add timeout from config
-	go gs.loopExpire(ctx, time.Hour*24)
+	if gs.proxyAddress() == "" {
+		return nil, errors.E(op, "Manager.GuestProxyAddr is not configured")
+	}
+
+	go gs.loopExpire(ctx, time.Duration(cfg.Conf().Manager.GuestAuthPeriod))
 	return gs, nil
 }
 
@@ -43,7 +54,7 @@ func (gs *GuestService) username(nick GuestNick) (username string) {
 }
 
 func (gs *GuestService) getOrCreateUser(ctx context.Context, username string, passwd string) (*radio.User, error) {
-	const op errors.Op = "manager/GuestSystem.getOrCreateUser"
+	const op errors.Op = "manager/GuestService.getOrCreateUser"
 	user, err := gs.us.User(ctx).Get(username)
 	if err == nil {
 		// success straight away
@@ -58,7 +69,7 @@ func (gs *GuestService) getOrCreateUser(ctx context.Context, username string, pa
 }
 
 func (gs *GuestService) createUser(ctx context.Context, username string, passwd string) (*radio.User, error) {
-	const op errors.Op = "manager/GuestSystem.createUser"
+	const op errors.Op = "manager/GuestService.createUser"
 
 	us, tx, err := gs.us.UserTx(ctx, nil)
 	if err != nil {
@@ -102,6 +113,10 @@ func (gs *GuestService) createUser(ctx context.Context, username string, passwd 
 	return &user, nil
 }
 
+func (gs *GuestService) updateUserIP(ctx context.Context, user *radio.User, addr string) error {
+	return nil
+}
+
 // AddGuest adds the nick given as a guest user
 func (gs *GuestService) Auth(ctx context.Context, nick GuestNick) (*radio.User, string, error) {
 	const op errors.Op = "manager/GuestService.Auth"
@@ -118,6 +133,15 @@ func (gs *GuestService) Auth(ctx context.Context, nick GuestNick) (*radio.User, 
 	user, err := gs.getOrCreateUser(ctx, gs.username(nick), passwd)
 	if err != nil {
 		return nil, "", errors.E(op, err)
+	}
+
+	// check if the user IP is still up-to-date, this should always be set to
+	// the guest proxy server
+	if user.IP != gs.proxyAddress() {
+		err := gs.updateUserIP(ctx, user, gs.proxyAddress())
+		if err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to set guest users IP address")
+		}
 	}
 
 	gs.Authorized[nick] = &Guest{

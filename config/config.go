@@ -60,9 +60,11 @@ var defaultConfig = config{
 		AnnouncePeriod: Duration(time.Second * 15),
 	},
 	Manager: manager{
-		RPCAddr:       MustParseAddrPort(":4646"),
-		StreamURL:     "",
-		FallbackNames: []string{"fallback"},
+		RPCAddr:         MustParseAddrPort(":4646"),
+		StreamURL:       "",
+		FallbackNames:   []string{"fallback"},
+		GuestProxyAddr:  MustParseAddrPort("proxy:9123"),
+		GuestAuthPeriod: Duration(time.Hour * 24),
 	},
 	Search: search{
 		Endpoint:  "http://127.0.0.1:9200/",
@@ -258,6 +260,9 @@ type manager struct {
 	// FallbackNames is a list of strings that indicate an icecast stream is playing a
 	// fallback stream
 	FallbackNames []string
+
+	GuestProxyAddr  AddrPort
+	GuestAuthPeriod Duration
 }
 
 type search struct {
