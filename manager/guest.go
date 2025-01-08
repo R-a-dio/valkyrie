@@ -84,6 +84,7 @@ func (gs *GuestService) getOrCreateUser(ctx context.Context, username string, pa
 	user, err := gs.us.User(ctx).Get(username)
 	if err == nil {
 		// success straight away
+		// TODO: check if the permissions are all up to snuff before returning OK
 		return user, false, nil
 	}
 
