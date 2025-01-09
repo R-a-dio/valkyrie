@@ -25,6 +25,7 @@ const (
 var _ radio.GuestService = &GuestService{}
 
 type GuestService struct {
+	logger       *zerolog.Logger
 	us           radio.UserStorageService
 	proxyAddress func() string
 
@@ -36,7 +37,8 @@ func NewGuestService(ctx context.Context, cfg config.Config, m radio.ManagerServ
 	const op errors.Op = "manager/NewGuestService"
 
 	gs := &GuestService{
-		us: us,
+		logger: zerolog.Ctx(ctx),
+		us:     us,
 		proxyAddress: config.Value(cfg, func(c config.Config) string {
 			host, _, err := net.SplitHostPort(string(c.Conf().Manager.GuestProxyAddr))
 
@@ -172,17 +174,17 @@ func (gs *GuestService) Auth(ctx context.Context, nick GuestNick) (*radio.User, 
 	gs.mu.Lock()
 	defer gs.mu.Unlock()
 
-	zerolog.Ctx(ctx).Info().Str("nick", nick).Msg("guest auth request")
+	gs.logger.Info().Str("nick", nick).Msg("guest auth request")
 
 	passwd, err := radio.GenerateRandomPassword(GUEST_PASSWORD_LENGTH)
 	if err != nil {
-		zerolog.Ctx(ctx).Error().Err(err).Msg("failed to generate password")
+		gs.logger.Error().Err(err).Msg("failed to generate password")
 		return nil, "", errors.E(op, err)
 	}
 
 	user, created, err := gs.getOrCreateUser(ctx, gs.username(nick), passwd)
 	if err != nil {
-		zerolog.Ctx(ctx).Error().Err(err).Msg("failed to getOrCreateUser")
+		gs.logger.Error().Err(err).Msg("failed to getOrCreateUser")
 		return nil, "", errors.E(op, err)
 	}
 
@@ -191,7 +193,7 @@ func (gs *GuestService) Auth(ctx context.Context, nick GuestNick) (*radio.User, 
 	if user.IP != gs.proxyAddress() {
 		err := gs.updateUserIP(ctx, user, gs.proxyAddress())
 		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to set guest users IP address")
+			gs.logger.Error().Err(err).Msg("failed to set guest users IP address")
 		} else {
 			user.IP = gs.proxyAddress()
 		}
@@ -216,7 +218,7 @@ func (gs *GuestService) Deauth(ctx context.Context, nick GuestNick) error {
 	gs.mu.Lock()
 	defer gs.mu.Unlock()
 
-	zerolog.Ctx(ctx).Info().Str("nick", nick).Msg("guest deauth request")
+	gs.logger.Info().Str("nick", nick).Msg("guest deauth request")
 
 	// check if nick even exists in the list
 	if _, ok := gs.Authorized[nick]; !ok {
@@ -236,7 +238,7 @@ func (gs *GuestService) CanDo(ctx context.Context, nick GuestNick, action radio.
 	gs.mu.Lock()
 	defer gs.mu.Unlock()
 
-	zerolog.Ctx(ctx).Info().Str("nick", nick).Any("action", action).Msg("guest can-do request")
+	gs.logger.Info().Str("nick", nick).Any("action", action).Msg("guest can-do request")
 
 	guest, ok := gs.Authorized[nick]
 	if !ok {
@@ -248,19 +250,19 @@ func (gs *GuestService) CanDo(ctx context.Context, nick GuestNick, action radio.
 	case radio.GuestKill:
 		// guests can't kill if they've been "live" once this auth period
 		if guest.HasStreamed {
-			zerolog.Ctx(ctx).Info().Str("nick", nick).Any("action", action).Msg("denying because guest.HasStreamed=true")
+			gs.logger.Info().Str("nick", nick).Any("action", action).Msg("denying because guest.HasStreamed=true")
 			return false, nil
 		}
 		// guests can't kill if they hit the kill limit
 		if guest.KillAttempts >= GUEST_KILL_LIMIT {
-			zerolog.Ctx(ctx).Info().Str("nick", nick).Any("action", action).Msg("denying because guest.KillAttempts>=limit")
+			gs.logger.Info().Str("nick", nick).Any("action", action).Msg("denying because guest.KillAttempts>=limit")
 			return false, nil
 		}
 		guest.KillAttempts++
 	case radio.GuestThread:
 		// guests can't set the thread if they've done it too many times
 		if guest.ThreadSets >= GUEST_THREAD_LIMIT {
-			zerolog.Ctx(ctx).Info().Str("nick", nick).Any("action", action).Msg("denying because guest.ThreadSets>=limit")
+			gs.logger.Info().Str("nick", nick).Any("action", action).Msg("denying because guest.ThreadSets>=limit")
 			return false, nil
 		}
 		guest.ThreadSets++
