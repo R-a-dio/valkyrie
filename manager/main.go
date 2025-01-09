@@ -39,7 +39,10 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 
+	// separate cancel for the guest service since it depends on the manager
 	guestCtx, guestCancel := context.WithCancel(ctx)
+	defer guestCancel()
+
 	gs, err := NewGuestService(guestCtx, cfg, m, store)
 	if err != nil {
 		return err

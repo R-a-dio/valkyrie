@@ -63,7 +63,7 @@ func NewGuestService(ctx context.Context, cfg config.Config, m radio.ManagerServ
 		zerolog.Ctx(ctx).Info().Msg("guest user update")
 
 		gs.mu.Lock()
-		defer gs.mu.Lock()
+		defer gs.mu.Unlock()
 
 		for _, guest := range gs.Authorized {
 			if guest.User.ID != user.ID {
