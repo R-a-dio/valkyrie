@@ -60,6 +60,8 @@ func NewGuestService(ctx context.Context, cfg config.Config, m radio.ManagerServ
 			return
 		}
 
+		zerolog.Ctx(ctx).Info().Msg("guest user update")
+
 		gs.mu.Lock()
 		defer gs.mu.Lock()
 
