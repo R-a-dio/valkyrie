@@ -39,7 +39,8 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 
-	gs, err := NewGuestService(ctx, cfg, m, store)
+	guestCtx, guestCancel := context.WithCancel(ctx)
+	gs, err := NewGuestService(guestCtx, cfg, m, store)
 	if err != nil {
 		return err
 	}
@@ -72,17 +73,22 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	case <-ctx.Done():
 		return nil
 	case <-util.Signal(syscall.SIGUSR2):
+		zerolog.Ctx(ctx).Info().Msg("SIGUSR2 received")
 		// on a restart signal we want to capture the current state and pass it
 		// to the next process, however it is possible there are in-flight updates
 		// happening and so we need to wait for those to finish first
-
+		guestCancel()
+		zerolog.Ctx(ctx).Info().Msg("canceled guest service")
 		// this stops any long-running manager streams we have open
 		m.CloseSubs()
+		zerolog.Ctx(ctx).Info().Msg("closed manager subs")
 		// this should stop any other RPC requests and wait until they're finished
 		srv.GracefulStop()
+		zerolog.Ctx(ctx).Info().Msg("stopped grpc server")
 		// now shutdown the manager streams, this should count as a "happens-after"
 		// constraint for any updates that were incoming
 		m.Shutdown()
+		zerolog.Ctx(ctx).Info().Msg("shutdown manager streams")
 		// now our state should be "stable" and not be able to be mutated anymore,
 		// so we can encode it to bytes. We use statusFromStreams because we did
 		// a stream Shutdown earlier and it means m.status might not have the latest
