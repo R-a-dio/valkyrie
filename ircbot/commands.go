@@ -32,6 +32,7 @@ var (
 	reTrackInfo       = "i(nfo)?( (?P<TrackID>[0-9]+))?"
 	reTrackTags       = "tags( (?P<TrackID>[0-9]+))?"
 	reGuestAuth       = "(guest|guestauth|auth)( (?P<Nick>.+))?"
+	reGuestCreate     = "newguest( (?P<Nick>.+))?"
 )
 
 type HandlerFn func(Event) error
@@ -130,6 +131,7 @@ var reHandlers = []RegexHandler{
 	{reTrackInfo, TrackInfo},
 	{reTrackTags, TrackTags},
 	{reGuestAuth, GuestAuth},
+	{reGuestCreate, GuestCreate},
 }
 
 func RegisterCommandHandlers(ctx context.Context, b *Bot) error {

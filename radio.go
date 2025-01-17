@@ -1504,7 +1504,8 @@ type ScheduleEntry struct {
 }
 
 type GuestService interface {
-	Auth(ctx context.Context, nick string) (user *User, passwd string, err error)
+	Create(ctx context.Context, nick string) (user *User, passwd string, err error)
+	Auth(ctx context.Context, nick string) (user *User, err error)
 	Deauth(ctx context.Context, nick string) error
 
 	CanDo(ctx context.Context, nick string, can GuestAction) (ok bool, err error)

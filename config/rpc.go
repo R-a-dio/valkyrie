@@ -21,7 +21,11 @@ type guestService struct {
 	fn func() radio.GuestService
 }
 
-func (g *guestService) Auth(ctx context.Context, nick string) (*radio.User, string, error) {
+func (g *guestService) Create(ctx context.Context, nick string) (*radio.User, string, error) {
+	return g.fn().Create(ctx, nick)
+}
+
+func (g *guestService) Auth(ctx context.Context, nick string) (*radio.User, error) {
 	return g.fn().Auth(ctx, nick)
 }
 

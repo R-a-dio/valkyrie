@@ -21,6 +21,9 @@ func TestGuestExpire(t *testing.T) {
 		GetFunc: func(name string) (*radio.User, error) {
 			return &radio.User{Username: name}, nil
 		},
+		UpdateFunc: func(user radio.User) (radio.User, error) {
+			return user, nil
+		},
 	}
 	uss := &mocks.UserStorageServiceMock{
 		UserFunc: func(contextMoqParam context.Context) radio.UserStorage {
@@ -77,6 +80,9 @@ func TestGuestCanDo(t *testing.T) {
 		GetFunc: func(name string) (*radio.User, error) {
 			return &radio.User{Username: name}, nil
 		},
+		UpdateFunc: func(user radio.User) (radio.User, error) {
+			return user, nil
+		},
 	}
 	uss := &mocks.UserStorageServiceMock{
 		UserFunc: func(contextMoqParam context.Context) radio.UserStorage {
@@ -113,4 +119,17 @@ func TestGuestCanDo(t *testing.T) {
 	if assert.NoError(t, err) {
 		assert.False(t, ok)
 	}
+}
+
+func TestResolveGuestProxyAddr(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ip, err := resolveGuestProxyAddr(ctx, "localhost:80")
+	require.NoError(t, err)
+	require.NotZero(t, ip)
+
+	ip, err = resolveGuestProxyAddr(ctx, "127.0.0.1:80")
+	require.NoError(t, err)
+	require.NotZero(t, ip)
 }

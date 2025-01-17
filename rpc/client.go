@@ -166,12 +166,20 @@ type GuestClientRPC struct {
 	rpc GuestClient
 }
 
-func (g GuestClientRPC) Auth(ctx context.Context, nick string) (*radio.User, string, error) {
-	u, err := g.rpc.Auth(ctx, toProtoGuestUser(nick))
+func (g GuestClientRPC) Create(ctx context.Context, nick string) (*radio.User, string, error) {
+	u, err := g.rpc.Create(ctx, toProtoGuestUser(nick))
 	if u != nil {
 		return fromProtoUser(u.User), u.Password, err
 	}
 	return nil, "", err
+}
+
+func (g GuestClientRPC) Auth(ctx context.Context, nick string) (*radio.User, error) {
+	u, err := g.rpc.Auth(ctx, toProtoGuestUser(nick))
+	if u != nil {
+		return fromProtoUser(u.User), err
+	}
+	return nil, err
 }
 
 func (g GuestClientRPC) Deauth(ctx context.Context, nick string) error {

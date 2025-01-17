@@ -481,6 +481,7 @@ var Manager_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
+	Guest_Create_FullMethodName = "/radio.Guest/Create"
 	Guest_Auth_FullMethodName   = "/radio.Guest/Auth"
 	Guest_Deauth_FullMethodName = "/radio.Guest/Deauth"
 	Guest_CanDo_FullMethodName  = "/radio.Guest/CanDo"
@@ -490,6 +491,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type GuestClient interface {
+	Create(ctx context.Context, in *GuestUser, opts ...grpc.CallOption) (*GuestCreateResponse, error)
 	Auth(ctx context.Context, in *GuestUser, opts ...grpc.CallOption) (*GuestAuthResponse, error)
 	Deauth(ctx context.Context, in *GuestUser, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	CanDo(ctx context.Context, in *GuestCanDo, opts ...grpc.CallOption) (*wrapperspb.BoolValue, error)
@@ -501,6 +503,16 @@ type guestClient struct {
 
 func NewGuestClient(cc grpc.ClientConnInterface) GuestClient {
 	return &guestClient{cc}
+}
+
+func (c *guestClient) Create(ctx context.Context, in *GuestUser, opts ...grpc.CallOption) (*GuestCreateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GuestCreateResponse)
+	err := c.cc.Invoke(ctx, Guest_Create_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *guestClient) Auth(ctx context.Context, in *GuestUser, opts ...grpc.CallOption) (*GuestAuthResponse, error) {
@@ -537,6 +549,7 @@ func (c *guestClient) CanDo(ctx context.Context, in *GuestCanDo, opts ...grpc.Ca
 // All implementations must embed UnimplementedGuestServer
 // for forward compatibility.
 type GuestServer interface {
+	Create(context.Context, *GuestUser) (*GuestCreateResponse, error)
 	Auth(context.Context, *GuestUser) (*GuestAuthResponse, error)
 	Deauth(context.Context, *GuestUser) (*emptypb.Empty, error)
 	CanDo(context.Context, *GuestCanDo) (*wrapperspb.BoolValue, error)
@@ -550,6 +563,9 @@ type GuestServer interface {
 // pointer dereference when methods are called.
 type UnimplementedGuestServer struct{}
 
+func (UnimplementedGuestServer) Create(context.Context, *GuestUser) (*GuestCreateResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Create not implemented")
+}
 func (UnimplementedGuestServer) Auth(context.Context, *GuestUser) (*GuestAuthResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Auth not implemented")
 }
@@ -578,6 +594,24 @@ func RegisterGuestServer(s grpc.ServiceRegistrar, srv GuestServer) {
 		t.testEmbeddedByValue()
 	}
 	s.RegisterService(&Guest_ServiceDesc, srv)
+}
+
+func _Guest_Create_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GuestUser)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GuestServer).Create(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Guest_Create_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GuestServer).Create(ctx, req.(*GuestUser))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Guest_Auth_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -641,6 +675,10 @@ var Guest_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "radio.Guest",
 	HandlerType: (*GuestServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Create",
+			Handler:    _Guest_Create_Handler,
+		},
 		{
 			MethodName: "Auth",
 			Handler:    _Guest_Auth_Handler,

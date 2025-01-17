@@ -96,11 +96,18 @@ type GuestShim struct {
 	guest radio.GuestService
 }
 
-func (g GuestShim) Auth(ctx context.Context, user *GuestUser) (*GuestAuthResponse, error) {
-	u, pwd, err := g.guest.Auth(ctx, fromProtoGuestUser(user))
-	return &GuestAuthResponse{
+func (g GuestShim) Create(ctx context.Context, user *GuestUser) (*GuestCreateResponse, error) {
+	u, pwd, err := g.guest.Create(ctx, fromProtoGuestUser(user))
+	return &GuestCreateResponse{
 		User:     toProtoUser(u),
 		Password: pwd,
+	}, err
+}
+
+func (g GuestShim) Auth(ctx context.Context, user *GuestUser) (*GuestAuthResponse, error) {
+	u, err := g.guest.Auth(ctx, fromProtoGuestUser(user))
+	return &GuestAuthResponse{
+		User: toProtoUser(u),
 	}, err
 }
 

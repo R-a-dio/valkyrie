@@ -58,14 +58,20 @@ service Manager {
 }
 
 service Guest {
+    rpc Create(GuestUser) returns (GuestCreateResponse);
     rpc Auth(GuestUser) returns (GuestAuthResponse);
     rpc Deauth(GuestUser) returns (google.protobuf.Empty);
     rpc CanDo(GuestCanDo) returns (google.protobuf.BoolValue);
 }
 
-message GuestAuthResponse {
+message GuestCreateResponse {
     User user = 1;
     string password = 2;
+}
+
+message GuestAuthResponse {
+    User user = 1;
+    reserved 2;
 }
 
 message GuestUser {
