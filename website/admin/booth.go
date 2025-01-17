@@ -83,3 +83,66 @@ func proxySourceListToMap(sources []radio.ProxySource) map[string][]radio.ProxyS
 	}
 	return sm
 }
+
+func (s *State) PostBoothStopStreamer(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	user := middleware.UserFromContext(ctx)
+
+	// check if we're dealing with a guest user, these need an extra permission check
+	// before we can continue
+	if user.UserPermissions.HasExplicit(radio.PermGuest) {
+		ok, err := s.Guest.CanDo(ctx, user.Username, radio.GuestKill)
+		if err != nil {
+			// guest service offline or broken
+			// TODO: template return
+			return
+		}
+		if !ok {
+			// guest doesn't have permission to do this anymore
+			// TODO: template return
+			return
+		}
+	}
+
+	err := s.Streamer.Stop(ctx, false)
+	if err != nil {
+		// streamer service offline or broken
+		// TODO: template return
+		return
+	}
+
+	// TODO: template return
+}
+
+func (s *State) PostBoothSetThread(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	user := middleware.UserFromContext(ctx)
+
+	// check if we're dealing with a guest user, these need an extra permission check
+	// before we can continue
+	if user.UserPermissions.HasExplicit(radio.PermGuest) {
+		ok, err := s.Guest.CanDo(ctx, user.Username, radio.GuestThread)
+		if err != nil {
+			// guest service offline or broken
+			// TODO: template return
+			return
+		}
+		if !ok {
+			// guest doesn't have permission to do this anymore
+			// TODO: template return
+			return
+		}
+	}
+
+	// TODO: parse thread from request
+	thread := ""
+
+	err := s.Manager.UpdateThread(ctx, thread)
+	if err != nil {
+		// manager service offline or broken
+		// TODO: template return
+		return
+	}
+
+	// TODO: template return
+}

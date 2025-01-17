@@ -72,11 +72,11 @@ func GuestCreate(e Event) error {
 		return err
 	}
 
-	e.Client.Cmd.Message(nick, Fmt("you are now a guest streamer, your username is %s", u.Username))
+	e.Client.Cmd.Message(nick, Fmt("you are now a guest streamer, your username is {yellow}%s{clear}", u.Username))
 	if pwd != "" {
 		e.Client.Cmd.Message(nick, Fmt("and your password is {yellow}%s{clear} please store this somewhere", pwd))
 	}
-	e.EchoPublic("%s is/are now a guest DJ. Welcome them to the group.", nick)
+	e.EchoPublic("%s is/are now a guest DJ. Welcome them to the club.", nick)
 	return nil
 }
 

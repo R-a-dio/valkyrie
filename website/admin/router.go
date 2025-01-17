@@ -97,6 +97,8 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 		r.Get("/proxy", p(radio.PermDJ, s.GetProxy))
 		r.Post("/proxy/remove", p(radio.PermProxyKick, s.PostRemoveSource))
 		r.Get("/booth", p(radio.PermDJ, s.GetBooth))
+		r.Post("/booth/stop-streamer", p(radio.PermDJ, s.PostBoothStopStreamer))
+		r.Post("/booth/set-thread", p(radio.PermDJ, s.PostBoothSetThread))
 
 		// setup monitoring endpoint
 		proxy := setupMonitoringProxy(s.Config)
@@ -117,8 +119,9 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 	}
 }
 
+// PostStreamerStop stops the streamer forcefully
 func (s *State) PostStreamerStop(w http.ResponseWriter, r *http.Request) {
-	s.Streamer.Stop(r.Context(), false)
+	s.Streamer.Stop(r.Context(), true)
 }
 
 func (s *State) errorHandler(w http.ResponseWriter, r *http.Request, err error, msg string) {
