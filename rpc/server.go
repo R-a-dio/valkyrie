@@ -117,7 +117,8 @@ func (g GuestShim) Deauth(ctx context.Context, user *GuestUser) (*emptypb.Empty,
 }
 
 func (g GuestShim) CanDo(ctx context.Context, gcd *GuestCanDo) (*wrapperspb.BoolValue, error) {
-	ok, err := g.guest.CanDo(ctx, gcd.GetUser().GetName(), radio.GuestAction(gcd.GetAction()))
+	nick, action := fromProtoGuestCanDo(gcd)
+	ok, err := g.guest.CanDo(ctx, nick, action)
 	return wrapperspb.Bool(ok), err
 }
 
