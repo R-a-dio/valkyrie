@@ -443,15 +443,6 @@ func (s *Streamer) encoder(ctx context.Context, encoder *audio.LAME, trackCh cha
 			Dur("elapsed", time.Since(start)).
 			Msg("finished decoding")
 
-		if encoder == nil {
-			encoder, err = audio.NewLAME(s.AudioFormat)
-			if err != nil {
-				// encoder creation failed
-				logger.Error().Err(err).Msg("failed to create encoder")
-				continue
-			}
-		}
-
 		mp3, err := audio.NewMP3Buffer(entry.Metadata, nil)
 		if err != nil {
 			logger.Error().Err(err).Msg("failed to create buffer")
@@ -465,6 +456,18 @@ func (s *Streamer) encoder(ctx context.Context, encoder *audio.LAME, trackCh cha
 			Str("metadata", entry.Metadata).
 			Msg("starting encoding")
 		for !s.forced.Load() {
+			// check if we have an encoder
+			if encoder == nil {
+				// otherwise create one
+				encoder, err = audio.NewLAME(s.AudioFormat)
+				if err != nil {
+					// encoder creation failed
+					// TODO: fail harder after several tries
+					logger.Error().Err(err).Msg("failed to create encoder")
+					continue
+				}
+			}
+
 			n, err := pcm.Read(buf)
 			if err != nil && n == 0 {
 				break
