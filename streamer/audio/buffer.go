@@ -7,9 +7,18 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/justincormack/go-memfd"
 )
+
+type Reader interface {
+	TotalLength() time.Duration
+	Progress() time.Duration
+	Read(p []byte) (n int, err error)
+	Close() error
+	GetFile() *os.File
+}
 
 type AudioFormat struct {
 	ChannelCount   int

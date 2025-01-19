@@ -554,6 +554,123 @@ func (s *Streamer) encoder(ctx context.Context, encoder *audio.LAME, trackCh cha
 	return nil
 }
 
+const preloadLengthTarget = time.Second * 60
+
+var closedChannel = make(chan struct{})
+
+func init() {
+	close(closedChannel)
+}
+
+type tracks struct {
+	PopCh chan StreamTrack
+
+	mu              sync.Mutex
+	tracks          []StreamTrack
+	preloadedLength time.Duration
+
+	addNotify chan struct{}
+}
+
+func newTracks(ctx context.Context, st []StreamTrack) *tracks {
+	ts := &tracks{
+		PopCh:  make(chan StreamTrack),
+		tracks: st,
+	}
+	if ctx != nil {
+		go ts.run(ctx)
+	}
+
+	return ts
+}
+
+func (ts *tracks) add(track StreamTrack) chan struct{} {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+
+	ts.tracks = append(ts.tracks, track)
+	// add total song length to our counter
+	ts.preloadedLength += track.Audio.TotalLength()
+
+	if ts.preloadedLength < preloadLengthTarget {
+		// we didnt hit our preload length target yet, return a ready channel
+		// straight away
+		return closedChannel
+	}
+
+	ts.addNotify = make(chan struct{})
+	return ts.addNotify
+}
+
+// notify notifies the adder that a track was just consumed by the popper
+func (ts *tracks) notify(track StreamTrack) {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+
+	// remove total song length from our counter
+	ts.preloadedLength -= track.Audio.TotalLength()
+
+	// check if there was a notify channel
+	if ts.addNotify == nil {
+		// no channel so we can return here
+		return
+	}
+
+	// otherwise we need to check if we're still past our preload length target
+	if ts.preloadedLength >= preloadLengthTarget {
+		// we are, so we don't want to notify the adder yet
+		return
+	}
+
+	// otherwise we do want to notify the adder so close the channel
+	close(ts.addNotify)
+	ts.addNotify = nil
+}
+
+func (ts *tracks) run(ctx context.Context) {
+	var track *StreamTrack
+
+	for {
+		// wait for a track to be ready
+		for track == nil {
+			// quick path
+			if track = ts.pop(); track != nil {
+				break
+			}
+
+			// otherwise wait a little and check again
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(time.Second):
+				track = ts.pop()
+			}
+		}
+
+		// we now have a track, block on sending it to the PopCh
+		select {
+		case ts.PopCh <- *track:
+			ts.notify(*track)
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func (ts *tracks) pop() *StreamTrack {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+
+	if len(ts.tracks) == 0 {
+		return nil
+	}
+
+	track := ts.tracks[0]
+	copy(ts.tracks, ts.tracks[1:])
+	ts.tracks = ts.tracks[:len(ts.tracks)-1]
+	return &track
+}
+
 func (s *Streamer) icecast(ctx context.Context, conn net.Conn, trackCh <-chan StreamTrack) error {
 	defer func() {
 		// we take ownership of the conn passed in, close it once we exit
@@ -648,7 +765,7 @@ func (s *Streamer) icecast(ctx context.Context, conn net.Conn, trackCh <-chan St
 			}
 
 			// and then add the audio file as state leftover
-			err = s.fdstorage.AddFile(track.Audio.File, fdstoreStreamerCurrent, entryData)
+			err = s.fdstorage.AddFile(track.Audio.GetFile(), fdstoreStreamerCurrent, entryData)
 			if err != nil {
 				track.Audio.Close()
 				return err
@@ -740,5 +857,5 @@ func (s *Streamer) streamURL() *url.URL {
 
 type StreamTrack struct {
 	radio.QueueEntry
-	Audio *audio.MP3Reader
+	Audio audio.Reader
 }

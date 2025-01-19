@@ -160,6 +160,10 @@ type MP3Reader struct {
 	frame2 *mp3frame
 }
 
+func (mpr *MP3Reader) GetFile() *os.File {
+	return mpr.File
+}
+
 func (mpr *MP3Reader) Close() error {
 	return mpr.MemoryReader.Close()
 }
