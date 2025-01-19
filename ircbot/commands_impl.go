@@ -227,6 +227,10 @@ func StreamerUserInfo(e Event) error {
 	// if the user given is a robot
 	user, err := us.LookupName(name)
 	if err != nil {
+		if errors.Is(errors.UserUnknown, err) {
+			e.EchoPrivate("Unknown DJ: if you're trying to set a DJ that isn't hanyuu don't bother")
+			return nil
+		}
 		return errors.E(op, err)
 	}
 
