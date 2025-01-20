@@ -169,6 +169,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		}
 	}
 	r.Use(csrf.Protect(csrfKey,
+		csrf.Path("/"),
 		csrf.Secure(false),
 		csrf.Encoding(base62.StdEncoding),
 	))
