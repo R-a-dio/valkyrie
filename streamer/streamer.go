@@ -73,6 +73,10 @@ func NewStreamer(ctx context.Context, cfg config.Config,
 	// before we check for the user from the manager, check if we are doing a restart
 	// and have saved state in the fdstore
 	s.checkFDStore(ctx, fdstorage)
+	if s.trackStore == nil {
+		// only create a new track storage if checkFDStore didn't make one for us
+		s.trackStore = NewTracks(ctx, fdstorage, nil)
+	}
 
 	// timer we use for starting the streamer if nobody is on
 	startTimer := util.NewCallbackTimer(func() {
@@ -83,6 +87,16 @@ func NewStreamer(ctx context.Context, cfg config.Config,
 	s.userValue = util.StreamValue(ctx, cfg.Manager.CurrentUser, func(ctx context.Context, user *radio.User) {
 		s.userChange(ctx, user, startTimer)
 	})
+
+	// now we start the encoder routine
+	go func() {
+		err := s.encoder(ctx, nil)
+		if err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("encoder exit")
+			return
+		}
+		zerolog.Ctx(ctx).Info().Msg("encoder exit")
+	}()
 	return s, nil
 }
 
@@ -169,9 +183,11 @@ func (s *Streamer) checkFDStore(ctx context.Context, store *fdstore.Store) {
 		})
 	}
 
+	s.trackStore = NewTracks(ctx, store, entries)
+
 	if current != nil || conn != nil {
 		// only force a start if we recovered something
-		s.start(ctx, conn, entries...)
+		s.start(ctx, conn)
 	}
 }
 
@@ -242,6 +258,8 @@ type Streamer struct {
 	queue radio.QueueService
 	// baseCtx is the base context used when Start is called
 	baseCtx context.Context
+	// trackStore holds preloaded tracks for the encoder
+	trackStore *trackstore
 
 	userValue     *util.Value[*radio.User]
 	lastStartPoke *util.TypedValue[time.Time]
@@ -251,8 +269,7 @@ type Streamer struct {
 	running bool
 	done    chan struct{}
 
-	cancel        context.CancelCauseFunc
-	encoderCancel context.CancelFunc
+	cancel context.CancelCauseFunc
 
 	// atomics
 	forced  atomic.Bool // true when Stop was called with force set to true
@@ -275,10 +292,7 @@ func (s *Streamer) Start(_ context.Context) error {
 	return nil
 }
 
-func (s *Streamer) start(ctx context.Context,
-	conn net.Conn,
-	entries ...StreamTrack,
-) {
+func (s *Streamer) start(ctx context.Context, conn net.Conn) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -295,50 +309,17 @@ func (s *Streamer) start(ctx context.Context,
 	// reset the restart state, this should never be needed
 	s.restart.Store(false)
 
-	trackCh := make(chan StreamTrack)
-	go func() { // encoder
-		// to make the encoder be able to exit easily before the icecast
-		// routine, we make a separately cancelable context
-		ctx, cancel := context.WithCancel(ctx)
-		defer cancel()
-		defer close(trackCh)
-
-		// store the cancel in the struct so it's accessable from Stop
-		s.mu.Lock()
-		s.encoderCancel = cancel
-		s.mu.Unlock()
-
-		// first pass over any existing entries before creating new ones
-		for _, entry := range entries {
-			select {
-			case trackCh <- entry:
-			case <-ctx.Done():
-				return
-			}
-		}
-
-		// start the encoder
-		err := s.encoder(ctx, nil, trackCh)
-		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("encoder exit")
-			return
-		}
-		zerolog.Ctx(ctx).Info().Msg("encoder exit")
-	}()
+	popperCh := s.trackStore.PopCh()
 	go func(done chan struct{}) { // icecast
-		// cancel the context of the encoder if we somehow exit before it
 		defer func() {
 			s.mu.Lock()
-			if s.encoderCancel != nil {
-				s.encoderCancel()
-			}
 			s.running = false
 			s.mu.Unlock()
 		}()
 		// close the done channel, no streaming without this icecast routine
 		defer close(done)
 
-		err := s.icecast(ctx, conn, trackCh)
+		err := s.icecast(ctx, conn, popperCh)
 		if err != nil {
 			zerolog.Ctx(ctx).Error().Err(err).Msg("icecast exit")
 			return
@@ -373,9 +354,8 @@ func (s *Streamer) Stop(ctx context.Context, force bool) error {
 	}
 
 	// #2 is a normal stop, this will exit once the current song ends, we achieve this
-	// by stopping the encoder and then waiting for the icecast to notice the input
-	// channel to have been closed
-	s.encoderCancel()
+	// by closing the input channel then waiting for the icecast to notice the close.
+	s.trackStore.CyclePopCh()
 	s.mu.Unlock()
 	return s.Wait(ctx)
 }
@@ -407,11 +387,18 @@ func (s *Streamer) handleRestart(ctx context.Context) error {
 	return s.Stop(ctx, true)
 }
 
-func (s *Streamer) encoder(ctx context.Context, encoder *audio.LAME, trackCh chan<- StreamTrack) error {
+func (s *Streamer) encoder(ctx context.Context, encoder *audio.LAME) error {
 	logger := zerolog.Ctx(ctx)
 	buf := make([]byte, bufferPCMSize)
-	const preloadTarget = time.Second * 60
-	var preloadedLength time.Duration
+
+	// before we enter our main loop, check to see what the state is of our tracks
+	// storage, it might already contain songs and we should wait for one (or more)
+	// of them to be removed first
+	select {
+	case <-s.trackStore.NotifyCh():
+	case <-ctx.Done():
+		return context.Cause(ctx)
+	}
 
 	defer s.queue.ResetReserved(context.WithoutCancel(ctx))
 	for !s.forced.Load() {
@@ -514,39 +501,13 @@ func (s *Streamer) encoder(ctx context.Context, encoder *audio.LAME, trackCh cha
 			logger.Error().Err(err).Msg("failed to create reader")
 			continue
 		}
+		// close the write side
 		mp3.Close()
-
-		// TODO: check for short files
-		preloadedLength += mp3r.TotalLength()
-
-		// if this track is too short log a warning
-		if preloadedLength < preloadTarget {
-			logger.Warn().
-				Dur("preloaded_length", preloadedLength).
-				Uint64("trackid", uint64(entry.TrackID)).
-				Str("metadata", entry.Metadata).
-				Msg("short preload")
-		}
 
 		// send the data to the icecast routine
 		select {
-		case trackCh <- StreamTrack{*entry, mp3r}:
-			preloadedLength -= mp3r.TotalLength()
+		case <-s.trackStore.add(StreamTrack{*entry, mp3r}):
 		case <-ctx.Done():
-			// if we were here and got canceled, while having the restart flag
-			// set we store this ready entry as well
-			if s.restart.Load() {
-				entryData, err := rpc.EncodeQueueEntry(*entry)
-				if err != nil {
-					return err
-				}
-
-				err = s.fdstorage.AddFile(mp3r.File, fdstoreEncoder, entryData)
-				if err != nil {
-					return err
-				}
-			}
-			mp3r.Close()
 			return context.Cause(ctx)
 		}
 	}
@@ -562,7 +523,7 @@ func init() {
 	close(closedChannel)
 }
 
-type tracks struct {
+type trackstore struct {
 	popCh   *util.TypedValue[chan StreamTrack]
 	cycleCh *util.TypedValue[chan struct{}]
 	cancel  context.CancelFunc
@@ -574,15 +535,15 @@ type tracks struct {
 	addNotify chan struct{}
 }
 
-func NewTracks(ctx context.Context, fds *fdstore.Store, st []StreamTrack) *tracks {
-	ts := newTracks(ctx, fds, st)
+func NewTracks(ctx context.Context, fds *fdstore.Store, st []StreamTrack) *trackstore {
+	ts := newTracks(fds, st)
 	ctx, ts.cancel = context.WithCancel(ctx)
 	go ts.run(ctx, fds)
 	return ts
 }
 
-func newTracks(ctx context.Context, fds *fdstore.Store, st []StreamTrack) *tracks {
-	ts := &tracks{
+func newTracks(fds *fdstore.Store, st []StreamTrack) *trackstore {
+	ts := &trackstore{
 		popCh:   util.NewTypedValue(make(chan StreamTrack)),
 		cycleCh: util.NewTypedValue(make(chan struct{})),
 		tracks:  st,
@@ -595,15 +556,15 @@ func newTracks(ctx context.Context, fds *fdstore.Store, st []StreamTrack) *track
 	return ts
 }
 
-func (ts *tracks) Stop() {
+func (ts *trackstore) Stop() {
 	ts.cancel()
 }
 
-func (ts *tracks) PopCh() <-chan StreamTrack {
+func (ts *trackstore) PopCh() <-chan StreamTrack {
 	return ts.popCh.Load()
 }
 
-func (ts *tracks) CyclePopCh() {
+func (ts *trackstore) CyclePopCh() {
 	// we can't just directly close our popCh because our run method
 	// is possibly trying to write to it, this means it will panic if
 	// we just close it underneath it, instead we send a signal through
@@ -614,7 +575,7 @@ func (ts *tracks) CyclePopCh() {
 	close(old)
 }
 
-func (ts *tracks) NotifyCh() <-chan struct{} {
+func (ts *trackstore) NotifyCh() <-chan struct{} {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
 
@@ -627,7 +588,7 @@ func (ts *tracks) NotifyCh() <-chan struct{} {
 
 // notifyChLocked returns the appropriate notify channel, ts.mu
 // should be held when this gets called
-func (ts *tracks) notifyChLocked() <-chan struct{} {
+func (ts *trackstore) notifyChLocked() <-chan struct{} {
 	if ts.preloadedLength < preloadLengthTarget {
 		// we didnt hit our preload length target yet, return a ready channel
 		// straight away
@@ -638,7 +599,7 @@ func (ts *tracks) notifyChLocked() <-chan struct{} {
 	return ts.addNotify
 }
 
-func (ts *tracks) add(track StreamTrack) <-chan struct{} {
+func (ts *trackstore) add(track StreamTrack) <-chan struct{} {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
 
@@ -653,7 +614,7 @@ func (ts *tracks) add(track StreamTrack) <-chan struct{} {
 }
 
 // notify notifies the adder that a track was just consumed by the popper
-func (ts *tracks) notify(track StreamTrack) {
+func (ts *trackstore) notify(track StreamTrack) {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
 
@@ -677,7 +638,7 @@ func (ts *tracks) notify(track StreamTrack) {
 	ts.addNotify = nil
 }
 
-func (ts *tracks) run(ctx context.Context, fds *fdstore.Store) {
+func (ts *trackstore) run(ctx context.Context, fds *fdstore.Store) {
 	var track *StreamTrack
 
 	cycleCh := ts.cycleCh.Load()
@@ -720,6 +681,8 @@ tracksRun:
 		}
 	}
 
+	// TODO: we "own" all the things inside ts.tracks and should be cleaning
+	// 		those up when we exit
 	// no fdstore, so just exit without storing anything
 	if fds == nil {
 		return
@@ -731,20 +694,25 @@ tracksRun:
 		// a restart
 		err := track.StoreSelf(fds)
 		if err != nil {
-			return //err
+			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to store track")
+			return
 		}
 	}
+
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
 
 	// then add all the other tracks
 	for _, track := range ts.tracks {
 		err := track.StoreSelf(fds)
 		if err != nil {
-			return //err
+			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to store track")
+			return
 		}
 	}
 }
 
-func (ts *tracks) pop() *StreamTrack {
+func (ts *trackstore) pop() *StreamTrack {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
 

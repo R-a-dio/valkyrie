@@ -12,7 +12,7 @@ import (
 )
 
 func TestTracksType(t *testing.T) {
-	checkLength := func(t *testing.T, ts *tracks, n int) {
+	checkLength := func(t *testing.T, ts *trackstore, n int) {
 		ts.mu.Lock()
 		defer ts.mu.Unlock()
 		require.Len(t, ts.tracks, n)
@@ -26,13 +26,13 @@ func TestTracksType(t *testing.T) {
 				Audio:      newTestAudio(time.Minute * 2),
 			})
 		}
-		ts := newTracks(context.Background(), nil, values)
+		ts := newTracks(nil, values)
 
 		require.Equal(t, values, ts.tracks)
 	})
 
 	t.Run("short", func(t *testing.T) {
-		ts := newTracks(context.Background(), nil, nil)
+		ts := newTracks(nil, nil)
 
 		waiter := ts.add(StreamTrack{
 			Audio: newTestAudio(preloadLengthTarget - time.Second),
@@ -46,7 +46,7 @@ func TestTracksType(t *testing.T) {
 	})
 
 	t.Run("empty pop", func(t *testing.T) {
-		ts := newTracks(context.Background(), nil, nil)
+		ts := newTracks(nil, nil)
 
 		require.Nil(t, ts.pop())
 	})
@@ -87,7 +87,7 @@ func TestTracksType(t *testing.T) {
 			})
 		}
 
-		ts := newTracks(context.Background(), nil, values)
+		ts := newTracks(nil, values)
 
 		for i := range 10 {
 			require.EqualValues(t, i, ts.pop().ID)
