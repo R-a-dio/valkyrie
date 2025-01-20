@@ -631,6 +631,7 @@ func (ts *tracks) run(ctx context.Context) {
 	var track *StreamTrack
 
 	for {
+		track = nil
 		// wait for a track to be ready
 		for track == nil {
 			// quick path

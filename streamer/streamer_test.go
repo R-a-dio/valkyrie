@@ -79,6 +79,25 @@ func TestTracksType(t *testing.T) {
 
 		require.Len(t, ts.tracks, 0)
 	})
+
+	t.Run("pop through channel", func(t *testing.T) {
+		var values []StreamTrack
+		for i := range 10 {
+			values = append(values, StreamTrack{
+				QueueEntry: radio.QueueEntry{Song: radio.Song{ID: radio.SongID(i)}},
+				Audio:      newTestAudio(time.Minute * 2),
+			})
+		}
+
+		ts := newTracks(context.Background(), values)
+
+		require.Len(t, ts.tracks, 10)
+		for i := range 10 {
+			require.EqualValues(t, i, (<-ts.PopCh).ID)
+		}
+
+		require.Len(t, ts.tracks, 0)
+	})
 }
 
 func newTestAudio(dur time.Duration) audio.Reader {
