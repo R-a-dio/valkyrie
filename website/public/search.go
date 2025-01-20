@@ -19,11 +19,6 @@ type SearchInput struct {
 	middleware.Input
 	SearchSharedInput
 	CSRFLegacyFix template.HTML
-
-	// IsError indicates if the message given is an error
-	IsError bool
-	// Message to show at the top of the page
-	Message string
 }
 
 func (SearchInput) TemplateBundle() string {
@@ -52,6 +47,11 @@ type SearchSharedInput struct {
 	CanRequest      bool
 	RequestCooldown time.Duration
 	Page            *shared.Pagination
+
+	// IsError indicates if the message given is an error
+	IsError bool
+	// Message to show at the top of the page
+	Message string
 }
 
 func NewSearchSharedInput(s radio.SearchService, rs radio.RequestStorage, r *http.Request, requestDelay time.Duration, pageSize int64) (*SearchSharedInput, error) {

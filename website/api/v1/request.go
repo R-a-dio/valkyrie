@@ -6,8 +6,10 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/website/public"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
 )
 
@@ -33,23 +35,6 @@ func (a *API) PostRequest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	input, err := public.NewSearchInput(
-		a.Search,
-		a.storage.Request(r.Context()),
-		r,
-		time.Duration(a.Config.Conf().UserRequestDelay),
-	)
-	if err != nil {
-		hlog.FromRequest(r).Error().Err(err).Msg("")
-		return
-	}
-	if message == "" {
-		input.Message = "Thank you for requesting"
-	} else {
-		input.Message = message
-		input.IsError = true
-	}
-
 	if !util.IsHTMX(r) {
 		// for non-htmx users we redirect them back to where they came from
 		r, ok := util.RedirectBack(r)
@@ -60,6 +45,48 @@ func (a *API) PostRequest(w http.ResponseWriter, r *http.Request) {
 		// use 303 (See Other) so that it does a GET request instead of a POST
 		http.Redirect(w, r, r.URL.String(), http.StatusSeeOther)
 		return
+	}
+
+	var input templates.TemplateSelectable
+	ctx := r.Context()
+
+	// figure out where our request came from
+	if source := r.FormValue("s"); source == "fave" {
+		fi, err := public.NewFavesInput(
+			a.storage.Song(ctx),
+			a.storage.Request(ctx),
+			r,
+			time.Duration(a.Config.Conf().UserRequestDelay),
+		)
+		if err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("")
+			return
+		}
+		// TODO: message handling
+		input = fi
+	} else {
+		si, err := public.NewSearchInput(
+			a.Search,
+			a.storage.Request(r.Context()),
+			r,
+			time.Duration(a.Config.Conf().UserRequestDelay),
+		)
+		if err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("")
+			return
+		}
+		if message == "" {
+			si.Message = "Thank you for requesting"
+		} else {
+			si.Message = message
+			si.IsError = true
+		}
+
+		if source == "navbar" {
+			input = SearchInput{&si.SearchSharedInput}
+		} else {
+			input = si
+		}
 	}
 
 	err = a.Templates.Execute(w, r, input)
