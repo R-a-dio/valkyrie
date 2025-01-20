@@ -186,6 +186,9 @@ func (s *Streamer) checkFDStore(ctx context.Context, store *fdstore.Store) {
 	}
 
 	// now go over the restored tracks and see if they're still in our queue
+	// use a temporary slice because of a potential mismatch between the queue
+	// and what we restored.
+	ees := make([]StreamTrack, 0)
 	for range len(ee) {
 		// for each song we recover from the encoder we should reserve a song
 		entry, err := s.queue.ReserveNext(ctx)
@@ -200,11 +203,19 @@ func (s *Streamer) checkFDStore(ctx context.Context, store *fdstore.Store) {
 			// if it isn't, it probably means something else mutated the queue while we were restarting
 			// we just throw away everything else we restored in this case
 			zerolog.Ctx(ctx).Warn().Msg("next queue entry wasn't in our recovered songs")
+			// reset anything we reserved
+			s.queue.ResetReserved(ctx)
 			break
 		}
 
+		ees = append(ees, st)
+	}
+
+	// move the finished product
+	for _, st := range ees {
 		entries = append(entries, st)
-		delete(ee, entry.QueueID)
+		// remove everything we're using from the map
+		delete(ee, st.QueueID)
 	}
 
 	// any leftovers in ee need to be cleaned up since we're not going to be using them
