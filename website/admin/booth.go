@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
@@ -35,7 +36,7 @@ type BoothProxyStatusInput struct {
 	IsLive bool
 }
 
-func NewBoothInput(ps radio.ProxyService, r *http.Request) (*BoothInput, error) {
+func NewBoothInput(ps radio.ProxyService, r *http.Request, connectTimeout time.Duration) (*BoothInput, error) {
 	const op errors.Op = "website/admin.NewBoothInput"
 
 	sources, err := ps.ListSources(r.Context())
@@ -62,7 +63,7 @@ func NewBoothInput(ps radio.ProxyService, r *http.Request) (*BoothInput, error) 
 		}
 	}
 
-	input.StreamerInfo, err = NewBoothStopStreamerInput(r)
+	input.StreamerInfo, err = NewBoothStopStreamerInput(r, connectTimeout)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
@@ -76,7 +77,7 @@ func NewBoothInput(ps radio.ProxyService, r *http.Request) (*BoothInput, error) 
 }
 
 func (s *State) GetBooth(w http.ResponseWriter, r *http.Request) {
-	input, err := NewBoothInput(s.Proxy, r)
+	input, err := NewBoothInput(s.Proxy, r, time.Duration(s.Conf().Streamer.ConnectTimeout))
 	if err != nil {
 		s.errorHandler(w, r, err, "")
 		return
@@ -105,7 +106,7 @@ func proxySourceListToMap(sources []radio.ProxySource) map[string][]radio.ProxyS
 	return sm
 }
 
-func NewBoothStopStreamerInput(r *http.Request) (*BoothStopStreamerInput, error) {
+func NewBoothStopStreamerInput(r *http.Request, timeout time.Duration) (*BoothStopStreamerInput, error) {
 	var isRobot bool
 	var isLive bool
 
@@ -118,15 +119,18 @@ func NewBoothStopStreamerInput(r *http.Request) (*BoothStopStreamerInput, error)
 	}
 
 	return &BoothStopStreamerInput{
+		CSRFTokenInput: csrf.TemplateField(r),
 		AllowedToKill:  true,
 		Success:        false,
 		CurrentIsRobot: isRobot,
 		UserIsLive:     isLive,
+		ConnectTimeout: timeout,
 	}, nil
 }
 
 type BoothStopStreamerInput struct {
 	boothInput
+	CSRFTokenInput template.HTML
 
 	// UserIsLive is true if the user is currently live on the main mountpoint
 	UserIsLive bool
@@ -137,6 +141,14 @@ type BoothStopStreamerInput struct {
 	// CurrentIsRobot is true if the current live user is a robot (Hanyuu-sama)
 	// if this is false the kill button should be disabled
 	CurrentIsRobot bool
+
+	// ConnectTimeout is how long the AFK streamer will wait before connecting again
+	// after being kicked
+	ConnectTimeout time.Duration
+}
+
+func (BoothStopStreamerInput) FormAction() template.HTMLAttr {
+	return "/admin/booth/stop-streamer"
 }
 
 func (BoothStopStreamerInput) TemplateName() string {
@@ -173,7 +185,7 @@ func (s *State) PostBoothStopStreamer(w http.ResponseWriter, r *http.Request) {
 func (s *State) postBoothStopStreamer(w http.ResponseWriter, r *http.Request) (*BoothStopStreamerInput, error) {
 	ctx := r.Context()
 
-	input, err := NewBoothStopStreamerInput(r)
+	input, err := NewBoothStopStreamerInput(r, time.Duration(s.Conf().Streamer.ConnectTimeout))
 	if err != nil {
 		return nil, err
 	}
@@ -202,6 +214,7 @@ func (s *State) postBoothStopStreamer(w http.ResponseWriter, r *http.Request) (*
 
 func NewBoothSetThreadInput(r *http.Request) (*BoothSetThreadInput, error) {
 	return &BoothSetThreadInput{
+		CSRFTokenInput:  csrf.TemplateField(r),
 		Thread:          middleware.InputFromRequest(r).Status.Thread,
 		AllowedToThread: true,
 		Success:         false,
@@ -210,12 +223,17 @@ func NewBoothSetThreadInput(r *http.Request) (*BoothSetThreadInput, error) {
 
 type BoothSetThreadInput struct {
 	boothInput
+	CSRFTokenInput template.HTML
 
 	Thread string
 	// AllowedToThread is true if the user is allowed to update the thread
 	AllowedToThread bool
 	// Success is true if the UpdateThread succeeded
 	Success bool
+}
+
+func (BoothSetThreadInput) FormAction() template.HTMLAttr {
+	return "/admin/booth/set-thread"
 }
 
 func (BoothSetThreadInput) TemplateName() string {
@@ -255,8 +273,7 @@ func (s *State) postBoothSetThread(r *http.Request) (*BoothSetThreadInput, error
 		return input, nil
 	}
 
-	// TODO: parse thread from request
-	thread := ""
+	thread := r.FormValue("thread")
 
 	err = s.Manager.UpdateThread(ctx, thread)
 	if err != nil {
