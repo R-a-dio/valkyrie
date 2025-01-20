@@ -563,7 +563,8 @@ func init() {
 }
 
 type tracks struct {
-	PopCh chan StreamTrack
+	popCh   *util.TypedValue[chan StreamTrack]
+	cycleCh *util.TypedValue[chan struct{}]
 
 	mu              sync.Mutex
 	tracks          []StreamTrack
@@ -574,19 +575,51 @@ type tracks struct {
 
 func newTracks(ctx context.Context, st []StreamTrack) *tracks {
 	ts := &tracks{
-		PopCh:  make(chan StreamTrack),
-		tracks: st,
+		popCh:   util.NewTypedValue(make(chan StreamTrack)),
+		cycleCh: util.NewTypedValue(make(chan struct{})),
+		tracks:  st,
 	}
+
+	for _, track := range st {
+		ts.preloadedLength += track.Audio.TotalLength()
+	}
+
 	if ctx != nil {
-		go ts.run(ctx)
+		go ts.run(ctx, nil)
 	}
 
 	return ts
 }
 
-func (ts *tracks) add(track StreamTrack) chan struct{} {
+func (ts *tracks) PopCh() <-chan StreamTrack {
+	return ts.popCh.Load()
+}
+
+func (ts *tracks) CyclePopCh() {
+	ch := make(chan struct{})
+	old := ts.cycleCh.Swap(ch)
+	close(old)
+}
+
+func (ts *tracks) NotifyCh() <-chan struct{} {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
+
+	if ts.addNotify != nil {
+		return ts.addNotify
+	}
+
+	ts.addNotify = make(chan struct{})
+	return ts.addNotify
+}
+
+func (ts *tracks) add(track StreamTrack) <-chan struct{} {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+
+	if ts.addNotify != nil {
+		panic("tracks.add called while there is an outstanding notify channel")
+	}
 
 	ts.tracks = append(ts.tracks, track)
 	// add total song length to our counter
@@ -627,11 +660,11 @@ func (ts *tracks) notify(track StreamTrack) {
 	ts.addNotify = nil
 }
 
-func (ts *tracks) run(ctx context.Context) {
+func (ts *tracks) run(ctx context.Context, fds *fdstore.Store) {
 	var track *StreamTrack
 
+tracksRun:
 	for {
-		track = nil
 		// wait for a track to be ready
 		for track == nil {
 			// quick path
@@ -642,18 +675,45 @@ func (ts *tracks) run(ctx context.Context) {
 			// otherwise wait a little and check again
 			select {
 			case <-ctx.Done():
-				return
+				break tracksRun
 			case <-time.After(time.Second):
 				track = ts.pop()
+			case <-ts.cycleCh.Load():
+				new := make(chan StreamTrack)
+				old := ts.popCh.Swap(new)
+				close(old)
 			}
 		}
 
 		// we now have a track, block on sending it to the PopCh
 		select {
-		case ts.PopCh <- *track:
+		case <-ts.cycleCh.Load():
+			new := make(chan StreamTrack)
+			old := ts.popCh.Swap(new)
+			close(old)
+		case ts.popCh.Load() <- *track:
 			ts.notify(*track)
+			track = nil
 		case <-ctx.Done():
-			return
+			break tracksRun
+		}
+	}
+
+	// check if we had a track waiting to be send
+	if track != nil {
+		// if we did it should be the first one entered into storage on
+		// a restart
+		err := track.StoreSelf(fds)
+		if err != nil {
+			return //err
+		}
+	}
+
+	// then add all the other tracks
+	for _, track := range ts.tracks {
+		err := track.StoreSelf(fds)
+		if err != nil {
+			return //err
 		}
 	}
 }
@@ -859,4 +919,17 @@ func (s *Streamer) streamURL() *url.URL {
 type StreamTrack struct {
 	radio.QueueEntry
 	Audio audio.Reader
+}
+
+func (st *StreamTrack) StoreSelf(fdstorage *fdstore.Store) error {
+	data, err := rpc.EncodeQueueEntry(st.QueueEntry)
+	if err != nil {
+		return err
+	}
+
+	err = fdstorage.AddFile(st.Audio.GetFile(), fdstoreEncoder, data)
+	if err != nil {
+		return err
+	}
+	return nil
 }

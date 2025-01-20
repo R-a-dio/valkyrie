@@ -12,10 +12,22 @@ import (
 )
 
 func TestTracksType(t *testing.T) {
+	checkLength := func(t *testing.T, ts *tracks, n int) {
+		ts.mu.Lock()
+		defer ts.mu.Unlock()
+		require.Len(t, ts.tracks, n)
+	}
+
 	t.Run("uses init value", func(t *testing.T) {
-		in := make([]StreamTrack, 10)
-		ts := newTracks(nil, in)
-		require.Equal(t, in, ts.tracks)
+		var values []StreamTrack
+		for i := range 10 {
+			values = append(values, StreamTrack{
+				QueueEntry: radio.QueueEntry{Song: radio.Song{ID: radio.SongID(i)}},
+				Audio:      newTestAudio(time.Minute * 2),
+			})
+		}
+		ts := newTracks(nil, values)
+		require.Equal(t, values, ts.tracks)
 	})
 
 	t.Run("short", func(t *testing.T) {
@@ -51,14 +63,14 @@ func TestTracksType(t *testing.T) {
 		}
 
 		select {
-		case <-ts.PopCh:
+		case <-ts.PopCh():
 		case <-time.After(time.Second * 2):
 			t.Error("expected track to be in the PopCh")
 		}
 
 		select {
 		case <-waiter:
-		default:
+		case <-time.After(time.Microsecond * 40):
 			t.Error("expected waiter to be ready after we popped")
 		}
 	})
@@ -66,18 +78,21 @@ func TestTracksType(t *testing.T) {
 	t.Run("pop", func(t *testing.T) {
 		var values []StreamTrack
 		for i := range 10 {
-			values = append(values, StreamTrack{QueueEntry: radio.QueueEntry{Song: radio.Song{ID: radio.SongID(i)}}})
+			values = append(values, StreamTrack{
+				QueueEntry: radio.QueueEntry{Song: radio.Song{ID: radio.SongID(i)}},
+				Audio:      newTestAudio(time.Minute * 2),
+			})
 		}
 
 		ts := newTracks(nil, values)
 
-		require.Len(t, ts.tracks, 10)
+		checkLength(t, ts, 10)
 
 		for i := range 10 {
 			require.EqualValues(t, i, ts.pop().ID)
 		}
 
-		require.Len(t, ts.tracks, 0)
+		checkLength(t, ts, 0)
 	})
 
 	t.Run("pop through channel", func(t *testing.T) {
@@ -91,12 +106,41 @@ func TestTracksType(t *testing.T) {
 
 		ts := newTracks(context.Background(), values)
 
-		require.Len(t, ts.tracks, 10)
+		checkLength(t, ts, 10)
+
 		for i := range 10 {
-			require.EqualValues(t, i, (<-ts.PopCh).ID)
+			require.EqualValues(t, i, (<-ts.PopCh()).ID)
 		}
 
-		require.Len(t, ts.tracks, 0)
+		checkLength(t, ts, 0)
+	})
+
+	t.Run("cancel pop through cycle", func(t *testing.T) {
+		var values []StreamTrack
+		for i := range 10 {
+			values = append(values, StreamTrack{
+				QueueEntry: radio.QueueEntry{Song: radio.Song{ID: radio.SongID(i)}},
+				Audio:      newTestAudio(time.Minute * 2),
+			})
+		}
+
+		ts := newTracks(context.Background(), values)
+
+		go func() {
+			<-ts.NotifyCh()
+			ts.CyclePopCh()
+		}()
+
+		checkLength(t, ts, 10)
+		for i := range 20 {
+			track, ok := <-ts.PopCh()
+			if !ok {
+				break
+			}
+
+			require.EqualValues(t, i, track.ID)
+		}
+		checkLength(t, ts, 0)
 	})
 }
 
