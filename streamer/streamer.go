@@ -589,7 +589,7 @@ func newTracks(fds *fdstore.Store, st []StreamTrack) *trackstore {
 	}
 
 	for _, track := range st {
-		ts.preloadedLength += track.Audio.TotalLength()
+		ts.preloadedLength += track.TotalLength()
 	}
 
 	return ts
@@ -648,7 +648,7 @@ func (ts *trackstore) add(track StreamTrack) <-chan struct{} {
 
 	ts.tracks = append(ts.tracks, track)
 	// add total song length to our counter
-	ts.preloadedLength += track.Audio.TotalLength()
+	ts.preloadedLength += track.TotalLength()
 	return ts.notifyChLocked()
 }
 
@@ -658,7 +658,7 @@ func (ts *trackstore) notify(track StreamTrack) {
 	defer ts.mu.Unlock()
 
 	// remove total song length from our counter
-	ts.preloadedLength -= track.Audio.TotalLength()
+	ts.preloadedLength -= track.TotalLength()
 
 	// check if there was a notify channel
 	if ts.addNotify == nil {
@@ -965,4 +965,12 @@ func (st *StreamTrack) StoreSelf(fdstorage *fdstore.Store) error {
 		return err
 	}
 	return nil
+}
+
+func (st *StreamTrack) TotalLength() time.Duration {
+	if d := st.Audio.TotalLength(); d > 0 {
+		return d
+	}
+
+	return st.Length
 }
