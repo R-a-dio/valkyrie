@@ -45,9 +45,9 @@ func (a *API) PostRequest(w http.ResponseWriter, r *http.Request) {
 	}
 	if message == "" {
 		input.Message = "Thank you for requesting"
-		input.IsError = true
 	} else {
 		input.Message = message
+		input.IsError = true
 	}
 
 	if !util.IsHTMX(r) {
