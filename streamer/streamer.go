@@ -161,6 +161,7 @@ func (s *Streamer) checkFDStore(ctx context.Context, store *fdstore.Store) {
 
 	// recover any songs that were already encoded before we restarted
 	encoderEntries := store.RemoveFile(fdstoreEncoder)
+	ee := make(map[radio.QueueID]StreamTrack, len(encoderEntries))
 	for _, entry := range encoderEntries {
 		queueEntry, err := rpc.DecodeQueueEntry(entry.Data)
 		if err != nil {
@@ -177,14 +178,41 @@ func (s *Streamer) checkFDStore(ctx context.Context, store *fdstore.Store) {
 		}
 
 		zerolog.Ctx(ctx).Info().Msg("recovered an encoder song")
-		entries = append(entries, StreamTrack{
+		// store them temporarily
+		ee[queueEntry.QueueID] = StreamTrack{
 			QueueEntry: queueEntry,
 			Audio:      reader,
-		})
+		}
+	}
+
+	// now go over the restored tracks and see if they're still in our queue
+	for range len(ee) {
+		// for each song we recover from the encoder we should reserve a song
+		entry, err := s.queue.ReserveNext(ctx)
+		if err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to reserve next from queue")
+			continue
+		}
+
+		// see if the entry is in our restored entries
+		st, ok := ee[entry.QueueID]
+		if !ok {
+			// if it isn't, it probably means something else mutated the queue while we were restarting
+			// we just throw away everything else we restored in this case
+			zerolog.Ctx(ctx).Warn().Msg("next queue entry wasn't in our recovered songs")
+			break
+		}
+
+		entries = append(entries, st)
+		delete(ee, entry.QueueID)
+	}
+
+	// any leftovers in ee need to be cleaned up since we're not going to be using them
+	for _, st := range ee {
+		st.Audio.Close()
 	}
 
 	s.trackStore = NewTracks(ctx, store, entries)
-
 	if current != nil || conn != nil {
 		// only force a start if we recovered something
 		s.start(ctx, conn)
