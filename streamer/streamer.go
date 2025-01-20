@@ -565,6 +565,7 @@ func init() {
 type tracks struct {
 	popCh   *util.TypedValue[chan StreamTrack]
 	cycleCh *util.TypedValue[chan struct{}]
+	cancel  context.CancelFunc
 
 	mu              sync.Mutex
 	tracks          []StreamTrack
@@ -573,7 +574,14 @@ type tracks struct {
 	addNotify chan struct{}
 }
 
-func newTracks(ctx context.Context, st []StreamTrack) *tracks {
+func NewTracks(ctx context.Context, fds *fdstore.Store, st []StreamTrack) *tracks {
+	ts := newTracks(ctx, fds, st)
+	ctx, ts.cancel = context.WithCancel(ctx)
+	go ts.run(ctx, fds)
+	return ts
+}
+
+func newTracks(ctx context.Context, fds *fdstore.Store, st []StreamTrack) *tracks {
 	ts := &tracks{
 		popCh:   util.NewTypedValue(make(chan StreamTrack)),
 		cycleCh: util.NewTypedValue(make(chan struct{})),
@@ -584,11 +592,11 @@ func newTracks(ctx context.Context, st []StreamTrack) *tracks {
 		ts.preloadedLength += track.Audio.TotalLength()
 	}
 
-	if ctx != nil {
-		go ts.run(ctx, nil)
-	}
-
 	return ts
+}
+
+func (ts *tracks) Stop() {
+	ts.cancel()
 }
 
 func (ts *tracks) PopCh() <-chan StreamTrack {
@@ -596,6 +604,11 @@ func (ts *tracks) PopCh() <-chan StreamTrack {
 }
 
 func (ts *tracks) CyclePopCh() {
+	// we can't just directly close our popCh because our run method
+	// is possibly trying to write to it, this means it will panic if
+	// we just close it underneath it, instead we send a signal through
+	// a second channel to the run method to indicate that we want to
+	// close the popCh
 	ch := make(chan struct{})
 	old := ts.cycleCh.Swap(ch)
 	close(old)
@@ -606,7 +619,19 @@ func (ts *tracks) NotifyCh() <-chan struct{} {
 	defer ts.mu.Unlock()
 
 	if ts.addNotify != nil {
-		return ts.addNotify
+		panic("tracks.NotifyCh called while there is an oustanding notify channel")
+	}
+
+	return ts.notifyChLocked()
+}
+
+// notifyChLocked returns the appropriate notify channel, ts.mu
+// should be held when this gets called
+func (ts *tracks) notifyChLocked() <-chan struct{} {
+	if ts.preloadedLength < preloadLengthTarget {
+		// we didnt hit our preload length target yet, return a ready channel
+		// straight away
+		return closedChannel
 	}
 
 	ts.addNotify = make(chan struct{})
@@ -624,15 +649,7 @@ func (ts *tracks) add(track StreamTrack) <-chan struct{} {
 	ts.tracks = append(ts.tracks, track)
 	// add total song length to our counter
 	ts.preloadedLength += track.Audio.TotalLength()
-
-	if ts.preloadedLength < preloadLengthTarget {
-		// we didnt hit our preload length target yet, return a ready channel
-		// straight away
-		return closedChannel
-	}
-
-	ts.addNotify = make(chan struct{})
-	return ts.addNotify
+	return ts.notifyChLocked()
 }
 
 // notify notifies the adder that a track was just consumed by the popper
@@ -663,6 +680,14 @@ func (ts *tracks) notify(track StreamTrack) {
 func (ts *tracks) run(ctx context.Context, fds *fdstore.Store) {
 	var track *StreamTrack
 
+	cycleCh := ts.cycleCh.Load()
+	cyclePopCh := func() {
+		new := make(chan StreamTrack)
+		old := ts.popCh.Swap(new)
+		close(old)
+		cycleCh = ts.cycleCh.Load()
+	}
+
 tracksRun:
 	for {
 		// wait for a track to be ready
@@ -678,25 +703,26 @@ tracksRun:
 				break tracksRun
 			case <-time.After(time.Second):
 				track = ts.pop()
-			case <-ts.cycleCh.Load():
-				new := make(chan StreamTrack)
-				old := ts.popCh.Swap(new)
-				close(old)
+			case <-cycleCh:
+				cyclePopCh()
 			}
 		}
 
 		// we now have a track, block on sending it to the PopCh
 		select {
-		case <-ts.cycleCh.Load():
-			new := make(chan StreamTrack)
-			old := ts.popCh.Swap(new)
-			close(old)
+		case <-cycleCh:
+			cyclePopCh()
 		case ts.popCh.Load() <- *track:
 			ts.notify(*track)
 			track = nil
 		case <-ctx.Done():
 			break tracksRun
 		}
+	}
+
+	// no fdstore, so just exit without storing anything
+	if fds == nil {
+		return
 	}
 
 	// check if we had a track waiting to be send

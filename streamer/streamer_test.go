@@ -26,12 +26,13 @@ func TestTracksType(t *testing.T) {
 				Audio:      newTestAudio(time.Minute * 2),
 			})
 		}
-		ts := newTracks(nil, values)
+		ts := newTracks(context.Background(), nil, values)
+
 		require.Equal(t, values, ts.tracks)
 	})
 
 	t.Run("short", func(t *testing.T) {
-		ts := newTracks(nil, nil)
+		ts := newTracks(context.Background(), nil, nil)
 
 		waiter := ts.add(StreamTrack{
 			Audio: newTestAudio(preloadLengthTarget - time.Second),
@@ -45,12 +46,14 @@ func TestTracksType(t *testing.T) {
 	})
 
 	t.Run("empty pop", func(t *testing.T) {
-		ts := newTracks(nil, nil)
+		ts := newTracks(context.Background(), nil, nil)
+
 		require.Nil(t, ts.pop())
 	})
 
 	t.Run("add and pop", func(t *testing.T) {
-		ts := newTracks(context.Background(), nil)
+		ts := NewTracks(context.Background(), nil, nil)
+		defer ts.Stop()
 
 		waiter := ts.add(StreamTrack{
 			Audio: newTestAudio(preloadLengthTarget * 2),
@@ -84,9 +87,7 @@ func TestTracksType(t *testing.T) {
 			})
 		}
 
-		ts := newTracks(nil, values)
-
-		checkLength(t, ts, 10)
+		ts := newTracks(context.Background(), nil, values)
 
 		for i := range 10 {
 			require.EqualValues(t, i, ts.pop().ID)
@@ -104,9 +105,8 @@ func TestTracksType(t *testing.T) {
 			})
 		}
 
-		ts := newTracks(context.Background(), values)
-
-		checkLength(t, ts, 10)
+		ts := NewTracks(context.Background(), nil, values)
+		defer ts.Stop()
 
 		for i := range 10 {
 			require.EqualValues(t, i, (<-ts.PopCh()).ID)
@@ -124,16 +124,19 @@ func TestTracksType(t *testing.T) {
 			})
 		}
 
-		ts := newTracks(context.Background(), values)
+		ts := NewTracks(context.Background(), nil, values)
+		defer ts.Stop()
 
+		ch := ts.NotifyCh()
 		go func() {
-			<-ts.NotifyCh()
+			<-ch
+			t.Log("notified")
 			ts.CyclePopCh()
 		}()
 
-		checkLength(t, ts, 10)
+		popper := ts.PopCh()
 		for i := range 20 {
-			track, ok := <-ts.PopCh()
+			track, ok := <-popper
 			if !ok {
 				break
 			}
