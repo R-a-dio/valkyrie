@@ -255,8 +255,7 @@ type searchResponseItem struct {
 // fromSong copies relevant fields from the song given to the response item
 func (sri *searchResponseItem) fromSong(s radio.Song) error {
 	if !s.HasTrack() {
-		// TODO: look at error handling
-		return errors.New("Song without track found in search API")
+		panic("song without database track found in search api")
 	}
 	sri.Artist = s.Artist
 	sri.Title = s.Title
