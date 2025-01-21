@@ -54,7 +54,7 @@ func TestStream(t *testing.T) {
 	var muExpected sync.Mutex
 	var expected radio.Status
 
-	stream := NewStream(exec)
+	stream := NewStream(ctx, exec)
 	server := httptest.NewUnstartedServer(stream)
 	server.Config.BaseContext = func(l net.Listener) context.Context { return ctx }
 	server.Config.ConnContext = func(ctx context.Context, c net.Conn) context.Context {
@@ -125,7 +125,8 @@ func TestStreamSendInputs(t *testing.T) {
 		},
 	}
 
-	stream := NewStream(exec)
+	ctx := context.Background()
+	stream := NewStream(ctx, exec)
 	defer stream.Shutdown()
 
 	t.Run("SendStreamer", func(t *testing.T) {
@@ -161,9 +162,9 @@ func TestStreamSlowSub(t *testing.T) {
 		},
 	}
 
-	stream := NewStream(exec)
-
 	ctx := templates.SetTheme(context.Background(), "default", true)
+	stream := NewStream(ctx, exec)
+
 	req := httptest.NewRequest("GET", "/", nil)
 	req = req.WithContext(ctx)
 	w := httptest.NewRecorder()

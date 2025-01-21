@@ -3,7 +3,6 @@ package v1
 import (
 	"bytes"
 	"context"
-	"log"
 	"maps"
 	"net/http"
 	"strconv"
@@ -130,6 +129,7 @@ const (
 type EventName = string
 
 type Stream struct {
+	logger *zerolog.Logger
 	// manager goroutine channel
 	reqs chan request
 
@@ -144,8 +144,9 @@ type Stream struct {
 	templates templates.Executor
 }
 
-func NewStream(exec templates.Executor) *Stream {
+func NewStream(ctx context.Context, exec templates.Executor) *Stream {
 	s := &Stream{
+		logger:     zerolog.Ctx(ctx),
 		reqs:       make(chan request),
 		mu:         new(sync.RWMutex),
 		last:       make(map[EventName]message),
@@ -314,8 +315,7 @@ func trimSpace(v []byte) []byte {
 func (s *Stream) NewMessage(event EventName, data templates.TemplateSelectable) message {
 	m, err := s.templates.ExecuteAll(data)
 	if err != nil {
-		// TODO: handle error cases better
-		log.Println("failed creating message", err)
+		s.logger.Error().Err(err).Msg("failed creating SSE message")
 		return message{}
 	}
 
