@@ -338,6 +338,7 @@ func removePortFromAddress(next http.Handler) http.Handler {
 	})
 }
 
+// skipCSRFProtection removes the requirement of the CSRF token to the paths configured
 func skipCSRFProtection(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/admin/telemetry") {

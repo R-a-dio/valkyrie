@@ -417,8 +417,8 @@ func newV0Status(ctx context.Context, storage radio.SongStorageService,
 	// but also call update to get an initial value before we return
 	err := s.updateStatusJSON(ctx)
 	if err != nil {
-		// TODO: handle error better; we ignore the error for now since it
-		// 		prevents the server from starting if the streamer RPC is down
+		// this should be a temporary error so we just ignore it, do log it
+		// for debuggability if something does break horribly
 		zerolog.Ctx(ctx).Error().Err(err).Msg("")
 	}
 	return &s, nil
