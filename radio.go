@@ -796,6 +796,8 @@ func (s *Song) Requestable() bool {
 
 var veryFarAway = time.Hour * 24 * 90
 
+// RequestDelay returns the period between requests for this song, this value
+// is based on the RequestCount of the song or 0 if the song is nil
 func (s *Song) RequestDelay() time.Duration {
 	if s == nil || s.DatabaseTrack == nil {
 		return 0
@@ -854,6 +856,8 @@ func (s *Song) Hydrate() {
 	}
 }
 
+// Metadata returns either "{artist} - {title}" or "{title}" if artist is empty.
+// Both arguments are also trimmed of spaces before doing this
 func Metadata(artist, title string) string {
 	artist = strings.TrimSpace(artist)
 	title = strings.TrimSpace(title)
@@ -864,6 +868,7 @@ func Metadata(artist, title string) string {
 	return title
 }
 
+// NewSong returns a new Song with the metadata given and optionally the length given
 func NewSong(metadata string, length ...time.Duration) Song {
 	song := Song{
 		Metadata: metadata,
@@ -882,7 +887,9 @@ func (t *DatabaseTrack) HasTrack() bool {
 }
 
 type StorageTx interface {
+	// Commit commits the transaction
 	Commit() error
+	// Rollback rolls back the transaction
 	Rollback() error
 }
 
@@ -970,7 +977,8 @@ type SongStorage interface {
 	LastPlayedPagination(key LastPlayedKey, amountPerPage, pageCount int) (prev, next []LastPlayedKey, err error)
 	// LastPlayedCount returns the amount of plays recorded
 	LastPlayedCount() (int64, error)
-	// PlayedCount returns the amount of times the song has been played on stream
+	// PlayedCount returns the amount of times the song has been played on stream,
+	// returns 0 if the song doesn't exist
 	PlayedCount(Song) (int64, error)
 	// AddPlay adds a play to the song. streamer is the dj that played the song.
 	// If present, ldiff is the difference in amount of listeners between
@@ -978,7 +986,7 @@ type SongStorage interface {
 	AddPlay(song Song, streamer User, ldiff *Listeners) error
 
 	// FavoriteCount returns the amount of users that have added this song to
-	// their favorite list
+	// their favorite list, returns 0 if the song doesn't exist
 	FavoriteCount(Song) (int64, error)
 	// Favorites returns all users that have this song on their favorite list
 	Favorites(Song) ([]string, error)
@@ -1504,10 +1512,14 @@ type ScheduleEntry struct {
 }
 
 type GuestService interface {
+	// Create creates a new user based on the nick given and returns the newly created
+	// user and passwd if possible, passwd can be empty.
 	Create(ctx context.Context, nick string) (user *User, passwd string, err error)
+	// Auth authorizes a guest user to the system, allowing them to do certain actions
 	Auth(ctx context.Context, nick string) (user *User, err error)
+	// Deauth removes a guest user from the authorization list
 	Deauth(ctx context.Context, nick string) error
-
+	// CanDo checks if a guest is allowed to do the GuestAction given
 	CanDo(ctx context.Context, nick string, can GuestAction) (ok bool, err error)
 }
 
