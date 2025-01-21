@@ -93,7 +93,7 @@ func (ss SubmissionStorage) LastSubmissionTime(identifier string) (time.Time, er
 	query := "SELECT time FROM uploadtime WHERE ip=? ORDER BY time DESC LIMIT 1;"
 
 	err := sqlx.Get(handle, &t, query, identifier)
-	if err == sql.ErrNoRows { // no rows means never uploaded, so it's OK
+	if errors.IsE(err, sql.ErrNoRows) { // no rows means never uploaded, so it's OK
 		err = nil
 	}
 	if err != nil {

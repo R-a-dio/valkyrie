@@ -74,7 +74,7 @@ func (ns NewsStorage) Get(id radio.NewsPostID) (*radio.NewsPost, error) {
 
 	err := sqlx.Get(handle, &post, newsGetQuery, id)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.IsE(err, sql.ErrNoRows) {
 			return nil, errors.E(op, errors.NewsUnknown)
 		}
 		return nil, errors.E(op, err)

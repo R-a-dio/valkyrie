@@ -82,7 +82,7 @@ func (ss SessionStorage) Get(token radio.SessionToken) (radio.Session, error) {
 
 	err := sqlx.Get(handle, &session, query, token)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.IsE(err, sql.ErrNoRows) {
 			return session, errors.E(op, errors.SessionUnknown)
 		}
 		return session, errors.E(op, err)

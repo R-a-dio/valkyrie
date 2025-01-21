@@ -119,7 +119,7 @@ func (ss StatusStorage) Load() (*radio.Status, error) {
 	var status radio.Status
 
 	err := sqlx.Get(handle, &status, query)
-	if err != nil && err != sql.ErrNoRows {
+	if err != nil && !errors.IsE(err, sql.ErrNoRows) {
 		return nil, errors.E(op, err)
 	}
 

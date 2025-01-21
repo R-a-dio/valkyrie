@@ -308,7 +308,7 @@ func (us UserStorage) Get(name string) (*radio.User, error) {
 
 	err := sqlx.Get(handle, &user, query, name)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.IsE(err, sql.ErrNoRows) {
 			return nil, errors.E(op, errors.UserUnknown, errors.Info(name))
 		}
 		return nil, errors.E(op, err, errors.Info(name))
@@ -328,7 +328,7 @@ func (us UserStorage) GetByID(id radio.UserID) (*radio.User, error) {
 
 	err := sqlx.Get(handle, &user, query, id)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.IsE(err, sql.ErrNoRows) {
 			return nil, errors.E(op, errors.UserUnknown)
 		}
 		return nil, errors.E(op, err)
@@ -348,7 +348,7 @@ func (us UserStorage) GetByDJID(id radio.DJID) (*radio.User, error) {
 
 	err := sqlx.Get(handle, &user, query, id)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.IsE(err, sql.ErrNoRows) {
 			return nil, errors.E(op, errors.UserUnknown)
 		}
 		return nil, errors.E(op, err)

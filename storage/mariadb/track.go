@@ -181,7 +181,7 @@ func (ss SongStorage) FromHash(hash radio.SongHash) (*radio.Song, error) {
 
 	err := sqlx.Get(handle, &song, songFromHashQuery, hash)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.IsE(err, sql.ErrNoRows) {
 			return nil, errors.E(op, errors.SongUnknown)
 		}
 		return nil, errors.E(op, err)
@@ -830,7 +830,7 @@ func (ts TrackStorage) Get(id radio.TrackID) (*radio.Song, error) {
 
 	err := sqlx.Get(handle, &song, trackGetQuery, id)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.IsE(err, sql.ErrNoRows) {
 			return nil, errors.E(op, errors.SongUnknown)
 		}
 		return nil, errors.E(op, err)

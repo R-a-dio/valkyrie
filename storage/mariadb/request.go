@@ -25,7 +25,7 @@ func (rs RequestStorage) LastRequest(identifier string) (time.Time, error) {
 	//query := "SELECT time FROM requesttime WHERE identifier=? ORDER BY time DESC LIMIT 1;"
 
 	err := sqlx.Get(handle, &t, query, identifier)
-	if err == sql.ErrNoRows {
+	if errors.IsE(err, sql.ErrNoRows) {
 		err = nil
 	}
 	if err != nil {
