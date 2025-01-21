@@ -77,8 +77,11 @@ func (m *Mount) newConn() (net.Conn, error) {
 	err = backoff.Retry(func() error {
 		uri := generateMasterURL(m.cfg, m.Name)
 
+		ctx, cancel := context.WithTimeout(context.TODO(), time.Second*10)
+		defer cancel()
+
 		m.logger.Info().Str("url", uri.Redacted()).Msg("dialing icecast")
-		conn, err = icecast.DialURL(context.TODO(), uri, icecast.ContentType(m.ContentType))
+		conn, err = icecast.DialURL(ctx, uri, icecast.ContentType(m.ContentType))
 		if err != nil {
 			m.logger.Error().Err(err).Msg("failed connecting to master server")
 			return err
