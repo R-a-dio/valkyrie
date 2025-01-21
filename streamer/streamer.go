@@ -619,7 +619,7 @@ func (ts *trackstore) NotifyCh() <-chan struct{} {
 	defer ts.mu.Unlock()
 
 	if ts.addNotify != nil {
-		panic("tracks.NotifyCh called while there is an oustanding notify channel")
+		panic("tracks.NotifyCh called while there is an outstanding notify channel")
 	}
 
 	return ts.notifyChLocked()

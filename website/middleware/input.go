@@ -52,7 +52,7 @@ func InputFromContext(ctx context.Context) Input {
 	return v.(Input)
 }
 
-// Input is a bunch of data that should be accessable to the base template
+// Input is a bunch of data that should be accessible to the base template
 type Input struct {
 	Now        time.Time
 	IsUser     bool

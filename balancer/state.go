@@ -35,7 +35,7 @@ func health(ctx context.Context, c *http.Client, r radio.Relay) radio.Relay {
 	res := r
 	res.Online, res.Listeners, res.Err = false, 0, ""
 
-	req, err := http.NewRequestWithContext(ctx, "GET", r.Status, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, r.Status, nil)
 	if err != nil {
 		res.Err = err.Error()
 		return res

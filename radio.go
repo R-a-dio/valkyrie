@@ -281,7 +281,7 @@ func GenerateRandomPassword(length int) (string, error) {
 	const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 	charsetLen := big.NewInt(int64(len(charset)))
 
-	var res []byte
+	res := make([]byte, 0, length)
 	for range length {
 		n, err := rand.Int(rand.Reader, charsetLen)
 		if err != nil {
@@ -564,7 +564,7 @@ type QueueService interface {
 	// ResetReserved resets the reserved status of all entries returned by ReserveNext
 	// but not yet removed by Remove
 	ResetReserved(context.Context) error
-	// Remove removes the first occurence of the given entry from the queue
+	// Remove removes the first occurrence of the given entry from the queue
 	Remove(context.Context, QueueID) (bool, error)
 	// Entries returns all entries in the queue
 	Entries(context.Context) (Queue, error)
@@ -657,12 +657,12 @@ func (s *SongHash) Scan(src interface{}) error {
 
 // String returns a hexadecimal representation of the song hash
 func (s SongHash) String() string {
-	return fmt.Sprintf("%x", s[:])
+	return hex.EncodeToString(s[:])
 }
 
 // MarshalJSON implements encoding/json.Marshaler
 func (s SongHash) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf(`"%x"`, s[:])), nil
+	return []byte(`"` + s.String() + `"`), nil
 }
 
 // UnmarshalJSON implements encoding/json.Unmarshaler

@@ -136,7 +136,7 @@ func TestBasicAuth(t *testing.T) {
 			}
 
 			logger := zerolog.New(os.Stdout)
-			req := httptest.NewRequest("GET", "/main.mp3", nil)
+			req := httptest.NewRequest(http.MethodGet, "/main.mp3", nil)
 			if test.Username != "" && test.Password != "" {
 				req.SetBasicAuth(test.Username, test.Password)
 			}

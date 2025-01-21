@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -150,8 +149,6 @@ func (eh *EventHandler) eventLiveMetadataUpdate(ctx context.Context, mountName s
 // source connected (any mount)
 func (eh *EventHandler) eventSourceConnect(ctx context.Context, source *SourceClient) {
 	go func() {
-		fmt.Println("connect:", source)
-
 		// send source connect event to any RPC listener
 		if source != nil {
 			eh.sourceStream.Send(radio.ProxySourceEvent{
@@ -166,8 +163,6 @@ func (eh *EventHandler) eventSourceConnect(ctx context.Context, source *SourceCl
 
 func (eh *EventHandler) eventSourceDisconnect(ctx context.Context, source *SourceClient) {
 	go func() {
-		fmt.Println("disconnect:", source)
-
 		// send source disconnect event to any RPC listener
 		if source != nil {
 			eh.sourceStream.Send(radio.ProxySourceEvent{

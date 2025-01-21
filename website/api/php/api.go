@@ -63,7 +63,7 @@ type API struct {
 
 func (a *API) Route(r chi.Router) {
 	r.Use(chiware.SetHeader("Content-Type", "application/json"))
-	r.Method("GET", "/", a.status)
+	r.Method(http.MethodGet, "/", a.status)
 	r.Get("/ping", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"ping":true}`))
 	})

@@ -165,7 +165,7 @@ func TestStreamSlowSub(t *testing.T) {
 	ctx := templates.SetTheme(context.Background(), "default", true)
 	stream := NewStream(ctx, exec)
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req = req.WithContext(ctx)
 	w := httptest.NewRecorder()
 

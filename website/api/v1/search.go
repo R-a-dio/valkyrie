@@ -22,7 +22,7 @@ func (a *API) SearchHTML(w http.ResponseWriter, r *http.Request) {
 		searchPageSize,
 	)
 	if err != nil {
-		hlog.FromRequest(r).Error().Err(err)
+		hlog.FromRequest(r).Error().Err(err).Msg("input error")
 		return
 	}
 

@@ -186,7 +186,7 @@ func OneOff[T any](ctx context.Context, fn StreamFn[T]) (T, error) {
 }
 
 // StreamValue opens the stream created by StreamFn and calls any callbackFn given everytime a new
-// value is returned by the stream. StreamValue also stores the last received value, accessable by
+// value is returned by the stream. StreamValue also stores the last received value, accessible by
 // calling .Latest
 func StreamValue[T any](ctx context.Context, fn StreamFn[T], callbackFn ...StreamCallbackFn[T]) *Value[T] {
 	var value Value[T]

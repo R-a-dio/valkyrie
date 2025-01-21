@@ -54,6 +54,8 @@ func (c *Client) Search(ctx context.Context, query string, limit int64, offset i
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
+	defer resp.Body.Close()
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, errors.E(op, decodeError(resp.Body))
 	}

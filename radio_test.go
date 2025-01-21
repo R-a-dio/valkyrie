@@ -62,7 +62,7 @@ func TestSongHydrate(t *testing.T) {
 
 		assert.Empty(t, a.Metadata, "hydrate should not update Metadata if there is nothing")
 		assert.True(t, a.Hash.IsZero(), "hydrate should not update Hash if there is nothing")
-		assert.True(t, a.HashLink.IsZero(), "hydrate shoudl not update HashLink if there is nothing")
+		assert.True(t, a.HashLink.IsZero(), "hydrate should not update HashLink if there is nothing")
 	})
 }
 
