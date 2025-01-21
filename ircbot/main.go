@@ -43,7 +43,6 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 
-	// TODO: make correct use of the config reload mechanism
 	b.StatusValue = util.StreamValue(ctx, cfg.Manager.CurrentStatus, func(ctx context.Context, s radio.Status) {
 		err := announce.AnnounceSong(ctx, s)
 		if err != nil {
