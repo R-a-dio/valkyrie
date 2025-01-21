@@ -26,13 +26,13 @@ func TestTracksType(t *testing.T) {
 				Audio:      newTestAudio(time.Minute * 2),
 			})
 		}
-		ts := newTracks(nil, values)
+		ts := newTracks(values)
 
 		require.Equal(t, values, ts.tracks)
 	})
 
 	t.Run("short", func(t *testing.T) {
-		ts := newTracks(nil, nil)
+		ts := newTracks(nil)
 
 		waiter := ts.add(StreamTrack{
 			Audio: newTestAudio(preloadLengthTarget - time.Second),
@@ -46,7 +46,7 @@ func TestTracksType(t *testing.T) {
 	})
 
 	t.Run("empty pop", func(t *testing.T) {
-		ts := newTracks(nil, nil)
+		ts := newTracks(nil)
 
 		require.Nil(t, ts.pop())
 	})
@@ -87,7 +87,7 @@ func TestTracksType(t *testing.T) {
 			})
 		}
 
-		ts := newTracks(nil, values)
+		ts := newTracks(values)
 
 		for i := range 10 {
 			require.EqualValues(t, i, ts.pop().ID)

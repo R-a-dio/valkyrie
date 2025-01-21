@@ -575,13 +575,13 @@ type trackstore struct {
 }
 
 func NewTracks(ctx context.Context, fds *fdstore.Store, st []StreamTrack) *trackstore {
-	ts := newTracks(fds, st)
+	ts := newTracks(st)
 	ctx, ts.cancel = context.WithCancel(ctx)
 	go ts.run(ctx, fds)
 	return ts
 }
 
-func newTracks(fds *fdstore.Store, st []StreamTrack) *trackstore {
+func newTracks(st []StreamTrack) *trackstore {
 	ts := &trackstore{
 		popCh:   util.NewTypedValue(make(chan StreamTrack)),
 		cycleCh: util.NewTypedValue(make(chan struct{})),
