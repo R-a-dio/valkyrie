@@ -541,8 +541,9 @@ func newProfileForm(user radio.User, r *http.Request) ProfileForm {
 }
 
 func generatePermissionList(by, other radio.User) []ProfilePermissionEntry {
-	var entries []ProfilePermissionEntry
-	for _, perm := range radio.AllUserPermissions() {
+	all := radio.AllUserPermissions()
+	entries := make([]ProfilePermissionEntry, 0, len(all))
+	for _, perm := range all {
 		entries = append(entries, ProfilePermissionEntry{
 			Perm:     perm,
 			Checked:  other.UserPermissions.HasExplicit(perm),

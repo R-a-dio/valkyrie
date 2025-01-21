@@ -29,8 +29,7 @@ func (qs QueueStorage) Store(name string, queue []radio.QueueEntry) error {
 	defer deferFn()
 
 	// prep the data before we even ask for a transaction
-	var entries []queueSong
-
+	entries := make([]queueSong, 0, len(queue))
 	for i, entry := range queue {
 		if !entry.HasTrack() {
 			return errors.E(op, errors.SongWithoutTrack, entry)

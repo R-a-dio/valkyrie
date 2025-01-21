@@ -8,8 +8,7 @@ import (
 )
 
 func HeadersToAttributes(headers http.Header) []attribute.KeyValue {
-	var res []attribute.KeyValue
-
+	res := make([]attribute.KeyValue, 0, len(headers))
 	for name, value := range headers {
 		name = "http.request.header." + strings.ToLower(name)
 		res = append(res, attribute.StringSlice(name, value))

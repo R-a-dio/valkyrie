@@ -2,7 +2,6 @@ package public
 
 import (
 	"encoding/json"
-	"fmt"
 	"html/template"
 	"net/http"
 	"time"
@@ -105,7 +104,7 @@ func (s *State) GetFaves(w http.ResponseWriter, r *http.Request) {
 	// so we need to support that for old users
 	if r.FormValue("dl") != "" {
 		w.Header().Set("Content-Type", "application/json")
-		util.AddContentDisposition(w, fmt.Sprintf("%s_faves.json", input.Nickname))
+		util.AddContentDisposition(w, input.Nickname+"_faves.json")
 		err := json.NewEncoder(w).Encode(NewFaveDownload(input.Faves))
 		if err != nil {
 			s.errorHandler(w, r, err)

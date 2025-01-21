@@ -3,7 +3,6 @@ package php
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/url"
 	"os"
@@ -112,12 +111,8 @@ func (a *API) getUserCooldown(w http.ResponseWriter, r *http.Request) {
 	if ok {
 		response.Message = "You can upload a song!"
 	} else {
-		response.Message = fmt.Sprintf(
-			"You cannot upload another song just yet. You can upload %s",
-			submissionTime.
-				Add(time.Duration(a.Conf().UserUploadDelay)).
-				Format(timeagoFormat),
-		)
+		response.Message = "You cannot upload another song just yet. You can upload " +
+			submissionTime.Add(time.Duration(a.Conf().UserUploadDelay)).Format(timeagoFormat)
 	}
 
 	err = json.NewEncoder(w).Encode(response)
