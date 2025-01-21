@@ -283,6 +283,11 @@ func FaveTrack(e Event) error {
 		// for when a track number is given as argument
 		s, err := e.ArgumentTrack("TrackID")
 		if err != nil {
+			if errors.Is(errors.SongUnknown, err) {
+				// song doesn't exist with that trackid
+				e.EchoPrivate("I don't know of a song with that ID...")
+				return nil
+			}
 			return errors.E(op, err)
 		}
 		song = *s
