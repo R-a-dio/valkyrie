@@ -27,9 +27,7 @@ func (suite *Suite) TestSongPlayedCount(t *testing.T) {
 
 	// non-existant argument
 	res, err = ss.PlayedCount(radio.NewSong("played-count-test"))
-	// TODO: fix this, we currently can't tell the difference in the
-	// current mariadb implementation
-	//Require(t, errors.SongUnknown, err)
+
 	require.NoError(t, err)
 	require.Zero(t, res)
 }
@@ -45,9 +43,7 @@ func (suite *Suite) TestSongFavoriteCount(t *testing.T) {
 
 	// non-existant argument
 	res, err = ss.FavoriteCount(radio.NewSong("favorite-count-test"))
-	// TODO: fix this, we currently can't tell the difference in the
-	// current mariadb implementation
-	// Require(t, errors.SongUnknown, err)
+
 	require.NoError(t, err)
 	require.Zero(t, res)
 }

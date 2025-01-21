@@ -361,10 +361,9 @@ func (ss SongStorage) PlayedCount(song radio.Song) (int64, error) {
 	err := sqlx.Get(handle, &playedCount, query, song.HashLink)
 	if err != nil {
 		if errors.IsE(err, sql.ErrNoRows) {
-			// TODO: the above query always returns 0 and never an ErrNoRows even
-			// if the argument given doesn't exist, there might a way to do this with mariadb
-			// but I don't know how
-			return 0, errors.E(op, errors.SongUnknown)
+			// return 0 if there are no rows, this doesn't actually happen in mariadb
+			// because the above query never returns ErrNoRows
+			return 0, nil
 		}
 		return 0, errors.E(op, err)
 	}
@@ -420,10 +419,9 @@ func (ss SongStorage) FavoriteCount(song radio.Song) (int64, error) {
 	err := sqlx.Get(handle, &faveCount, query, song.HashLink)
 	if err != nil {
 		if errors.IsE(err, sql.ErrNoRows) {
-			// TODO: the above query always returns 0 and never an ErrNoRows even
-			// if the argument given doesn't exist, there might a way to do this with mariadb
-			// but I don't know how
-			return 0, errors.E(op, errors.SongUnknown)
+			// return 0 if there are no rows, this doesn't actually happen in mariadb
+			// because the above query never returns ErrNoRows
+			return 0, nil
 		}
 		return 0, errors.E(op, err)
 	}
