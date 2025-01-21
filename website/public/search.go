@@ -69,7 +69,8 @@ func NewSearchSharedInput(s radio.SearchService, rs radio.RequestStorage, r *htt
 		return nil, errors.E(op, err)
 	}
 
-	// TODO(wessie): check if this is the right identifier
+	// RemoteAddr on the request should've already been scrubbed by some middleware to not
+	// include any port numbers, trust in that and use the remote as-is
 	identifier := r.RemoteAddr
 	lastRequest, err := rs.LastRequest(identifier)
 	if err != nil {
