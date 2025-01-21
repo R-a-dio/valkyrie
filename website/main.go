@@ -98,6 +98,8 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	if err != nil {
 		return errors.E(op, err)
 	}
+	// templates reload on every render in development mode
+	siteTemplates.Production = !cfg.Conf().DevelopmentMode
 	executor := siteTemplates.Executor()
 
 	// template value, for deciding what theme to use
@@ -159,18 +161,25 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	// CSRF token handling
 	// fixes a compatibility issue with the PHP api, see middleware documentation
 	r.Use(phpapi.MoveTokenToHeaderForRequests)
+	// skip CSRF protection for our telemetry backend
 	r.Use(skipCSRFProtection)
+	// CSRF secret for generating tokens
 	csrfKey := []byte(cfg.Conf().Website.CSRFSecret)
 	if len(csrfKey) == 0 {
-		logger.Warn().Msg("CSRFSecret is empty, using random key")
-		csrfKey, err = secret.NewKey(32)
-		if err != nil {
-			panic("CSRFSecret is empty and we couldn't generate a random key")
+		// no key is a critical error if this is a production environment
+		if cfg.Conf().DevelopmentMode {
+			logger.Warn().Msg("CSRFSecret is empty, using random key")
+			csrfKey, err = secret.NewKey(32)
+			if err != nil {
+				panic("CSRFSecret is empty and we couldn't generate a random key")
+			}
+		} else {
+			panic("CSRFSecret is not configured and DevelopmentMode==false")
 		}
 	}
 	r.Use(csrf.Protect(csrfKey,
 		csrf.Path("/"),
-		csrf.Secure(false),
+		csrf.Secure(!cfg.Conf().DevelopmentMode), // disable https requirement under dev mode
 		csrf.Encoding(base62.StdEncoding),
 	))
 	// shared input handling, stuff the base template needs

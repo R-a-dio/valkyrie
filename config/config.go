@@ -24,6 +24,7 @@ import (
 
 // defaultConfig is the default configuration for this project
 var defaultConfig = config{
+	DevelopmentMode:  true,
 	UserAgent:        "hanyuu/2.0",
 	UserRequestDelay: Duration(time.Hour * 1),
 	UserUploadDelay:  Duration(time.Hour * 2),
@@ -100,6 +101,7 @@ var defaultConfig = config{
 // config represents a full configuration file of this project, each tool part
 // of this repository share the same configuration file
 type config struct {
+	DevelopmentMode bool
 	// UserAgent to use when making HTTP requests
 	UserAgent string
 	// MusicPath is the prefix of music files in the database
