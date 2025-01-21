@@ -612,7 +612,7 @@ func (s *v0Status) createStatusJSON(ctx context.Context) (v0StatusJSON, error) {
 			Visible:     dj.Visible,
 			Priority:    dj.Priority,
 			ThemeCSS:    dj.CSS,
-			ThemeID:     0, // TODO: see if this is used by anything
+			ThemeID:     0, // See https://github.com/R-a-dio/valkyrie/issues/175
 			Role:        dj.Role,
 		},
 		Queue:      queue,
