@@ -25,7 +25,7 @@ func NewAnnouncer(a radio.AnnounceService) AnnouncerServer {
 
 // AnnouncerShim implements Announcer
 type AnnouncerShim struct {
-	UnimplementedAnnouncerServer
+	UnsafeAnnouncerServer
 	announcer radio.AnnounceService
 }
 
@@ -45,6 +45,11 @@ func (as AnnouncerShim) AnnounceRequest(ctx context.Context, ar *SongRequestAnno
 	return new(emptypb.Empty), err
 }
 
+func (as AnnouncerShim) AnnounceUser(ctx context.Context, au *UserAnnouncement) (*emptypb.Empty, error) {
+	err := as.announcer.AnnounceUser(ctx, fromProtoUser(au.User))
+	return new(emptypb.Empty), err
+}
+
 func NewProxy(p radio.ProxyService) ProxyServer {
 	return ProxyShim{
 		proxy: p,
@@ -52,7 +57,7 @@ func NewProxy(p radio.ProxyService) ProxyServer {
 }
 
 type ProxyShim struct {
-	UnimplementedProxyServer
+	UnsafeProxyServer
 	proxy radio.ProxyService
 }
 
@@ -98,7 +103,7 @@ func NewGuest(g radio.GuestService) GuestServer {
 }
 
 type GuestShim struct {
-	UnimplementedGuestServer
+	UnsafeGuestServer
 	guest radio.GuestService
 }
 
@@ -137,7 +142,7 @@ func NewManager(m radio.ManagerService) ManagerServer {
 
 // ManagerShim implements Manager
 type ManagerShim struct {
-	UnimplementedManagerServer
+	UnsafeManagerServer
 	manager radio.ManagerService
 }
 
@@ -244,7 +249,7 @@ func NewStreamer(s radio.StreamerService) StreamerServer {
 
 // StreamerShim implements Streamer
 type StreamerShim struct {
-	UnimplementedStreamerServer
+	UnsafeStreamerServer
 	streamer radio.StreamerService
 }
 
@@ -304,7 +309,7 @@ func NewQueue(q radio.QueueService) QueueServer {
 
 // QueueShim implements Queue
 type QueueShim struct {
-	UnimplementedQueueServer
+	UnsafeQueueServer
 	queue radio.QueueService
 }
 
@@ -364,7 +369,7 @@ func NewListenerTracker(lt radio.ListenerTrackerService) ListenerTrackerServer {
 
 // ListenerTrackerShim implements ListenerTracker
 type ListenerTrackerShim struct {
-	UnimplementedListenerTrackerServer
+	UnsafeListenerTrackerServer
 	tracker radio.ListenerTrackerService
 }
 
