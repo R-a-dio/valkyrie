@@ -540,6 +540,7 @@ func toProtoProxySource(s radio.ProxySource) *ProxySource {
 		Ip:        s.IP,
 		Metadata:  s.Metadata,
 		Priority:  s.Priority,
+		IsLive:    s.IsLive,
 	}
 }
 
@@ -553,6 +554,7 @@ func fromProtoProxySource(s *ProxySource) radio.ProxySource {
 		IP:        s.Ip,
 		Metadata:  s.Metadata,
 		Priority:  s.Priority,
+		IsLive:    s.GetIsLive(),
 	}
 }
 

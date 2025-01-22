@@ -435,6 +435,7 @@ type ProxySource struct {
 	UserAgent string
 	Metadata  string
 	Priority  uint32
+	IsLive    bool
 }
 
 type ProxyMetadataEvent struct {

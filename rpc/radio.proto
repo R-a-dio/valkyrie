@@ -109,6 +109,7 @@ message ProxySource {
     uint32 priority = 6;
     SourceID ID = 7;
     google.protobuf.Timestamp start_time = 8;
+    bool is_live = 9;
 }
 
 message ProxySourceEvent {
