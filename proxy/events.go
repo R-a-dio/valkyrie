@@ -99,12 +99,16 @@ func (eps *eventProxyStatus) AddSource(ctx context.Context, sc *SourceClient) {
 	eps.Lock()
 	defer eps.Unlock()
 
-	// check if this is an orphan event, one that had their respective Remove already
-	// happen beforehand
-	orphan := eps.orphans[sc.ID]
-	if orphan.Removed {
-		// if it is, we ignore the whole event
+	// check if this source has an orphan entry
+	orphan, exists := eps.orphans[sc.ID]
+	if exists {
+		// if it does, we're going to consume it now so delete it
 		delete(eps.orphans, sc.ID)
+	}
+
+	// check if said orphan indicated that we already got removed
+	if orphan.Removed {
+		// if it has we ignore it
 		return
 	}
 
