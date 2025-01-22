@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"time"
 
@@ -21,6 +22,7 @@ func NewEventHandler(ctx context.Context, cfg config.Config) *EventHandler {
 		metaStream:   eventstream.NewEventStreamNoInit[radio.ProxyMetadataEvent](),
 		sourceStream: eventstream.NewEventStreamNoInit[radio.ProxySourceEvent](),
 		records:      make(map[string]eventRecords),
+		status:       newEventProxyStatus(),
 	}
 }
 
@@ -37,6 +39,7 @@ type EventHandler struct {
 	// streaming api support fields
 	metaStream   *eventstream.EventStream[radio.ProxyMetadataEvent]
 	sourceStream *eventstream.EventStream[radio.ProxySourceEvent]
+	status       *eventProxyStatus
 
 	// mu protects records
 	mu sync.Mutex
@@ -44,7 +47,92 @@ type EventHandler struct {
 	records map[string]eventRecords
 }
 
-// "live" got swapped (any mount)
+func newEventProxyStatus() *eventProxyStatus {
+	return &eventProxyStatus{
+		orphans: make(map[radio.SourceID]struct{}),
+		Users:   make(map[radio.UserID]*eventUser),
+	}
+}
+
+type eventProxyStatus struct {
+	sync.Mutex
+	orphans map[radio.SourceID]struct{}
+	Users   map[radio.UserID]*eventUser
+}
+
+func (eps *eventProxyStatus) UpdateLive(ctx context.Context, sc *SourceClient) {
+	eps.Lock()
+	defer eps.Unlock()
+
+	// update our user status
+	eu := eps.Users[sc.User.ID]
+	for _, eus := range eu.Conns {
+		if eus.ID != sc.ID {
+			continue
+		}
+
+		eus.IsLive = true
+	}
+}
+
+func (eps *eventProxyStatus) AddSource(ctx context.Context, sc *SourceClient) {
+	eps.Lock()
+	defer eps.Unlock()
+
+	// check if this is an orphan event, one that had their respective Remove already
+	// happen beforehand
+	if _, ok := eps.orphans[sc.ID]; ok {
+		// if it is, we ignore the whole event
+		delete(eps.orphans, sc.ID)
+		return
+	}
+
+	eu := eps.Users[sc.User.ID]
+	if eu == nil {
+		eu = &eventUser{
+			User: sc.User,
+		}
+		eps.Users[sc.User.ID] = eu
+	}
+	eu.Conns = append(eu.Conns, &eventUserSource{
+		SourceClient: sc,
+		IsLive:       false,
+	})
+}
+
+func (eps *eventProxyStatus) RemoveSource(ctx context.Context, sc *SourceClient) {
+	eps.Lock()
+	defer eps.Unlock()
+
+	eu := eps.Users[sc.User.ID]
+	if eu == nil {
+		// if the user doesn't exist either RemoveSource was called twice with the same source
+		// (which shouldn't happen) or this Remove event happened before our matching Add and
+		// that would leave us with an orphan later, mark this in the map so the Add can see it
+		eps.orphans[sc.ID] = struct{}{}
+		return
+	}
+	// remove the sc
+	eu.Conns = slices.DeleteFunc(eu.Conns, func(eus *eventUserSource) bool {
+		return eus.ID == sc.ID
+	})
+	// if we have no conns left remove ourselves from the map
+	if len(eu.Conns) == 0 {
+		delete(eps.Users, sc.User.ID)
+	}
+}
+
+type eventUser struct {
+	User  radio.User
+	Conns []*eventUserSource
+}
+
+type eventUserSource struct {
+	*SourceClient
+	IsLive bool
+}
+
+// eventNewLiveSource is called whenever the active live source is changed
 func (eh *EventHandler) eventNewLiveSource(ctx context.Context, mountName string, new *SourceClient) {
 	// record when we were called since the goroutine might start running at
 	// some other later time we use this to avoid logic races
@@ -61,39 +149,45 @@ func (eh *EventHandler) eventNewLiveSource(ctx context.Context, mountName string
 		}
 
 		// update the user in the manager
-		eh.mu.Lock()
-		defer eh.mu.Unlock()
+		eh.updateManagerUser(ctx, mountName, new, instant)
 
-		record := eh.records[mountName]
-		if record.newLiveSource.After(instant) {
-			// someone else already went live and was later, so eat
-			// this event since it's out-dated
-			return
-		}
-
-		// update the manager if we're changing live source on the primary
-		// mount, other mounts it doesn't care about
-		if mountName == eh.primaryMountName() {
-			var user *radio.User
-			if new != nil && new.User.ID != 0 {
-				user = &new.User
-			}
-
-			err := eh.manager.UpdateUser(ctx, user)
-			if err != nil {
-				eh.logger.Error().Err(err).Msg("failed to update user")
-				return
-			}
-		}
-
-		// update the record
-		record.newLiveSource = instant
-		eh.records[mountName] = record
+		// update our user status
+		eh.status.UpdateLive(ctx, new)
 	}()
 }
 
-// eventMetadataUpdate is any metadata update send by any source, to any mount.
-// We use this information mostly for display purposes to the admin panel
+func (eh *EventHandler) updateManagerUser(ctx context.Context, mountName string, new *SourceClient, instant time.Time) {
+	eh.mu.Lock()
+	defer eh.mu.Unlock()
+
+	record := eh.records[mountName]
+	if record.newLiveSource.After(instant) {
+		// someone else already went live and was later, so eat
+		// this event since it's out-dated
+		return
+	}
+
+	// update the manager if we're changing live source on the primary
+	// mount, other mounts it doesn't care about
+	if mountName == eh.primaryMountName() {
+		var user *radio.User
+		if new != nil && new.User.ID != 0 {
+			user = &new.User
+		}
+
+		err := eh.manager.UpdateUser(ctx, user)
+		if err != nil {
+			eh.logger.Error().Err(err).Msg("failed to update user")
+			return
+		}
+	}
+
+	// update the record
+	record.newLiveSource = instant
+	eh.records[mountName] = record
+}
+
+// eventMetadataUpdate is called when a metadata update comes through.
 func (eh *EventHandler) eventMetadataUpdate(ctx context.Context, new *Metadata) {
 	instant := time.Now()
 	go func() {
@@ -146,7 +240,7 @@ func (eh *EventHandler) eventLiveMetadataUpdate(ctx context.Context, mountName s
 	}()
 }
 
-// source connected (any mount)
+// eventSourceConnect is called when a source connects to any mountpoint
 func (eh *EventHandler) eventSourceConnect(ctx context.Context, source *SourceClient) {
 	go func() {
 		// send source connect event to any RPC listener
@@ -158,9 +252,13 @@ func (eh *EventHandler) eventSourceConnect(ctx context.Context, source *SourceCl
 				Event:     radio.SourceConnect,
 			})
 		}
+
+		// update our user status
+		eh.status.AddSource(ctx, source)
 	}()
 }
 
+// eventSourceDisconnect is called when a source disconnects from any mountpoint
 func (eh *EventHandler) eventSourceDisconnect(ctx context.Context, source *SourceClient) {
 	go func() {
 		// send source disconnect event to any RPC listener
@@ -172,5 +270,8 @@ func (eh *EventHandler) eventSourceDisconnect(ctx context.Context, source *Sourc
 				Event:     radio.SourceDisconnect,
 			})
 		}
+
+		// update our user status
+		eh.status.RemoveSource(ctx, source)
 	}()
 }

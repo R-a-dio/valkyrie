@@ -78,7 +78,7 @@ func TestMostPriority(t *testing.T) {
 	prio := func(p uint32) *MountSourceClient {
 		return &MountSourceClient{
 			Source: &SourceClient{
-				ID: radio.SourceID{xid.New()},
+				ID: radio.SourceID{ID: xid.New()},
 			},
 			Priority: p,
 		}
@@ -134,7 +134,7 @@ func TestMountRemoveSource(t *testing.T) {
 
 	user := newTestUser("test", "test")
 	req := httptest.NewRequest("PUT", mountName, conn2)
-	id := radio.SourceID{xid.New()}
+	id := radio.SourceID{ID: xid.New()}
 	identifier := IdentFromRequest(req)
 	metadata := &Metadata{}
 	_ = conn1
@@ -270,7 +270,7 @@ func TestMountAdjustPriority(t *testing.T) {
 	prio := func(p uint32) *MountSourceClient {
 		return &MountSourceClient{
 			Source: &SourceClient{
-				ID: radio.SourceID{xid.New()},
+				ID: radio.SourceID{ID: xid.New()},
 			},
 			Priority: p,
 		}
