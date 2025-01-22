@@ -13,7 +13,7 @@ import (
 
 func NewEventHandler(ctx context.Context, cfg config.Config) *EventHandler {
 	return &EventHandler{
-		cfg: cfg,
+		manager: cfg.Manager,
 		primaryMountName: config.Value(cfg, func(c config.Config) string {
 			return c.Conf().Proxy.PrimaryMountName
 		}),
@@ -30,9 +30,9 @@ type eventRecords struct {
 }
 
 type EventHandler struct {
-	cfg              config.Config
 	logger           zerolog.Logger
 	primaryMountName func() string
+	manager          radio.ManagerService
 
 	// streaming api support fields
 	metaStream   *eventstream.EventStream[radio.ProxyMetadataEvent]
@@ -79,7 +79,7 @@ func (eh *EventHandler) eventNewLiveSource(ctx context.Context, mountName string
 				user = &new.User
 			}
 
-			err := eh.cfg.Manager.UpdateUser(ctx, user)
+			err := eh.manager.UpdateUser(ctx, user)
 			if err != nil {
 				eh.logger.Error().Err(err).Msg("failed to update user")
 				return
@@ -128,7 +128,7 @@ func (eh *EventHandler) eventLiveMetadataUpdate(ctx context.Context, mountName s
 
 		// update the manager if we're changing metadata for the primary mount
 		if mountName == eh.primaryMountName() {
-			err := eh.cfg.Manager.UpdateSong(ctx, &radio.SongUpdate{
+			err := eh.manager.UpdateSong(ctx, &radio.SongUpdate{
 				Song: radio.NewSong(metadata),
 				Info: radio.SongInfo{
 					Start: instant,

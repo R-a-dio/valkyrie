@@ -314,8 +314,6 @@ func (SubmissionForm) TemplateName() string {
 }
 
 func newSubmissionForm(ts radio.TrackStorage, r *http.Request, errs map[string]string) SubmissionForm {
-	const op errors.Op = "website/public.newSubmissionForm"
-
 	form := SubmissionForm{
 		CSRFTokenInput: csrf.TemplateField(r),
 		Errors:         errs,

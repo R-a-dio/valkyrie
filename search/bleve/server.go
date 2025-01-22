@@ -107,8 +107,6 @@ func AsIntOrDefault(s string, def int) int {
 }
 
 func IndexStatsHandler(idx *indexWrap) http.HandlerFunc {
-	const op errors.Op = "search/bleve.IndexStatsHandler"
-
 	return func(w http.ResponseWriter, r *http.Request) {
 		stats := idx.index.Stats()
 		enc := json.NewEncoder(w)

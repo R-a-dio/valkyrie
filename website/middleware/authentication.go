@@ -208,7 +208,7 @@ func (LoginInput) TemplateBundle() string {
 func (a *authentication) PostLogin(w http.ResponseWriter, r *http.Request) {
 	const op errors.Op = "website/middleware.authentication.PostLogin"
 
-	err := a.postLogin(w, r)
+	err := a.postLogin(r)
 	if err != nil {
 		err = errors.E(op, err)
 		// failed to login, log an error and give the user a generic error
@@ -229,7 +229,7 @@ func (a *authentication) PostLogin(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, r.URL.String(), http.StatusFound)
 }
 
-func (a *authentication) postLogin(w http.ResponseWriter, r *http.Request) error {
+func (a *authentication) postLogin(r *http.Request) error {
 	const op errors.Op = "website/middleware.authentication.postLogin"
 	var ctx = r.Context()
 

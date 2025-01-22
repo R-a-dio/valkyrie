@@ -161,7 +161,6 @@ func (suite *Suite) TestNewsCommentsPublic(t *testing.T) {
 	comments, err := ns.CommentsPublic(0)
 	require.NoError(t, err)
 	require.Len(t, comments, 0)
-	return
 }
 
 func (suite *Suite) TestNewsList(t *testing.T) {

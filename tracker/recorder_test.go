@@ -46,7 +46,7 @@ func TestListenerAddAndRemoval(t *testing.T) {
 	}
 
 	assert.Eventually(t, func() bool {
-		return 0 == r.ListenerAmount()
+		return r.ListenerAmount() == 0
 	}, eventuallyDelay, eventuallyTick)
 
 	testRecorderLengths(t, r, 0, 0)
@@ -86,7 +86,7 @@ func TestListenerMultiRemove(t *testing.T) {
 
 			// wait for the goroutines to finish running
 			ok := assert.Eventually(t, func() bool {
-				return 0 == r.ListenerAmount()
+				return r.ListenerAmount() == 0
 			}, eventuallyDelay, eventuallyTick)
 			if !ok {
 				active, removed := getRecorderLength(r)

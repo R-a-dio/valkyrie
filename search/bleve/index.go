@@ -222,8 +222,6 @@ func constructIndexMapping() (mapping.IndexMapping, error) {
 }
 
 func Open(ctx context.Context, cfg config.Config) (radio.SearchService, error) {
-	const op errors.Op = "bleve/Open"
-
 	return NewClient(cfg.Conf().Search.Endpoint.URL()), nil
 }
 

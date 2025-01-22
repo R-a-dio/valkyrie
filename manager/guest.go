@@ -228,7 +228,6 @@ func (gs *GuestService) Auth(ctx context.Context, nick GuestNick) (*radio.User, 
 }
 
 func (gs *GuestService) Deauth(ctx context.Context, nick GuestNick) error {
-	const op errors.Op = "manager/GuestService.Deauth"
 	nick = strings.ToLower(nick)
 
 	gs.mu.Lock()
@@ -249,7 +248,6 @@ func (gs *GuestService) Deauth(ctx context.Context, nick GuestNick) error {
 }
 
 func (gs *GuestService) CanDo(ctx context.Context, nick GuestNick, action radio.GuestAction) (ok bool, err error) {
-	const op errors.Op = "manager/GuestService.CanDo"
 	nick = strings.ToLower(nick)
 
 	gs.mu.Lock()

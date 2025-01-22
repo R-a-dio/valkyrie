@@ -235,7 +235,7 @@ func TestEventServerCloseSubs(t *testing.T) {
 	es.Send("welcome")
 
 	assert.Eventually(t, func() bool {
-		return "welcome" == es.Latest()
+		return es.Latest() == "welcome"
 	}, time.Second, time.Millisecond*50)
 }
 
@@ -316,10 +316,8 @@ func TestEventServerCompareAndSend(t *testing.T) {
 func benchmarkEventStream(subcount int, b *testing.B) {
 	es := NewEventStream("hello world")
 
-	var channels []chan string
 	for i := 0; i < subcount; i++ {
 		ch := es.Sub()
-		channels = append(channels, ch)
 		go func(ch chan string) {
 			for range ch {
 			}

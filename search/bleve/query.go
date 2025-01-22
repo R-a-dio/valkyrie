@@ -119,16 +119,6 @@ func filterQuery(q *query.Query, filter ...func(q *query.Query)) {
 	}
 }
 
-func RemoveRegexQuery(q *query.Query) {
-	rq, ok := (*q).(*query.RegexpQuery)
-	if !ok {
-		return
-	}
-	_ = rq
-	// TODO: implement this
-	return
-}
-
 func ChangeLoneWildcardIntoMatchAll(q *query.Query) {
 	wq, ok := (*q).(*query.WildcardQuery)
 	if !ok {
