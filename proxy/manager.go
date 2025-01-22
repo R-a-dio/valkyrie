@@ -154,24 +154,36 @@ func (pm *ProxyManager) ListSources(ctx context.Context) ([]radio.ProxySource, e
 		mount.SourcesMu.RLock()
 		defer mount.SourcesMu.RUnlock()
 		for _, source := range mount.Sources {
-			res = append(res, radio.ProxySource{
-				ID:        source.Source.ID,
-				Start:     source.Source.Start,
-				MountName: source.Source.MountName,
-				UserAgent: source.Source.UserAgent,
-				Metadata:  source.MW.GetMetadata(),
-				User:      source.Source.User,
-				IP:        source.Source.conn.RemoteAddr().String(),
-				Priority:  source.Priority,
-			})
+			res = append(res, ProxySourceFromSourceClient(source.Source, source.Priority, source.MW.GetLive()))
 		}
 	}
 
+	// each mount has their respective mutex so we use an anonymous function to easily
+	// handle the mutex locking and unlocking
 	for _, mount := range pm.mounts {
 		addSources(mount)
 	}
 
 	return res, nil
+}
+
+func ProxySourceFromSourceClient(sc *SourceClient, prio uint32, isLive bool) radio.ProxySource {
+	var metadata string
+	if tmp := sc.Metadata.Load(); tmp != nil {
+		metadata = tmp.Value
+	}
+
+	return radio.ProxySource{
+		ID:        sc.ID,
+		User:      sc.User,
+		Start:     sc.Start,
+		MountName: sc.MountName,
+		UserAgent: sc.UserAgent,
+		Metadata:  metadata,
+		IP:        sc.conn.RemoteAddr().String(),
+		Priority:  prio,
+		IsLive:    isLive,
+	}
 }
 
 func (pm *ProxyManager) SendMetadata(ctx context.Context, metadata *Metadata) error {
@@ -183,12 +195,11 @@ func (pm *ProxyManager) SendMetadata(ctx context.Context, metadata *Metadata) er
 
 	pm.mountsMu.Lock()
 	mount, ok := pm.mounts[metadata.MountName]
+	pm.mountsMu.Unlock()
 	if ok {
-		pm.mountsMu.Unlock()
 		mount.SendMetadata(ctx, metadata)
 		return nil
 	}
-	defer pm.mountsMu.Unlock()
 
 	// metadata for a mount that doesn't exist, we store it temporarily
 	// to see if a new source client will appear soon

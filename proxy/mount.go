@@ -215,6 +215,7 @@ func (msc *MountSourceClient) GoLive(ctx context.Context, out MetadataWriter) {
 // master server.
 func (m *Mount) SendMetadata(ctx context.Context, meta *Metadata) {
 	m.SourcesMu.RLock()
+	defer m.SourcesMu.RUnlock()
 	// see if we have a source associated with this metadata
 	for _, msc := range m.Sources {
 		if msc.Source.Identifier != meta.Identifier {
@@ -223,7 +224,6 @@ func (m *Mount) SendMetadata(ctx context.Context, meta *Metadata) {
 
 		msc.Source.Metadata.Store(meta)
 	}
-	m.SourcesMu.RUnlock()
 }
 
 func (m *Mount) AddSource(ctx context.Context, source *SourceClient) {
