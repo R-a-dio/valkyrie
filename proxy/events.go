@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"runtime/debug"
 	"slices"
 	"sync"
 	"time"
@@ -49,23 +50,38 @@ type EventHandler struct {
 
 func newEventProxyStatus() *eventProxyStatus {
 	return &eventProxyStatus{
-		orphans: make(map[radio.SourceID]struct{}),
+		orphans: make(map[radio.SourceID]eventProxyStatusOrphan),
 		Users:   make(map[radio.UserID]*eventUser),
 	}
 }
 
 type eventProxyStatus struct {
 	sync.Mutex
-	orphans map[radio.SourceID]struct{}
+	orphans map[radio.SourceID]eventProxyStatusOrphan
 	Users   map[radio.UserID]*eventUser
 }
 
+type eventProxyStatusOrphan struct {
+	Removed bool
+	IsLive  bool
+}
+
 func (eps *eventProxyStatus) UpdateLive(ctx context.Context, sc *SourceClient) {
+	if sc == nil {
+		// got called with a nil, shouldn't happen
+		return
+	}
 	eps.Lock()
 	defer eps.Unlock()
 
 	// update our user status
 	eu := eps.Users[sc.User.ID]
+	if eu == nil {
+		o := eps.orphans[sc.ID]
+		o.IsLive = true
+		eps.orphans[sc.ID] = o
+		return
+	}
 	for _, eus := range eu.Conns {
 		if eus.ID != sc.ID {
 			continue
@@ -76,12 +92,17 @@ func (eps *eventProxyStatus) UpdateLive(ctx context.Context, sc *SourceClient) {
 }
 
 func (eps *eventProxyStatus) AddSource(ctx context.Context, sc *SourceClient) {
+	if sc == nil {
+		// got called with a nil, shouldn't happen
+		return
+	}
 	eps.Lock()
 	defer eps.Unlock()
 
 	// check if this is an orphan event, one that had their respective Remove already
 	// happen beforehand
-	if _, ok := eps.orphans[sc.ID]; ok {
+	orphan := eps.orphans[sc.ID]
+	if orphan.Removed {
 		// if it is, we ignore the whole event
 		delete(eps.orphans, sc.ID)
 		return
@@ -96,11 +117,15 @@ func (eps *eventProxyStatus) AddSource(ctx context.Context, sc *SourceClient) {
 	}
 	eu.Conns = append(eu.Conns, &eventUserSource{
 		SourceClient: sc,
-		IsLive:       false,
+		IsLive:       orphan.IsLive,
 	})
 }
 
 func (eps *eventProxyStatus) RemoveSource(ctx context.Context, sc *SourceClient) {
+	if sc == nil {
+		// got called with a nil, shouldn't happen
+		return
+	}
 	eps.Lock()
 	defer eps.Unlock()
 
@@ -109,7 +134,9 @@ func (eps *eventProxyStatus) RemoveSource(ctx context.Context, sc *SourceClient)
 		// if the user doesn't exist either RemoveSource was called twice with the same source
 		// (which shouldn't happen) or this Remove event happened before our matching Add and
 		// that would leave us with an orphan later, mark this in the map so the Add can see it
-		eps.orphans[sc.ID] = struct{}{}
+		o := eps.orphans[sc.ID]
+		o.Removed = true
+		eps.orphans[sc.ID] = o
 		return
 	}
 	// remove the sc
@@ -138,6 +165,7 @@ func (eh *EventHandler) eventNewLiveSource(ctx context.Context, mountName string
 	// some other later time we use this to avoid logic races
 	instant := time.Now()
 	go func() {
+		defer recoverPanicLogger(ctx)
 		// send source liveness event to any RPC listener
 		if new != nil {
 			eh.sourceStream.Send(radio.ProxySourceEvent{
@@ -152,7 +180,9 @@ func (eh *EventHandler) eventNewLiveSource(ctx context.Context, mountName string
 		eh.updateManagerUser(ctx, mountName, new, instant)
 
 		// update our user status
-		eh.status.UpdateLive(ctx, new)
+		if new != nil {
+			eh.status.UpdateLive(ctx, new)
+		}
 	}()
 }
 
@@ -191,6 +221,7 @@ func (eh *EventHandler) updateManagerUser(ctx context.Context, mountName string,
 func (eh *EventHandler) eventMetadataUpdate(ctx context.Context, new *Metadata) {
 	instant := time.Now()
 	go func() {
+		defer recoverPanicLogger(ctx)
 		_ = instant
 
 		// send metadata to any RPC listeners
@@ -210,6 +241,7 @@ func (eh *EventHandler) eventMetadataUpdate(ctx context.Context, new *Metadata) 
 func (eh *EventHandler) eventLiveMetadataUpdate(ctx context.Context, mountName string, metadata string) {
 	instant := time.Now()
 	go func() {
+		defer recoverPanicLogger(ctx)
 		eh.mu.Lock()
 		defer eh.mu.Unlock()
 
@@ -243,6 +275,7 @@ func (eh *EventHandler) eventLiveMetadataUpdate(ctx context.Context, mountName s
 // eventSourceConnect is called when a source connects to any mountpoint
 func (eh *EventHandler) eventSourceConnect(ctx context.Context, source *SourceClient) {
 	go func() {
+		defer recoverPanicLogger(ctx)
 		// send source connect event to any RPC listener
 		if source != nil {
 			eh.sourceStream.Send(radio.ProxySourceEvent{
@@ -261,6 +294,7 @@ func (eh *EventHandler) eventSourceConnect(ctx context.Context, source *SourceCl
 // eventSourceDisconnect is called when a source disconnects from any mountpoint
 func (eh *EventHandler) eventSourceDisconnect(ctx context.Context, source *SourceClient) {
 	go func() {
+		defer recoverPanicLogger(ctx)
 		// send source disconnect event to any RPC listener
 		if source != nil {
 			eh.sourceStream.Send(radio.ProxySourceEvent{
@@ -274,4 +308,16 @@ func (eh *EventHandler) eventSourceDisconnect(ctx context.Context, source *Sourc
 		// update our user status
 		eh.status.RemoveSource(ctx, source)
 	}()
+}
+
+func recoverPanicLogger(ctx context.Context) {
+	rvr := recover()
+	if rvr == nil {
+		return
+	}
+	if err, ok := rvr.(error); ok && err != nil {
+		zerolog.Ctx(ctx).WithLevel(zerolog.PanicLevel).Str("stack", string(debug.Stack())).Err(err).Msg("panic in event handler")
+		return
+	}
+	zerolog.Ctx(ctx).WithLevel(zerolog.PanicLevel).Str("stack", string(debug.Stack())).Any("recover", rvr).Msg("panic in event handler")
 }

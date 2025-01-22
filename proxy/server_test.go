@@ -6,7 +6,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -51,7 +50,7 @@ func dialIcecast(t *testing.T, ctx context.Context, u string, opts ...icecast.Op
 
 func TestServer(t *testing.T) {
 	ctx := context.Background()
-	ctx = zerolog.New(os.Stdout).WithContext(ctx)
+	ctx = zerolog.New(zerolog.NewConsoleWriter(zerolog.ConsoleTestWriter(t))).WithContext(ctx)
 
 	cfg := config.TestConfig()
 
@@ -136,7 +135,7 @@ func TestServer(t *testing.T) {
 		assert.Equal(c, 2, getSourcesLength(mount), "should have two sources")
 	}, time.Second, time.Millisecond*50, "mount should exist")
 
-	// see if ListSources returns out sources
+	// see if ListSources returns our sources
 	sources, err := srv.ListSources(ctx)
 	assert.NoError(t, err)
 	assert.Len(t, sources, 2)
