@@ -558,6 +558,23 @@ func fromProtoProxySource(s *ProxySource) radio.ProxySource {
 	}
 }
 
+func toProtoProxyStatusEvent(s []radio.ProxySource) *ProxyStatusEvent {
+	var pse ProxyStatusEvent
+	pse.Connections = make([]*ProxySource, len(s))
+	for i, ps := range s {
+		pse.Connections[i] = toProtoProxySource(ps)
+	}
+	return &pse
+}
+
+func fromProtoProxyStatusEvent(pse *ProxyStatusEvent) []radio.ProxySource {
+	s := make([]radio.ProxySource, len(pse.Connections))
+	for i, ps := range pse.Connections {
+		s[i] = fromProtoProxySource(ps)
+	}
+	return s
+}
+
 func toProtoGuestUser(nick string) *GuestUser {
 	return &GuestUser{
 		Name: nick,

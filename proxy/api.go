@@ -29,3 +29,7 @@ func (srv *Server) KickSource(ctx context.Context, id radio.SourceID) error {
 func (srv *Server) ListSources(ctx context.Context) ([]radio.ProxySource, error) {
 	return srv.proxy.ListSources(ctx)
 }
+
+func (srv *Server) StatusStream(ctx context.Context, id radio.UserID) (eventstream.Stream[[]radio.ProxySource], error) {
+	return srv.events.status.newUserStream(ctx, id), nil
+}

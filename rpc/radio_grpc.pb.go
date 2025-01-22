@@ -699,6 +699,7 @@ var Guest_ServiceDesc = grpc.ServiceDesc{
 const (
 	Proxy_SourceStream_FullMethodName   = "/radio.Proxy/SourceStream"
 	Proxy_MetadataStream_FullMethodName = "/radio.Proxy/MetadataStream"
+	Proxy_StatusStream_FullMethodName   = "/radio.Proxy/StatusStream"
 	Proxy_KickSource_FullMethodName     = "/radio.Proxy/KickSource"
 	Proxy_ListSources_FullMethodName    = "/radio.Proxy/ListSources"
 )
@@ -709,6 +710,7 @@ const (
 type ProxyClient interface {
 	SourceStream(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ProxySourceEvent], error)
 	MetadataStream(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ProxyMetadataEvent], error)
+	StatusStream(ctx context.Context, in *ProxyStatusRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ProxyStatusEvent], error)
 	KickSource(ctx context.Context, in *SourceID, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ListSources(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ProxyListResponse, error)
 }
@@ -759,6 +761,25 @@ func (c *proxyClient) MetadataStream(ctx context.Context, in *emptypb.Empty, opt
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type Proxy_MetadataStreamClient = grpc.ServerStreamingClient[ProxyMetadataEvent]
 
+func (c *proxyClient) StatusStream(ctx context.Context, in *ProxyStatusRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ProxyStatusEvent], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &Proxy_ServiceDesc.Streams[2], Proxy_StatusStream_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[ProxyStatusRequest, ProxyStatusEvent]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Proxy_StatusStreamClient = grpc.ServerStreamingClient[ProxyStatusEvent]
+
 func (c *proxyClient) KickSource(ctx context.Context, in *SourceID, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
@@ -785,6 +806,7 @@ func (c *proxyClient) ListSources(ctx context.Context, in *emptypb.Empty, opts .
 type ProxyServer interface {
 	SourceStream(*emptypb.Empty, grpc.ServerStreamingServer[ProxySourceEvent]) error
 	MetadataStream(*emptypb.Empty, grpc.ServerStreamingServer[ProxyMetadataEvent]) error
+	StatusStream(*ProxyStatusRequest, grpc.ServerStreamingServer[ProxyStatusEvent]) error
 	KickSource(context.Context, *SourceID) (*emptypb.Empty, error)
 	ListSources(context.Context, *emptypb.Empty) (*ProxyListResponse, error)
 	mustEmbedUnimplementedProxyServer()
@@ -802,6 +824,9 @@ func (UnimplementedProxyServer) SourceStream(*emptypb.Empty, grpc.ServerStreamin
 }
 func (UnimplementedProxyServer) MetadataStream(*emptypb.Empty, grpc.ServerStreamingServer[ProxyMetadataEvent]) error {
 	return status.Errorf(codes.Unimplemented, "method MetadataStream not implemented")
+}
+func (UnimplementedProxyServer) StatusStream(*ProxyStatusRequest, grpc.ServerStreamingServer[ProxyStatusEvent]) error {
+	return status.Errorf(codes.Unimplemented, "method StatusStream not implemented")
 }
 func (UnimplementedProxyServer) KickSource(context.Context, *SourceID) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method KickSource not implemented")
@@ -851,6 +876,17 @@ func _Proxy_MetadataStream_Handler(srv interface{}, stream grpc.ServerStream) er
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type Proxy_MetadataStreamServer = grpc.ServerStreamingServer[ProxyMetadataEvent]
+
+func _Proxy_StatusStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ProxyStatusRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ProxyServer).StatusStream(m, &grpc.GenericServerStream[ProxyStatusRequest, ProxyStatusEvent]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Proxy_StatusStreamServer = grpc.ServerStreamingServer[ProxyStatusEvent]
 
 func _Proxy_KickSource_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SourceID)
@@ -913,6 +949,11 @@ var Proxy_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "MetadataStream",
 			Handler:       _Proxy_MetadataStream_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "StatusStream",
+			Handler:       _Proxy_StatusStream_Handler,
 			ServerStreams: true,
 		},
 	},

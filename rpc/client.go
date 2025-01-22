@@ -127,14 +127,25 @@ func (p ProxyClientRPC) MetadataStream(ctx context.Context) (eventstream.Stream[
 	c := func(ctx context.Context, e *emptypb.Empty, opts ...grpc.CallOption) (pbReceiver[*ProxyMetadataEvent], error) {
 		return p.rpc.MetadataStream(ctx, e, opts...)
 	}
-	return streamFromProtobuf(ctx, c, fromProtoProxyMetadataEvent)
+	return streamFromProtobuf(ctx, c, new(emptypb.Empty), fromProtoProxyMetadataEvent)
 }
 
 func (p ProxyClientRPC) SourceStream(ctx context.Context) (eventstream.Stream[radio.ProxySourceEvent], error) {
 	c := func(ctx context.Context, e *emptypb.Empty, opts ...grpc.CallOption) (pbReceiver[*ProxySourceEvent], error) {
 		return p.rpc.SourceStream(ctx, e, opts...)
 	}
-	return streamFromProtobuf(ctx, c, fromProtoProxySourceEvent)
+	return streamFromProtobuf(ctx, c, new(emptypb.Empty), fromProtoProxySourceEvent)
+}
+
+func (p ProxyClientRPC) StatusStream(ctx context.Context, id radio.UserID) (eventstream.Stream[[]radio.ProxySource], error) {
+	c := func(ctx context.Context, req *ProxyStatusRequest, opts ...grpc.CallOption) (pbReceiver[*ProxyStatusEvent], error) {
+		return p.rpc.StatusStream(ctx, req, opts...)
+	}
+
+	req := &ProxyStatusRequest{
+		UserId: int32(id),
+	}
+	return streamFromProtobuf(ctx, c, req, fromProtoProxyStatusEvent)
 }
 
 func (p ProxyClientRPC) KickSource(ctx context.Context, id radio.SourceID) error {
@@ -211,14 +222,14 @@ func (m ManagerClientRPC) CurrentStatus(ctx context.Context) (eventstream.Stream
 	c := func(ctx context.Context, e *emptypb.Empty, opts ...grpc.CallOption) (pbReceiver[*StatusResponse], error) {
 		return m.rpc.CurrentStatus(ctx, e, opts...)
 	}
-	return streamFromProtobuf(ctx, c, fromProtoStatus)
+	return streamFromProtobuf(ctx, c, new(emptypb.Empty), fromProtoStatus)
 }
 
 func (m ManagerClientRPC) CurrentUser(ctx context.Context) (eventstream.Stream[*radio.User], error) {
 	c := func(ctx context.Context, e *emptypb.Empty, opts ...grpc.CallOption) (pbReceiver[*User], error) {
 		return m.rpc.CurrentUser(ctx, e, opts...)
 	}
-	return streamFromProtobuf(ctx, c, fromProtoUser)
+	return streamFromProtobuf(ctx, c, new(emptypb.Empty), fromProtoUser)
 }
 
 // UpdateUser implements radio.ManagerService
@@ -231,7 +242,7 @@ func (m ManagerClientRPC) CurrentSong(ctx context.Context) (eventstream.Stream[*
 	c := func(ctx context.Context, e *emptypb.Empty, opts ...grpc.CallOption) (pbReceiver[*SongUpdate], error) {
 		return m.rpc.CurrentSong(ctx, e, opts...)
 	}
-	return streamFromProtobuf(ctx, c, fromProtoSongUpdate)
+	return streamFromProtobuf(ctx, c, new(emptypb.Empty), fromProtoSongUpdate)
 }
 
 // UpdateSong implements radio.ManagerService
@@ -250,7 +261,7 @@ func (m ManagerClientRPC) CurrentThread(ctx context.Context) (eventstream.Stream
 	c := func(ctx context.Context, e *emptypb.Empty, opts ...grpc.CallOption) (pbReceiver[*wrapperspb.StringValue], error) {
 		return m.rpc.CurrentThread(ctx, e, opts...)
 	}
-	return streamFromProtobuf(ctx, c, func(v *wrapperspb.StringValue) radio.Thread { return v.Value })
+	return streamFromProtobuf(ctx, c, new(emptypb.Empty), func(v *wrapperspb.StringValue) radio.Thread { return v.Value })
 }
 
 // UpdateListeners implements radio.ManagerService
@@ -263,7 +274,7 @@ func (m ManagerClientRPC) CurrentListeners(ctx context.Context) (eventstream.Str
 	c := func(ctx context.Context, e *emptypb.Empty, opts ...grpc.CallOption) (pbReceiver[*wrapperspb.Int64Value], error) {
 		return m.rpc.CurrentListenerCount(ctx, e, opts...)
 	}
-	return streamFromProtobuf(ctx, c, func(v *wrapperspb.Int64Value) radio.Listeners { return v.Value })
+	return streamFromProtobuf(ctx, c, new(emptypb.Empty), func(v *wrapperspb.Int64Value) radio.Listeners { return v.Value })
 }
 
 func (m ManagerClientRPC) UpdateFromStorage(ctx context.Context) error {
@@ -402,7 +413,7 @@ func (q QueueClientRPC) Entries(ctx context.Context) (radio.Queue, error) {
 	return queue, nil
 }
 
-type pbCreator[P any] func(context.Context, *emptypb.Empty, ...grpc.CallOption) (pbReceiver[P], error)
+type pbCreator[P, A any] func(context.Context, A, ...grpc.CallOption) (pbReceiver[P], error)
 
 type pbReceiver[P any] interface {
 	Recv() (P, error)
@@ -428,13 +439,13 @@ func (gs *grpcStream[P, T]) Close() error {
 	return nil
 }
 
-func streamFromProtobuf[P, T any](ctx context.Context, streamFn pbCreator[P], conv func(P) T) (eventstream.Stream[T], error) {
+func streamFromProtobuf[A, P, T any](ctx context.Context, streamFn pbCreator[P, A], arg A, conv func(P) T) (eventstream.Stream[T], error) {
 	var gs grpcStream[P, T]
 	var err error
 
 	ctx, gs.cancel = context.WithCancel(ctx)
 
-	gs.s, err = streamFn(ctx, new(emptypb.Empty))
+	gs.s, err = streamFn(ctx, arg)
 	if err != nil {
 		return nil, err
 	}

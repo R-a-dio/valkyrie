@@ -422,6 +422,7 @@ type ManagerService interface {
 type ProxyService interface {
 	MetadataStream(context.Context) (eventstream.Stream[ProxyMetadataEvent], error)
 	SourceStream(context.Context) (eventstream.Stream[ProxySourceEvent], error)
+	StatusStream(context.Context, UserID) (eventstream.Stream[[]ProxySource], error)
 	KickSource(context.Context, SourceID) error
 	ListSources(context.Context) ([]ProxySource, error)
 }

@@ -92,12 +92,21 @@ message GuestCanDo {
 service Proxy {
     rpc SourceStream(google.protobuf.Empty) returns (stream ProxySourceEvent);
     rpc MetadataStream(google.protobuf.Empty) returns (stream ProxyMetadataEvent);
+    rpc StatusStream(ProxyStatusRequest) returns (stream ProxyStatusEvent);
     rpc KickSource(SourceID) returns (google.protobuf.Empty);
     rpc ListSources(google.protobuf.Empty) returns (ProxyListResponse);
 }
 
 message ProxyListResponse {
     repeated ProxySource sources = 1;
+}
+
+message ProxyStatusRequest {
+    int32 user_id = 1;
+}
+
+message ProxyStatusEvent {
+    repeated ProxySource connections = 1;
 }
 
 message ProxySource {

@@ -122,6 +122,10 @@ func (p *proxyService) SourceStream(ctx context.Context) (eventstream.Stream[rad
 	return p.fn().SourceStream(ctx)
 }
 
+func (p *proxyService) StatusStream(ctx context.Context, id radio.UserID) (eventstream.Stream[[]radio.ProxySource], error) {
+	return p.fn().StatusStream(ctx, id)
+}
+
 func (p *proxyService) KickSource(ctx context.Context, id radio.SourceID) error {
 	return p.fn().KickSource(ctx, id)
 }
