@@ -19,6 +19,7 @@ const (
 )
 
 const TIMEOUT = time.Millisecond * 100
+const SUB_BUFFER_SIZE = 8
 
 type cmd byte
 
@@ -218,7 +219,7 @@ func (es *EventStream[M]) CompareAndSend(m M, fn func(new M, old M) bool) {
 // send through calling Send with a small buffer and receive grace period if
 // they fall behind.
 func (es *EventStream[M]) Sub() chan M {
-	ch := make(chan M, 8)
+	ch := make(chan M, SUB_BUFFER_SIZE)
 
 	select {
 	case es.reqs <- request[M]{cmd: SUBSCRIBE, ch: ch}:
