@@ -9,6 +9,7 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
+	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/util/eventstream"
 	"github.com/rs/zerolog"
 )
@@ -50,20 +51,62 @@ type EventHandler struct {
 
 func newEventProxyStatus() *eventProxyStatus {
 	return &eventProxyStatus{
-		orphans: make(map[radio.SourceID]eventProxyStatusOrphan),
-		Users:   make(map[radio.UserID]*eventUser),
+		orphans:  make(map[radio.SourceID]eventProxyStatusOrphan),
+		UserInfo: make(map[radio.UserID]*eventUser),
 	}
 }
 
+type UserStreamsMap = util.Map[radio.UserID, func() *UserStatusStream]
+
+type UserStatusStream = eventstream.EventStream[[]radio.ProxySource]
+
 type eventProxyStatus struct {
 	sync.Mutex
-	orphans map[radio.SourceID]eventProxyStatusOrphan
-	Users   map[radio.UserID]*eventUser
+	orphans     map[radio.SourceID]eventProxyStatusOrphan
+	UserStreams UserStreamsMap
+	UserInfo    map[radio.UserID]*eventUser
 }
 
 type eventProxyStatusOrphan struct {
 	Removed bool
 	IsLive  bool
+}
+
+func (eps *eventProxyStatus) newUserStream(ctx context.Context, id radio.UserID) eventstream.Stream[[]radio.ProxySource] {
+	// TODO: figure out how to shut these eventstreams down when all subscribers are gone
+	esfn, _ := eps.UserStreams.LoadOrStore(id, sync.OnceValue(func() *UserStatusStream {
+		return eventstream.NewEventStream[[]radio.ProxySource](nil)
+	}))
+
+	return esfn().SubStream(ctx)
+}
+
+func (eps *eventProxyStatus) sendCurrentStatus(id radio.UserID) {
+	// check if there is someone listening for this users status
+	esfn, exists := eps.UserStreams.Load(id)
+	if !exists {
+		// if there isn't just do nothing
+		return
+	}
+
+	esfn().Send(eps.generateCurrentStatus(id))
+}
+
+func (eps *eventProxyStatus) generateCurrentStatus(id radio.UserID) []radio.ProxySource {
+	eps.Lock()
+	defer eps.Unlock()
+
+	eu := eps.UserInfo[id]
+	if eu == nil {
+		// no user info available
+		return nil
+	}
+
+	status := make([]radio.ProxySource, 0, len(eu.Conns))
+	for _, sc := range eu.Conns {
+		status = append(status, ProxySourceFromSourceClient(sc.SourceClient, 0, sc.IsLive))
+	}
+	return status
 }
 
 func (eps *eventProxyStatus) UpdateLive(ctx context.Context, sc *SourceClient) {
@@ -75,7 +118,7 @@ func (eps *eventProxyStatus) UpdateLive(ctx context.Context, sc *SourceClient) {
 	defer eps.Unlock()
 
 	// update our user status
-	eu := eps.Users[sc.User.ID]
+	eu := eps.UserInfo[sc.User.ID]
 	if eu == nil {
 		o := eps.orphans[sc.ID]
 		o.IsLive = true
@@ -112,12 +155,12 @@ func (eps *eventProxyStatus) AddSource(ctx context.Context, sc *SourceClient) {
 		return
 	}
 
-	eu := eps.Users[sc.User.ID]
+	eu := eps.UserInfo[sc.User.ID]
 	if eu == nil {
 		eu = &eventUser{
 			User: sc.User,
 		}
-		eps.Users[sc.User.ID] = eu
+		eps.UserInfo[sc.User.ID] = eu
 	}
 	eu.Conns = append(eu.Conns, &eventUserSource{
 		SourceClient: sc,
@@ -133,7 +176,7 @@ func (eps *eventProxyStatus) RemoveSource(ctx context.Context, sc *SourceClient)
 	eps.Lock()
 	defer eps.Unlock()
 
-	eu := eps.Users[sc.User.ID]
+	eu := eps.UserInfo[sc.User.ID]
 	if eu == nil {
 		// if the user doesn't exist either RemoveSource was called twice with the same source
 		// (which shouldn't happen) or this Remove event happened before our matching Add and
@@ -149,7 +192,7 @@ func (eps *eventProxyStatus) RemoveSource(ctx context.Context, sc *SourceClient)
 	})
 	// if we have no conns left remove ourselves from the map
 	if len(eu.Conns) == 0 {
-		delete(eps.Users, sc.User.ID)
+		delete(eps.UserInfo, sc.User.ID)
 	}
 }
 

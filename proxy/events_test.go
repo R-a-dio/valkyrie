@@ -31,10 +31,10 @@ func TestEventProxyStatus(t *testing.T) {
 		sc := newsc(5)
 
 		eps.AddSource(ctx, sc)
-		require.NotNil(t, eps.Users[sc.User.ID])
+		require.NotNil(t, eps.UserInfo[sc.User.ID])
 
 		eps.RemoveSource(ctx, sc)
-		require.Nil(t, eps.Users[sc.User.ID])
+		require.Nil(t, eps.UserInfo[sc.User.ID])
 	})
 
 	t.Run("orphans", func(t *testing.T) {
@@ -43,7 +43,7 @@ func TestEventProxyStatus(t *testing.T) {
 			eps.RemoveSource(ctx, sc)
 
 			eps.AddSource(ctx, sc)
-			require.Nil(t, eps.Users[sc.User.ID])
+			require.Nil(t, eps.UserInfo[sc.User.ID])
 		})
 
 		t.Run("live and add", func(t *testing.T) {
@@ -51,7 +51,7 @@ func TestEventProxyStatus(t *testing.T) {
 			eps.UpdateLive(ctx, sc)
 			eps.AddSource(ctx, sc)
 
-			require.True(t, eps.Users[sc.User.ID].Conns[0].IsLive)
+			require.True(t, eps.UserInfo[sc.User.ID].Conns[0].IsLive)
 			eps.RemoveSource(ctx, sc)
 		})
 
@@ -60,10 +60,10 @@ func TestEventProxyStatus(t *testing.T) {
 			eps.RemoveSource(ctx, sc)
 			eps.UpdateLive(ctx, sc)
 			eps.AddSource(ctx, sc)
-			require.Nil(t, eps.Users[sc.User.ID])
+			require.Nil(t, eps.UserInfo[sc.User.ID])
 		})
 	})
 
 	require.Empty(t, eps.orphans, "orphans should be empty after tests")
-	require.Empty(t, eps.Users, "users should be empty after tests")
+	require.Empty(t, eps.UserInfo, "users should be empty after tests")
 }
