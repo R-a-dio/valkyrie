@@ -439,6 +439,19 @@ func (gs *grpcStream[P, T]) Close() error {
 	return nil
 }
 
+// streamFromProtobuf turns a grpc.ClientStream into an eventstream.Stream
+//
+// the types are:
+//
+//	A: the argument to the grpc stream creation function
+//	P: the protobuf type the grpc stream returns
+//	T: the radio type the eventstream.Stream should return
+//
+// the arguments are:
+//
+//	streamFn: the grpc function to create the grpc stream side
+//	arg: the argument to streamFn
+//	conv: a function that converts P into T
 func streamFromProtobuf[A, P, T any](ctx context.Context, streamFn pbCreator[P, A], arg A, conv func(P) T) (eventstream.Stream[T], error) {
 	var gs grpcStream[P, T]
 	var err error
@@ -447,6 +460,7 @@ func streamFromProtobuf[A, P, T any](ctx context.Context, streamFn pbCreator[P, 
 
 	gs.s, err = streamFn(ctx, arg)
 	if err != nil {
+		gs.cancel()
 		return nil, err
 	}
 

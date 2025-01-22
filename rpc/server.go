@@ -64,6 +64,12 @@ func (ps ProxyShim) SourceStream(_ *emptypb.Empty, s Proxy_SourceStreamServer) e
 	return streamToProtobuf(s, ps.proxy.SourceStream, toProtoProxySourceEvent)
 }
 
+func (ps ProxyShim) StatusStream(req *ProxyStatusRequest, s Proxy_StatusStreamServer) error {
+	return streamToProtobuf(s, func(ctx context.Context) (eventstream.Stream[[]radio.ProxySource], error) {
+		return ps.proxy.StatusStream(ctx, radio.UserID(req.UserId))
+	}, toProtoProxyStatusEvent)
+}
+
 func (ps ProxyShim) KickSource(ctx context.Context, id *SourceID) (*emptypb.Empty, error) {
 	err := ps.proxy.KickSource(ctx, fromProtoSourceID(id))
 	return new(emptypb.Empty), err
@@ -145,6 +151,18 @@ type pbSender[P any] interface {
 	grpc.ServerStream
 }
 
+// streamToProtobuf turns an eventstream.Stream into an grpc.ServerStream
+//
+// the types are:
+//
+//	T: the radio type the eventstream.Stream returns
+//	P: the protobuf type the grpc stream returns
+//
+// the arguments are:
+//
+//	s: the grpc ServerStream
+//	streamFn: the function to make the eventstream.Stream
+//	conv: a function that converts T into P
 func streamToProtobuf[T any, P any](s pbSender[P], streamFn func(context.Context) (eventstream.Stream[T], error), conv func(T) P) error {
 	ctx, cancel := context.WithCancel(s.Context())
 	defer cancel()
