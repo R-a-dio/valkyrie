@@ -75,7 +75,7 @@ type eventProxyStatusOrphan struct {
 func (eps *eventProxyStatus) newUserStream(ctx context.Context, id radio.UserID) eventstream.Stream[[]radio.ProxySource] {
 	// TODO: figure out how to shut these eventstreams down when all subscribers are gone
 	esfn, _ := eps.UserStreams.LoadOrStore(id, sync.OnceValue(func() *UserStatusStream {
-		return eventstream.NewEventStream[[]radio.ProxySource](nil)
+		return eventstream.NewEventStream(eps.generateCurrentStatus(id))
 	}))
 
 	return esfn().SubStream(ctx)
@@ -114,6 +114,7 @@ func (eps *eventProxyStatus) UpdateLive(ctx context.Context, sc *SourceClient) {
 		// got called with a nil, shouldn't happen
 		return
 	}
+	defer eps.sendCurrentStatus(sc.User.ID)
 	eps.Lock()
 	defer eps.Unlock()
 
@@ -139,6 +140,7 @@ func (eps *eventProxyStatus) AddSource(ctx context.Context, sc *SourceClient) {
 		// got called with a nil, shouldn't happen
 		return
 	}
+	defer eps.sendCurrentStatus(sc.User.ID)
 	eps.Lock()
 	defer eps.Unlock()
 
@@ -173,6 +175,7 @@ func (eps *eventProxyStatus) RemoveSource(ctx context.Context, sc *SourceClient)
 		// got called with a nil, shouldn't happen
 		return
 	}
+	defer eps.sendCurrentStatus(sc.User.ID)
 	eps.Lock()
 	defer eps.Unlock()
 
