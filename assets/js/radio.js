@@ -39,13 +39,49 @@ function debugEventSource(url) {
     });
 }
 
-function displayError(message) {
+function displayError(message, identifier) {
+    let container = document.getElementById("error-container");
+    // first check if we have a notification marked by the identifier
+    if (identifier) {
+        let existing = container.querySelector(`#${identifier}`);
+        if (existing) {
+            let msgbox = existing.querySelector(".error-message");
+
+            if (!msgbox.dataset.errorCount) {
+                msgbox.dataset.errorCount = 1;
+            }
+            msgbox.dataset.errorCount++;
+            message += ` [${msgbox.dataset.errorCount} times so far]`;
+
+            msgbox.textContent = message;
+            return
+        }
+    }
+
+    // otherwise make a new one
     let tmpl = document.getElementById("error-template");
     let n = tmpl.content.cloneNode(true);
 
+    if (identifier) {
+        n.firstElementChild.id = identifier;
+    }
+
     n.querySelector(".error-message").textContent = message;
     htmx.process(n);
-    document.getElementById("error-container").appendChild(n);
+    console.log("after process");
+    container.appendChild(n);
+}
+
+function clearError(identifier) {
+    let container = document.getElementById("error-container");
+
+    let el = container.querySelector(`#${identifier}`);
+    if (!el) {
+        // nothing to do if it exists
+        return
+    }
+
+    el.parentElement.removeChild(el);
 }
 
 function addEventListener(name, event, node, fn) {
@@ -58,8 +94,20 @@ function addEventListener(name, event, node, fn) {
 
 htmx.createEventSource = function (url) {
     es = new EventSource(url);
-    return es
+    return es;
 }
+
+htmx.on('htmx:responseError', (event) => {
+    displayError(`[Error] an error has occurred`);
+})
+
+htmx.on('htmx:sendError', (event) => {
+    displayError(`[Error: ${event.detail.xhr.status}] server is unreachable`);
+})
+
+htmx.on('htmx:sseError', (event) => {
+    displayError("live sse api unreachable or offline", "error-sse");
+})
 
 htmx.on('htmx:load', (event) => {
     // unhide any elements that want to be visible if there is javascript
@@ -81,7 +129,6 @@ htmx.on('htmx:load', (event) => {
             htmx.find('#submit-progress').setAttribute('value', event.detail.loaded / event.detail.total * 100);
         });
         // submission page daypass handling, move it into the header instead of the form
-        console.log("registering submission daypass-header handler");
         addEventListener("BeforeRequest", "htmx:beforeRequest", submit, (event) => {
             let daypass = document.querySelector("input[name='daypass']").value
             if (daypass != "") {
@@ -89,13 +136,14 @@ htmx.on('htmx:load', (event) => {
             }
         });
     }
+
+    // create a stream instance if one doesn't exist yet
     let initStream = document.getElementById("stream-audio")
     if (initStream && !stream) {
-        console.log("creating stream player");
         stream = new Stream(initStream.getElementsByTagName("source")[0].src);
     }
+    // and register event handlers on it
     if (stream && stream.button() && !stream.button().dataset.hasclick) {
-        console.log("registering stream play/stop button handler");
         stream.button().onclick = async (event) => { await stream.playStop(event) };
         stream.button().dataset.hasclick = true;
         if (stream.audio && !stream.audio.paused) {
@@ -104,8 +152,7 @@ htmx.on('htmx:load', (event) => {
     }
     // register volume slider
     let volume = document.getElementById("stream-volume");
-    if (volume && !volume.dataset.haslistener) {
-        volume.dataset.haslistener = true;
+    if (volume) {
         volume.value = localStorage.getItem("volume");
         addEventListener("Volume", "input", volume, (ev) => {
             vol = parseFloat(ev.target.value) / 100.0;
