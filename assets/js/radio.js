@@ -51,7 +51,7 @@ function displayError(message, identifier) {
                 msgbox.dataset.errorCount = 1;
             }
             msgbox.dataset.errorCount++;
-            message += ` [${msgbox.dataset.errorCount} times so far]`;
+            message += `\r\n[${msgbox.dataset.errorCount} times so far]`;
 
             msgbox.textContent = message;
             return
@@ -66,9 +66,12 @@ function displayError(message, identifier) {
         n.firstElementChild.id = identifier;
     }
 
-    n.querySelector(".error-message").textContent = message;
+    let msgbox = n.querySelector('.error-message')
+    msgbox.textContent = message;
+    // and add support for newlines
+    msgbox.style.whiteSpace = "pre-line";
+
     htmx.process(n);
-    console.log("after process");
     container.appendChild(n);
 }
 
@@ -106,7 +109,11 @@ htmx.on('htmx:sendError', (event) => {
 })
 
 htmx.on('htmx:sseError', (event) => {
-    displayError("live sse api unreachable or offline", "error-sse");
+    displayError("[SSE Error]\r\nyou'll not receive live page updates while this box is showing\r\nserver might be down or your internet, it will retry every 5 seconds.", "error-sse");
+})
+
+htmx.on('htmx:sseOpen', (event) => {
+    clearError("error-sse");
 })
 
 htmx.on('htmx:load', (event) => {
