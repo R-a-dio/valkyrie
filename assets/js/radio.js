@@ -39,6 +39,23 @@ function debugEventSource(url) {
     });
 }
 
+function displayError(message) {
+    let tmpl = document.getElementById("error-template");
+    let n = tmpl.content.cloneNode(true);
+
+    n.querySelector(".error-message").textContent = message;
+    htmx.process(n);
+    document.getElementById("error-container").appendChild(n);
+}
+
+function addEventListener(name, event, node, fn) {
+    let key = `radioListener${name}`;
+    if (!node.dataset[key]) {
+        node.addEventListener(event, fn);
+        node.dataset[key] = true;
+    }
+}
+
 htmx.createEventSource = function (url) {
     es = new EventSource(url);
     return es
@@ -60,13 +77,12 @@ htmx.on('htmx:load', (event) => {
     let submit = document.getElementById('submit');
     if (submit) {
         // submission page progress bar
-        console.log("registering submission progress handler");
-        submit.addEventListener('htmx:xhr:progress', (event) => {
+        addEventListener("Progress", "htmx:xhr:progress", submit, (event) => {
             htmx.find('#submit-progress').setAttribute('value', event.detail.loaded / event.detail.total * 100);
         });
         // submission page daypass handling, move it into the header instead of the form
         console.log("registering submission daypass-header handler");
-        submit.addEventListener('htmx:beforeRequest', (event) => {
+        addEventListener("BeforeRequest", "htmx:beforeRequest", submit, (event) => {
             let daypass = document.querySelector("input[name='daypass']").value
             if (daypass != "") {
                 event.detail.xhr.setRequestHeader("X-Daypass", daypass);
@@ -91,7 +107,7 @@ htmx.on('htmx:load', (event) => {
     if (volume && !volume.dataset.haslistener) {
         volume.dataset.haslistener = true;
         volume.value = localStorage.getItem("volume");
-        volume.addEventListener("input", (ev) => {
+        addEventListener("Volume", "input", volume, (ev) => {
             vol = parseFloat(ev.target.value) / 100.0;
             if (stream) {
                 stream.setVolume(vol, true);
@@ -139,7 +155,7 @@ htmx.on('htmx:load', (event) => {
 
     let progress = document.querySelector("#admin-player-progress");
     if (progress && !progress.dataset.haslistener) {
-        progress.dataset = haslistener = true;
+        progress.dataset.haslistener = true;
         progress.addEventListener("input", (ev) => {
             prog = parseFloat(ev.target.value) / 100.0;
             if (admin_player && admin_player.duration)
