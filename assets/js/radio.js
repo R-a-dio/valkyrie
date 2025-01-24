@@ -109,6 +109,8 @@ htmx.on('htmx:sendError', (event) => {
 })
 
 htmx.on('htmx:sseError', (event) => {
+    // don't show an error if the close was on purpose
+    if (es.readyState === es.CLOSED) return;
     displayError("[SSE Error]\r\nyou'll not receive live page updates while this box is showing\r\nserver might be down or your internet, it will retry every 5 seconds.", "error-sse");
 })
 
