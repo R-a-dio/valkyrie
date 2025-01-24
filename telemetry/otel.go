@@ -84,9 +84,15 @@ func Init(ctx context.Context, cfg config.Config, service string) (func(), error
 	}()
 
 	closeFn := func() {
-		tp.Shutdown(context.Background())
-		mp.Shutdown(context.Background())
-		lp.Shutdown(context.Background())
+		// this function will most likely run after our global context is already canceled so
+		// remove that cancel from it
+		ctx = context.WithoutCancel(ctx)
+		// then at our own timeout so we don't wait forever on telemetry shutdown
+		ctx, cancel := context.WithTimeout(ctx, time.Second*10)
+		defer cancel()
+		tp.Shutdown(ctx)
+		mp.Shutdown(ctx)
+		lp.Shutdown(ctx)
 	}
 
 	return closeFn, err

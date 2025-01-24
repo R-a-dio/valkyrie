@@ -64,11 +64,14 @@ func (c cmd) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{}) 
 	})
 
 	// setup telemetry if wanted
+	var telemetryMu sync.Mutex
 	var telemetryShutdown func()
 	defer func() {
+		telemetryMu.Lock()
 		if telemetryShutdown != nil {
 			telemetryShutdown()
 		}
+		telemetryMu.Unlock()
 	}()
 
 	loader := func() (config.Config, error) {
@@ -82,6 +85,8 @@ func (c cmd) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{}) 
 		}
 
 		// yes telemetry
+		telemetryMu.Lock()
+		defer telemetryMu.Unlock()
 		telemetryShutdown, err = telemetry.Init(ctx, cfg, flag.CommandLine.Arg(0))
 		if err != nil {
 			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to initialize telemetry")

@@ -12,6 +12,7 @@ import (
 	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/util/pool"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 var bufferPool = pool.NewResetPool(func() *bytes.Buffer {
@@ -64,6 +65,13 @@ func (e *executor) ExecuteTemplate(ctx context.Context, theme radio.ThemeName, p
 
 	// tracing support
 	ctx, span := otel.Tracer("templates").Start(ctx, "template")
+	if span.IsRecording() {
+		span.SetAttributes(
+			attribute.String("theme", string(theme)),
+			attribute.String("page", page),
+			attribute.String("template", template),
+		)
+	}
 	defer span.End()
 
 	_, span = otel.Tracer("templates").Start(ctx, "template_load")
