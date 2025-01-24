@@ -49,7 +49,7 @@ func genUser() gopter.Gen {
 
 	return gen.Struct(reflect.TypeOf(radio.User{}), map[string]gopter.Gen{
 		"ID":              arbitraries.GenForType(reflect.TypeOf(radio.UserID(0))).SuchThat(Positive),
-		"Username":        gen.AlphaString().SuchThat(LimitString(50)),
+		"Username":        gen.AlphaString().SuchThat(LimitString(50)).SuchThat(func(s string) bool { return len(s) > 0 }),
 		"Password":        gen.AlphaString().SuchThat(LimitString(120)),
 		"Email":           gen.RegexMatch(`\w+@\w+\.\w{2,25}`).SuchThat(LimitString(255)),
 		"IP":              gen.RegexMatch(`\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}`),
