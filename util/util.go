@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -223,7 +224,10 @@ func StreamValue[T any](ctx context.Context, fn StreamFn[T], callbackFn ...Strea
 				value.last.Store(&v)
 
 				for _, callback := range callbackFn {
-					callback(ctx, v)
+					func() {
+						defer recoverPanicLogger(ctx)
+						callback(ctx, v)
+					}()
 				}
 			}
 			stream.Close()
@@ -231,6 +235,18 @@ func StreamValue[T any](ctx context.Context, fn StreamFn[T], callbackFn ...Strea
 	}()
 
 	return &value
+}
+
+func recoverPanicLogger(ctx context.Context) {
+	rvr := recover()
+	if rvr == nil {
+		return
+	}
+	if err, ok := rvr.(error); ok && err != nil {
+		zerolog.Ctx(ctx).WithLevel(zerolog.PanicLevel).Str("stack", string(debug.Stack())).Err(err).Msg("panic in StreamValue callback")
+		return
+	}
+	zerolog.Ctx(ctx).WithLevel(zerolog.PanicLevel).Str("stack", string(debug.Stack())).Any("recover", rvr).Msg("panic in StreamValue callback")
 }
 
 type Value[T any] struct {
