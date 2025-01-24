@@ -21,6 +21,8 @@ import (
 	"github.com/Wessie/fdstore"
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func init() {
@@ -197,6 +199,12 @@ func StreamValue[T any](ctx context.Context, fn StreamFn[T], callbackFn ...Strea
 		for {
 			stream, err := fn(ctx)
 			if err != nil {
+				if status.Code(err) == codes.Canceled {
+					// in case of cancel just exit quietly
+					zerolog.Ctx(ctx).Debug().Err(err).Msg("stream-value: ctx canceled")
+					return
+				}
+
 				// stream creation error most likely means the service
 				// is down or unavailable for some reason so retry in
 				// a little bit and stay alive
@@ -217,6 +225,11 @@ func StreamValue[T any](ctx context.Context, fn StreamFn[T], callbackFn ...Strea
 					// we either got context canceled or received some
 					// stream error that indicates we need a new stream,
 					// try and get one from the outer loop.
+					if status.Code(err) == codes.Canceled {
+						// in case of cancel just exit quietly
+						zerolog.Ctx(ctx).Debug().Err(err).Msg("stream-value: ctx canceled")
+						return
+					}
 					zerolog.Ctx(ctx).Error().Err(err).Msg("stream-value: next error")
 					break
 				}
