@@ -350,7 +350,7 @@ func (b *BoothAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// stream for who is currently streaming
 	util.StreamValue(ctx, b.Manager.CurrentUser, func(ctx context.Context, user *radio.User) {
-		write("streamer", &BoothStreamerInput{User: user})
+		write("streamer", (*BoothStreamerInput)(user))
 	})
 
 	// stream for the generic stream status
@@ -423,12 +423,13 @@ func (b *BoothAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-type BoothStreamerInput struct {
-	boothInput
-	*radio.User
+type BoothStreamerInput radio.User
+
+func (*BoothStreamerInput) TemplateBundle() string {
+	return "booth"
 }
 
-func (BoothStreamerInput) TemplateName() string {
+func (*BoothStreamerInput) TemplateName() string {
 	return "streamer"
 }
 
