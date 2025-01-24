@@ -68,7 +68,7 @@ func NewBoothInput(ps radio.ProxyService, r *http.Request, connectTimeout time.D
 		Connections: connections,
 	}
 
-	input.StreamerInfo, err = NewBoothStopStreamerInput(r, connectTimeout)
+	input.StreamerInfo, err = NewBoothStopStreamerInput(r, connectTimeout, input.Status.StreamUser)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
@@ -111,16 +111,17 @@ func proxySourceListToMap(sources []radio.ProxySource) map[string][]radio.ProxyS
 	return sm
 }
 
-func NewBoothStopStreamerInput(r *http.Request, timeout time.Duration) (*BoothStopStreamerInput, error) {
+func NewBoothStopStreamerInput(r *http.Request, timeout time.Duration, currentUser *radio.User) (*BoothStopStreamerInput, error) {
 	var isRobot bool
 	var isLive bool
+	user := middleware.UserFromContext(r.Context())
 
-	input := middleware.InputFromRequest(r)
-	if su := input.Status.StreamUser; su.IsValid() {
+	// guard against no current user
+	if currentUser.IsValid() {
 		// check if the user currently streaming is a robot
-		isRobot = su.UserPermissions.HasExplicit(radio.PermRobot)
+		isRobot = currentUser.UserPermissions.HasExplicit(radio.PermRobot)
 		// check if the user currently streaming is equal to our user
-		isLive = su.ID == input.User.ID
+		isLive = currentUser.ID == user.ID
 	}
 
 	return &BoothStopStreamerInput{
@@ -190,7 +191,7 @@ func (s *State) PostBoothStopStreamer(w http.ResponseWriter, r *http.Request) {
 func (s *State) postBoothStopStreamer(r *http.Request) (*BoothStopStreamerInput, error) {
 	ctx := r.Context()
 
-	input, err := NewBoothStopStreamerInput(r, time.Duration(s.Conf().Streamer.ConnectTimeout))
+	input, err := NewBoothStopStreamerInput(r, time.Duration(s.Conf().Streamer.ConnectTimeout), middleware.InputFromRequest(r).Status.StreamUser)
 	if err != nil {
 		return nil, err
 	}
@@ -350,7 +351,17 @@ func (b *BoothAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// stream for who is currently streaming
 	util.StreamValue(ctx, b.Manager.CurrentUser, func(ctx context.Context, user *radio.User) {
+		// update the streamer view
 		write("streamer", (*BoothStreamerInput)(user))
+
+		// update the stop button state
+		input, err := NewBoothStopStreamerInput(r, b.connectTimeoutCfg(), user)
+		if err != nil {
+			logger.Error().Err(err).Msg("failed to create stop-streamer input")
+			return
+		}
+
+		write("stop-streamer", input)
 	})
 
 	// stream for the generic stream status
@@ -382,16 +393,6 @@ func (b *BoothAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			write("proxy-status", input)
 		},
 	)
-	// stream for who is (dis)connecting to the proxy
-	util.StreamValue(ctx, b.Proxy.SourceStream, func(ctx context.Context, event radio.ProxySourceEvent) {
-		input, err := NewBoothStopStreamerInput(r, b.connectTimeoutCfg())
-		if err != nil {
-			logger.Error().Err(err).Msg("failed to create stop-streamer input")
-			return
-		}
-
-		write("stop-streamer", input)
-	})
 
 	// now keep the request alive with a ticker and a ping send to the client every 10 seconds
 	ticker := time.NewTicker(time.Second * 10)
