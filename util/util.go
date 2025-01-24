@@ -227,6 +227,8 @@ func StreamValue[T any](ctx context.Context, fn StreamFn[T], callbackFn ...Strea
 				}
 			}
 
+			zerolog.Ctx(ctx).Info().Msg("stream-value: connected")
+
 			for {
 				v, err := stream.Next()
 				if err != nil {

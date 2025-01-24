@@ -29,11 +29,32 @@ func (boothInput) TemplateBundle() string {
 	return "booth"
 }
 
+type BoothStreamerList struct {
+	boothInput
+	Streamers []radio.ProxySource
+}
+
+func (BoothStreamerList) TemplateName() string {
+	return "proxy-streamers"
+}
+
+func NewBoothStreamerList(ctx context.Context, ps radio.ProxyService) (*BoothStreamerList, error) {
+	const op errors.Op = "website/admin.NewBoothStreamerList"
+
+	s, err := ps.ListSources(ctx)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+	s = filterAndSortProxySources(s)
+	return &BoothStreamerList{Streamers: s}, nil
+}
+
 type BoothInput struct {
 	middleware.Input
 	boothInput
 	CSRFTokenInput template.HTML
 
+	StreamerList *BoothStreamerList
 	ProxyStatus  *BoothProxyStatusInput
 	StreamerInfo *BoothStopStreamerInput
 	ThreadInfo   *BoothSetThreadInput
@@ -60,6 +81,11 @@ func NewBoothInput(ps radio.ProxyService, r *http.Request, connectTimeout time.D
 	connections, err := util.OneOff(r.Context(), func(ctx context.Context) (eventstream.Stream[[]radio.ProxySource], error) {
 		return ps.StatusStream(ctx, input.User.ID)
 	})
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	input.StreamerList, err = NewBoothStreamerList(r.Context(), ps)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
@@ -95,6 +121,20 @@ func (s *State) GetBooth(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func filterAndSortProxySources(sources []radio.ProxySource) []radio.ProxySource {
+	var sm []radio.ProxySource
+	for _, source := range sources {
+		// TODO: don't use a literal string for main mountpoint
+		if source.MountName == "/main.mp3" {
+			sm = append(sm, source)
+		}
+	}
+	// sort them by their priority
+	slices.SortStableFunc(sm, func(a, b radio.ProxySource) int {
+		return cmp.Compare(a.Priority, b.Priority)
+	})
+	return sm
+}
 func proxySourceListToMap(sources []radio.ProxySource) map[string][]radio.ProxySource {
 	// generate a mapping of mountname to sources
 	sm := make(map[string][]radio.ProxySource, 3)
@@ -393,6 +433,22 @@ func (b *BoothAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			write("proxy-status", input)
 		},
 	)
+
+	util.StreamValue(ctx, b.Proxy.SourceStream, func(ctx context.Context, event radio.ProxySourceEvent) {
+		switch event.Event {
+		case radio.SourceConnect, radio.SourceDisconnect:
+		default:
+			return
+		}
+
+		input, err := NewBoothStreamerList(ctx, b.Proxy)
+		if err != nil {
+			logger.Error().Err(err).Msg("failed to create streamer list input")
+			return
+		}
+
+		write("proxy-streamers", input)
+	})
 
 	// now keep the request alive with a ticker and a ping send to the client every 10 seconds
 	ticker := time.NewTicker(time.Second * 10)
