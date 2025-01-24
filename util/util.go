@@ -196,8 +196,16 @@ func StreamValue[T any](ctx context.Context, fn StreamFn[T], callbackFn ...Strea
 	value.last.Store(new(T))
 
 	go func() {
+		var stream eventstream.Stream[T]
+		var err error
+		defer func() {
+			if stream != nil {
+				stream.Close()
+			}
+		}()
+
 		for {
-			stream, err := fn(ctx)
+			stream, err = fn(ctx)
 			if err != nil {
 				if status.Code(err) == codes.Canceled {
 					// in case of cancel just exit quietly
