@@ -5,6 +5,8 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/util/eventstream"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -124,21 +126,21 @@ type ProxyClientRPC struct {
 }
 
 func (p ProxyClientRPC) MetadataStream(ctx context.Context) (eventstream.Stream[radio.ProxyMetadataEvent], error) {
-	c := func(ctx context.Context, e *emptypb.Empty, opts ...grpc.CallOption) (pbReceiver[*ProxyMetadataEvent], error) {
+	c := func(ctx context.Context, e *emptypb.Empty, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ProxyMetadataEvent], error) {
 		return p.rpc.MetadataStream(ctx, e, opts...)
 	}
 	return streamFromProtobuf(ctx, c, new(emptypb.Empty), fromProtoProxyMetadataEvent)
 }
 
 func (p ProxyClientRPC) SourceStream(ctx context.Context) (eventstream.Stream[radio.ProxySourceEvent], error) {
-	c := func(ctx context.Context, e *emptypb.Empty, opts ...grpc.CallOption) (pbReceiver[*ProxySourceEvent], error) {
+	c := func(ctx context.Context, e *emptypb.Empty, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ProxySourceEvent], error) {
 		return p.rpc.SourceStream(ctx, e, opts...)
 	}
 	return streamFromProtobuf(ctx, c, new(emptypb.Empty), fromProtoProxySourceEvent)
 }
 
 func (p ProxyClientRPC) StatusStream(ctx context.Context, id radio.UserID) (eventstream.Stream[[]radio.ProxySource], error) {
-	c := func(ctx context.Context, req *ProxyStatusRequest, opts ...grpc.CallOption) (pbReceiver[*ProxyStatusEvent], error) {
+	c := func(ctx context.Context, req *ProxyStatusRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ProxyStatusEvent], error) {
 		return p.rpc.StatusStream(ctx, req, opts...)
 	}
 
@@ -219,14 +221,14 @@ var _ radio.ManagerService = ManagerClientRPC{}
 
 // Status implements radio.ManagerService
 func (m ManagerClientRPC) CurrentStatus(ctx context.Context) (eventstream.Stream[radio.Status], error) {
-	c := func(ctx context.Context, e *emptypb.Empty, opts ...grpc.CallOption) (pbReceiver[*StatusResponse], error) {
+	c := func(ctx context.Context, e *emptypb.Empty, opts ...grpc.CallOption) (grpc.ServerStreamingClient[StatusResponse], error) {
 		return m.rpc.CurrentStatus(ctx, e, opts...)
 	}
 	return streamFromProtobuf(ctx, c, new(emptypb.Empty), fromProtoStatus)
 }
 
 func (m ManagerClientRPC) CurrentUser(ctx context.Context) (eventstream.Stream[*radio.User], error) {
-	c := func(ctx context.Context, e *emptypb.Empty, opts ...grpc.CallOption) (pbReceiver[*User], error) {
+	c := func(ctx context.Context, e *emptypb.Empty, opts ...grpc.CallOption) (grpc.ServerStreamingClient[User], error) {
 		return m.rpc.CurrentUser(ctx, e, opts...)
 	}
 	return streamFromProtobuf(ctx, c, new(emptypb.Empty), fromProtoUser)
@@ -239,7 +241,7 @@ func (m ManagerClientRPC) UpdateUser(ctx context.Context, u *radio.User) error {
 }
 
 func (m ManagerClientRPC) CurrentSong(ctx context.Context) (eventstream.Stream[*radio.SongUpdate], error) {
-	c := func(ctx context.Context, e *emptypb.Empty, opts ...grpc.CallOption) (pbReceiver[*SongUpdate], error) {
+	c := func(ctx context.Context, e *emptypb.Empty, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SongUpdate], error) {
 		return m.rpc.CurrentSong(ctx, e, opts...)
 	}
 	return streamFromProtobuf(ctx, c, new(emptypb.Empty), fromProtoSongUpdate)
@@ -258,7 +260,7 @@ func (m ManagerClientRPC) UpdateThread(ctx context.Context, thread radio.Thread)
 }
 
 func (m ManagerClientRPC) CurrentThread(ctx context.Context) (eventstream.Stream[radio.Thread], error) {
-	c := func(ctx context.Context, e *emptypb.Empty, opts ...grpc.CallOption) (pbReceiver[*wrapperspb.StringValue], error) {
+	c := func(ctx context.Context, e *emptypb.Empty, opts ...grpc.CallOption) (grpc.ServerStreamingClient[wrapperspb.StringValue], error) {
 		return m.rpc.CurrentThread(ctx, e, opts...)
 	}
 	return streamFromProtobuf(ctx, c, new(emptypb.Empty), func(v *wrapperspb.StringValue) radio.Thread { return v.Value })
@@ -271,7 +273,7 @@ func (m ManagerClientRPC) UpdateListeners(ctx context.Context, count radio.Liste
 }
 
 func (m ManagerClientRPC) CurrentListeners(ctx context.Context) (eventstream.Stream[radio.Listeners], error) {
-	c := func(ctx context.Context, e *emptypb.Empty, opts ...grpc.CallOption) (pbReceiver[*wrapperspb.Int64Value], error) {
+	c := func(ctx context.Context, e *emptypb.Empty, opts ...grpc.CallOption) (grpc.ServerStreamingClient[wrapperspb.Int64Value], error) {
 		return m.rpc.CurrentListenerCount(ctx, e, opts...)
 	}
 	return streamFromProtobuf(ctx, c, new(emptypb.Empty), func(v *wrapperspb.Int64Value) radio.Listeners { return v.Value })
@@ -413,17 +415,13 @@ func (q QueueClientRPC) Entries(ctx context.Context) (radio.Queue, error) {
 	return queue, nil
 }
 
-type pbCreator[P, A any] func(context.Context, A, ...grpc.CallOption) (pbReceiver[P], error)
-
-type pbReceiver[P any] interface {
-	Recv() (P, error)
-	grpc.ClientStream
-}
+type pbCreator[P, A any] func(context.Context, A, ...grpc.CallOption) (grpc.ServerStreamingClient[P], error)
 
 type grpcStream[P, T any] struct {
-	s      pbReceiver[P]
-	conv   func(P) T
-	cancel context.CancelFunc
+	s             grpc.ServerStreamingClient[P]
+	conv          func(*P) T
+	cancel        context.CancelFunc
+	setSpanStatus func()
 }
 
 func (gs *grpcStream[P, T]) Next() (T, error) {
@@ -435,6 +433,12 @@ func (gs *grpcStream[P, T]) Next() (T, error) {
 }
 
 func (gs *grpcStream[P, T]) Close() error {
+	// telemetry support, because our grpc instrumentation marks a context canceled
+	// as an Error and we don't want that, so we set an explicit OK here if we get closed
+	if gs.setSpanStatus != nil {
+		gs.setSpanStatus()
+	}
+	// cancel the context we passed to stream creation
 	gs.cancel()
 	return nil
 }
@@ -452,11 +456,14 @@ func (gs *grpcStream[P, T]) Close() error {
 //	streamFn: the grpc function to create the grpc stream side
 //	arg: the argument to streamFn
 //	conv: a function that converts P into T
-func streamFromProtobuf[A, P, T any](ctx context.Context, streamFn pbCreator[P, A], arg A, conv func(P) T) (eventstream.Stream[T], error) {
+func streamFromProtobuf[A, P, T any](ctx context.Context, streamFn pbCreator[P, A], arg A, conv func(*P) T) (eventstream.Stream[T], error) {
 	var gs grpcStream[P, T]
 	var err error
 
 	ctx, gs.cancel = context.WithCancel(ctx)
+	gs.setSpanStatus = func() {
+		trace.SpanFromContext(ctx).SetStatus(codes.Ok, "")
+	}
 
 	gs.s, err = streamFn(ctx, arg)
 	if err != nil {
