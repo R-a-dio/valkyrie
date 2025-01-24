@@ -281,6 +281,8 @@ func (eh *EventHandler) eventMetadataUpdate(ctx context.Context, new *Metadata) 
 				Metadata:  new.Value,
 				User:      new.User,
 			})
+
+			eh.status.sendCurrentStatus(new.User.ID)
 		}
 	}()
 }

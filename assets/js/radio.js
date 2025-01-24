@@ -255,6 +255,26 @@ function prettyDuration(d) {
     return rtf.format(Math.floor(d / 60), "minute");
 }
 
+function smallDuration(s) {
+    if (s < 0) s = -s;
+    const time = {
+      day: Math.floor(s / 86400),
+      h: Math.floor(s / 3600) % 24,
+      m: Math.floor(s / 60) % 60,
+      s: Math.floor(s % 60)
+    };
+
+    return Object.entries(time)
+      .filter(val => val[1] !== 0)
+      .map(([key, val]) => {
+        if (key.length > 1) {
+            return `${val} ${key}${val !== 1 ? 's' : ''}`
+        }
+        return `${val}${key}`
+      })
+      .join(' ');
+}
+
 const rtf = new Intl.RelativeTimeFormat("en", {
     localeMatcher: "best fit", // other values: "lookup"
     numeric: "always", // other values: "auto"
@@ -336,15 +356,19 @@ function updateTimes() {
                 node.textContent = absoluteTime(node.dateTime);
                 node.dataset.timeset = true;
                 break;
+            case "small":
+                node.textContent = smallDuration(d);
+                nextUpdate = Math.min(nextUpdate, 1);
+                break;
             default:
                 node.textContent = prettyDuration(d);
+                nextUpdate = Math.min(nextUpdate, Math.abs(d) % 60);
                 break;
         }
-        nextUpdate = Math.min(nextUpdate, Math.abs(d) % 60);
     })
 
     // convert to ms
-    nextUpdate *= 1000
+    nextUpdate *= 1000;
     // don't go below minUpdate
     nextUpdate = Math.max(nextUpdate, minUpdate);
     timeUpdateTimer = setTimeout(updateTimes, nextUpdate);

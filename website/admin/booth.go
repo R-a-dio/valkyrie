@@ -1,7 +1,9 @@
 package admin
 
 import (
+	"bytes"
 	"cmp"
+	"context"
 	"html/template"
 	"net/http"
 	"slices"
@@ -9,10 +11,16 @@ import (
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/R-a-dio/valkyrie/templates"
+	"github.com/R-a-dio/valkyrie/util"
+	"github.com/R-a-dio/valkyrie/util/eventstream"
+	"github.com/R-a-dio/valkyrie/util/sse"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/gorilla/csrf"
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/hlog"
 )
 
 type boothInput struct{}
@@ -32,17 +40,16 @@ type BoothInput struct {
 }
 
 type BoothProxyStatusInput struct {
-	radio.ProxySource
-	IsLive bool
+	boothInput
+	Connections []radio.ProxySource
+}
+
+func (BoothProxyStatusInput) TemplateName() string {
+	return "proxy-status"
 }
 
 func NewBoothInput(ps radio.ProxyService, r *http.Request, connectTimeout time.Duration) (*BoothInput, error) {
 	const op errors.Op = "website/admin.NewBoothInput"
-
-	sources, err := ps.ListSources(r.Context())
-	if err != nil {
-		return nil, errors.E(op, err)
-	}
 
 	// setup the input here, we need some of the fields it populates
 	input := &BoothInput{
@@ -50,17 +57,15 @@ func NewBoothInput(ps radio.ProxyService, r *http.Request, connectTimeout time.D
 		CSRFTokenInput: csrf.TemplateField(r),
 	}
 
-	sm := proxySourceListToMap(sources)
-	// find the first source that we match the user ID with
-	// TODO: support multiple connections(?)
-	for _, source := range sources {
-		if source.User.ID == input.User.ID {
-			input.ProxyStatus = &BoothProxyStatusInput{
-				ProxySource: source,
-				IsLive:      sm[source.MountName][0].ID == source.ID,
-			}
-			break
-		}
+	connections, err := util.OneOff(r.Context(), func(ctx context.Context) (eventstream.Stream[[]radio.ProxySource], error) {
+		return ps.StatusStream(ctx, input.User.ID)
+	})
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	input.ProxyStatus = &BoothProxyStatusInput{
+		Connections: connections,
 	}
 
 	input.StreamerInfo, err = NewBoothStopStreamerInput(r, connectTimeout)
@@ -169,7 +174,7 @@ func (s *State) boothCheckGuestPermission(r *http.Request, action radio.GuestAct
 }
 
 func (s *State) PostBoothStopStreamer(w http.ResponseWriter, r *http.Request) {
-	input, err := s.postBoothStopStreamer(w, r)
+	input, err := s.postBoothStopStreamer(r)
 	if err != nil {
 		s.errorHandler(w, r, err, "")
 		return
@@ -182,7 +187,7 @@ func (s *State) PostBoothStopStreamer(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *State) postBoothStopStreamer(w http.ResponseWriter, r *http.Request) (*BoothStopStreamerInput, error) {
+func (s *State) postBoothStopStreamer(r *http.Request) (*BoothStopStreamerInput, error) {
 	ctx := r.Context()
 
 	input, err := NewBoothStopStreamerInput(r, time.Duration(s.Conf().Streamer.ConnectTimeout))
@@ -285,4 +290,124 @@ func (s *State) postBoothSetThread(r *http.Request) (*BoothSetThreadInput, error
 	input.Success = true
 	input.Thread = thread
 	return input, nil
+}
+
+func NewBoothAPI(cfg config.Config, tmpl templates.Executor) *BoothAPI {
+	return &BoothAPI{
+		Proxy:   cfg.Proxy,
+		Manager: cfg.Manager,
+		tmpl:    tmpl,
+	}
+}
+
+type BoothAPI struct {
+	Proxy   radio.ProxyService
+	Manager radio.ManagerService
+	tmpl    templates.Executor
+}
+
+func (b *BoothAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	logger := hlog.FromRequest(r)
+	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
+	controller := http.NewResponseController(w)
+	me := middleware.UserFromContext(ctx)
+
+	// setup SSE headers
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("X-Accel-Buffering", "no")
+	w.WriteHeader(http.StatusOK)
+
+	// function to execute a template and flush the stream
+	write := func(eventName string, input templates.TemplateSelectable) error {
+		var buf bytes.Buffer
+		// execute our template
+		err := b.tmpl.Execute(&buf, r, input)
+		if err != nil {
+			return err
+		}
+
+		// create an SSE event out of it
+		data := sse.Event{Name: eventName, Data: buf.Bytes()}.Encode()
+
+		// then write it out to the user
+		_, err = w.Write(data)
+		if err != nil {
+			return err
+		}
+
+		if err = controller.Flush(); err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	// stream for who is currently streaming
+	util.StreamValue(ctx, b.Manager.CurrentUser, func(ctx context.Context, user *radio.User) {
+		return
+		// TODO: generate input
+		var input templates.TemplateSelectable
+		if err := write("streamer", input); err != nil {
+			logger.Error().Err(err).Str("stream", "user").Msg("failed to write template")
+			return
+		}
+	})
+
+	// stream for our own personal status updates from the proxy
+	util.StreamValue(ctx,
+		func(ctx context.Context) (eventstream.Stream[[]radio.ProxySource], error) {
+			return b.Proxy.StatusStream(ctx, me.ID)
+		},
+		func(ctx context.Context, conns []radio.ProxySource) {
+			input := &BoothProxyStatusInput{
+				Connections: conns,
+			}
+
+			if err := write("status", input); err != nil {
+				logger.Error().Err(err).Str("stream", "source").Msg("failed to write template")
+				return
+			}
+
+			logger.Info().Any("conns", conns).Msg("written status event")
+		},
+	)
+	// stream for who is (dis)connecting to the proxy
+	util.StreamValue(ctx, b.Proxy.SourceStream, func(ctx context.Context, event radio.ProxySourceEvent) {
+		// TODO: generate input
+		var input templates.TemplateSelectable
+		if err := write("source", input); err != nil {
+			logger.Error().Err(err).Str("stream", "source").Msg("failed to write template")
+			return
+		}
+	})
+
+	// stream for who and what is being send as metadata on the proxy
+	util.StreamValue(ctx, b.Proxy.MetadataStream, func(ctx context.Context, event radio.ProxyMetadataEvent) {
+		return
+		if me.ID != event.User.ID {
+			// ignore metadata updates from other users
+			return
+		}
+
+		// TODO: generate input
+		var input templates.TemplateSelectable
+		if err := write("metadata", input); err != nil {
+			logger.Error().Err(err).Str("stream", "metadata").Msg("failed to write template")
+			return
+		}
+	})
+
+	ticker := time.NewTicker(time.Second * 10)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			w.Write(sse.Event{Name: "ping"}.Encode())
+			controller.Flush()
+		case <-ctx.Done():
+			return
+		}
+	}
 }

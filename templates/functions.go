@@ -83,6 +83,7 @@ var defaultFunctions = map[string]any{
 	"safeHTML":                    SafeHTML,
 	"safeHTMLAttr":                SafeHTMLAttr,
 	"safeURL":                     SafeURL,
+	"safeCSS":                     func(s string) template.CSS { return template.CSS(s) },
 	"IsValidThread":               IsValidThread,
 	"IsImageThread":               IsImageThread,
 	"IsRobot":                     radio.IsRobot,

@@ -97,6 +97,7 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 		r.Get("/proxy", p(radio.PermDJ, s.GetProxy))
 		r.Post("/proxy/remove", p(radio.PermProxyKick, s.PostRemoveSource))
 		r.Get("/booth", p(radio.PermDJ, s.GetBooth))
+		r.Get("/booth/sse", p(radio.PermDJ, NewBoothAPI(s.Config, s.TemplateExecutor).ServeHTTP))
 		r.Post("/booth/stop-streamer", p(radio.PermDJ, s.PostBoothStopStreamer))
 		r.Post("/booth/set-thread", p(radio.PermDJ, s.PostBoothSetThread))
 
