@@ -87,7 +87,7 @@ func (b *indexWrap) SearchFromRequest(r *http.Request) (*bleve.SearchResult, err
 
 func (b *indexWrap) Search(ctx context.Context, raw string, limit, offset int) (*bleve.SearchResult, error) {
 	const op errors.Op = "search/bleve.Search"
-	ctx, span := otel.Tracer("").Start(ctx, string(op))
+	ctx, span := otel.Tracer("bleve").Start(ctx, string(op))
 	defer span.End()
 
 	query, err := NewQuery(ctx, raw)
@@ -108,7 +108,7 @@ func (b *indexWrap) Search(ctx context.Context, raw string, limit, offset int) (
 
 func (b *indexWrap) Index(ctx context.Context, songs []radio.Song) error {
 	const op errors.Op = "search/bleve.Index"
-	ctx, span := otel.Tracer("").Start(ctx, string(op))
+	ctx, span := otel.Tracer("bleve").Start(ctx, string(op))
 	defer span.End()
 
 	span.SetAttributes(attribute.KeyValue{
@@ -133,7 +133,7 @@ func (b *indexWrap) Index(ctx context.Context, songs []radio.Song) error {
 
 func (b *indexWrap) Delete(ctx context.Context, tids []radio.TrackID) error {
 	const op errors.Op = "search/bleve.Delete"
-	ctx, span := otel.Tracer("").Start(ctx, string(op))
+	ctx, span := otel.Tracer("bleve").Start(ctx, string(op))
 	defer span.End()
 
 	batch := b.index.NewBatch()

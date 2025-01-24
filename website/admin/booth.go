@@ -303,13 +303,17 @@ func NewBoothAPI(cfg config.Config, tmpl templates.Executor) *BoothAPI {
 		Proxy:   cfg.Proxy,
 		Manager: cfg.Manager,
 		tmpl:    tmpl,
+		connectTimeoutCfg: config.Value(cfg, func(c config.Config) time.Duration {
+			return time.Duration(c.Conf().Streamer.ConnectTimeout)
+		}),
 	}
 }
 
 type BoothAPI struct {
-	Proxy   radio.ProxyService
-	Manager radio.ManagerService
-	tmpl    templates.Executor
+	Proxy             radio.ProxyService
+	Manager           radio.ManagerService
+	tmpl              templates.Executor
+	connectTimeoutCfg func() time.Duration
 }
 
 func (b *BoothAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -324,44 +328,39 @@ func (b *BoothAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Accel-Buffering", "no")
 	w.WriteHeader(http.StatusOK)
 
-	// function to execute a template and flush the stream
-	write := func(eventName string, input templates.TemplateSelectable) error {
+	writeCh := make(chan []byte, 16)
+	// function to execute a template and send the data on our channel
+	write := func(eventName string, input templates.TemplateSelectable) {
 		var buf bytes.Buffer
 		// execute our template
 		err := b.tmpl.Execute(&buf, r, input)
 		if err != nil {
-			return err
+			logger.Error().Err(err).Str("event", eventName).Msg("failed to execute template")
+			return
 		}
 
 		// create an SSE event out of it
 		data := sse.Event{Name: eventName, Data: buf.Bytes()}.Encode()
 
-		// then write it out to the user
-		_, err = w.Write(data)
-		if err != nil {
-			return err
+		select {
+		case writeCh <- data:
+		case <-ctx.Done():
 		}
-
-		if err = controller.Flush(); err != nil {
-			return err
-		}
-
-		return nil
 	}
 
 	// stream for who is currently streaming
-	util.StreamValue(ctx, b.Manager.CurrentUser, func(ctx context.Context, user *radio.User) {
+	util.StreamValue(ctx, b.Manager.CurrentStatus, func(ctx context.Context, status radio.Status) {
+		// streamer update
 		var input *BoothStreamerInput
-		if user != nil {
-			input = &BoothStreamerInput{User: user}
+		if status.StreamUser != nil {
+			input = &BoothStreamerInput{User: status.StreamUser}
 		}
 
-		if err := write("streamer", input); err != nil {
-			logger.Error().Err(err).Str("stream", "user").Msg("failed to write template")
-			return
-		}
+		write("streamer", input)
+		write("status", &BoothStatusInput{Status: status})
 	})
 
+	// stream for thread updates
 	util.StreamValue(ctx, b.Manager.CurrentThread, func(ctx context.Context, thread radio.Thread) {
 		input, err := NewBoothSetThreadInput(r, thread)
 		if err != nil {
@@ -369,10 +368,7 @@ func (b *BoothAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if err := write("thread", input); err != nil {
-			logger.Error().Err(err).Str("stream", "source").Msg("failed to write template")
-			return
-		}
+		write("thread", input)
 	})
 
 	// stream for our own personal status updates from the proxy
@@ -385,50 +381,46 @@ func (b *BoothAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				Connections: conns,
 			}
 
-			if err := write("status", input); err != nil {
-				logger.Error().Err(err).Str("stream", "source").Msg("failed to write template")
-				return
-			}
-
-			logger.Info().Any("conns", conns).Msg("written status event")
+			write("proxy-status", input)
 		},
 	)
 	// stream for who is (dis)connecting to the proxy
 	util.StreamValue(ctx, b.Proxy.SourceStream, func(ctx context.Context, event radio.ProxySourceEvent) {
 		// TODO: generate input
-		var input templates.TemplateSelectable
-		if err := write("source", input); err != nil {
-			logger.Error().Err(err).Str("stream", "source").Msg("failed to write template")
+		input, err := NewBoothStopStreamerInput(r, b.connectTimeoutCfg())
+		if err != nil {
+			logger.Error().Err(err).Msg("failed to create stop-streamer input")
 			return
 		}
+
+		write("stop-streamer", input)
 	})
 
-	// stream for who and what is being send as metadata on the proxy
-	util.StreamValue(ctx, b.Proxy.MetadataStream, func(ctx context.Context, event radio.ProxyMetadataEvent) {
-		return
-		if me.ID != event.User.ID {
-			// ignore metadata updates from other users
-			return
-		}
-
-		// TODO: generate input
-		var input templates.TemplateSelectable
-		if err := write("metadata", input); err != nil {
-			logger.Error().Err(err).Str("stream", "metadata").Msg("failed to write template")
-			return
-		}
-	})
-
+	// now keep the request alive with a ticker and a ping send to the client every 10 seconds
 	ticker := time.NewTicker(time.Second * 10)
 	defer ticker.Stop()
 
 	for {
+		var data []byte
 		select {
 		case <-ticker.C:
-			w.Write(sse.Event{Name: "ping"}.Encode())
-			controller.Flush()
+			data = sse.Event{Name: "ping"}.Encode()
+		case data = <-writeCh:
 		case <-ctx.Done():
 			return
+		}
+
+		// send any data we receive from the streams
+		_, err := w.Write(data)
+		if err != nil {
+			logger.Error().Err(err).Msg("failed to write data")
+			continue
+		}
+
+		// and flush, otherwise smaller events won't get send instantly
+		if err = controller.Flush(); err != nil {
+			logger.Error().Err(err).Msg("failed to flush data")
+			continue
 		}
 	}
 }
@@ -440,4 +432,13 @@ type BoothStreamerInput struct {
 
 func (BoothStreamerInput) TemplateName() string {
 	return "streamer"
+}
+
+type BoothStatusInput struct {
+	boothInput
+	radio.Status
+}
+
+func (BoothStatusInput) TemplateName() string {
+	return "status"
 }
