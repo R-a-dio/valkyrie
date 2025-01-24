@@ -247,7 +247,19 @@ func (s *State) postBoothStopStreamer(r *http.Request) (*BoothStopStreamerInput,
 		return input, nil
 	}
 
-	err = s.Streamer.Stop(ctx, false)
+	errCh := make(chan error, 1)
+	go func() {
+		select {
+		case errCh <- s.Streamer.Stop(ctx, false):
+		case <-ctx.Done():
+		}
+	}()
+
+	select {
+	case err = <-errCh:
+	case <-time.After(time.Second / 2):
+	}
+
 	if err != nil {
 		// streamer service offline or broken
 		zerolog.Ctx(ctx).Error().Err(err).Msg("failed to stop streamer")
