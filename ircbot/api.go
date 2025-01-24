@@ -25,22 +25,26 @@ func NewGRPCServer(ctx context.Context, service radio.AnnounceService) (*grpc.Se
 	return gs, nil
 }
 
-func NewAnnounceService(cfg config.Config, storage radio.StorageService, bot *Bot) radio.AnnounceService {
+func NewAnnounceService(cfg config.Config, storage radio.StorageService, bot *Bot) *announceService {
 	ann := &announceService{
-		Config:  cfg,
-		Storage: storage,
-		bot:     bot,
+		Config:      cfg,
+		mainChannel: config.Value(cfg, func(c config.Config) string { return c.Conf().IRC.MainChannel }),
+		Storage:     storage,
+		bot:         bot,
 	}
 	ann.userTimer = util.NewCallbackTimer(func() {
 		message := Fmt("Current DJ: {red}None")
-		ann.bot.c.Cmd.Message(ann.Conf().IRC.MainChannel, message)
+		ann.bot.c.Cmd.Message(ann.mainChannel(), message)
 	})
 	return ann
 }
 
+var _ radio.AnnounceService = (*announceService)(nil)
+
 type announceService struct {
 	config.Config
-	Storage radio.StorageService
+	mainChannel func() string
+	Storage     radio.StorageService
 
 	bot                  *Bot
 	lastAnnounceSongTime time.Time
@@ -53,6 +57,8 @@ type announceService struct {
 	topicTimerMu  sync.Mutex
 	topicTimer    *time.Timer
 	topicLastEdit time.Time
+
+	lastThread radio.Thread
 }
 
 func (ann *announceService) AnnounceSong(ctx context.Context, status radio.Status) error {
@@ -103,7 +109,7 @@ func (ann *announceService) AnnounceSong(ctx context.Context, status radio.Statu
 		FormatLongDuration(lastPlayedDiff),
 	)
 
-	ann.bot.c.Cmd.Message(ann.Conf().IRC.MainChannel, message)
+	ann.bot.c.Cmd.Message(ann.mainChannel(), message)
 	ann.lastAnnounceSong = status.Song
 	ann.lastAnnounceSongTime = time.Now()
 
@@ -120,7 +126,7 @@ func (ann *announceService) AnnounceSong(ctx context.Context, status radio.Statu
 	}
 
 	// we only send notifications to people that are on the configured main channel
-	channel := ann.bot.c.LookupChannel(ann.Conf().IRC.MainChannel)
+	channel := ann.bot.c.LookupChannel(ann.mainChannel())
 	if channel == nil {
 		// just exit early if we are not on the channel somehow
 		return nil
@@ -241,8 +247,19 @@ func (ann *announceService) AnnounceRequest(ctx context.Context, song radio.Song
 	}
 
 	// Announce the request to the main channel
-	ann.bot.c.Cmd.Message(ann.Conf().IRC.MainChannel, message)
+	ann.bot.c.Cmd.Message(ann.mainChannel(), message)
 
+	return nil
+}
+
+func (ann *announceService) AnnounceThread(ctx context.Context, thread radio.Thread) error {
+	if ann.lastThread == thread {
+		return nil
+	}
+
+	ann.lastThread = thread
+	message := Fmt("Thread: %s", thread)
+	ann.bot.c.Cmd.Message(ann.mainChannel(), message)
 	return nil
 }
 
@@ -264,7 +281,7 @@ func (ann *announceService) AnnounceUser(ctx context.Context, user *radio.User) 
 
 	ann.userLast = user.DJ.Name
 	message := Fmt("Current DJ: {green}%s", user.DJ.Name)
-	ann.bot.c.Cmd.Message(ann.Conf().IRC.MainChannel, message)
+	ann.bot.c.Cmd.Message(ann.mainChannel(), message)
 
 	ann.queueChangeTopic(ctx, user)
 	return nil
@@ -306,7 +323,7 @@ var reOtherTopicBit = regexp.MustCompile(`(.*?r/.*/dio.*?)(\|.*?\|)(.*)`)
 func (ann *announceService) changeTopic(ctx context.Context, user *radio.User) error {
 	const op errors.Op = "ircbot/announceService.changeTopic"
 
-	channel := ann.bot.c.LookupChannel(ann.Conf().IRC.MainChannel)
+	channel := ann.bot.c.LookupChannel(ann.mainChannel())
 	if channel == nil {
 		return errors.E(op, "channel is missing")
 	}

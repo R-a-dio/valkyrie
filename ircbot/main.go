@@ -48,6 +48,11 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		if err != nil {
 			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to announce status")
 		}
+
+		err = announce.AnnounceThread(ctx, s.Thread)
+		if err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to announce thread")
+		}
 	})
 	b.UserValue = util.StreamValue(ctx, cfg.Manager.CurrentUser, func(ctx context.Context, user *radio.User) {
 		err := announce.AnnounceUser(ctx, user)

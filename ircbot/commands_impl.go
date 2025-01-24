@@ -355,9 +355,9 @@ func ThreadURL(e Event) error {
 		}
 	} else {
 		thread = e.Bot.StatusValue.Latest().Thread
+		e.EchoPublic("Thread: %s", thread)
 	}
 
-	e.EchoPublic("Thread: %s", thread)
 	return nil
 }
 
