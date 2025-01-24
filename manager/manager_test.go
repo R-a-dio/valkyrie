@@ -168,7 +168,12 @@ func TestManager(t *testing.T) {
 		require.NoError(t, err)
 		// nil should show up in the user stream
 		require.Nil(t, <-userCh)
-		// but not in the status update, but absence is hard to check
+		// and in a status update
+		status := <-statusCh
+		// actual nil for StreamUser
+		require.Nil(t, status.StreamUser)
+		// the old user for User
+		require.EqualValues(t, initUser, status.User)
 
 		// now set an actual value
 		user := &radio.User{
