@@ -350,17 +350,11 @@ func (b *BoothAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// stream for who is currently streaming
 	util.StreamValue(ctx, b.Manager.CurrentUser, func(ctx context.Context, user *radio.User) {
-		var input *BoothStreamerInput
-		if user != nil {
-			input = &BoothStreamerInput{User: user}
-		}
-
-		write("streamer", input)
+		write("streamer", &BoothStreamerInput{User: user})
 	})
 
 	// stream for the generic stream status
 	util.StreamValue(ctx, b.Manager.CurrentStatus, func(ctx context.Context, status radio.Status) {
-		// streamer update
 		write("status", &BoothStatusInput{Status: status})
 	})
 
