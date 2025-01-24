@@ -217,10 +217,16 @@ func (s *State) postBoothStopStreamer(r *http.Request) (*BoothStopStreamerInput,
 	return input, nil
 }
 
-func NewBoothSetThreadInput(r *http.Request) (*BoothSetThreadInput, error) {
+func NewBoothSetThreadInput(r *http.Request, thread ...string) (*BoothSetThreadInput, error) {
+	var threadRes string
+	if len(thread) == 0 {
+		threadRes = middleware.InputFromRequest(r).Status.Thread
+	} else {
+		threadRes = thread[0]
+	}
 	return &BoothSetThreadInput{
 		CSRFTokenInput:  csrf.TemplateField(r),
-		Thread:          middleware.InputFromRequest(r).Status.Thread,
+		Thread:          threadRes,
 		AllowedToThread: true,
 		Success:         false,
 	}, nil
@@ -345,11 +351,26 @@ func (b *BoothAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// stream for who is currently streaming
 	util.StreamValue(ctx, b.Manager.CurrentUser, func(ctx context.Context, user *radio.User) {
-		return
-		// TODO: generate input
-		var input templates.TemplateSelectable
+		var input *BoothStreamerInput
+		if user != nil {
+			input = &BoothStreamerInput{User: user}
+		}
+
 		if err := write("streamer", input); err != nil {
 			logger.Error().Err(err).Str("stream", "user").Msg("failed to write template")
+			return
+		}
+	})
+
+	util.StreamValue(ctx, b.Manager.CurrentThread, func(ctx context.Context, thread radio.Thread) {
+		input, err := NewBoothSetThreadInput(r, thread)
+		if err != nil {
+			logger.Error().Err(err).Msg("failed to create thread input")
+			return
+		}
+
+		if err := write("thread", input); err != nil {
+			logger.Error().Err(err).Str("stream", "source").Msg("failed to write template")
 			return
 		}
 	})
@@ -410,4 +431,13 @@ func (b *BoothAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+}
+
+type BoothStreamerInput struct {
+	boothInput
+	*radio.User
+}
+
+func (BoothStreamerInput) TemplateName() string {
+	return "streamer"
 }
