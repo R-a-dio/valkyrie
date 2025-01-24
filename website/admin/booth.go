@@ -384,7 +384,6 @@ func (b *BoothAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	)
 	// stream for who is (dis)connecting to the proxy
 	util.StreamValue(ctx, b.Proxy.SourceStream, func(ctx context.Context, event radio.ProxySourceEvent) {
-		// TODO: generate input
 		input, err := NewBoothStopStreamerInput(r, b.connectTimeoutCfg())
 		if err != nil {
 			logger.Error().Err(err).Msg("failed to create stop-streamer input")

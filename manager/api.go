@@ -277,8 +277,7 @@ func (m *Manager) runStatusUpdates(ctx context.Context, ready chan struct{}) {
 			m.status.StreamUser = user
 			if user == nil {
 				// skip nil users for the User and StreamerName fields
-				m.mu.Unlock()
-				continue
+				break
 			}
 			zerolog.Ctx(ctx).Info().Any("user", user).Msg("running status update")
 			m.status.StreamerName = user.DJ.Name
