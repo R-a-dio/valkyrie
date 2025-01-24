@@ -259,16 +259,23 @@ func (s *State) postBoothStopStreamer(r *http.Request) (*BoothStopStreamerInput,
 }
 
 func NewBoothSetThreadInput(r *http.Request, thread ...string) (*BoothSetThreadInput, error) {
+	input := middleware.InputFromRequest(r)
 	var threadRes string
 	if len(thread) == 0 {
-		threadRes = middleware.InputFromRequest(r).Status.Thread
+		threadRes = input.Status.Thread
 	} else {
 		threadRes = thread[0]
 	}
+
+	var AllowedToThread bool
+	if su := input.Status.StreamUser; su.IsValid() {
+		AllowedToThread = su.ID == middleware.UserFromContext(r.Context()).ID
+	}
+
 	return &BoothSetThreadInput{
 		CSRFTokenInput:  csrf.TemplateField(r),
 		Thread:          threadRes,
-		AllowedToThread: true,
+		AllowedToThread: AllowedToThread,
 		Success:         false,
 	}, nil
 }
@@ -312,6 +319,11 @@ func (s *State) postBoothSetThread(r *http.Request) (*BoothSetThreadInput, error
 	input, err := NewBoothSetThreadInput(r)
 	if err != nil {
 		return nil, err
+	}
+
+	// check if the user trying to change it is currently streaming
+	if !input.AllowedToThread {
+		return input, nil
 	}
 
 	// check for guest user and if they have permission to continue
