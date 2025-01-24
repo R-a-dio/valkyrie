@@ -124,8 +124,10 @@ func (pm *ProxyManager) AddSourceClient(source *SourceClient) error {
 		Msg("adding source client")
 
 	// see if we have any metadata from before this source connected as
-	// a source client, storing a nil here is fine
-	source.Metadata.Store(pm.Metadata(source.Identifier))
+	// a source client
+	if pre := pm.Metadata(source.Identifier); pre != nil {
+		source.Metadata.Store(pre)
+	}
 
 	// add the source to the mount list
 	mount.AddSource(pm.ctx, source)
