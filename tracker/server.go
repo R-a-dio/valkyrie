@@ -180,7 +180,7 @@ func NewServer(ctx context.Context, cfg config.Config) *Server {
 	return s
 }
 func zerologLoggerFunc(r *http.Request, status, size int, duration time.Duration) {
-	hlog.FromRequest(r).Info().
+	hlog.FromRequest(r).Info().Ctx(r.Context()).
 		Int("status_code", status).
 		Int("response_size_bytes", size).
 		Dur("elapsed_ms", duration).

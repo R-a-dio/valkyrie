@@ -93,6 +93,13 @@ func (r *Recorder) ListenerAdd(ctx context.Context, listener radio.Listener) {
 			r.listeners.CompareAndDelete(listener.ID, entry)
 		}
 	} else {
+		zerolog.Ctx(ctx).Info().Ctx(ctx).
+			Uint64("icecast_id", uint64(entry.ID)).
+			Str("ip", entry.IP).
+			Str("user_agent", entry.UserAgent).
+			Time("start", entry.Start).
+			Msg("added listener")
+
 		// only add to the listener count if we actually did a store
 		r.listenerAmount.Add(1)
 	}
@@ -120,6 +127,14 @@ func (r *Recorder) ListenerRemove(ctx context.Context, id radio.ListenerClientID
 			deleted = r.listeners.CompareAndDelete(id, entry)
 		}
 		if !entry.Removed && deleted {
+			zerolog.Ctx(ctx).Info().Ctx(ctx).
+				Uint64("icecast_id", uint64(entry.ID)).
+				Str("ip", entry.IP).
+				Str("user_agent", entry.UserAgent).
+				Time("start", entry.Start).
+				Time("end", time.Now()).
+				Msg("removed listener")
+
 			// only remove a listener count if the entry wasn't marked as
 			// Removed already and if we actually deleted an entry
 			r.listenerAmount.Add(-1)
