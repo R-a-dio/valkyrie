@@ -83,7 +83,7 @@ func (a *API) PostRequest(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if source == "navbar" {
-			input = SearchInput{&si.SearchSharedInput}
+			input = SearchInput{si.SearchSharedInput}
 		} else {
 			input = si
 		}

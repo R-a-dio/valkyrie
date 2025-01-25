@@ -32,7 +32,7 @@ func (a *API) SearchHTML(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = a.Templates.Execute(w, r, SearchInput{input})
+	err = a.Templates.Execute(w, r, SearchInput{*input})
 	if err != nil {
 		err = errors.E(op, err, errors.InternalServer)
 		hlog.FromRequest(r).Error().Err(err).Msg("template error")
@@ -41,7 +41,7 @@ func (a *API) SearchHTML(w http.ResponseWriter, r *http.Request) {
 }
 
 type SearchInput struct {
-	*public.SearchSharedInput
+	public.SearchSharedInput
 }
 
 func (SearchInput) TemplateName() string {
