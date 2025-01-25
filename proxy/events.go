@@ -257,7 +257,7 @@ func (eh *EventHandler) updateManagerUser(ctx context.Context, mountName string,
 
 		err := eh.manager.UpdateUser(ctx, user)
 		if err != nil {
-			eh.logger.Error().Err(err).Msg("failed to update user")
+			eh.logger.Error().Ctx(ctx).Err(err).Msg("failed to update user")
 			return
 		}
 	}
@@ -313,7 +313,7 @@ func (eh *EventHandler) eventLiveMetadataUpdate(ctx context.Context, mountName s
 				},
 			})
 			if err != nil {
-				eh.logger.Error().Err(err).Msg("failed to update song")
+				eh.logger.Error().Ctx(ctx).Err(err).Msg("failed to update song")
 				return
 			}
 		}

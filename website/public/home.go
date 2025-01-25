@@ -30,7 +30,7 @@ func (HomeInput) TemplateBundle() string {
 func (s *State) GetHome(w http.ResponseWriter, r *http.Request) {
 	err := s.getHome(w, r)
 	if err != nil {
-		hlog.FromRequest(r).Error().Err(err).Msg("")
+		hlog.FromRequest(r).Error().Ctx(r.Context()).Err(err).Msg("")
 		return
 	}
 }
@@ -43,7 +43,7 @@ func (s *State) getHome(w http.ResponseWriter, r *http.Request) error {
 
 	queue, err := s.Queue.Entries(ctx)
 	if err != nil {
-		hlog.FromRequest(r).Error().Err(err).Msg("streamer queue unavailable")
+		hlog.FromRequest(r).Error().Ctx(r.Context()).Err(err).Msg("streamer queue unavailable")
 		// continue with an empty queue instead
 		queue = []radio.QueueEntry{}
 	}

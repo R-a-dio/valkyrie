@@ -29,7 +29,7 @@ var (
 )
 
 func ErrorHandler(exec templates.Executor, w http.ResponseWriter, r *http.Request, err error) {
-	hlog.FromRequest(r).Error().Err(err).Msg("")
+	hlog.FromRequest(r).Error().Ctx(r.Context()).Err(err).Msg("")
 
 	var statusCode = http.StatusInternalServerError
 	var msg = http.StatusText(statusCode)
@@ -66,7 +66,7 @@ func ErrorHandler(exec templates.Executor, w http.ResponseWriter, r *http.Reques
 
 	err = exec.Execute(w, r, input)
 	if err != nil {
-		hlog.FromRequest(r).Error().Err(err).Msg("error while rendering error page")
+		hlog.FromRequest(r).Error().Ctx(r.Context()).Err(err).Msg("error while rendering error page")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }

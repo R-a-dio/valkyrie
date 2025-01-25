@@ -80,10 +80,10 @@ func (m *Mount) newConn() (net.Conn, error) {
 		ctx, cancel := context.WithTimeout(context.TODO(), time.Second*10)
 		defer cancel()
 
-		m.logger.Info().Str("url", uri.Redacted()).Msg("dialing icecast")
+		m.logger.Info().Ctx(ctx).Str("url", uri.Redacted()).Msg("dialing icecast")
 		conn, err = icecast.DialURL(ctx, uri, icecast.ContentType(m.ContentType))
 		if err != nil {
-			m.logger.Error().Err(err).Msg("failed connecting to master server")
+			m.logger.Error().Ctx(ctx).Err(err).Msg("failed connecting to master server")
 			return err
 		}
 		return nil
@@ -318,7 +318,7 @@ func (m *Mount) liveSourceSwap(ctx context.Context) {
 		return
 	}
 
-	m.logger.Info().Msg("no source client available to swap to")
+	m.logger.Info().Ctx(ctx).Msg("no source client available to swap to")
 	// nobody to swap with, so that means we're empty send a nil event
 	m.events.eventNewLiveSource(ctx, m.Name, nil)
 	// nobody here, clean ourselves up
@@ -351,7 +351,7 @@ func (m *Mount) RunMountSourceClient(ctx context.Context, msc *MountSourceClient
 		err := msc.Source.conn.SetReadDeadline(time.Now().Add(timeout))
 		if err != nil {
 			// deadline failed to be set, not much we can do but log it and continue
-			msc.logger.Info().Msg("failed to set deadline")
+			msc.logger.Info().Ctx(ctx).Msg("failed to set deadline")
 		}
 		// read some data from the source
 		readn, err := msc.Source.conn.Read(buf)
@@ -360,19 +360,19 @@ func (m *Mount) RunMountSourceClient(ctx context.Context, msc *MountSourceClient
 				// client left us, exit cleanly
 				return
 			}
-			msc.logger.Error().Err(err).Msg("failed to read data")
+			msc.logger.Error().Ctx(ctx).Err(err).Msg("failed to read data")
 			return
 		}
 
 		writen, err := msc.MW.Write(buf[:readn])
 		if err != nil {
-			msc.logger.Error().Err(err).Msg("failed to write data")
+			msc.logger.Error().Ctx(ctx).Err(err).Msg("failed to write data")
 			return
 		}
 		if readn != writen {
 			// we didn't actually send all the data, there isn't much we can really do
 			// here, but this is most likely a network failure and we will be exiting soon
-			msc.logger.Info().Msg("failed to write all data")
+			msc.logger.Info().Ctx(ctx).Msg("failed to write all data")
 		}
 
 		// then see if we have new metadata to send
@@ -410,14 +410,14 @@ func (mmw *MountMetadataWriter) sendMetadata(ctx context.Context) {
 
 	// check if we're live
 	if !mmw.Live {
-		zerolog.Ctx(ctx).Info().Str("metadata", mmw.Metadata).Msg("skipping metadata, we're not live")
+		zerolog.Ctx(ctx).Info().Ctx(ctx).Str("metadata", mmw.Metadata).Msg("skipping metadata, we're not live")
 		return
 	}
 
-	zerolog.Ctx(ctx).Info().Str("metadata", mmw.Metadata).Msg("sending metadata")
+	zerolog.Ctx(ctx).Info().Ctx(ctx).Str("metadata", mmw.Metadata).Msg("sending metadata")
 	err := mmw.metadataFn(ctx, mmw.Metadata)
 	if err != nil {
-		zerolog.Ctx(ctx).Error().Err(err).Str("metadata", mmw.Metadata).Msg("failed sending metadata")
+		zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Str("metadata", mmw.Metadata).Msg("failed sending metadata")
 	}
 }
 

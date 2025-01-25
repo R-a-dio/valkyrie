@@ -102,7 +102,7 @@ func (s *State) canSubmitSong(r *http.Request) (time.Duration, error) {
 func (s *State) GetSubmit(w http.ResponseWriter, r *http.Request) {
 	err := s.getSubmit(w, r, nil)
 	if err != nil {
-		hlog.FromRequest(r).Error().Err(err).Msg("")
+		hlog.FromRequest(r).Error().Ctx(r.Context()).Err(err).Msg("")
 		return
 	}
 }
@@ -160,7 +160,7 @@ func (s *State) PostSubmit(w http.ResponseWriter, r *http.Request) {
 	identifier, _ := getIdentifier(r)
 	err = s.Storage.Submissions(ctx).UpdateSubmissionTime(identifier)
 	if err != nil {
-		hlog.FromRequest(r).Error().Err(err).Msg("failed updating submission time")
+		hlog.FromRequest(r).Error().Ctx(ctx).Err(err).Msg("failed updating submission time")
 		responseFn(form)
 		return
 	}
@@ -225,7 +225,7 @@ func (s *State) postSubmit(r *http.Request) (SubmissionForm, error) {
 		// (file missing or something) or that the file just failed to pass through. We
 		// are going to assume it's the latter, but add a log of the actual error so we
 		// can atleast tell if the former happened at a later point
-		zerolog.Ctx(ctx).Error().Err(err).Msg("failed to probe submitted file")
+		zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to probe submitted file")
 		form.Errors["track"] = "file is invalid."
 		return *form, nil
 	}
@@ -321,7 +321,7 @@ func newSubmissionForm(ts radio.TrackStorage, r *http.Request, errs map[string]s
 
 	needReplacement, err := ts.NeedReplacement()
 	if err != nil {
-		hlog.FromRequest(r).Error().Err(err).Msg("")
+		hlog.FromRequest(r).Error().Ctx(r.Context()).Err(err).Msg("")
 		return form
 	}
 

@@ -61,14 +61,14 @@ func DeleteHandler(idx *indexWrap) http.HandlerFunc {
 		err := msgpack.NewDecoder(r.Body).Decode(&tids)
 		if err != nil {
 			err = errors.E(op, err)
-			hlog.FromRequest(r).Error().Err(err).Msg("decode error")
+			hlog.FromRequest(r).Error().Ctx(r.Context()).Err(err).Msg("decode error")
 			return
 		}
 
 		err = idx.Delete(r.Context(), tids)
 		if err != nil {
 			err = errors.E(op, err)
-			hlog.FromRequest(r).Error().Err(err).Msg("delete error")
+			hlog.FromRequest(r).Error().Ctx(r.Context()).Err(err).Msg("delete error")
 			return
 		}
 		w.WriteHeader(http.StatusOK)
@@ -84,14 +84,14 @@ func UpdateHandler(idx *indexWrap) http.HandlerFunc {
 		err := msgpack.NewDecoder(r.Body).Decode(&songs)
 		if err != nil {
 			err = errors.E(op, err)
-			hlog.FromRequest(r).Error().Err(err).Msg("decode error")
+			hlog.FromRequest(r).Error().Ctx(r.Context()).Err(err).Msg("decode error")
 			return
 		}
 
 		err = idx.Index(r.Context(), songs)
 		if err != nil {
 			err = errors.E(op, err)
-			hlog.FromRequest(r).Error().Err(err).Msg("index error")
+			hlog.FromRequest(r).Error().Ctx(r.Context()).Err(err).Msg("index error")
 			return
 		}
 		w.WriteHeader(http.StatusOK)
@@ -121,7 +121,7 @@ func SearchHandler(idx *indexWrap) http.HandlerFunc {
 		result, err := idx.SearchFromRequest(r)
 		if err != nil {
 			err = errors.E(op, err)
-			hlog.FromRequest(r).Error().Err(err).Msg("failed to search")
+			hlog.FromRequest(r).Error().Ctx(r.Context()).Err(err).Msg("failed to search")
 			w.WriteHeader(http.StatusInternalServerError)
 			_ = encodeError(w, err)
 			return
@@ -130,7 +130,7 @@ func SearchHandler(idx *indexWrap) http.HandlerFunc {
 		err = encodeResult(w, result)
 		if err != nil {
 			err = errors.E(op, err)
-			hlog.FromRequest(r).Error().Err(err).Msg("failed to encode")
+			hlog.FromRequest(r).Error().Ctx(r.Context()).Err(err).Msg("failed to encode")
 			return
 		}
 	}
@@ -143,7 +143,7 @@ func SearchJSONHandler(idx *indexWrap) http.HandlerFunc {
 		result, err := idx.SearchFromRequest(r)
 		if err != nil {
 			err = errors.E(op, err)
-			hlog.FromRequest(r).Error().Err(err).Msg("failed to search")
+			hlog.FromRequest(r).Error().Ctx(r.Context()).Err(err).Msg("failed to search")
 			w.WriteHeader(http.StatusInternalServerError)
 			_ = json.NewEncoder(w).Encode(&SearchError{
 				Err: err.Error(),
@@ -156,7 +156,7 @@ func SearchJSONHandler(idx *indexWrap) http.HandlerFunc {
 		err = enc.Encode(result)
 		if err != nil {
 			err = errors.E(op, err)
-			hlog.FromRequest(r).Error().Err(err).Msg("failed to encode")
+			hlog.FromRequest(r).Error().Ctx(r.Context()).Err(err).Msg("failed to encode")
 			return
 		}
 	}

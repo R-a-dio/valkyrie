@@ -27,7 +27,7 @@ func MoveTokenToHeaderForRequests(next http.Handler) http.Handler {
 			if err != nil {
 				// ignore any errors, just log them and let the request go on as if
 				// we never existed.
-				hlog.FromRequest(r).Error().Err(err).Msg("compatibility")
+				hlog.FromRequest(r).Error().Ctx(r.Context()).Err(err).Msg("compatibility")
 			} else {
 				r.Header.Set("X-CSRF-Token", token.Token)
 			}

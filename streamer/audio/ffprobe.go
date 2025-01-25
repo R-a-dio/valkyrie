@@ -105,7 +105,7 @@ func parseProbeText(ctx context.Context, out io.Reader) (*Info, error) {
 		m := probeRegex.FindStringSubmatch(s.Text())
 		if m == nil {
 			// invalid output
-			log.Error().Str("line", s.Text()).Msg("invalid line")
+			log.Error().Ctx(ctx).Str("line", s.Text()).Msg("invalid line")
 			continue
 		}
 
@@ -116,7 +116,7 @@ func parseProbeText(ctx context.Context, out io.Reader) (*Info, error) {
 		case "duration":
 			info.Duration, err = time.ParseDuration(value + "s")
 			if err != nil {
-				log.Error().Err(err).Str("line", s.Text()).Str("value", value).Msg("invalid duration")
+				log.Error().Ctx(ctx).Err(err).Str("line", s.Text()).Str("value", value).Msg("invalid duration")
 			}
 		case "title":
 			info.Title = value
@@ -130,7 +130,7 @@ func parseProbeText(ctx context.Context, out io.Reader) (*Info, error) {
 			if value != "N/A" { // could not exist
 				info.Bitrate, err = strconv.Atoi(value)
 				if err != nil {
-					log.Error().Err(err).Str("line", s.Text()).Str("value", value).Msg("invalid bit_rate")
+					log.Error().Ctx(ctx).Err(err).Str("line", s.Text()).Str("value", value).Msg("invalid bit_rate")
 				}
 			}
 		case "format_name":

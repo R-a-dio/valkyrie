@@ -66,19 +66,19 @@ func (ann *announceService) AnnounceSong(ctx context.Context, status radio.Statu
 
 	// don't do the announcement if the last one was recent enough
 	if time.Since(ann.lastAnnounceSongTime) < time.Duration(ann.Conf().IRC.AnnouncePeriod) {
-		zerolog.Ctx(ctx).Info().Str("metadata", status.Song.Metadata).Msg("skipping announce: announce period")
+		zerolog.Ctx(ctx).Info().Ctx(ctx).Str("metadata", status.Song.Metadata).Msg("skipping announce: announce period")
 		return nil
 	}
 	// don't do the announcement if this is the first song we see since we get an initial
 	// value from somewhere hopefully
 	if ann.lastAnnounceSong.ID == 0 {
-		zerolog.Ctx(ctx).Info().Str("metadata", status.Song.Metadata).Msg("skipping anounce: first song")
+		zerolog.Ctx(ctx).Info().Ctx(ctx).Str("metadata", status.Song.Metadata).Msg("skipping anounce: first song")
 		ann.lastAnnounceSong = status.Song
 		return nil
 	}
 	// don't do the announcement if this song is equal to the last song we announced
 	if ann.lastAnnounceSong.EqualTo(status.Song) {
-		zerolog.Ctx(ctx).Info().Str("metadata", status.Song.Metadata).Msg("skipping announce: same as last song")
+		zerolog.Ctx(ctx).Info().Ctx(ctx).Str("metadata", status.Song.Metadata).Msg("skipping announce: same as last song")
 		return nil
 	}
 	message := "Now starting:{red} '%s' {clear}[%s](%s), %s, %s, {green}LP:{clear} %s"
@@ -308,7 +308,7 @@ func (ann *announceService) queueChangeTopic(ctx context.Context, user *radio.Us
 
 		err := ann.changeTopic(context.WithoutCancel(ctx), user)
 		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to change topic")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to change topic")
 			return
 		}
 		ann.topicLastEdit = time.Now()

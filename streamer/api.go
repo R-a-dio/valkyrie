@@ -171,7 +171,7 @@ func (s *streamerService) RequestSong(ctx context.Context, song radio.Song, iden
 	err = s.announce.AnnounceRequest(ctx, song)
 	if err != nil {
 		// not a critical error, but log it anyway
-		zerolog.Ctx(ctx).Error().Err(err).Msg("failed to announce request")
+		zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to announce request")
 	}
 	return nil
 }

@@ -226,7 +226,7 @@ func SetThemeHandler(cookieName string) http.Handler {
 		// then redirect the request internally to the top of the stack
 		err := util.RedirectToServer(w, r)
 		if err != nil {
-			hlog.FromRequest(r).Error().Err(err).Msg("failed to redirect SetThemeHandler request")
+			hlog.FromRequest(r).Error().Ctx(r.Context()).Err(err).Msg("failed to redirect SetThemeHandler request")
 			w.WriteHeader(http.StatusOK)
 			return
 		}

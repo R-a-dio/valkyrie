@@ -44,7 +44,7 @@ func Open(ctx context.Context, cfg config.Config) (radio.SearchService, error) {
 	// see if there is already an instance available
 	ss, ok := instances[name]
 	if ok {
-		zerolog.Ctx(ctx).Info().Str("provider", name).Msg("re-using existing SearchService")
+		zerolog.Ctx(ctx).Info().Ctx(ctx).Str("provider", name).Msg("re-using existing SearchService")
 		return ss, nil
 	}
 
@@ -54,7 +54,7 @@ func Open(ctx context.Context, cfg config.Config) (radio.SearchService, error) {
 		return nil, errors.E(op, errors.ProviderUnknown, errors.Info(name))
 	}
 
-	zerolog.Ctx(ctx).Info().Str("provider", name).Msg("creating new SearchService")
+	zerolog.Ctx(ctx).Info().Ctx(ctx).Str("provider", name).Msg("creating new SearchService")
 	ss, err := p.fn(ctx, cfg)
 	if err != nil {
 		return nil, errors.E(op, err)

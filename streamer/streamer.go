@@ -68,7 +68,7 @@ func NewStreamer(ctx context.Context, cfg config.Config,
 	}
 	s.StreamUser = *user
 
-	zerolog.Ctx(ctx).Info().Str("username", user.Username).Msg("this is me")
+	zerolog.Ctx(ctx).Info().Ctx(ctx).Str("username", user.Username).Msg("this is me")
 
 	// before we check for the user from the manager, check if we are doing a restart
 	// and have saved state in the fdstore
@@ -80,7 +80,7 @@ func NewStreamer(ctx context.Context, cfg config.Config,
 
 	// timer we use for starting the streamer if nobody is on
 	startTimer := util.NewCallbackTimer(func() {
-		zerolog.Ctx(ctx).Info().Msg("calling start after timeout")
+		zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("calling start after timeout")
 		s.Start(ctx)
 	})
 	// user value to tell us who is streaming according to the proxy
@@ -92,17 +92,17 @@ func NewStreamer(ctx context.Context, cfg config.Config,
 	go func() {
 		err := s.encoder(ctx, nil)
 		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("encoder exit")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("encoder exit")
 			return
 		}
-		zerolog.Ctx(ctx).Info().Msg("encoder exit")
+		zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("encoder exit")
 	}()
 	return s, nil
 }
 
 func (s *Streamer) checkFDStore(ctx context.Context, store *fdstore.Store) {
 	if store == nil {
-		zerolog.Ctx(ctx).Info().Msg("nothing to restore from fdstore")
+		zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("nothing to restore from fdstore")
 		return
 	}
 
@@ -113,16 +113,16 @@ func (s *Streamer) checkFDStore(ctx context.Context, store *fdstore.Store) {
 	// recover the icecast connection if any
 	connEntries, err := store.RemoveConn(fdstoreIcecastConn)
 	if err != nil {
-		zerolog.Ctx(ctx).Error().Err(err).Msg("failed to get stored icecast conn")
+		zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to get stored icecast conn")
 	}
 
 	if len(connEntries) > 0 {
-		zerolog.Ctx(ctx).Info().Msg("recovered an icecast connection")
+		zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("recovered an icecast connection")
 		// grab the first entry
 		conn = connEntries[0].Conn
 		// close the rest
 		for _, entry := range connEntries[1:] {
-			zerolog.Ctx(ctx).Info().Msg("received extra icecast connections")
+			zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("received extra icecast connections")
 			entry.Conn.Close()
 		}
 	}
@@ -136,7 +136,7 @@ func (s *Streamer) checkFDStore(ctx context.Context, store *fdstore.Store) {
 		// decode the queue entry that should be in the data
 		currentEntry, err = rpc.DecodeQueueEntry(entry.Data)
 		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to get stored current song")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to get stored current song")
 		}
 
 		// make an MP3Reader from the file again
@@ -144,7 +144,7 @@ func (s *Streamer) checkFDStore(ctx context.Context, store *fdstore.Store) {
 
 		// close the rest
 		for _, entry := range currentEntries[1:] {
-			zerolog.Ctx(ctx).Info().Msg("received extra current files")
+			zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("received extra current files")
 			entry.File.Close()
 		}
 	}
@@ -152,7 +152,7 @@ func (s *Streamer) checkFDStore(ctx context.Context, store *fdstore.Store) {
 	var entries []StreamTrack
 
 	if current != nil {
-		zerolog.Ctx(ctx).Info().Msg("recovered the current song")
+		zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("recovered the current song")
 		entries = append(entries, StreamTrack{
 			QueueEntry: currentEntry,
 			Audio:      current,
@@ -165,19 +165,19 @@ func (s *Streamer) checkFDStore(ctx context.Context, store *fdstore.Store) {
 	for _, entry := range encoderEntries {
 		queueEntry, err := rpc.DecodeQueueEntry(entry.Data)
 		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to get stored queue song")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to get stored queue song")
 			entry.File.Close()
 			continue
 		}
 
 		reader := audio.NewMP3Reader(entry.File)
 		if reader == nil {
-			zerolog.Ctx(ctx).Error().Msg("failed to create mp3reader")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Msg("failed to create mp3reader")
 			entry.File.Close()
 			continue
 		}
 
-		zerolog.Ctx(ctx).Info().Msg("recovered an encoder song")
+		zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("recovered an encoder song")
 		// store them temporarily
 		ee[queueEntry.QueueID] = StreamTrack{
 			QueueEntry: queueEntry,
@@ -193,7 +193,7 @@ func (s *Streamer) checkFDStore(ctx context.Context, store *fdstore.Store) {
 		// for each song we recover from the encoder we should reserve a song
 		entry, err := s.queue.ReserveNext(ctx)
 		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to reserve next from queue")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to reserve next from queue")
 			continue
 		}
 
@@ -233,18 +233,18 @@ func (s *Streamer) checkFDStore(ctx context.Context, store *fdstore.Store) {
 func (s *Streamer) userChange(ctx context.Context, user *radio.User, timer *util.CallbackTimer) {
 	// nobody is streaming
 	if !user.IsValid() {
-		zerolog.Ctx(ctx).Info().Msg("nobody streaming")
+		zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("nobody streaming")
 
 		// we are allowed to connect after a timeout if one is set
 		timeout := s.Conf().Streamer.ConnectTimeout
 		if timeout == 0 {
-			zerolog.Ctx(ctx).Info().Msg("timeout is zero, not connecting")
+			zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("timeout is zero, not connecting")
 			return
 		}
 
 		if time.Since(s.lastStartPoke.Load()) < time.Duration(timeout) {
 			// we have been poked recently, so just connect instantly
-			zerolog.Ctx(ctx).Info().Msg("starting because recent poke")
+			zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("starting because recent poke")
 			s.Start(context.WithoutCancel(ctx))
 			return
 		}
@@ -263,7 +263,7 @@ func (s *Streamer) userChange(ctx context.Context, user *radio.User, timer *util
 
 	// if we are supposed to be streaming, we can connect
 	if user.ID == s.StreamUser.ID {
-		zerolog.Ctx(ctx).Info().Msg("starting because (me)")
+		zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("starting because (me)")
 		s.Start(context.WithoutCancel(ctx))
 		return
 	}
@@ -336,7 +336,7 @@ func (s *Streamer) start(ctx context.Context, conn net.Conn) {
 	defer s.mu.Unlock()
 
 	if s.running { // already running
-		zerolog.Ctx(ctx).Info().Msg("start called while we're already running")
+		zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("start called while we're already running")
 		return
 	}
 
@@ -360,10 +360,10 @@ func (s *Streamer) start(ctx context.Context, conn net.Conn) {
 
 		err := s.icecast(ctx, conn, popperCh)
 		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("icecast exit")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("icecast exit")
 			return
 		}
-		zerolog.Ctx(ctx).Info().Msg("icecast exit")
+		zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("icecast exit")
 	}(s.done)
 
 	// mark ourselves as running
@@ -443,7 +443,7 @@ func (s *Streamer) encoder(ctx context.Context, encoder *audio.LAME) error {
 	for !s.forced.Load() {
 		entry, err := s.queue.ReserveNext(ctx)
 		if err != nil {
-			logger.Error().Err(err).Msg("failed to get next queue entry")
+			logger.Error().Ctx(ctx).Err(err).Msg("failed to get next queue entry")
 			time.Sleep(time.Second * 2)
 			continue
 		}
@@ -471,7 +471,7 @@ func (s *Streamer) encoder(ctx context.Context, encoder *audio.LAME) error {
 
 		mp3, err := audio.NewMP3Buffer(entry.Metadata, nil)
 		if err != nil {
-			logger.Error().Err(err).Msg("failed to create buffer")
+			logger.Error().Ctx(ctx).Err(err).Msg("failed to create buffer")
 			continue
 		}
 
@@ -489,7 +489,7 @@ func (s *Streamer) encoder(ctx context.Context, encoder *audio.LAME) error {
 				if err != nil {
 					// encoder creation failed
 					// TODO: fail harder after several tries
-					logger.Error().Err(err).Msg("failed to create encoder")
+					logger.Error().Ctx(ctx).Err(err).Msg("failed to create encoder")
 					continue
 				}
 			}
@@ -512,7 +512,7 @@ func (s *Streamer) encoder(ctx context.Context, encoder *audio.LAME) error {
 			// from the Flush call on an error
 			_, err = mp3.Write(mp3buf)
 			if err != nil {
-				logger.Error().Err(err).Msg("failed to write mp3 data")
+				logger.Error().Ctx(ctx).Err(err).Msg("failed to write mp3 data")
 				break
 			}
 		}
@@ -523,7 +523,7 @@ func (s *Streamer) encoder(ctx context.Context, encoder *audio.LAME) error {
 		// tracks
 		_, err = mp3.Write(encoder.Flush())
 		if err != nil {
-			logger.Error().Err(err).Msg("failed to write mp3 data")
+			logger.Error().Ctx(ctx).Err(err).Msg("failed to write mp3 data")
 			continue
 		}
 		logger.Info().
@@ -537,7 +537,7 @@ func (s *Streamer) encoder(ctx context.Context, encoder *audio.LAME) error {
 		// make a reader out of our buffer
 		mp3r, err := mp3.Reader()
 		if err != nil {
-			logger.Error().Err(err).Msg("failed to create reader")
+			logger.Error().Ctx(ctx).Err(err).Msg("failed to create reader")
 			continue
 		}
 		// close the write side
@@ -733,7 +733,7 @@ tracksRun:
 		// a restart
 		err := track.StoreSelf(fds)
 		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to store track")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to store track")
 			return
 		}
 	}
@@ -745,7 +745,7 @@ tracksRun:
 	for _, track := range ts.tracks {
 		err := track.StoreSelf(fds)
 		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to store track")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to store track")
 			return
 		}
 	}
@@ -797,7 +797,7 @@ func (s *Streamer) icecast(ctx context.Context, conn net.Conn, trackCh <-chan St
 		// remove the entry we're about to play from the queue
 		ok, err := s.queue.Remove(ctx, track.QueueID)
 		if err != nil {
-			logger.Error().Err(err).Msg("failed to remove queue entry")
+			logger.Error().Ctx(ctx).Err(err).Msg("failed to remove queue entry")
 		}
 		if !ok {
 			logger.Warn().Msg("failed to remove queue entry")
@@ -840,7 +840,7 @@ func (s *Streamer) icecast(ctx context.Context, conn net.Conn, trackCh <-chan St
 			// write the actual data
 			_, err = conn.Write(buf[:n])
 			if err != nil {
-				logger.Error().Err(err).Msg("icecast connection broken")
+				logger.Error().Ctx(ctx).Err(err).Msg("icecast connection broken")
 				conn.Close()
 				conn = nil
 				continue
@@ -934,7 +934,7 @@ func (s *Streamer) metadataToIcecast(ctx context.Context, entry radio.QueueEntry
 		}
 		return nil
 	}, bo, func(err error, d time.Duration) {
-		zerolog.Ctx(ctx).Error().Err(err).Dur("backoff", d).Msg("icecast metadata failure")
+		zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Dur("backoff", d).Msg("icecast metadata failure")
 	})
 }
 

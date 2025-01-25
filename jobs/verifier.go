@@ -43,11 +43,11 @@ func ExecuteVerifier(ctx context.Context, cfg config.Config) error {
 
 		err = ts.UpdateUsable(song, 1)
 		if err != nil {
-			logger.Error().Err(err).Uint64("track_id", uint64(song.TrackID)).Msg("failed to verify")
+			logger.Error().Ctx(ctx).Err(err).Uint64("track_id", uint64(song.TrackID)).Msg("failed to verify")
 			continue
 		}
 
-		logger.Info().Uint64("track_id", uint64(song.TrackID)).Msg("success")
+		logger.Info().Ctx(ctx).Uint64("track_id", uint64(song.TrackID)).Msg("success")
 	}
 
 	return nil

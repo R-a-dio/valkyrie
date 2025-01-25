@@ -103,7 +103,7 @@ func (rh RegexHandlers) Execute(c *girc.Client, e girc.Event) {
 				event.Echo(CooldownMessageFromError(err))
 			default:
 				event.Echo("An error has occurred")
-				zerolog.Ctx(ctx).Error().Err(err).Msg("handler error")
+				zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("handler error")
 			}
 			return
 		}

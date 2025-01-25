@@ -57,7 +57,7 @@ func NewGuestService(ctx context.Context, cfg config.Config, m radio.ManagerServ
 		proxyAddress: config.Value(cfg, func(c config.Config) string {
 			addr, err := resolveGuestProxyAddr(ctx, string(c.Conf().Manager.GuestProxyAddr))
 			if err != nil {
-				zerolog.Ctx(ctx).Error().Err(err).Msg("failed to resolve guest proxy host")
+				zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to resolve guest proxy host")
 				return ""
 			}
 			return addr
@@ -75,7 +75,7 @@ func NewGuestService(ctx context.Context, cfg config.Config, m radio.ManagerServ
 			return
 		}
 
-		zerolog.Ctx(ctx).Info().Msg("guest user update")
+		zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("guest user update")
 
 		gs.mu.Lock()
 		defer gs.mu.Unlock()
@@ -169,17 +169,17 @@ func (gs *GuestService) Create(ctx context.Context, nick GuestNick) (*radio.User
 	gs.mu.Lock()
 	defer gs.mu.Unlock()
 
-	gs.logger.Info().Str("nick", nick).Msg("guest create request")
+	gs.logger.Info().Ctx(ctx).Str("nick", nick).Msg("guest create request")
 
 	passwd, err := radio.GenerateRandomPassword(GUEST_PASSWORD_LENGTH)
 	if err != nil {
-		gs.logger.Error().Err(err).Msg("failed to generate password")
+		gs.logger.Error().Ctx(ctx).Err(err).Msg("failed to generate password")
 		return nil, "", errors.E(op, err)
 	}
 
 	user, err := gs.createUser(ctx, radio.NickToUsername(nick), passwd)
 	if err != nil {
-		gs.logger.Error().Err(err).Msg("failed to createUser")
+		gs.logger.Error().Ctx(ctx).Err(err).Msg("failed to createUser")
 		return nil, "", errors.E(op, err)
 	}
 
@@ -194,11 +194,11 @@ func (gs *GuestService) Auth(ctx context.Context, nick GuestNick) (*radio.User, 
 	gs.mu.Lock()
 	defer gs.mu.Unlock()
 
-	gs.logger.Info().Str("nick", nick).Msg("guest auth request")
+	gs.logger.Info().Ctx(ctx).Str("nick", nick).Msg("guest auth request")
 
 	user, err := gs.getUser(ctx, radio.NickToUsername(nick))
 	if err != nil {
-		gs.logger.Error().Err(err).Msg("failed to getUser")
+		gs.logger.Error().Ctx(ctx).Err(err).Msg("failed to getUser")
 		return nil, errors.E(op, err)
 	}
 
@@ -207,7 +207,7 @@ func (gs *GuestService) Auth(ctx context.Context, nick GuestNick) (*radio.User, 
 	if user.IP != gs.proxyAddress() {
 		err := gs.updateUserIP(ctx, user, gs.proxyAddress())
 		if err != nil {
-			gs.logger.Error().Err(err).Msg("failed to set guest users IP address")
+			gs.logger.Error().Ctx(ctx).Err(err).Msg("failed to set guest users IP address")
 		} else {
 			user.IP = gs.proxyAddress()
 		}
@@ -228,7 +228,7 @@ func (gs *GuestService) Deauth(ctx context.Context, nick GuestNick) error {
 	gs.mu.Lock()
 	defer gs.mu.Unlock()
 
-	gs.logger.Info().Str("nick", nick).Msg("guest deauth request")
+	gs.logger.Info().Ctx(ctx).Str("nick", nick).Msg("guest deauth request")
 
 	// check if nick even exists in the list
 	if _, ok := gs.Authorized[nick]; !ok {
@@ -256,7 +256,7 @@ func (gs *GuestService) canDo(ctx context.Context, nick GuestNick, action radio.
 	gs.mu.Lock()
 	defer gs.mu.Unlock()
 
-	gs.logger.Info().Str("nick", nick).Any("action", action).Msg("guest do request")
+	gs.logger.Info().Ctx(ctx).Str("nick", nick).Any("action", action).Msg("guest do request")
 
 	guest, ok := gs.Authorized[nick]
 	if !ok {
@@ -268,12 +268,12 @@ func (gs *GuestService) canDo(ctx context.Context, nick GuestNick, action radio.
 	case radio.GuestKill:
 		// guests can't kill if they've been "live" once this auth period
 		if guest.HasStreamed {
-			gs.logger.Info().Str("nick", nick).Any("action", action).Msg("denying because guest.HasStreamed=true")
+			gs.logger.Info().Ctx(ctx).Str("nick", nick).Any("action", action).Msg("denying because guest.HasStreamed=true")
 			return false, nil
 		}
 		// guests can't kill if they hit the kill limit
 		if guest.KillAttempts >= GUEST_KILL_LIMIT {
-			gs.logger.Info().Str("nick", nick).Any("action", action).Int("limit", GUEST_KILL_LIMIT).Msg("denying because guest.KillAttempts>=limit")
+			gs.logger.Info().Ctx(ctx).Str("nick", nick).Any("action", action).Int("limit", GUEST_KILL_LIMIT).Msg("denying because guest.KillAttempts>=limit")
 			return false, nil
 		}
 		if increment {
@@ -282,7 +282,7 @@ func (gs *GuestService) canDo(ctx context.Context, nick GuestNick, action radio.
 	case radio.GuestThread:
 		// guests can't set the thread if they've done it too many times
 		if guest.ThreadSets >= GUEST_THREAD_LIMIT {
-			gs.logger.Info().Str("nick", nick).Any("action", action).Int("limit", GUEST_THREAD_LIMIT).Msg("denying because guest.ThreadSets>=limit")
+			gs.logger.Info().Ctx(ctx).Str("nick", nick).Any("action", action).Int("limit", GUEST_THREAD_LIMIT).Msg("denying because guest.ThreadSets>=limit")
 			return false, nil
 		}
 		if increment {

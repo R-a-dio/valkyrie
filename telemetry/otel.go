@@ -75,7 +75,7 @@ func Init(ctx context.Context, cfg config.Config, service string) (func(), error
 			case <-ticker.C:
 				err := pusher.AddContext(ctx)
 				if err != nil {
-					zerolog.Ctx(ctx).Error().Err(err).Msg("failed to prometheus push")
+					zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to prometheus push")
 				}
 			case <-ctx.Done():
 				return

@@ -30,14 +30,14 @@ func (s *Server) GetMetadata(w http.ResponseWriter, r *http.Request) {
 	mount := GetMountpoint(r)
 	if mount == "" {
 		// ignore empty mount
-		hlog.FromRequest(r).Info().Msg("empty mount")
+		hlog.FromRequest(r).Info().Ctx(ctx).Msg("empty mount")
 		return
 	}
 
 	metadata := query.Get("song")
 	if metadata == "" {
 		// ignore empty metadata
-		hlog.FromRequest(r).Info().Msg("empty metadata")
+		hlog.FromRequest(r).Info().Ctx(ctx).Msg("empty metadata")
 		return
 	}
 
@@ -50,7 +50,7 @@ func (s *Server) GetMetadata(w http.ResponseWriter, r *http.Request) {
 	metadata = ToUTF8(ctx, charset, metadata)
 	if metadata == "" {
 		// above can return an empty string due to text-encoding changes
-		hlog.FromRequest(r).Info().Msg("empty metadata")
+		hlog.FromRequest(r).Info().Ctx(ctx).Msg("empty metadata")
 		return
 	}
 
@@ -63,7 +63,7 @@ func (s *Server) GetMetadata(w http.ResponseWriter, r *http.Request) {
 		Value:      metadata,
 	})
 	if err != nil {
-		hlog.FromRequest(r).Error().Err(err).Msg("failed to send metadata to proxy manager")
+		hlog.FromRequest(r).Error().Ctx(ctx).Err(err).Msg("failed to send metadata to proxy manager")
 		return
 	}
 
@@ -79,7 +79,7 @@ func (s *Server) GetListClients(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Length", strconv.Itoa(len(response)))
 	_, err := w.Write(response)
 	if err != nil {
-		hlog.FromRequest(r).Error().Err(err).Msg("failed to write listclients response")
+		hlog.FromRequest(r).Error().Ctx(r.Context()).Err(err).Msg("failed to write listclients response")
 	}
 }
 
@@ -98,7 +98,7 @@ func ToUTF8(ctx context.Context, charset, meta string) string {
 		// we special case latin1, but others can just decode to utf8
 		enc, err := htmlindex.Get(charset)
 		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).
 				Str("text-encoding", "proxy").
 				Str("charset", charset).
 				Msg("unknown charset")
@@ -107,7 +107,7 @@ func ToUTF8(ctx context.Context, charset, meta string) string {
 
 		res, err := enc.NewDecoder().String(meta)
 		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).
 				Str("text-encoding", "proxy").
 				Str("charset", charset).
 				Str("metadata", meta).
@@ -133,7 +133,7 @@ func ToUTF8(ctx context.Context, charset, meta string) string {
 	// so that leaves it maybe being actual valid latin1
 	latinMeta, err := charmap.ISO8859_1.NewDecoder().String(meta)
 	if err != nil {
-		zerolog.Ctx(ctx).Error().Err(err).
+		zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).
 			Str("text-encoding", "proxy").
 			Str("charset", charset).
 			Str("metadata", meta).

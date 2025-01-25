@@ -89,7 +89,7 @@ func (c cmd) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{}) 
 		defer telemetryMu.Unlock()
 		telemetryShutdown, err = telemetry.Init(ctx, cfg, flag.CommandLine.Arg(0))
 		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to initialize telemetry")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to initialize telemetry")
 		}
 
 		return cfg, err
@@ -379,7 +379,7 @@ func main() {
 		code = 1
 		// print the error if it's a non-ExitError since it's probably important
 		log.Println("exit error:", err)
-		logger.Fatal().Err(err).Msg("exit")
+		logger.Fatal().Ctx(ctx).Err(err).Msg("exit")
 	}
 
 	os.Exit(code)
@@ -416,7 +416,7 @@ func executeCommand(ctx context.Context, errCh chan error) error {
 	// we need to signal systemd that we're ready, doing this "correctly" would mean doing
 	// it in each separate commands main loop, but we just do it here for now
 	if err := fdstore.Notify(fdstore.Ready); err != nil {
-		zerolog.Ctx(ctx).Error().Err(err).Msg("failed to send sd_notify READY")
+		zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to send sd_notify READY")
 	}
 
 	// handle our signals, we only exit when either the command finishes running and
@@ -432,10 +432,10 @@ func executeCommand(ctx context.Context, errCh chan error) error {
 
 		switch sig {
 		case os.Interrupt:
-			zerolog.Ctx(ctx).Info().Msg("SIGINT received")
+			zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("SIGINT received")
 			return nil
 		case syscall.SIGHUP:
-			zerolog.Ctx(ctx).Info().Msg("SIGHUP received: not implemented")
+			zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("SIGHUP received: not implemented")
 			// TODO: implement this
 			if fdstore.Notify(fdstore.Reloading) == nil {
 				_ = fdstore.Notify(fdstore.Ready)

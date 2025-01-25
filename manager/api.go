@@ -74,9 +74,9 @@ func (m *Manager) UpdateUser(ctx context.Context, u *radio.User) error {
 
 	m.userStream.Send(u)
 	if u != nil {
-		m.logger.Info().Str("username", u.Username).Msg("updating stream user")
+		m.logger.Info().Ctx(ctx).Str("username", u.Username).Msg("updating stream user")
 	} else {
-		m.logger.Info().Str("username", "fallback").Msg("updating stream user")
+		m.logger.Info().Ctx(ctx).Str("username", "fallback").Msg("updating stream user")
 	}
 	return nil
 }
@@ -93,7 +93,7 @@ func (m *Manager) UpdateSong(ctx context.Context, su *radio.SongUpdate) error {
 
 	// empty metadata, we ignore
 	if su.Song.Metadata == "" {
-		m.logger.Info().Msg("skipping empty metadata")
+		m.logger.Info().Ctx(ctx).Msg("skipping empty metadata")
 		return nil
 	}
 
@@ -144,7 +144,7 @@ func (m *Manager) UpdateSong(ctx context.Context, su *radio.SongUpdate) error {
 		return nil
 	}
 
-	m.logger.Info().Str("metadata", song.Metadata).Dur("song_length", song.Length).Msg("updating stream song")
+	m.logger.Info().Ctx(ctx).Str("metadata", song.Metadata).Dur("song_length", song.Length).Msg("updating stream song")
 	m.songStream.Send(&radio.SongUpdate{Song: *song, Info: info})
 	return nil
 }
@@ -279,21 +279,21 @@ func (m *Manager) runStatusUpdates(ctx context.Context, ready chan struct{}) {
 				// skip nil users for the User and StreamerName fields
 				break
 			}
-			zerolog.Ctx(ctx).Info().Any("user", user).Msg("running status update")
+			zerolog.Ctx(ctx).Info().Ctx(ctx).Any("user", user).Msg("running status update")
 			m.status.StreamerName = user.DJ.Name
 			m.status.User = *user
 		case thread := <-threadCh:
-			zerolog.Ctx(ctx).Info().Str("thread", thread).Msg("running status update")
+			zerolog.Ctx(ctx).Info().Ctx(ctx).Str("thread", thread).Msg("running status update")
 			m.mu.Lock()
 			m.status.Thread = thread
 		case su := <-songCh:
-			zerolog.Ctx(ctx).Info().Any("song", su).Msg("running status update")
+			zerolog.Ctx(ctx).Info().Ctx(ctx).Any("song", su).Msg("running status update")
 			m.mu.Lock()
 
 			if su == nil || !m.status.Song.EqualTo(su.Song) {
 				err := m.finishSong(ctx, m.status, songStartListenerCount)
 				if err != nil {
-					zerolog.Ctx(ctx).Error().Err(err).Msg("failed finishSong")
+					zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed finishSong")
 				}
 			}
 
@@ -307,7 +307,7 @@ func (m *Manager) runStatusUpdates(ctx context.Context, ready chan struct{}) {
 				m.status.SongInfo = su.Info
 			}
 		case listenerCount = <-listenerCh:
-			zerolog.Ctx(ctx).Info().Int64("listeners", listenerCount).Msg("running status update")
+			zerolog.Ctx(ctx).Info().Ctx(ctx).Int64("listeners", listenerCount).Msg("running status update")
 			m.mu.Lock()
 			m.status.Listeners = listenerCount
 			sendStatus = false // don't send status updates for listener count updates

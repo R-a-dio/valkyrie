@@ -26,10 +26,10 @@ func ExecuteIndexSearch(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 
-	zerolog.Ctx(ctx).Info().Int("amount", len(songs)).Msg("start indexing songs")
+	zerolog.Ctx(ctx).Info().Ctx(ctx).Int("amount", len(songs)).Msg("start indexing songs")
 	now := time.Now()
 	err = ss.Update(ctx, songs...)
-	zerolog.Ctx(ctx).Info().Dur("took", time.Since(now)).Msg("finished indexing songs")
+	zerolog.Ctx(ctx).Info().Ctx(ctx).Dur("took", time.Since(now)).Msg("finished indexing songs")
 	if err != nil {
 		return err
 	}

@@ -314,7 +314,7 @@ func (s *State) postProfile(r *http.Request) (*ProfileForm, error) {
 	if err != nil {
 		// non-critical error, don't return it to the caller
 		err = errors.E(op, err)
-		zerolog.Ctx(ctx).Error().Err(err).Msg("failed to update storage")
+		zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to update storage")
 	}
 
 	return form, nil

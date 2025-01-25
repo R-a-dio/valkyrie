@@ -46,18 +46,18 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	b.StatusValue = util.StreamValue(ctx, cfg.Manager.CurrentStatus, func(ctx context.Context, s radio.Status) {
 		err := announce.AnnounceSong(ctx, s)
 		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to announce status")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to announce status")
 		}
 
 		err = announce.AnnounceThread(ctx, s.Thread)
 		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to announce thread")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to announce thread")
 		}
 	})
 	b.UserValue = util.StreamValue(ctx, cfg.Manager.CurrentUser, func(ctx context.Context, user *radio.User) {
 		err := announce.AnnounceUser(ctx, user)
 		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to announce user")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to announce user")
 		}
 	})
 	b.ListenersValue = util.StreamValue(ctx, cfg.Manager.CurrentListeners)
@@ -162,10 +162,10 @@ func (b *Bot) runClient(ctx context.Context) error {
 	doConnect := func() error {
 		const op errors.Op = "irc/Bot.runClient.doConnect"
 
-		zerolog.Ctx(ctx).Info().Str("address", b.c.Config.Server).Msg("connecting")
+		zerolog.Ctx(ctx).Info().Ctx(ctx).Str("address", b.c.Config.Server).Msg("connecting")
 		err := b.c.Connect()
 		if err != nil {
-			zerolog.Ctx(ctx).Error().Str("address", b.c.Config.Server).Err(err).Msg("connecting")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Str("address", b.c.Config.Server).Err(err).Msg("connecting")
 			// reset the backoff if we managed to stay connected for a decent period of
 			// time so we will retry fast again
 			if cb.GetElapsedTime() > time.Minute*10 {

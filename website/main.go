@@ -40,7 +40,7 @@ import (
 var NewRouter = func() chi.Router { return chi.NewRouter() }
 
 func zerologLoggerFunc(r *http.Request, status, size int, duration time.Duration) {
-	hlog.FromRequest(r).Info().
+	hlog.FromRequest(r).Info().Ctx(r.Context()).
 		Int("status_code", status).
 		Int("response_size_bytes", size).
 		Dur("elapsed_ms", duration).
@@ -204,7 +204,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	// version 0 of the api (the legacy PHP version)
 	// it's mostly self-contained to the /api/* route, except for /request that
 	// leaked out at some point
-	logger.Info().Str("event", "init").Str("part", "api_v0").Msg("")
+	logger.Info().Ctx(ctx).Str("event", "init").Str("part", "api_v0").Msg("")
 	v0, err := phpapi.NewAPI(ctx, cfg, storage, statusValue)
 	if err != nil {
 		return errors.E(op, err)
@@ -213,7 +213,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	r.Route(`/request/{TrackID:[0-9]+}`, v0.RequestRoute)
 
 	// version 1 of the api
-	logger.Info().Str("event", "init").Str("part", "api_v1").Msg("")
+	logger.Info().Ctx(ctx).Str("event", "init").Str("part", "api_v1").Msg("")
 	v1, err := v1.NewAPI(ctx, cfg, executor, afero.NewReadOnlyFs(afero.NewOsFs()), songSecret)
 	if err != nil {
 		return errors.E(op, err)
@@ -266,7 +266,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	if err != nil {
 		return err
 	}
-	zerolog.Ctx(ctx).Info().Str("address", server.Addr).Msg("website started listening")
+	zerolog.Ctx(ctx).Info().Ctx(ctx).Str("address", server.Addr).Msg("website started listening")
 
 	// restore the state from the previous process
 	var ws websiteStorage
@@ -288,10 +288,10 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		})
 
 		if err := fdstorage.AddListener(ln, "website", state); err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to store listener")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to store listener")
 		}
 		if err := fdstorage.Send(); err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to send store")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to send store")
 		}
 		return server.Close()
 	case err = <-errCh:

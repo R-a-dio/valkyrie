@@ -54,13 +54,13 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		return srv.Close()
 	case <-util.Signal(syscall.SIGUSR2):
 		if err := srv.storeSelf(ctx, fdstorage); err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to store self")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to store self")
 		}
 		if err := grpcSrv.storeSelf(ctx, fdstorage); err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to store grpc")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to store grpc")
 		}
 		if err := fdstorage.Send(); err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to send store")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to send store")
 		}
 		return srv.Close()
 	case err = <-errCh:

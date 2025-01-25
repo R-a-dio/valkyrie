@@ -51,7 +51,7 @@ func (a *API) GetSong(w http.ResponseWriter, r *http.Request) {
 
 	wf, err := audio.WriteMetadata(ctx, f, *song)
 	if err != nil {
-		zerolog.Ctx(ctx).Error().Err(err).Msg("failed to write metadata")
+		zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to write metadata")
 		// if writing metadata fails, just send the file as-is without the
 		// metadata added in
 		f.Seek(0, io.SeekStart)

@@ -28,7 +28,7 @@ func TrackCtx(storage radio.TrackStorageService) func(http.Handler) http.Handler
 
 			song, err := storage.Track(ctx).Get(trackid)
 			if err != nil {
-				hlog.FromRequest(r).Error().Err(err).Msg("failed trackctx")
+				hlog.FromRequest(r).Error().Ctx(ctx).Err(err).Msg("failed trackctx")
 				return
 			}
 

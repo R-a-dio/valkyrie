@@ -117,7 +117,7 @@ func (srv *Server) Start(ctx context.Context, fdstorage *fdstore.Store) error {
 		err = json.Unmarshal(state, srv.proxy)
 		if err != nil {
 			// not a critical error, log it and continue
-			logger.Error().Err(err).Str("json", string(state)).Msg("failed to unmarshal state")
+			logger.Error().Ctx(ctx).Err(err).Str("json", string(state)).Msg("failed to unmarshal state")
 		}
 	}
 
@@ -129,6 +129,6 @@ func (srv *Server) Start(ctx context.Context, fdstorage *fdstore.Store) error {
 	// its mounts from the fdstorage if any exist
 	srv.proxy.restoreMounts(ctx, fdstorage)
 
-	logger.Info().Str("address", ln.Addr().String()).Msg("proxy started listening")
+	logger.Info().Ctx(ctx).Str("address", ln.Addr().String()).Msg("proxy started listening")
 	return srv.http.Serve(ln)
 }

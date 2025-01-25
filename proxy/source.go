@@ -23,13 +23,13 @@ func (s *Server) PutSource(w http.ResponseWriter, r *http.Request) {
 
 	identifier := IdentFromRequest(r)
 	if identifier == 0 {
-		hlog.FromRequest(r).Error().Msg("failed to get an identifier")
+		hlog.FromRequest(r).Error().Ctx(ctx).Msg("failed to get an identifier")
 		return
 	}
 
 	user := middleware.UserFromContext(ctx)
 	if !user.IsValid() {
-		hlog.FromRequest(r).Error().Msg("failed to get an user")
+		hlog.FromRequest(r).Error().Ctx(ctx).Msg("failed to get an user")
 		return
 	}
 
@@ -43,18 +43,18 @@ func (s *Server) PutSource(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 
 	if err := rc.Flush(); err != nil {
-		hlog.FromRequest(r).Error().Err(err).Msg("failed to flush OK header")
+		hlog.FromRequest(r).Error().Ctx(ctx).Err(err).Msg("failed to flush OK header")
 		return
 	}
 
 	// hijack the connection since we're now gonna be reading directly from conn
 	conn, bufrw, err := rc.Hijack()
 	if err != nil {
-		hlog.FromRequest(r).Error().Err(err).Msg("failed to hijack source request")
+		hlog.FromRequest(r).Error().Ctx(ctx).Err(err).Msg("failed to hijack source request")
 		return
 	}
 	if err := bufrw.Flush(); err != nil {
-		hlog.FromRequest(r).Error().Err(err).Msg("failed to flush bufrw")
+		hlog.FromRequest(r).Error().Ctx(ctx).Err(err).Msg("failed to flush bufrw")
 		return
 	}
 
@@ -64,14 +64,14 @@ func (s *Server) PutSource(w http.ResponseWriter, r *http.Request) {
 		// HTTP/1.0 some clients expect an extra newline
 		_, err = io.WriteString(conn, "\r\n")
 		if err != nil {
-			hlog.FromRequest(r).Error().Err(err).Msg("failed writing end of http request")
+			hlog.FromRequest(r).Error().Ctx(ctx).Err(err).Msg("failed writing end of http request")
 		}
 	}
 	if r.ProtoMajor == 1 && r.ProtoMinor == 1 {
 		// HTTP/1.1 is chunked encoding and we need to send the end stream chunked chunk
 		_, err = io.WriteString(conn, "0\r\n\r\n")
 		if err != nil {
-			hlog.FromRequest(r).Error().Err(err).Msg("failed writing end of http request")
+			hlog.FromRequest(r).Error().Ctx(ctx).Err(err).Msg("failed writing end of http request")
 		}
 	}
 
@@ -79,7 +79,7 @@ func (s *Server) PutSource(w http.ResponseWriter, r *http.Request) {
 	// by the function reading from it
 	err = conn.SetDeadline(time.Time{})
 	if err != nil {
-		hlog.FromRequest(r).Error().Err(err).Msg("failed to set deadline")
+		hlog.FromRequest(r).Error().Ctx(ctx).Err(err).Msg("failed to set deadline")
 		return
 	}
 
@@ -99,7 +99,7 @@ func (s *Server) PutSource(w http.ResponseWriter, r *http.Request) {
 
 	err = s.proxy.AddSourceClient(client)
 	if err != nil {
-		hlog.FromRequest(r).Error().Err(err).Msg("failed to add source client to proxy")
+		hlog.FromRequest(r).Error().Ctx(ctx).Err(err).Msg("failed to add source client to proxy")
 		return
 	}
 }

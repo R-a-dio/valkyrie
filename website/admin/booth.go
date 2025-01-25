@@ -154,7 +154,7 @@ func NewBoothStopStreamerInput(gs radio.GuestService, r *http.Request, timeout t
 		var err error
 		allowedToKill, err = gs.CanDo(ctx, radio.UsernameToNick(user.Username), radio.GuestKill)
 		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to check guest can-do")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to check guest can-do")
 		}
 	}
 
@@ -233,7 +233,7 @@ func (s *State) postBoothStopStreamer(r *http.Request) (*BoothStopStreamerInput,
 	// check for guest user and if they have permission to continue
 	if ok, err := s.boothCheckGuestPermission(r, radio.GuestKill); err != nil {
 		// guest service broken or offline
-		zerolog.Ctx(ctx).Error().Err(err).Msg("failed guest permission check")
+		zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed guest permission check")
 		return input, nil
 	} else if !ok {
 		// guest doesn't have permission to do this
@@ -256,7 +256,7 @@ func (s *State) postBoothStopStreamer(r *http.Request) (*BoothStopStreamerInput,
 
 	if err != nil {
 		// streamer service offline or broken
-		zerolog.Ctx(ctx).Error().Err(err).Msg("failed to stop streamer")
+		zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to stop streamer")
 		return input, nil
 	}
 
@@ -286,7 +286,7 @@ func NewBoothSetThreadInput(gs radio.GuestService, r *http.Request, thread ...st
 		var err error
 		allowedToThread, err = gs.CanDo(ctx, radio.UsernameToNick(input.User.Username), radio.GuestThread)
 		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to check guest can-do")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to check guest can-do")
 		}
 	}
 
@@ -347,7 +347,7 @@ func (s *State) postBoothSetThread(gs radio.GuestService, r *http.Request) (*Boo
 	// check for guest user and if they have permission to continue
 	if ok, err := s.boothCheckGuestPermission(r, radio.GuestThread); err != nil {
 		// guest service broken or offline
-		zerolog.Ctx(ctx).Error().Err(err).Msg("failed guest permission check")
+		zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed guest permission check")
 		return input, nil
 	} else if !ok {
 		// guest doesn't have permission to do this
@@ -360,7 +360,7 @@ func (s *State) postBoothSetThread(gs radio.GuestService, r *http.Request) (*Boo
 	err = s.Manager.UpdateThread(ctx, thread)
 	if err != nil {
 		// manager service broken or offline
-		zerolog.Ctx(ctx).Error().Err(err).Msg("failed to update thread")
+		zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to update thread")
 		return input, nil
 	}
 
@@ -408,7 +408,7 @@ func (b *BoothAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// execute our template
 		err := b.tmpl.Execute(&buf, r, input)
 		if err != nil {
-			logger.Error().Err(err).Str("event", eventName).Msg("failed to execute template")
+			logger.Error().Ctx(ctx).Err(err).Str("event", eventName).Msg("failed to execute template")
 			return
 		}
 
@@ -429,7 +429,7 @@ func (b *BoothAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// update the stop button state
 		input, err := NewBoothStopStreamerInput(b.Guest, r, b.connectTimeoutCfg(), user)
 		if err != nil {
-			logger.Error().Err(err).Msg("failed to create stop-streamer input")
+			logger.Error().Ctx(ctx).Err(err).Msg("failed to create stop-streamer input")
 			return
 		}
 
@@ -445,7 +445,7 @@ func (b *BoothAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	util.StreamValue(ctx, b.Manager.CurrentThread, func(ctx context.Context, thread radio.Thread) {
 		input, err := NewBoothSetThreadInput(b.Guest, r, thread)
 		if err != nil {
-			logger.Error().Err(err).Msg("failed to create thread input")
+			logger.Error().Ctx(ctx).Err(err).Msg("failed to create thread input")
 			return
 		}
 
@@ -475,7 +475,7 @@ func (b *BoothAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		input, err := NewBoothStreamerList(ctx, b.Proxy)
 		if err != nil {
-			logger.Error().Err(err).Msg("failed to create streamer list input")
+			logger.Error().Ctx(ctx).Err(err).Msg("failed to create streamer list input")
 			return
 		}
 
@@ -499,13 +499,13 @@ func (b *BoothAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// send any data we receive from the streams
 		_, err := w.Write(data)
 		if err != nil {
-			logger.Error().Err(err).Msg("failed to write data")
+			logger.Error().Ctx(ctx).Err(err).Msg("failed to write data")
 			continue
 		}
 
 		// and flush, otherwise smaller events won't get send instantly
 		if err = controller.Flush(); err != nil {
-			logger.Error().Err(err).Msg("failed to flush data")
+			logger.Error().Ctx(ctx).Err(err).Msg("failed to flush data")
 			continue
 		}
 	}

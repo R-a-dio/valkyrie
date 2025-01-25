@@ -92,7 +92,7 @@ func (a authentication) UserMiddleware(next http.Handler) http.Handler {
 			http.Error(w,
 				http.StatusText(http.StatusInternalServerError),
 				http.StatusInternalServerError)
-			hlog.FromRequest(r).Error().Err(err).Msg("")
+			hlog.FromRequest(r).Error().Ctx(ctx).Err(err).Msg("")
 			return
 		}
 
@@ -145,7 +145,7 @@ func (a authentication) LoginMiddleware(next http.Handler) http.Handler {
 			http.Error(w,
 				http.StatusText(http.StatusInternalServerError),
 				http.StatusInternalServerError)
-			hlog.FromRequest(r).Error().Err(err).Msg("")
+			hlog.FromRequest(r).Error().Ctx(ctx).Err(err).Msg("")
 			return
 		}
 
@@ -167,7 +167,7 @@ func (a *authentication) GetLogin(w http.ResponseWriter, r *http.Request) {
 	err := a.getLogin(w, r, nil)
 	if err != nil {
 		err = errors.E(op, err)
-		hlog.FromRequest(r).Error().Err(err).Msg("")
+		hlog.FromRequest(r).Error().Ctx(r.Context()).Err(err).Msg("")
 		return
 	}
 }
@@ -213,13 +213,13 @@ func (a *authentication) PostLogin(w http.ResponseWriter, r *http.Request) {
 		err = errors.E(op, err)
 		// failed to login, log an error and give the user a generic error
 		// message alongside the login page again
-		hlog.FromRequest(r).Error().Err(err).Msg("")
+		hlog.FromRequest(r).Error().Ctx(r.Context()).Err(err).Msg("")
 
 		input := NewLoginInput(r, "invalid credentials")
 		err = a.getLogin(w, r, &input)
 		if err != nil {
 			err = errors.E(op, err)
-			hlog.FromRequest(r).Error().Err(err).Msg("failed to send login page")
+			hlog.FromRequest(r).Error().Ctx(r.Context()).Err(err).Msg("failed to send login page")
 			return
 		}
 		return
@@ -279,7 +279,7 @@ func (a *authentication) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	err := a.sessions.Destroy(r.Context())
 	if err != nil {
 		err = errors.E(op, err)
-		hlog.FromRequest(r).Error().Err(err).Msg("")
+		hlog.FromRequest(r).Error().Ctx(r.Context()).Err(err).Msg("")
 		http.Error(w,
 			http.StatusText(http.StatusInternalServerError),
 			http.StatusInternalServerError)
@@ -386,7 +386,7 @@ func (JSONCodec) Decode(b []byte) (time.Time, map[string]interface{}, error) {
 func UserFromContext(ctx context.Context) *radio.User {
 	u, ok := ctx.Value(userContextKey{}).(*radio.User)
 	if !ok {
-		zerolog.Ctx(ctx).Error().Msg("UserFromContext: called from handler not behind LoginMiddleware")
+		zerolog.Ctx(ctx).Error().Ctx(ctx).Msg("UserFromContext: called from handler not behind LoginMiddleware")
 		return nil
 	}
 	return u
@@ -408,7 +408,7 @@ func BasicAuth(uss radio.UserStorageService) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			username, passwd, ok := r.BasicAuth()
 			if !ok || username == "" || passwd == "" {
-				hlog.FromRequest(r).Error().Msg("basic auth failure")
+				hlog.FromRequest(r).Error().Ctx(r.Context()).Msg("basic auth failure")
 				BasicAuthFailure(w, r)
 				return
 			}
@@ -425,20 +425,20 @@ func BasicAuth(uss radio.UserStorageService) func(http.Handler) http.Handler {
 			us := uss.User(r.Context())
 			user, err := us.Get(username)
 			if err != nil {
-				hlog.FromRequest(r).Error().Err(err).Str("username", username).Msg("database error")
+				hlog.FromRequest(r).Error().Ctx(r.Context()).Err(err).Str("username", username).Msg("database error")
 				BasicAuthFailure(w, r)
 				return
 			}
 
 			if !user.UserPermissions.Has(radio.PermActive) {
-				hlog.FromRequest(r).Error().Str("username", username).Msg("inactive user")
+				hlog.FromRequest(r).Error().Ctx(r.Context()).Str("username", username).Msg("inactive user")
 				BasicAuthFailure(w, r)
 				return
 			}
 
 			err = user.ComparePassword(passwd)
 			if err != nil {
-				hlog.FromRequest(r).Error().Str("username", username).Msg("invalid password")
+				hlog.FromRequest(r).Error().Ctx(r.Context()).Str("username", username).Msg("invalid password")
 				BasicAuthFailure(w, r)
 				return
 			}

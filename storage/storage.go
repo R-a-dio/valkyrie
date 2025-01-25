@@ -43,7 +43,7 @@ func Open(ctx context.Context, cfg config.Config) (radio.StorageService, error) 
 		return nil, errors.E(op, errors.ProviderUnknown, errors.Info(name))
 	}
 
-	zerolog.Ctx(ctx).Info().Str("provider", name).Msg("creating new StorageService")
+	zerolog.Ctx(ctx).Info().Ctx(ctx).Str("provider", name).Msg("creating new StorageService")
 	store, err := fn(ctx, cfg)
 	if err != nil {
 		return nil, errors.E(op, err)

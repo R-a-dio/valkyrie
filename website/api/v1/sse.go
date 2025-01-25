@@ -41,12 +41,12 @@ func (a *API) runStatusUpdates(ctx context.Context) {
 		// if status is zero it probably means it was an initial value or there is no stream
 		// either way skip the propagation to the sse stream
 		if status.IsZero() {
-			log.Debug().Msg("zero value")
+			log.Debug().Ctx(ctx).Msg("zero value")
 			return
 		}
 
 		if status.Thread != previous.Thread {
-			log.Debug().Str("event", EventThread).Any("value", status).Msg("sending")
+			log.Debug().Ctx(ctx).Str("event", EventThread).Any("value", status).Msg("sending")
 			a.sse.SendThread(status.Thread)
 			// TODO: add an actual sendThread as well
 			// TODO: see if we need this hack at all
@@ -62,7 +62,7 @@ func (a *API) runStatusUpdates(ctx context.Context) {
 			// 		by calling the Status function
 			status.Listeners = listeners.Load()
 
-			log.Debug().Str("event", EventMetadata).Any("value", status).Msg("sending")
+			log.Debug().Ctx(ctx).Str("event", EventMetadata).Any("value", status).Msg("sending")
 			a.sse.SendNowPlaying(status)
 			go a.sendQueue(ctx, status.StreamUser)
 			go a.sendLastPlayed(ctx)
@@ -71,7 +71,7 @@ func (a *API) runStatusUpdates(ctx context.Context) {
 		// same goes for the user one, only pass it through if the user actually changed
 		if status.User.ID != previous.User.ID ||
 			status.User.DJ != previous.User.DJ {
-			log.Debug().Str("event", EventStreamer).Any("value", status.User).Msg("sending")
+			log.Debug().Ctx(ctx).Str("event", EventStreamer).Any("value", status.User).Msg("sending")
 			a.sse.SendStreamer(status.User)
 			// send the queue for this user, this should fix a small desync issue where metadata
 			// is updated before the user
@@ -87,24 +87,24 @@ func (a *API) sendQueue(ctx context.Context, user *radio.User) {
 	if user != nil && radio.IsRobot(*user) {
 		rq, err := a.queue.Entries(ctx)
 		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Str("sse", "queue").Msg("")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Str("sse", "queue").Msg("")
 			return
 		}
 		q = rq
 	}
 
-	zerolog.Ctx(ctx).Debug().Str("event", EventQueue).Any("value", q).Msg("sending")
+	zerolog.Ctx(ctx).Debug().Ctx(ctx).Str("event", EventQueue).Any("value", q).Msg("sending")
 	a.sse.SendQueue(q)
 }
 
 func (a *API) sendLastPlayed(ctx context.Context) {
 	lp, err := a.storage.Song(ctx).LastPlayed(radio.LPKeyLast, 5)
 	if err != nil {
-		zerolog.Ctx(ctx).Error().Err(err).Str("sse", "lastplayed").Msg("")
+		zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Str("sse", "lastplayed").Msg("")
 		return
 	}
 
-	zerolog.Ctx(ctx).Debug().Str("event", EventLastPlayed).Any("value", lp).Msg("sending")
+	zerolog.Ctx(ctx).Debug().Ctx(ctx).Str("event", EventLastPlayed).Any("value", lp).Msg("sending")
 	a.sse.SendLastPlayed(lp)
 }
 
@@ -160,14 +160,15 @@ func NewStream(ctx context.Context, exec templates.Executor) *Stream {
 // ServeHTTP implements http.Handler where each client gets send all SSE events that
 // occur after connecting. There is no history.
 func (s *Stream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	log := hlog.FromRequest(r)
 	controller := http.NewResponseController(w)
 	theme := templates.GetTheme(r.Context())
 
-	log.Debug().Msg("subscribing")
+	log.Debug().Ctx(ctx).Msg("subscribing")
 	ch := s.sub()
 	defer func() {
-		log.Debug().Msg("leave")
+		log.Debug().Ctx(ctx).Msg("leave")
 		s.leave(ch)
 	}()
 
@@ -180,7 +181,7 @@ func (s *Stream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// send events that have already happened, one for each event so that
 	// we're certain the page is current
-	log.Debug().Msg("init")
+	log.Debug().Ctx(ctx).Msg("init")
 	s.mu.RLock()
 	init := maps.Clone(s.last)
 	s.mu.RUnlock()
@@ -192,36 +193,36 @@ func (s *Stream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		data, err := m.genFn(r)
 		if err != nil {
-			log.Error().Err(err).Msg("sse init generator error")
+			log.Error().Ctx(ctx).Err(err).Msg("sse init generator error")
 			continue
 		}
 
-		log.Debug().Bytes("value", data).Msg("send")
+		log.Debug().Ctx(ctx).Bytes("value", data).Msg("send")
 		if _, err := w.Write(data); err != nil {
 			if !errors.IsE(err, syscall.EPIPE) {
-				log.Error().Err(err).Msg("sse client write error")
+				log.Error().Ctx(ctx).Err(err).Msg("sse client write error")
 			}
 			return
 		}
 	}
 
 	if err := controller.Flush(); err != nil {
-		log.Error().Err(err).Msg("sse client flush error")
+		log.Error().Ctx(ctx).Err(err).Msg("sse client flush error")
 		return
 	}
 
 	// start the actual new-event loop
-	log.Debug().Msg("start")
+	log.Debug().Ctx(ctx).Msg("start")
 	for m := range ch {
-		log.Debug().Bytes("value", m.encoded[theme]).Msg("send")
+		log.Debug().Ctx(ctx).Bytes("value", m.encoded[theme]).Msg("send")
 		if _, err := w.Write(m.encoded[theme]); err != nil {
 			if !errors.IsE(err, syscall.EPIPE) {
-				log.Error().Err(err).Msg("sse client write error")
+				log.Error().Ctx(ctx).Err(err).Msg("sse client write error")
 			}
 			return
 		}
 		if err := controller.Flush(); err != nil {
-			log.Error().Err(err).Msg("sse client flush error")
+			log.Error().Ctx(ctx).Err(err).Msg("sse client flush error")
 			return
 		}
 	}

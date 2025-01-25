@@ -25,7 +25,7 @@ func (r *Recorder) Sync(ctx context.Context, other []radio.Listener) {
 			// if the entry ID is above the highest sync ID it probably means
 			// a new listener has appeared between us getting the sync data and
 			// this range loop starting, so skip them
-			zerolog.Ctx(ctx).Info().Msg("skipping listener because ID is higher")
+			zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("skipping listener because ID is higher")
 			return true
 		}
 

@@ -74,7 +74,7 @@ func ConnectDB(ctx context.Context, cfg config.Config, multistatement bool) (*sq
 		dsn.Passwd = "<redacted>"
 	}
 
-	zerolog.Ctx(ctx).Info().Str("address", dsn.FormatDSN()).Msg("trying to connect")
+	zerolog.Ctx(ctx).Info().Ctx(ctx).Str("address", dsn.FormatDSN()).Msg("trying to connect")
 
 	db, err := DatabaseConnectFunc(ctx, "mysql", conndsn)
 	if err != nil {

@@ -76,22 +76,22 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	case <-ctx.Done():
 		return nil
 	case <-util.Signal(syscall.SIGUSR2):
-		zerolog.Ctx(ctx).Info().Msg("SIGUSR2 received")
+		zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("SIGUSR2 received")
 		// on a restart signal we want to capture the current state and pass it
 		// to the next process, however it is possible there are in-flight updates
 		// happening and so we need to wait for those to finish first
 		guestCancel()
-		zerolog.Ctx(ctx).Info().Msg("canceled guest service")
+		zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("canceled guest service")
 		// this stops any long-running manager streams we have open
 		m.CloseSubs()
-		zerolog.Ctx(ctx).Info().Msg("closed manager subs")
+		zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("closed manager subs")
 		// this should stop any other RPC requests and wait until they're finished
 		srv.GracefulStop()
-		zerolog.Ctx(ctx).Info().Msg("stopped grpc server")
+		zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("stopped grpc server")
 		// now shutdown the manager streams, this should count as a "happens-after"
 		// constraint for any updates that were incoming
 		m.Shutdown()
-		zerolog.Ctx(ctx).Info().Msg("shutdown manager streams")
+		zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("shutdown manager streams")
 		// now our state should be "stable" and not be able to be mutated anymore,
 		// so we can encode it to bytes. We use statusFromStreams because we did
 		// a stream Shutdown earlier and it means m.status might not have the latest
@@ -101,11 +101,11 @@ func Execute(ctx context.Context, cfg config.Config) error {
 			return err
 		}
 		if err := fdstorage.AddListener(ln, "manager", state); err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to store self")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to store self")
 			return err
 		}
 		if err := fdstorage.Send(); err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to send store")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to send store")
 		}
 		return nil
 	case err = <-errCh:
@@ -127,14 +127,14 @@ func NewManager(ctx context.Context, store radio.StorageService, state []byte) (
 		if err != nil {
 			return nil, err
 		}
-		zerolog.Ctx(ctx).Info().Any("status", old).Msg("restored state from fdstore")
+		zerolog.Ctx(ctx).Info().Ctx(ctx).Any("status", old).Msg("restored state from fdstore")
 		m.status = old
 	} else { // otherwise use the state from the storage interface
 		old, err := m.loadStreamStatus(ctx)
 		if err != nil {
 			return nil, err
 		}
-		zerolog.Ctx(ctx).Info().Any("status", *old).Msg("restored state from storage")
+		zerolog.Ctx(ctx).Info().Ctx(ctx).Any("status", *old).Msg("restored state from storage")
 		m.status = *old
 	}
 
@@ -183,7 +183,7 @@ func (m *Manager) updateStreamStatus(status radio.Status) {
 
 	err := m.Storage.Status(ctx).Store(status)
 	if err != nil {
-		m.logger.Error().Err(err).Msg("update stream status")
+		m.logger.Error().Ctx(ctx).Err(err).Msg("update stream status")
 		return
 	}
 }

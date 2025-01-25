@@ -44,7 +44,7 @@ func ExecuteTracksHash(ctx context.Context, cfg config.Config) error {
 		// and then update the track
 		err := store.Track(ctx).UpdateMetadata(song)
 		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to update metadata")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to update metadata")
 		}
 	}
 

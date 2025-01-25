@@ -80,7 +80,7 @@ func (s *Server) Start(ctx context.Context, fds *fdstore.Store) error {
 	s.httpLn, err = cloneListener(httpLn)
 	if err != nil {
 		// log the error but other than that just continue
-		logger.Error().Err(err).Msg("failed to clone http listener")
+		logger.Error().Ctx(ctx).Err(err).Msg("failed to clone http listener")
 	}
 
 	grpcLn, _, err := util.RestoreOrListen(fds, GrpcLn, "tcp", grpcAddr)
@@ -91,15 +91,15 @@ func (s *Server) Start(ctx context.Context, fds *fdstore.Store) error {
 	s.grpcLn, err = cloneListener(grpcLn)
 	if err != nil {
 		// log the error but other than that just continue, since the rest will still function
-		logger.Error().Err(err).Msg("failed to clone grpc listener")
+		logger.Error().Ctx(ctx).Err(err).Msg("failed to clone grpc listener")
 	}
 
 	if len(recorderState) > 0 {
 		s.recorder.UnmarshalJSON(recorderState)
 	}
 
-	logger.Info().Str("address", s.httpLn.Addr().String()).Msg("tracker http started listening")
-	logger.Info().Str("address", s.grpcLn.Addr().String()).Msg("tracker grpc started listening")
+	logger.Info().Ctx(ctx).Str("address", s.httpLn.Addr().String()).Msg("tracker http started listening")
+	logger.Info().Ctx(ctx).Str("address", s.grpcLn.Addr().String()).Msg("tracker grpc started listening")
 
 	// setup periodic task to update the manager of our listener count
 	go s.periodicallyUpdateListeners(ctx, UpdateListenersTickrate)
@@ -259,7 +259,7 @@ func (s *Server) periodicallyUpdateListeners(ctx context.Context,
 		case <-ticker.C:
 			err := s.cfg.Manager.UpdateListeners(ctx, s.recorder.ListenerAmount())
 			if err != nil {
-				zerolog.Ctx(ctx).Error().Err(err).Msg("failed update listeners")
+				zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed update listeners")
 			}
 		}
 	}
@@ -278,7 +278,7 @@ func (s *Server) periodicallySyncListeners(ctx context.Context,
 		case <-ticker.C:
 			err := s.syncListeners(ctx)
 			if err != nil {
-				zerolog.Ctx(ctx).Error().Err(err).Msg("failed sync listeners")
+				zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed sync listeners")
 			}
 		}
 	}

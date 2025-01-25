@@ -26,13 +26,13 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		return srv.Close()
 	case <-util.Signal(syscall.SIGUSR2):
 		if err := srv.Shutdown(ctx); err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to close server")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to close server")
 		}
 		if err := srv.storeSelf(ctx, fds); err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to store self")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to store self")
 		}
 		if err := fds.Send(); err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to send store")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to send store")
 		}
 		return nil
 	case err := <-errCh:

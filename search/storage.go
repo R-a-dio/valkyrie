@@ -24,7 +24,7 @@ func (bg background) Update(ctx context.Context, songs ...radio.Song) error {
 	go func() {
 		err := bg.search.Update(ctx, songs...)
 		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("update error")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("update error")
 		}
 	}()
 	return nil
@@ -34,7 +34,7 @@ func (bg background) Delete(ctx context.Context, tids ...radio.TrackID) error {
 	go func() {
 		err := bg.search.Delete(ctx, tids...)
 		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("delete error")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("delete error")
 		}
 	}()
 	return nil

@@ -92,7 +92,7 @@ func (qs *QueueService) append(ctx context.Context, entry radio.QueueEntry) {
 	length, err := audio.ProbeDuration(ctx, path)
 	if err != nil {
 		// log any error, but it isn't critical so just continue
-		qs.logger.Error().Err(err).Ctx(ctx).Msg("duration probe failure")
+		qs.logger.Error().Ctx(ctx).Err(err).Ctx(ctx).Msg("duration probe failure")
 	}
 
 	if length > 0 { // only change the length if we actually got one
@@ -107,7 +107,7 @@ func (qs *QueueService) append(ctx context.Context, entry radio.QueueEntry) {
 	}
 	entry.QueueID = radio.NewQueueID()
 
-	qs.logger.Info().Str("entry", entry.String()).Msg("appending to queue")
+	qs.logger.Info().Ctx(ctx).Str("entry", entry.String()).Msg("appending to queue")
 	qs.queue = append(qs.queue, entry)
 }
 
@@ -158,7 +158,7 @@ func (qs *QueueService) ReserveNext(ctx context.Context) (*radio.QueueEntry, err
 
 	entry := qs.queue[qs.reservedIndex].Copy()
 	qs.reservedIndex++
-	qs.logger.Info().Str("entry", entry.String()).Msg("reserve in queue")
+	qs.logger.Info().Ctx(ctx).Str("entry", entry.String()).Msg("reserve in queue")
 
 	return &entry, nil
 }
@@ -168,7 +168,7 @@ func (qs *QueueService) ResetReserved(ctx context.Context) error {
 	qs.mu.Lock()
 	defer qs.mu.Unlock()
 
-	qs.logger.Info().Int("index", qs.reservedIndex).Msg("reset reserve in queue")
+	qs.logger.Info().Ctx(ctx).Int("index", qs.reservedIndex).Msg("reset reserve in queue")
 	qs.reservedIndex = 0
 	return nil
 }
@@ -186,7 +186,7 @@ func (qs *QueueService) Remove(ctx context.Context, id radio.QueueID) (bool, err
 			continue
 		}
 
-		qs.logger.Info().Str("entry", e.String()).Msg("removing from queue")
+		qs.logger.Info().Ctx(ctx).Str("entry", e.String()).Msg("removing from queue")
 
 		qs.queue = append(qs.queue[:i], qs.queue[i+1:]...)
 		if i < qs.reservedIndex {
@@ -212,12 +212,12 @@ func (qs *QueueService) Remove(ctx context.Context, id radio.QueueID) (bool, err
 
 		err := qs.populate(ctx)
 		if err != nil {
-			qs.logger.Error().Err(err).Msg("failed to populate queue")
+			qs.logger.Error().Ctx(ctx).Err(err).Msg("failed to populate queue")
 		}
 
 		err = qs.Storage.Queue(ctx).Store(queueName, qs.queue)
 		if err != nil {
-			qs.logger.Error().Err(err).Msg("failed to store queue")
+			qs.logger.Error().Ctx(ctx).Err(err).Msg("failed to store queue")
 		}
 	}()
 
@@ -349,7 +349,7 @@ outer:
 	}
 
 	if candidateCount == 0 {
-		qs.logger.Info().Str("reason", "empty candidate list").Msg("failed to populate queue above minimum")
+		qs.logger.Info().Ctx(ctx).Str("reason", "empty candidate list").Msg("failed to populate queue above minimum")
 	}
 	if len(skipReasons) > 0 {
 		qs.logger.Info().

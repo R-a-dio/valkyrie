@@ -58,7 +58,7 @@ func (r *Recorder) PeriodicallyRemoveStale(ctx context.Context, tickrate time.Du
 		case <-ticker.C:
 			stale := r.removeStale(RemoveStalePeriod)
 			if stale > 0 {
-				zerolog.Ctx(ctx).Error().Int("amount", stale).Msg("found stale pending removals")
+				zerolog.Ctx(ctx).Error().Ctx(ctx).Int("amount", stale).Msg("found stale pending removals")
 			}
 		}
 	}

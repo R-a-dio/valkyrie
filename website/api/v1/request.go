@@ -31,7 +31,7 @@ func (a *API) PostRequest(w http.ResponseWriter, r *http.Request) {
 			message = "Unknown song, how did you get here?"
 		default:
 			message = "something broke, report to IRC."
-			hlog.FromRequest(r).Error().Err(err).Msg("request failed")
+			hlog.FromRequest(r).Error().Ctx(r.Context()).Err(err).Msg("request failed")
 		}
 	}
 
@@ -59,7 +59,7 @@ func (a *API) PostRequest(w http.ResponseWriter, r *http.Request) {
 			time.Duration(a.Config.Conf().UserRequestDelay),
 		)
 		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("")
 			return
 		}
 		// TODO: message handling
@@ -72,7 +72,7 @@ func (a *API) PostRequest(w http.ResponseWriter, r *http.Request) {
 			time.Duration(a.Config.Conf().UserRequestDelay),
 		)
 		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("")
 			return
 		}
 		if message == "" {
@@ -91,7 +91,7 @@ func (a *API) PostRequest(w http.ResponseWriter, r *http.Request) {
 
 	err = a.Templates.Execute(w, r, input)
 	if err != nil {
-		hlog.FromRequest(r).Error().Err(err).Msg("template failure")
+		hlog.FromRequest(r).Error().Ctx(ctx).Err(err).Msg("template failure")
 		return
 	}
 }

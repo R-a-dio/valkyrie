@@ -22,7 +22,7 @@ func (a *API) SearchHTML(w http.ResponseWriter, r *http.Request) {
 		searchPageSize,
 	)
 	if err != nil {
-		hlog.FromRequest(r).Error().Err(err).Msg("input error")
+		hlog.FromRequest(r).Error().Ctx(r.Context()).Err(err).Msg("input error")
 		return
 	}
 
@@ -35,7 +35,7 @@ func (a *API) SearchHTML(w http.ResponseWriter, r *http.Request) {
 	err = a.Templates.Execute(w, r, SearchInput{*input})
 	if err != nil {
 		err = errors.E(op, err, errors.InternalServer)
-		hlog.FromRequest(r).Error().Err(err).Msg("template error")
+		hlog.FromRequest(r).Error().Ctx(r.Context()).Err(err).Msg("template error")
 		return
 	}
 }

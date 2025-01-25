@@ -19,7 +19,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 
-	zerolog.Ctx(ctx).Info().Msg("setting up queue")
+	zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("setting up queue")
 	queue, err := NewQueueService(ctx, cfg, store)
 	if err != nil {
 		return err
@@ -27,13 +27,13 @@ func Execute(ctx context.Context, cfg config.Config) error {
 
 	fdstorage := fdstore.NewStoreListenFDs()
 
-	zerolog.Ctx(ctx).Info().Msg("setting up streamer")
+	zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("setting up streamer")
 	streamer, err := NewStreamer(ctx, cfg, fdstorage, queue, store.User(ctx))
 	if err != nil {
 		return err
 	}
 
-	zerolog.Ctx(ctx).Info().Msg("starting grpc server")
+	zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("starting grpc server")
 	// setup a http server for our RPC API
 	srv, err := NewGRPCServer(ctx, cfg, store, queue, cfg.IRC, streamer)
 	if err != nil {
@@ -45,7 +45,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	if err != nil {
 		return err
 	}
-	zerolog.Ctx(ctx).Info().Str("address", ln.Addr().String()).Msg("started grpc server")
+	zerolog.Ctx(ctx).Info().Ctx(ctx).Str("address", ln.Addr().String()).Msg("started grpc server")
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -55,12 +55,12 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	// wait for our context to be canceled or Serve to error out
 	select {
 	case <-util.Signal(syscall.SIGUSR2):
-		zerolog.Ctx(ctx).Info().Msg("SIGUSR2 received")
+		zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("SIGUSR2 received")
 		if err := streamer.handleRestart(ctx); err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to handle restart")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to handle restart")
 		}
 		if err := fdstorage.Send(); err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to send store")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to send store")
 		}
 		return nil
 	case <-ctx.Done():

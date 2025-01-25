@@ -34,7 +34,7 @@ func (pm *ProxyManager) storeMounts(ctx context.Context, store *fdstore.Store) e
 	for _, mount := range pm.mounts {
 		err := mount.storeSelf(ctx, store)
 		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("mount store fail")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("mount store fail")
 			continue
 		}
 	}
@@ -58,7 +58,7 @@ func (m *Mount) storeSources(ctx context.Context, store *fdstore.Store) error {
 	for _, source := range m.Sources {
 		err := source.storeSelf(ctx, store)
 		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("source store fail")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("source store fail")
 		}
 	}
 	return nil
@@ -113,7 +113,7 @@ func (pm *ProxyManager) restoreMounts(ctx context.Context, store *fdstore.Store)
 		err := json.Unmarshal(entry.Data, mount)
 		if err != nil {
 			// might still be able to recover other mounts so keep going
-			zerolog.Ctx(ctx).Error().Err(err).Any("entry", entry).Msg("failed mount restore")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Any("entry", entry).Msg("failed mount restore")
 			entry.Conn.Close()
 			continue
 		}
@@ -146,7 +146,7 @@ func (pm *ProxyManager) restoreSources(ctx context.Context, us radio.UserStorage
 		err := json.Unmarshal(entry.Data, source)
 		if err != nil {
 			// might still be able to recover other sources if this fails
-			zerolog.Ctx(ctx).Error().Err(err).Any("entry", entry).Msg("failed source restore")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Any("entry", entry).Msg("failed source restore")
 			entry.Conn.Close()
 			continue
 		}
@@ -165,7 +165,7 @@ func (pm *ProxyManager) restoreSources(ctx context.Context, us radio.UserStorage
 		// recover the full user data for this source
 		user, err := us.Get(source.Username)
 		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to retrieve user")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to retrieve user")
 			source.conn.Close()
 			continue
 		}
@@ -183,7 +183,7 @@ func (pm *ProxyManager) restoreSources(ctx context.Context, us radio.UserStorage
 
 		err = pm.AddSourceClient(new)
 		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("")
 			source.conn.Close()
 			continue
 		}

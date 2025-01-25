@@ -146,7 +146,7 @@ func (s *State) PostPending(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hlog.FromRequest(r).Error().Err(err).Msg("failed post pending")
+	hlog.FromRequest(r).Error().Ctx(r.Context()).Err(err).Msg("failed post pending")
 	// FIXME: do proper error propagation somehow
 	form.Errors["internal"] = err.Error()
 

@@ -209,14 +209,14 @@ func StreamValue[T any](ctx context.Context, fn StreamFn[T], callbackFn ...Strea
 			if err != nil {
 				if status.Code(err) == codes.Canceled {
 					// in case of cancel just exit quietly
-					zerolog.Ctx(ctx).Debug().Err(err).Msg("stream-value: ctx canceled")
+					zerolog.Ctx(ctx).Debug().Ctx(ctx).Err(err).Msg("stream-value: ctx canceled")
 					return
 				}
 
 				// stream creation error most likely means the service
 				// is down or unavailable for some reason so retry in
 				// a little bit and stay alive
-				zerolog.Ctx(ctx).Error().Err(err).Msg("stream-value: stream error")
+				zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("stream-value: stream error")
 				select {
 				case <-ctx.Done():
 					// context was canceled, either while we were waiting on
@@ -227,7 +227,7 @@ func StreamValue[T any](ctx context.Context, fn StreamFn[T], callbackFn ...Strea
 				}
 			}
 
-			zerolog.Ctx(ctx).Info().Msg("stream-value: connected")
+			zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("stream-value: connected")
 
 			for {
 				v, err := stream.Next()
@@ -237,10 +237,10 @@ func StreamValue[T any](ctx context.Context, fn StreamFn[T], callbackFn ...Strea
 					// try and get one from the outer loop.
 					if status.Code(err) == codes.Canceled {
 						// in case of cancel just exit quietly
-						zerolog.Ctx(ctx).Debug().Err(err).Msg("stream-value: ctx canceled")
+						zerolog.Ctx(ctx).Debug().Ctx(ctx).Err(err).Msg("stream-value: ctx canceled")
 						return
 					}
-					zerolog.Ctx(ctx).Error().Err(err).Msg("stream-value: next error")
+					zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("stream-value: next error")
 					break
 				}
 
