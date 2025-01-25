@@ -61,10 +61,16 @@ func (h hook) Run(e *zerolog.Event, zerolevel zerolog.Level, msg string) {
 	// add SpanId and TraceId if applicable
 	spanCtx := trace.SpanFromContext(ctx).SpanContext()
 	if spanCtx.HasSpanID() {
-		r.AddAttributes(convertToKeyValue("SpanId", spanCtx.SpanID()))
+		r.AddAttributes(log.KeyValue{
+			Key:   "SpanId",
+			Value: log.StringValue(spanCtx.SpanID().String()),
+		})
 	}
 	if spanCtx.HasTraceID() {
-		r.AddAttributes(convertToKeyValue("TraceId", spanCtx.TraceID()))
+		r.AddAttributes(log.KeyValue{
+			Key:   "TraceId",
+			Value: log.StringValue(spanCtx.TraceID().String()),
+		})
 	}
 
 	h.logger.Emit(ctx, r)
