@@ -10,6 +10,7 @@ import (
 	"github.com/rs/zerolog"
 	"go.opentelemetry.io/otel/log"
 	"go.opentelemetry.io/otel/log/global"
+	"go.opentelemetry.io/otel/trace"
 )
 
 func Hook(instrumentation_name, instrumentation_version string) zerolog.Hook {
@@ -55,6 +56,15 @@ func (h hook) Run(e *zerolog.Event, zerolevel zerolog.Level, msg string) {
 
 	for k, v := range logData {
 		r.AddAttributes(convertToKeyValue(k, v))
+	}
+
+	// add SpanId and TraceId if applicable
+	spanCtx := trace.SpanFromContext(ctx).SpanContext()
+	if spanCtx.HasSpanID() {
+		r.AddAttributes(convertToKeyValue("SpanId", spanCtx.SpanID()))
+	}
+	if spanCtx.HasTraceID() {
+		r.AddAttributes(convertToKeyValue("TraceId", spanCtx.TraceID()))
 	}
 
 	h.logger.Emit(ctx, r)
