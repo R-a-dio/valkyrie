@@ -11,9 +11,14 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/blevesearch/bleve/v2"
 	"github.com/vmihailenco/msgpack/v4"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 func NewClient(uri *url.URL) *Client {
+	client := &http.Client{
+		Transport: otelhttp.NewTransport(http.DefaultTransport),
+	}
+
 	uri.Path = searchPath
 	searchURL := uri.String()
 	uri.Path = updatePath
@@ -24,7 +29,7 @@ func NewClient(uri *url.URL) *Client {
 		searchURL: searchURL,
 		deleteURL: deleteURL,
 		updateURL: updateURL,
-		hc:        &http.Client{},
+		hc:        client,
 	}
 }
 
@@ -50,7 +55,12 @@ func (c *Client) Search(ctx context.Context, query string, limit int64, offset i
 	const op errors.Op = "search/bleve.Client.Search"
 	uri := c.searchURL + fmt.Sprintf("?q=%s&limit=%d&offset=%d", url.QueryEscape(query), limit, offset)
 
-	resp, err := c.hc.Get(uri)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, nil)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	resp, err := c.hc.Do(req)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
@@ -83,7 +93,13 @@ func (c *Client) Delete(ctx context.Context, tids ...radio.TrackID) error {
 		return err
 	}
 
-	resp, err := c.hc.Post(c.deleteURL, "application/msgpack", &buf)
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, c.deleteURL, &buf)
+	if err != nil {
+		return errors.E(op, err)
+	}
+	req.Header.Set("Content-Type", "application/msgpack")
+
+	resp, err := c.hc.Do(req)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -102,7 +118,13 @@ func (c *Client) Update(ctx context.Context, songs ...radio.Song) error {
 		return errors.E(op, err)
 	}
 
-	resp, err := c.hc.Post(c.updateURL, "application/msgpack", &buf)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.updateURL, &buf)
+	if err != nil {
+		return errors.E(op, err)
+	}
+	req.Header.Set("Content-Type", "application/msgpack")
+
+	resp, err := c.hc.Do(req)
 	if err != nil {
 		return errors.E(op, err)
 	}
