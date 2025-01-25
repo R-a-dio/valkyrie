@@ -211,7 +211,7 @@ func (s *State) boothCheckGuestPermission(r *http.Request, action radio.GuestAct
 	}
 
 	// TODO: prefix handling should be somewhere else
-	return s.Guest.CanDo(ctx, strings.TrimPrefix(user.Username, "guest_"), action)
+	return s.Guest.Do(ctx, strings.TrimPrefix(user.Username, "guest_"), action)
 }
 
 func (s *State) PostBoothStopStreamer(w http.ResponseWriter, r *http.Request) {

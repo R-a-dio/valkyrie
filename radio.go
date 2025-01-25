@@ -1521,6 +1521,9 @@ type GuestService interface {
 	Auth(ctx context.Context, nick string) (user *User, err error)
 	// Deauth removes a guest user from the authorization list
 	Deauth(ctx context.Context, nick string) error
+	// Do checks if a guest is allowed to do the GuestAction given and increments any limits if
+	// applicable to the action
+	Do(ctx context.Context, nick string, can GuestAction) (ok bool, err error)
 	// CanDo checks if a guest is allowed to do the GuestAction given
 	CanDo(ctx context.Context, nick string, can GuestAction) (ok bool, err error)
 }

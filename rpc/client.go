@@ -205,6 +205,11 @@ func (g GuestClientRPC) CanDo(ctx context.Context, nick string, action radio.Gue
 	return b.GetValue(), err
 }
 
+func (g GuestClientRPC) Do(ctx context.Context, nick string, action radio.GuestAction) (bool, error) {
+	b, err := g.rpc.Do(ctx, toProtoGuestCanDo(nick, action))
+	return b.GetValue(), err
+}
+
 // NewManagerService returns a new client implementing radio.ManagerService
 func NewManagerService(c *grpc.ClientConn) radio.ManagerService {
 	return ManagerClientRPC{

@@ -247,13 +247,21 @@ func (gs *GuestService) Deauth(ctx context.Context, nick GuestNick) error {
 	return nil
 }
 
+func (gs *GuestService) Do(ctx context.Context, nick GuestNick, action radio.GuestAction) (ok bool, err error) {
+	return gs.canDo(ctx, nick, action, true)
+}
+
 func (gs *GuestService) CanDo(ctx context.Context, nick GuestNick, action radio.GuestAction) (ok bool, err error) {
+	return gs.canDo(ctx, nick, action, false)
+}
+
+func (gs *GuestService) canDo(ctx context.Context, nick GuestNick, action radio.GuestAction, increment bool) (ok bool, err error) {
 	nick = strings.ToLower(nick)
 
 	gs.mu.Lock()
 	defer gs.mu.Unlock()
 
-	gs.logger.Info().Str("nick", nick).Any("action", action).Msg("guest can-do request")
+	gs.logger.Info().Str("nick", nick).Any("action", action).Msg("guest do request")
 
 	guest, ok := gs.Authorized[nick]
 	if !ok {
@@ -273,14 +281,18 @@ func (gs *GuestService) CanDo(ctx context.Context, nick GuestNick, action radio.
 			gs.logger.Info().Str("nick", nick).Any("action", action).Int("limit", GUEST_KILL_LIMIT).Msg("denying because guest.KillAttempts>=limit")
 			return false, nil
 		}
-		guest.KillAttempts++
+		if increment {
+			guest.KillAttempts++
+		}
 	case radio.GuestThread:
 		// guests can't set the thread if they've done it too many times
 		if guest.ThreadSets >= GUEST_THREAD_LIMIT {
 			gs.logger.Info().Str("nick", nick).Any("action", action).Int("limit", GUEST_THREAD_LIMIT).Msg("denying because guest.ThreadSets>=limit")
 			return false, nil
 		}
-		guest.ThreadSets++
+		if increment {
+			guest.ThreadSets++
+		}
 	}
 	return true, nil
 }

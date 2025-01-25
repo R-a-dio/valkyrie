@@ -485,6 +485,7 @@ const (
 	Guest_Auth_FullMethodName   = "/radio.Guest/Auth"
 	Guest_Deauth_FullMethodName = "/radio.Guest/Deauth"
 	Guest_CanDo_FullMethodName  = "/radio.Guest/CanDo"
+	Guest_Do_FullMethodName     = "/radio.Guest/Do"
 )
 
 // GuestClient is the client API for Guest service.
@@ -495,6 +496,7 @@ type GuestClient interface {
 	Auth(ctx context.Context, in *GuestUser, opts ...grpc.CallOption) (*GuestAuthResponse, error)
 	Deauth(ctx context.Context, in *GuestUser, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	CanDo(ctx context.Context, in *GuestCanDo, opts ...grpc.CallOption) (*wrapperspb.BoolValue, error)
+	Do(ctx context.Context, in *GuestCanDo, opts ...grpc.CallOption) (*wrapperspb.BoolValue, error)
 }
 
 type guestClient struct {
@@ -545,6 +547,16 @@ func (c *guestClient) CanDo(ctx context.Context, in *GuestCanDo, opts ...grpc.Ca
 	return out, nil
 }
 
+func (c *guestClient) Do(ctx context.Context, in *GuestCanDo, opts ...grpc.CallOption) (*wrapperspb.BoolValue, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(wrapperspb.BoolValue)
+	err := c.cc.Invoke(ctx, Guest_Do_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // GuestServer is the server API for Guest service.
 // All implementations must embed UnimplementedGuestServer
 // for forward compatibility.
@@ -553,6 +565,7 @@ type GuestServer interface {
 	Auth(context.Context, *GuestUser) (*GuestAuthResponse, error)
 	Deauth(context.Context, *GuestUser) (*emptypb.Empty, error)
 	CanDo(context.Context, *GuestCanDo) (*wrapperspb.BoolValue, error)
+	Do(context.Context, *GuestCanDo) (*wrapperspb.BoolValue, error)
 	mustEmbedUnimplementedGuestServer()
 }
 
@@ -574,6 +587,9 @@ func (UnimplementedGuestServer) Deauth(context.Context, *GuestUser) (*emptypb.Em
 }
 func (UnimplementedGuestServer) CanDo(context.Context, *GuestCanDo) (*wrapperspb.BoolValue, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CanDo not implemented")
+}
+func (UnimplementedGuestServer) Do(context.Context, *GuestCanDo) (*wrapperspb.BoolValue, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Do not implemented")
 }
 func (UnimplementedGuestServer) mustEmbedUnimplementedGuestServer() {}
 func (UnimplementedGuestServer) testEmbeddedByValue()               {}
@@ -668,6 +684,24 @@ func _Guest_CanDo_Handler(srv interface{}, ctx context.Context, dec func(interfa
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Guest_Do_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GuestCanDo)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GuestServer).Do(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Guest_Do_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GuestServer).Do(ctx, req.(*GuestCanDo))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Guest_ServiceDesc is the grpc.ServiceDesc for Guest service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -690,6 +724,10 @@ var Guest_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CanDo",
 			Handler:    _Guest_CanDo_Handler,
+		},
+		{
+			MethodName: "Do",
+			Handler:    _Guest_Do_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

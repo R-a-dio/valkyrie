@@ -92,7 +92,7 @@ func (e *Event) HasStreamAccess(action radio.GuestAction) bool {
 		return true
 	}
 
-	ok, err := e.Bot.Guest.CanDo(e.Ctx, e.Source.Name, action)
+	ok, err := e.Bot.Guest.Do(e.Ctx, e.Source.Name, action)
 	if err != nil {
 		return false
 	}

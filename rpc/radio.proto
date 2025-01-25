@@ -62,6 +62,7 @@ service Guest {
     rpc Auth(GuestUser) returns (GuestAuthResponse);
     rpc Deauth(GuestUser) returns (google.protobuf.Empty);
     rpc CanDo(GuestCanDo) returns (google.protobuf.BoolValue);
+    rpc Do(GuestCanDo) returns (google.protobuf.BoolValue);
 }
 
 message GuestCreateResponse {

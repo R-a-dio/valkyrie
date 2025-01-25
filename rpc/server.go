@@ -133,6 +133,12 @@ func (g GuestShim) CanDo(ctx context.Context, gcd *GuestCanDo) (*wrapperspb.Bool
 	return wrapperspb.Bool(ok), err
 }
 
+func (g GuestShim) Do(ctx context.Context, gcd *GuestCanDo) (*wrapperspb.BoolValue, error) {
+	nick, action := fromProtoGuestCanDo(gcd)
+	ok, err := g.guest.Do(ctx, nick, action)
+	return wrapperspb.Bool(ok), err
+}
+
 // NewManager returns a new shim around the service given
 func NewManager(m radio.ManagerService) ManagerServer {
 	return ManagerShim{

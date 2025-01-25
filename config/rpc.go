@@ -37,6 +37,10 @@ func (g *guestService) CanDo(ctx context.Context, nick string, action radio.Gues
 	return g.fn().CanDo(ctx, nick, action)
 }
 
+func (g *guestService) Do(ctx context.Context, nick string, action radio.GuestAction) (bool, error) {
+	return g.fn().Do(ctx, nick, action)
+}
+
 var _ radio.GuestService = &guestService{}
 
 func newManagerService(cfg Config) radio.ManagerService {
