@@ -16,7 +16,6 @@ import (
 
 const (
 	GUEST_PASSWORD_LENGTH  = 20
-	GUEST_PREFIX           = "guest_"
 	GUEST_EXPIRE_LOOP_TICK = time.Minute * 5
 	GUEST_THREAD_LIMIT     = 3
 	GUEST_KILL_LIMIT       = 3
@@ -92,10 +91,6 @@ func NewGuestService(ctx context.Context, cfg config.Config, m radio.ManagerServ
 	// run a goroutine to expire users periodically
 	go gs.loopExpire(ctx, time.Duration(cfg.Conf().Manager.GuestAuthPeriod))
 	return gs, nil
-}
-
-func (gs *GuestService) username(nick GuestNick) (username string) {
-	return GUEST_PREFIX + nick
 }
 
 func (gs *GuestService) getUser(ctx context.Context, username string) (*radio.User, error) {
@@ -182,7 +177,7 @@ func (gs *GuestService) Create(ctx context.Context, nick GuestNick) (*radio.User
 		return nil, "", errors.E(op, err)
 	}
 
-	user, err := gs.createUser(ctx, gs.username(nick), passwd)
+	user, err := gs.createUser(ctx, radio.NickToUsername(nick), passwd)
 	if err != nil {
 		gs.logger.Error().Err(err).Msg("failed to createUser")
 		return nil, "", errors.E(op, err)
@@ -201,7 +196,7 @@ func (gs *GuestService) Auth(ctx context.Context, nick GuestNick) (*radio.User, 
 
 	gs.logger.Info().Str("nick", nick).Msg("guest auth request")
 
-	user, err := gs.getUser(ctx, gs.username(nick))
+	user, err := gs.getUser(ctx, radio.NickToUsername(nick))
 	if err != nil {
 		gs.logger.Error().Err(err).Msg("failed to getUser")
 		return nil, errors.E(op, err)

@@ -7,7 +7,6 @@ import (
 	"html/template"
 	"net/http"
 	"slices"
-	"strings"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -69,7 +68,7 @@ func (BoothProxyStatusInput) TemplateName() string {
 	return "proxy-status"
 }
 
-func NewBoothInput(ps radio.ProxyService, r *http.Request, connectTimeout time.Duration) (*BoothInput, error) {
+func NewBoothInput(gs radio.GuestService, ps radio.ProxyService, r *http.Request, connectTimeout time.Duration) (*BoothInput, error) {
 	const op errors.Op = "website/admin.NewBoothInput"
 
 	// setup the input here, we need some of the fields it populates
@@ -94,12 +93,12 @@ func NewBoothInput(ps radio.ProxyService, r *http.Request, connectTimeout time.D
 		Connections: connections,
 	}
 
-	input.StreamerInfo, err = NewBoothStopStreamerInput(r, connectTimeout, input.Status.StreamUser)
+	input.StreamerInfo, err = NewBoothStopStreamerInput(gs, r, connectTimeout, input.Status.StreamUser)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
 
-	input.ThreadInfo, err = NewBoothSetThreadInput(r)
+	input.ThreadInfo, err = NewBoothSetThreadInput(gs, r)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
@@ -108,7 +107,7 @@ func NewBoothInput(ps radio.ProxyService, r *http.Request, connectTimeout time.D
 }
 
 func (s *State) GetBooth(w http.ResponseWriter, r *http.Request) {
-	input, err := NewBoothInput(s.Proxy, r, time.Duration(s.Conf().Streamer.ConnectTimeout))
+	input, err := NewBoothInput(s.Guest, s.Proxy, r, time.Duration(s.Conf().Streamer.ConnectTimeout))
 	if err != nil {
 		s.errorHandler(w, r, err, "")
 		return
@@ -135,26 +134,12 @@ func filterAndSortProxySources(sources []radio.ProxySource) []radio.ProxySource 
 	})
 	return sm
 }
-func proxySourceListToMap(sources []radio.ProxySource) map[string][]radio.ProxySource {
-	// generate a mapping of mountname to sources
-	sm := make(map[string][]radio.ProxySource, 3)
-	for _, source := range sources {
-		sm[source.MountName] = append(sm[source.MountName], source)
-	}
 
-	// then sort the sources by their priority value
-	for _, sources := range sm {
-		slices.SortStableFunc(sources, func(a, b radio.ProxySource) int {
-			return cmp.Compare(a.Priority, b.Priority)
-		})
-	}
-	return sm
-}
-
-func NewBoothStopStreamerInput(r *http.Request, timeout time.Duration, currentUser *radio.User) (*BoothStopStreamerInput, error) {
+func NewBoothStopStreamerInput(gs radio.GuestService, r *http.Request, timeout time.Duration, currentUser *radio.User) (*BoothStopStreamerInput, error) {
+	ctx := r.Context()
 	var isRobot bool
 	var isLive bool
-	user := middleware.UserFromContext(r.Context())
+	user := middleware.UserFromContext(ctx)
 
 	// guard against no current user
 	if currentUser.IsValid() {
@@ -164,9 +149,18 @@ func NewBoothStopStreamerInput(r *http.Request, timeout time.Duration, currentUs
 		isLive = currentUser.ID == user.ID
 	}
 
+	var allowedToKill = true
+	if radio.IsGuest(*user) {
+		var err error
+		allowedToKill, err = gs.CanDo(ctx, radio.UsernameToNick(user.Username), radio.GuestKill)
+		if err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to check guest can-do")
+		}
+	}
+
 	return &BoothStopStreamerInput{
 		CSRFTokenInput: csrf.TemplateField(r),
-		AllowedToKill:  true,
+		AllowedToKill:  allowedToKill,
 		Success:        false,
 		CurrentIsRobot: isRobot,
 		UserIsLive:     isLive,
@@ -205,13 +199,13 @@ func (s *State) boothCheckGuestPermission(r *http.Request, action radio.GuestAct
 	ctx := r.Context()
 	user := middleware.UserFromContext(ctx)
 
-	if !user.UserPermissions.HasExplicit(radio.PermGuest) {
+	if !radio.IsGuest(*user) {
 		// not a guest, so we return true
 		return true, nil
 	}
 
 	// TODO: prefix handling should be somewhere else
-	return s.Guest.Do(ctx, strings.TrimPrefix(user.Username, "guest_"), action)
+	return s.Guest.Do(ctx, radio.UsernameToNick(user.Username), action)
 }
 
 func (s *State) PostBoothStopStreamer(w http.ResponseWriter, r *http.Request) {
@@ -231,7 +225,7 @@ func (s *State) PostBoothStopStreamer(w http.ResponseWriter, r *http.Request) {
 func (s *State) postBoothStopStreamer(r *http.Request) (*BoothStopStreamerInput, error) {
 	ctx := r.Context()
 
-	input, err := NewBoothStopStreamerInput(r, time.Duration(s.Conf().Streamer.ConnectTimeout), middleware.InputFromRequest(r).Status.StreamUser)
+	input, err := NewBoothStopStreamerInput(s.Guest, r, time.Duration(s.Conf().Streamer.ConnectTimeout), middleware.InputFromRequest(r).Status.StreamUser)
 	if err != nil {
 		return nil, err
 	}
@@ -270,8 +264,11 @@ func (s *State) postBoothStopStreamer(r *http.Request) (*BoothStopStreamerInput,
 	return input, nil
 }
 
-func NewBoothSetThreadInput(r *http.Request, thread ...string) (*BoothSetThreadInput, error) {
+func NewBoothSetThreadInput(gs radio.GuestService, r *http.Request, thread ...string) (*BoothSetThreadInput, error) {
+	ctx := r.Context()
 	input := middleware.InputFromRequest(r)
+
+	// if a thread argument was given, use that as our thread input
 	var threadRes string
 	if len(thread) == 0 {
 		threadRes = input.Status.Thread
@@ -279,15 +276,24 @@ func NewBoothSetThreadInput(r *http.Request, thread ...string) (*BoothSetThreadI
 		threadRes = thread[0]
 	}
 
-	var AllowedToThread bool
+	var allowedToThread bool
 	if su := input.Status.StreamUser; su.IsValid() {
-		AllowedToThread = su.ID == middleware.UserFromContext(r.Context()).ID
+		allowedToThread = su.ID == middleware.UserFromContext(ctx).ID
+	}
+
+	// if we're a guest check with the guest service if we're allowed to do this
+	if allowedToThread && radio.IsGuest(*input.User) {
+		var err error
+		allowedToThread, err = gs.CanDo(ctx, radio.UsernameToNick(input.User.Username), radio.GuestThread)
+		if err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to check guest can-do")
+		}
 	}
 
 	return &BoothSetThreadInput{
 		CSRFTokenInput:  csrf.TemplateField(r),
 		Thread:          threadRes,
-		AllowedToThread: AllowedToThread,
+		AllowedToThread: allowedToThread,
 		Success:         false,
 	}, nil
 }
@@ -312,7 +318,7 @@ func (BoothSetThreadInput) TemplateName() string {
 }
 
 func (s *State) PostBoothSetThread(w http.ResponseWriter, r *http.Request) {
-	input, err := s.postBoothSetThread(r)
+	input, err := s.postBoothSetThread(s.Guest, r)
 	if err != nil {
 		s.errorHandler(w, r, err, "")
 		return
@@ -325,10 +331,10 @@ func (s *State) PostBoothSetThread(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *State) postBoothSetThread(r *http.Request) (*BoothSetThreadInput, error) {
+func (s *State) postBoothSetThread(gs radio.GuestService, r *http.Request) (*BoothSetThreadInput, error) {
 	ctx := r.Context()
 
-	input, err := NewBoothSetThreadInput(r)
+	input, err := NewBoothSetThreadInput(gs, r)
 	if err != nil {
 		return nil, err
 	}
@@ -365,6 +371,7 @@ func (s *State) postBoothSetThread(r *http.Request) (*BoothSetThreadInput, error
 
 func NewBoothAPI(cfg config.Config, tmpl templates.Executor) *BoothAPI {
 	return &BoothAPI{
+		Guest:   cfg.Guest,
 		Proxy:   cfg.Proxy,
 		Manager: cfg.Manager,
 		tmpl:    tmpl,
@@ -375,6 +382,7 @@ func NewBoothAPI(cfg config.Config, tmpl templates.Executor) *BoothAPI {
 }
 
 type BoothAPI struct {
+	Guest             radio.GuestService
 	Proxy             radio.ProxyService
 	Manager           radio.ManagerService
 	tmpl              templates.Executor
@@ -419,7 +427,7 @@ func (b *BoothAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		write("streamer", (*BoothStreamerInput)(user))
 
 		// update the stop button state
-		input, err := NewBoothStopStreamerInput(r, b.connectTimeoutCfg(), user)
+		input, err := NewBoothStopStreamerInput(b.Guest, r, b.connectTimeoutCfg(), user)
 		if err != nil {
 			logger.Error().Err(err).Msg("failed to create stop-streamer input")
 			return
@@ -435,7 +443,7 @@ func (b *BoothAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// stream for thread updates
 	util.StreamValue(ctx, b.Manager.CurrentThread, func(ctx context.Context, thread radio.Thread) {
-		input, err := NewBoothSetThreadInput(r, thread)
+		input, err := NewBoothSetThreadInput(b.Guest, r, thread)
 		if err != nil {
 			logger.Error().Err(err).Msg("failed to create thread input")
 			return

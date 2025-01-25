@@ -1535,3 +1535,17 @@ const (
 	GuestKill
 	GuestThread
 )
+
+const guestPrefix = "guest_"
+
+func UsernameToNick(username string) string {
+	return strings.TrimPrefix(username, guestPrefix)
+}
+
+func NickToUsername(nick string) string {
+	return guestPrefix + nick
+}
+
+func IsGuest(user User) bool {
+	return user.UserPermissions.HasExplicit(PermGuest)
+}
