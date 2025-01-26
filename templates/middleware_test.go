@@ -130,26 +130,62 @@ func TestThemeCtx(t *testing.T) {
 		dj      radio.ThemeName
 	}{
 		{
+			// public route with no cookie should give us the default public theme
 			name:     "no cookie public",
 			url:      "/",
 			expected: ThemeDefault,
 		},
 		{
+			// admin route with no cookie should give us the default admin theme
 			name:     "no cookie admin",
 			url:      "/admin",
 			expected: ThemeAdminDefault,
 		},
 		{
+			// theme overwrite through passing a GET parameter
 			name:     "url overwrite",
 			url:      "/?theme=overwrite",
 			expected: "overwrite",
 		},
 		{
+			// a cookie set to just the theme name (so not cookie-encoded)
 			name:       "cookie public",
 			url:        "/",
 			expected:   "aCookieTheme",
 			cookieName: ThemeCookieName,
 			cookie:     "aCookieTheme",
+		},
+		{
+			name:       "cookie public with holiday set",
+			url:        "/",
+			expected:   "holidayTheme",
+			cookieName: ThemeCookieName,
+			cookie:     "userTheme",
+			holiday:    "holidayTheme",
+		},
+		{
+			name:       "cookie public with holiday set and dj overwrite",
+			url:        "/",
+			expected:   "holidayTheme",
+			cookieName: ThemeCookieName,
+			cookie:     cookieEncode("userTheme", true, false),
+			holiday:    "holidayTheme",
+		},
+		{
+			name:       "cookie public with holiday set and holiday overwrite",
+			url:        "/",
+			expected:   "userTheme",
+			cookieName: ThemeCookieName,
+			cookie:     cookieEncode("userTheme", false, true),
+			holiday:    "holidayTheme",
+		},
+		{
+			name:       "cookie public with dj set and holiday overwrite",
+			url:        "/",
+			expected:   "djTheme",
+			cookieName: ThemeCookieName,
+			cookie:     cookieEncode("userTheme", false, true),
+			dj:         "djTheme",
 		},
 	}
 

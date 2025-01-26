@@ -90,9 +90,9 @@ func (tv *ThemeValues) StoreDJ(theme radio.ThemeName) {
 // calling GetTheme on the request context.
 //
 // What theme to insert is a priority system that looks like this:
-//  1. user-picked (with overwrite-holiday enabled)
+//  1. user-picked (if holiday-theme is set and overwrite-holiday enabled)
 //  2. holiday-theme
-//  3. user-picked (with overwrite-dj enabled)
+//  3. user-picked (if dj-theme is set and overwrite-dj enabled)
 //  4. dj-theme
 //  5. user-picked
 //  6. default-theme
@@ -146,19 +146,17 @@ func ThemeCtx(tv *ThemeValues) func(http.Handler) http.Handler {
 func (tv *ThemeValues) decide(value string) radio.ThemeName {
 	name, overwrite_dj, overwrite_holiday := cookieDecode(value)
 
-	if overwrite_holiday {
-		return name
-	}
-
 	if holidayTheme := tv.holiday.Load(); holidayTheme != "" {
+		if overwrite_holiday {
+			return name
+		}
 		return holidayTheme
 	}
 
-	if overwrite_dj {
-		return name
-	}
-
 	if djTheme := tv.dj.Load(); djTheme != "" {
+		if overwrite_dj {
+			return name
+		}
 		return djTheme
 	}
 
