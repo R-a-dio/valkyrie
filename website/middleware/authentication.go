@@ -40,10 +40,18 @@ func NewAuthentication(storage radio.StorageService, tmpl templates.Executor, se
 }
 
 type Authentication interface {
+	// UserMiddleware is a middleware that adds the current user to the request
+	// context if available. Retrievable by using UserFromContext.
 	UserMiddleware(http.Handler) http.Handler
+	// LoginMiddleware forces users to login before being able to use the handlers
+	// behind this middleware, a users account has to be in an Active state for it
+	// to be allowed access.
 	LoginMiddleware(http.Handler) http.Handler
+	// GetLogin returns the login page.
 	GetLogin(http.ResponseWriter, *http.Request)
+	// PostLogin handles login form submission.
 	PostLogin(http.ResponseWriter, *http.Request)
+	// LogoutHandler logs the user out if they are currently logged in.
 	LogoutHandler(http.ResponseWriter, *http.Request)
 }
 

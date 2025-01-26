@@ -128,6 +128,15 @@ func ThemeCtx(tv *ThemeValues) func(http.Handler) http.Handler {
 				themeResolved = tv.resolve(radio.ThemeName(tmp))
 			}
 
+			// now it's technically possible for a user to have selected an admin theme here and
+			// that means they will get the admin templates to render without a user account
+			//
+			// so we check if we are requesting a public route and if what we resolved to was an admin theme
+			if !isAdmin && IsAdminTheme(themeResolved) {
+				// if both of these are true, we yeet the user back to the default public theme
+				themeResolved = ThemeDefault
+			}
+
 			ctx := SetTheme(r.Context(), themeResolved, false)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
