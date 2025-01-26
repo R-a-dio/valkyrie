@@ -1,6 +1,9 @@
 package templates
 
 import (
+	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -112,4 +115,70 @@ func BenchmarkDecideTheme(b *testing.B) {
 			_ = decider(ThemeDefault)
 		}
 	})
+}
+
+func TestThemeCtx(t *testing.T) {
+	testCases := []struct {
+		name       string
+		url        string
+		resolver   func(radio.ThemeName) radio.ThemeName
+		expected   radio.ThemeName
+		cookieName string
+		cookie     string
+
+		holiday radio.ThemeName
+		dj      radio.ThemeName
+	}{
+		{
+			name:     "no cookie public",
+			url:      "/",
+			expected: ThemeDefault,
+		},
+		{
+			name:     "no cookie admin",
+			url:      "/admin",
+			expected: ThemeAdminDefault,
+		},
+		{
+			name:     "url overwrite",
+			url:      "/?theme=overwrite",
+			expected: "overwrite",
+		},
+		{
+			name:       "cookie public",
+			url:        "/",
+			expected:   "aCookieTheme",
+			cookieName: ThemeCookieName,
+			cookie:     "aCookieTheme",
+		},
+	}
+
+	for _, test := range testCases {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := context.Background()
+			tv := NewThemeValues(test.resolver)
+			if test.holiday != "" {
+				tv.StoreHoliday(test.holiday)
+			}
+			if test.dj != "" {
+				tv.StoreDJ(test.dj)
+			}
+
+			// generate the handler with the middleware infront
+			handler := ThemeCtx(tv)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, test.expected, GetTheme(r.Context()))
+			}))
+
+			// make a request with cookie
+			r := httptest.NewRequestWithContext(ctx, http.MethodGet, test.url, nil)
+			if test.cookie != "" {
+				r.AddCookie(&http.Cookie{
+					Name:  test.cookieName,
+					Value: test.cookie,
+				})
+			}
+
+			handler.ServeHTTP(nil, r)
+		})
+	}
 }
