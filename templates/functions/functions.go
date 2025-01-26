@@ -1,4 +1,4 @@
-package templates
+package functions
 
 import (
 	"encoding/json"
@@ -18,14 +18,14 @@ import (
 
 func NewStatefulFunctions(cfg config.Config, status *util.Value[radio.Status]) *StatefulFuncs {
 	return &StatefulFuncs{
-		Config: cfg,
-		status: status,
+		musicPath: config.Value(cfg, func(c config.Config) string { return c.Conf().MusicPath }),
+		status:    status,
 	}
 }
 
 type StatefulFuncs struct {
-	config.Config
-	status *util.Value[radio.Status]
+	musicPath func() string
+	status    *util.Value[radio.Status]
 }
 
 func (sf *StatefulFuncs) Status() radio.Status {
@@ -52,7 +52,7 @@ func (sf *StatefulFuncs) SongFileSize(song any) string {
 	}
 
 	// make the path absolute
-	path = util.AbsolutePath(sf.Conf().MusicPath, path)
+	path = util.AbsolutePath(sf.musicPath(), path)
 
 	fi, err := os.Stat(path)
 	if err != nil {
@@ -102,8 +102,6 @@ var defaultFunctions = map[string]any{
 	"AllUserPermissions":          radio.AllUserPermissions,
 	"HasField":                    HasField,
 	"SongPair":                    SongPair,
-	publicThemeNameFn:             func() []radio.Theme { return nil }, // placeholder
-	adminThemeNameFn:              func() []radio.Theme { return nil }, // placeholder
 }
 
 type SongPairing struct {

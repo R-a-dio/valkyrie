@@ -18,6 +18,7 @@ import (
 	"github.com/R-a-dio/valkyrie/search"
 	"github.com/R-a-dio/valkyrie/storage"
 	"github.com/R-a-dio/valkyrie/templates"
+	"github.com/R-a-dio/valkyrie/templates/functions"
 	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/util/secret"
 	"github.com/R-a-dio/valkyrie/website/admin"
@@ -89,7 +90,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 
 	// templates
 	// construct our stateful template functions, it uses the latest values from the manager
-	templateFuncs := templates.NewStatefulFunctions(cfg, statusValue)
+	templateFuncs := functions.NewStatefulFunctions(cfg, statusValue)
 	// construct our templates from files on disk
 	siteTemplates, err := templates.FromDirectory(
 		cfg.Conf().TemplatePath,

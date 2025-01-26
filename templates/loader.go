@@ -20,6 +20,7 @@ import (
 	"github.com/BurntSushi/toml"
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/R-a-dio/valkyrie/templates/functions"
 	"github.com/R-a-dio/valkyrie/util"
 )
 
@@ -217,7 +218,7 @@ func (s *Site) ResolveThemeName(name radio.ThemeName) radio.ThemeName {
 	return DEFAULT_DIR
 }
 
-func FromDirectory(dir string, state *StatefulFuncs) (*Site, error) {
+func FromDirectory(dir string, state *functions.StatefulFuncs) (*Site, error) {
 	const op errors.Op = "templates/FromDirectory"
 
 	fsys := os.DirFS(dir)
@@ -228,10 +229,10 @@ func FromDirectory(dir string, state *StatefulFuncs) (*Site, error) {
 	return s, nil
 }
 
-func FromFS(fsys fs.FS, state *StatefulFuncs) (*Site, error) {
+func FromFS(fsys fs.FS, state *functions.StatefulFuncs) (*Site, error) {
 	const op errors.Op = "templates/FromFS"
 
-	fnMap := maps.Clone(defaultFunctions)
+	fnMap := maps.Clone(functions.TemplateFuncs())
 	if state != nil {
 		maps.Copy(fnMap, state.FuncMap())
 	}
@@ -446,46 +447,27 @@ func noExt(s string) string {
 
 func (ls *loadState) loadThemes(themes Themes, defaultDir string, dirs []string) error {
 	const op errors.Op = "templates/loadState.loadThemes"
-	var defaults loadStateDefault
-	var err error
 
 	// load the default theme
-	defaults.bundle, err = ls.loadSubDir(defaultDir)
+	deft, err := ls.loadSubDir(defaultDir)
 	if errors.IsE(err, os.ErrNotExist) {
 		return errors.E(op, err, errors.Info("default theme does not exist"))
 	}
 	if err != nil {
 		return errors.E(op, err)
 	}
-	// grab the partials and forms for quicker access
-	for _, v := range defaults.bundle {
-		defaults.forms = slices.Concat(v.defaultForms, v.forms)
-		defaults.partials = slices.Concat(v.defaultPartials, v.partials)
+
+	ls.defaults.bundle = deft.pages
+	// grab the partials and forms for quicker access, these are duplicated across
+	// all pages in the theme so just grab the first set
+	for _, v := range ls.defaults.bundle {
+		ls.defaults.forms = slices.Concat(v.defaultForms, v.forms)
+		ls.defaults.partials = slices.Concat(v.defaultPartials, v.partials)
 		break
 	}
-	// set the default in the loadState so it can be used by the other themes
-	ls.defaults = defaults
 
-	// and we need the assets directory for the construction of the
-	// ThemeBundle
-	assetsFs, err := fs.Sub(ls.fs, path.Join(defaultDir, ASSETS_DIR))
-	if err != nil && !errors.IsE(err, os.ErrNotExist) {
-		return errors.E(op, err)
-	}
-
-	info, err := ls.loadThemeInformation(defaultDir)
-	if err != nil {
-		// this isn't a fatal error, just print a warning
-		// FIXME: use proper logger(?)
-		log.Println("failed to load theme information file:", err)
-	}
-
-	// construct the bundle for the default
-	themes[radio.ThemeName(defaultDir)] = ThemeBundle{
-		Theme:  info,
-		pages:  defaults.bundle,
-		assets: assetsFs,
-	}
+	// add the default to our theme set
+	themes[radio.ThemeName(defaultDir)] = deft
 
 	// and now we have to do it for all the leftover directories
 	for _, dir := range dirs {
@@ -499,23 +481,7 @@ func (ls *loadState) loadThemes(themes Themes, defaultDir string, dirs []string)
 			return errors.E(op, err)
 		}
 
-		assetsFs, err := fs.Sub(ls.fs, path.Join(dir, ASSETS_DIR))
-		if err != nil && !errors.IsE(err, os.ErrNotExist) {
-			return errors.E(op, err)
-		}
-
-		info, err := ls.loadThemeInformation(dir)
-		if err != nil {
-			// this isn't a fatal error, just print a warning
-			// FIXME: use proper logger(?)
-			log.Println("failed to load theme information file:", err)
-		}
-
-		themes[radio.ThemeName(dir)] = ThemeBundle{
-			Theme:  info,
-			pages:  bundle,
-			assets: assetsFs,
-		}
+		themes[radio.ThemeName(dir)] = bundle
 	}
 	return nil
 }
@@ -533,12 +499,16 @@ func (ls *loadState) loadThemeInformation(dir string) (radio.Theme, error) {
 	return theme, nil
 }
 
-// loadSubDir searches a subdirectory of the FS used in the creation of the loader.
+// loadSubDir constructs a page:bundle mapping with the contents of the directory.
 //
-// it looks for `*.tmpl` files in this subdirectory and in a `partials/` subdirectory
-// if one exists. Returns a map of `filename:bundle` where the bundle is a TemplateBundle
-// that contains all the filenames required to construct the page named after the filename.
-func (ls loadState) loadSubDir(dir string) (map[string]*TemplateBundle, error) {
+// it looks for `*.tmpl` files in the directory given with the following glob patterns:
+//   - dir/*.tmpl
+//   - dir/PARTIAL_DIR/*.tmpl
+//   - dir/FORMS_DIR/*.tmpl
+//
+// each file found in the direct dir generates one TemplateBundle in the output map, all
+// files found in PARTIAL_DIR and FORMS_DIR are included in all TemplateBundle returned
+func (ls loadState) loadSubDir(dir string) (ThemeBundle, error) {
 	const op errors.Op = "templates/loadState.loadSubDir"
 
 	var bundle = TemplateBundle{
@@ -551,74 +521,79 @@ func (ls loadState) loadSubDir(dir string) (map[string]*TemplateBundle, error) {
 
 	// read the forms subdirectory
 	formDir := path.Join(dir, FORMS_DIR)
-
-	entries, err := readDirFilter(ls.fs, formDir, isTemplate)
+	forms, err := readDirFilterString(ls.fs, formDir, isTemplate)
 	if err != nil && !errors.IsE(err, fs.ErrNotExist) {
-		return nil, errors.E(op, err)
+		return ThemeBundle{}, errors.E(op, err)
 	}
-
-	var forms = make([]string, 0, len(entries))
-	for _, entry := range entries {
-		forms = append(forms, path.Join(formDir, entry.Name()))
-	}
-
 	bundle.forms = forms
 
 	// read the partials subdirectory
 	partialDir := path.Join(dir, PARTIAL_DIR)
-
-	entries, err = readDirFilter(ls.fs, partialDir, isTemplate)
+	partials, err := readDirFilterString(ls.fs, partialDir, isTemplate)
 	if err != nil && !errors.IsE(err, fs.ErrNotExist) {
-		return nil, errors.E(op, err)
+		return ThemeBundle{}, errors.E(op, err)
 	}
-
-	var partials = make([]string, 0, len(entries))
-	for _, entry := range entries {
-		partials = append(partials, path.Join(partialDir, entry.Name()))
-	}
-
 	bundle.partials = partials
 
 	// read the actual directory
-	entries, err = readDirFilter(ls.fs, dir, isTemplate)
+	entries, err := readDirFilter(ls.fs, dir, isTemplate)
 	if err != nil {
-		return nil, errors.E(op, err)
+		return ThemeBundle{}, errors.E(op, err)
 	}
 
+	// now construct a TemplateBundle for each entry
 	var bundles = make(map[string]*TemplateBundle, len(entries))
 	for _, entry := range entries {
 		name := entry.Name()
-		// create a bundle for each page in this directory
+		// copy the bundle struct we've made so far
 		pageBundle := bundle
 
+		// see if a page with this name exists in the default bundle
 		defaultPage := ls.defaults.bundle[noExt(name)]
 		if defaultPage != nil {
+			// if it does add it as defaultPage
 			pageBundle.defaultPage = defaultPage.page
 		}
+		// and add our own page
 		pageBundle.page = path.Join(dir, name)
 
 		bundles[noExt(name)] = &pageBundle
 	}
 
-	// if there are no defaults to handle, we're done
-	if ls.defaults.bundle == nil {
-		return bundles, nil
-	}
+	// if we already have a default bundle check for missing pages in this one
+	if ls.defaults.bundle != nil {
+		for name, page := range ls.defaults.bundle {
+			if _, ok := bundles[name]; ok {
+				// page already exists, nothing to do
+				continue
+			}
 
-	// otherwise check for missing pages, these are pages defined
-	// in the default theme but not in this current theme. Copy over
-	// the default pages if they're missing.
-	for name, page := range ls.defaults.bundle {
-		if _, ok := bundles[name]; ok {
-			continue
+			// page does not exist, carry the one from the default bundle
+			pageBundle := bundle
+			pageBundle.defaultPage = page.page
+			bundles[name] = &pageBundle
 		}
-
-		pageBundle := bundle
-		pageBundle.defaultPage = page.page
-		bundles[name] = &pageBundle
 	}
 
-	return bundles, nil
+	// create a sub FS for the assets directory
+	assetsFs, err := fs.Sub(ls.fs, path.Join(dir, ASSETS_DIR))
+	if err != nil && !errors.IsE(err, os.ErrNotExist) {
+		return ThemeBundle{}, errors.E(op, err)
+	}
+
+	// load the theme information from the info.toml file
+	info, err := ls.loadThemeInformation(dir)
+	if err != nil {
+		// this isn't a fatal error, just print a warning
+		// FIXME: use proper logger(?)
+		log.Println("failed to load theme information file:", err)
+	}
+
+	return ThemeBundle{
+		Theme:  info,
+		pages:  bundles,
+		assets: assetsFs,
+	}, nil
 }
 
 // readDirFilter is fs.ReadDir but with an added filter function.
@@ -652,7 +627,7 @@ func readDirFilterString(fsys fs.FS, name string, fn func(fs.DirEntry) bool) ([]
 
 	s := make([]string, 0, len(entries))
 	for _, entry := range entries {
-		s = append(s, entry.Name())
+		s = append(s, path.Join(name, entry.Name()))
 	}
 
 	return s, nil
@@ -688,7 +663,7 @@ func Definitions(fsys fs.FS, files []string) error {
 		}
 		contents := string(b)
 
-		tmpl, err := createRoot(defaultFunctions).New(noop).Parse(contents)
+		tmpl, err := createRoot(functions.TemplateFuncs()).New(noop).Parse(contents)
 		if err != nil {
 			return errors.E(op, err)
 		}

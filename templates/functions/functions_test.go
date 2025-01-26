@@ -1,4 +1,4 @@
-package templates
+package functions
 
 import (
 	"testing"

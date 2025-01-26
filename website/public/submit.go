@@ -13,7 +13,7 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/streamer/audio"
-	"github.com/R-a-dio/valkyrie/templates"
+	"github.com/R-a-dio/valkyrie/templates/functions"
 	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/util/secret"
 	"github.com/R-a-dio/valkyrie/website/middleware"
@@ -189,7 +189,7 @@ func (s *State) postSubmit(r *http.Request) (SubmissionForm, error) {
 	if cooldown > 0 {
 		// submitter has a cooldown to wait out
 		return newSubmissionForm(s.Storage.Track(ctx), r, map[string]string{
-			"cooldown": templates.PrettyDuration(cooldown),
+			"cooldown": functions.PrettyDuration(cooldown),
 		}), nil
 	}
 

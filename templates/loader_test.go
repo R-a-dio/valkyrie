@@ -13,6 +13,7 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/mocks"
 	"github.com/R-a-dio/valkyrie/templates"
+	"github.com/R-a-dio/valkyrie/templates/functions"
 	"golang.org/x/tools/txtar"
 )
 
@@ -92,7 +93,7 @@ func TestLoadThemes(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := templates.LoadThemes(tt.args.fsys, templates.TemplateFuncs())
+			got, err := templates.LoadThemes(tt.args.fsys, functions.TemplateFuncs())
 			if (err != nil) != tt.wantErr {
 				t.Errorf("LoadThemes() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -111,7 +112,7 @@ func FuzzLoadThemes(f *testing.F) {
 	}
 	f.Fuzz(func(t *testing.T, name string) {
 		rfs := randomFS(name)
-		themes, err := templates.LoadThemes(rfs, templates.TemplateFuncs())
+		themes, err := templates.LoadThemes(rfs, functions.TemplateFuncs())
 		if err == nil || themes != nil {
 			t.Errorf("there should probably be an error for %s", name)
 		}
