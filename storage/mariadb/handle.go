@@ -11,6 +11,7 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/R-a-dio/valkyrie/storage/query"
 	"github.com/go-sql-driver/mysql" // mariadb
 	"github.com/jmoiron/sqlx"
 	"github.com/rs/zerolog"
@@ -93,12 +94,13 @@ func Connect(ctx context.Context, cfg config.Config) (radio.StorageService, erro
 	if err != nil {
 		return nil, err
 	}
-	return &StorageService{db}, nil
+	return &StorageService{db: db}, nil
 }
 
 // StorageService implements radio.StorageService with a sql database
 type StorageService struct {
-	db *sqlx.DB
+	db      *sqlx.DB
+	queries *query.Queries
 }
 
 func (s *StorageService) Close() error {
@@ -190,9 +192,18 @@ func beginTx(ctx context.Context, ex extContext, tx radio.StorageTx) (context.Co
 	panic("mariadb: invalid ex passed to beginTx")
 }
 
+func newHandle(ctx context.Context, ext extContext, queries *query.Queries, name string) handle {
+	return handle{
+		ext:     ext,
+		ctx:     ctx,
+		service: name,
+		queries: queries,
+	}
+}
+
 func (s *StorageService) Sessions(ctx context.Context) radio.SessionStorage {
 	return SessionStorage{
-		handle: handle{s.db, ctx, "sessions"},
+		handle: newHandle(ctx, s.db, s.queries, "sessions"),
 	}
 }
 
@@ -203,14 +214,14 @@ func (s *StorageService) SessionsTx(ctx context.Context, tx radio.StorageTx) (ra
 	}
 
 	storage := SessionStorage{
-		handle: handle{db, ctx, "sessions"},
+		handle: newHandle(ctx, db, s.queries, "sessions"),
 	}
 	return storage, tx, nil
 }
 
 func (s *StorageService) Queue(ctx context.Context) radio.QueueStorage {
 	return QueueStorage{
-		handle: handle{s.db, ctx, "queue"},
+		handle: newHandle(ctx, s.db, s.queries, "queue"),
 	}
 }
 
@@ -221,14 +232,14 @@ func (s *StorageService) QueueTx(ctx context.Context, tx radio.StorageTx) (radio
 	}
 
 	storage := QueueStorage{
-		handle: handle{db, ctx, "queue"},
+		handle: newHandle(ctx, db, s.queries, "queue"),
 	}
 	return storage, tx, nil
 }
 
 func (s *StorageService) Song(ctx context.Context) radio.SongStorage {
 	return SongStorage{
-		handle: handle{s.db, ctx, "song"},
+		handle: newHandle(ctx, s.db, s.queries, "song"),
 	}
 }
 
@@ -239,14 +250,14 @@ func (s *StorageService) SongTx(ctx context.Context, tx radio.StorageTx) (radio.
 	}
 
 	storage := SongStorage{
-		handle: handle{db, ctx, "song"},
+		handle: newHandle(ctx, db, s.queries, "song"),
 	}
 	return storage, tx, nil
 }
 
 func (s *StorageService) Track(ctx context.Context) radio.TrackStorage {
 	return TrackStorage{
-		handle: handle{s.db, ctx, "track"},
+		handle: newHandle(ctx, s.db, s.queries, "track"),
 	}
 }
 
@@ -257,14 +268,14 @@ func (s *StorageService) TrackTx(ctx context.Context, tx radio.StorageTx) (radio
 	}
 
 	storage := TrackStorage{
-		handle: handle{db, ctx, "track"},
+		handle: newHandle(ctx, db, s.queries, "track"),
 	}
 	return storage, tx, nil
 }
 
 func (s *StorageService) Request(ctx context.Context) radio.RequestStorage {
 	return RequestStorage{
-		handle: handle{s.db, ctx, "request"},
+		handle: newHandle(ctx, s.db, s.queries, "request"),
 	}
 }
 func (s *StorageService) RequestTx(ctx context.Context, tx radio.StorageTx) (radio.RequestStorage, radio.StorageTx, error) {
@@ -274,14 +285,14 @@ func (s *StorageService) RequestTx(ctx context.Context, tx radio.StorageTx) (rad
 	}
 
 	storage := RequestStorage{
-		handle: handle{db, ctx, "request"},
+		handle: newHandle(ctx, db, s.queries, "request"),
 	}
 	return storage, tx, nil
 }
 
 func (s *StorageService) User(ctx context.Context) radio.UserStorage {
 	return UserStorage{
-		handle: handle{s.db, ctx, "user"},
+		handle: newHandle(ctx, s.db, s.queries, "user"),
 	}
 }
 
@@ -292,14 +303,14 @@ func (s *StorageService) UserTx(ctx context.Context, tx radio.StorageTx) (radio.
 	}
 
 	storage := UserStorage{
-		handle: handle{db, ctx, "user"},
+		handle: newHandle(ctx, db, s.queries, "user"),
 	}
 	return storage, tx, nil
 }
 
 func (s *StorageService) Submissions(ctx context.Context) radio.SubmissionStorage {
 	return SubmissionStorage{
-		handle: handle{s.db, ctx, "submissions"},
+		handle: newHandle(ctx, s.db, s.queries, "submissions"),
 	}
 }
 
@@ -310,14 +321,14 @@ func (s *StorageService) SubmissionsTx(ctx context.Context, tx radio.StorageTx) 
 	}
 
 	storage := SubmissionStorage{
-		handle: handle{db, ctx, "submissions"},
+		handle: newHandle(ctx, db, s.queries, "submissions"),
 	}
 	return storage, tx, nil
 }
 
 func (s *StorageService) News(ctx context.Context) radio.NewsStorage {
 	return NewsStorage{
-		handle: handle{s.db, ctx, "news"},
+		handle: newHandle(ctx, s.db, s.queries, "news"),
 	}
 }
 
@@ -328,20 +339,20 @@ func (s *StorageService) NewsTx(ctx context.Context, tx radio.StorageTx) (radio.
 	}
 
 	storage := NewsStorage{
-		handle: handle{db, ctx, "news"},
+		handle: newHandle(ctx, db, s.queries, "news"),
 	}
 	return storage, tx, nil
 }
 
 func (s *StorageService) Status(ctx context.Context) radio.StatusStorage {
 	return StatusStorage{
-		handle: handle{s.db, ctx, "status"},
+		handle: newHandle(ctx, s.db, s.queries, "status"),
 	}
 }
 
 func (s *StorageService) Relay(ctx context.Context) radio.RelayStorage {
 	return RelayStorage{
-		handle: handle{s.db, ctx, "relay"},
+		handle: newHandle(ctx, s.db, s.queries, "relay"),
 	}
 }
 
@@ -352,7 +363,7 @@ func (s *StorageService) RelayTx(ctx context.Context, tx radio.StorageTx) (radio
 	}
 
 	storage := RelayStorage{
-		handle: handle{db, ctx, "relay"},
+		handle: newHandle(ctx, db, s.queries, "relay"),
 	}
 	return storage, tx, nil
 }
@@ -365,7 +376,7 @@ func (s *StorageService) Search() radio.SearchService {
 
 func (s *StorageService) Schedule(ctx context.Context) radio.ScheduleStorage {
 	return ScheduleStorage{
-		handle: handle{s.db, ctx, "schedule"},
+		handle: newHandle(ctx, s.db, s.queries, "schedule"),
 	}
 }
 
@@ -376,7 +387,7 @@ func (s *StorageService) ScheduleTx(ctx context.Context, tx radio.StorageTx) (ra
 	}
 
 	storage := ScheduleStorage{
-		handle: handle{db, ctx, "schedule"},
+		handle: newHandle(ctx, db, s.queries, "schedule"),
 	}
 	return storage, tx, nil
 }
@@ -425,6 +436,7 @@ type handle struct {
 	ctx context.Context
 
 	service string
+	queries *query.Queries
 }
 
 func (h handle) span(op errors.Op) (handle, func(...trace.SpanEndOption)) {
@@ -518,3 +530,19 @@ func (h handle) DriverName() string {
 var _ sqlx.Execer = handle{}
 var _ sqlx.Queryer = handle{}
 var _ sqlx.Ext = handle{}
+
+func (h handle) Get(dest any, query string, param any) error {
+	query, args, err := h.ext.BindNamed(query, param)
+	if err != nil {
+		return err
+	}
+	return sqlx.GetContext(h.ctx, h.ext, dest, query, args...)
+}
+
+func (h handle) Select(dest any, query string, param any) error {
+	query, args, err := h.ext.BindNamed(query, param)
+	if err != nil {
+		return err
+	}
+	return sqlx.SelectContext(h.ctx, h.ext, dest, query, args...)
+}

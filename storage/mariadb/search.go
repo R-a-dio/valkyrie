@@ -45,7 +45,7 @@ SELECT COUNT(*) FROM
 
 func (ss SearchService) Search(ctx context.Context, search_query string, limit int64, offset int64) (*radio.SearchResult, error) {
 	const op errors.Op = "mariadb/SearchService.Search"
-	handle := handle{ss.db, ctx, "search"}
+	handle := newHandle(ctx, ss.db, nil, "search")
 	handle, deferFn := handle.span(op)
 	defer deferFn()
 

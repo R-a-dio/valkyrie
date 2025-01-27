@@ -53,7 +53,7 @@ func newTestStorage(t *testing.T) (*StorageService, sqlmock.Sqlmock) {
 	sqldb := sqlx.NewDb(db, "mock")
 	sqldb.MapperFunc(mapperFunc)
 
-	storage := &StorageService{sqldb}
+	storage := &StorageService{db: sqldb}
 	return storage, mock
 }
 
