@@ -2,6 +2,8 @@ package telemetry
 
 import (
 	"context"
+	"database/sql/driver"
+	"strconv"
 	"time"
 
 	"github.com/R-a-dio/valkyrie/config"
@@ -15,6 +17,7 @@ import (
 	"github.com/rs/zerolog"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
@@ -200,9 +203,10 @@ func InitLogs(ctx context.Context, cfg config.Config, service string) (*log.Logg
 
 // DatabaseConnect applies telemetry to a database/sql driver
 func DatabaseConnect(ctx context.Context, driverName string, dataSourceName string) (*sqlx.DB, error) {
-	db, err := otelsql.Open(driverName, dataSourceName, otelsql.WithSpanOptions(otelsql.SpanOptions{
-		DisableErrSkip: true,
-	}))
+	db, err := otelsql.Open(driverName, dataSourceName,
+		otelsql.WithSpanOptions(otelsql.SpanOptions{DisableErrSkip: true}),
+		otelsql.WithAttributesGetter(addSQLParameters),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -219,6 +223,19 @@ func DatabaseConnect(ctx context.Context, driverName string, dataSourceName stri
 	}
 
 	return sqlx.NewDb(db, driverName), nil
+}
+
+func addSQLParameters(ctx context.Context, method otelsql.Method, query string, args []driver.NamedValue) []attribute.KeyValue {
+	attrs := make([]attribute.KeyValue, len(args))
+	for i, arg := range args {
+		name := arg.Name
+		if arg.Name == "" {
+			name = strconv.Itoa(arg.Ordinal)
+		}
+		attrs[i].Key = attribute.Key("db.operation.parameter." + name)
+		attrs[i].Value = databaseToValue(arg.Value)
+	}
+	return attrs
 }
 
 var originalNewGrpcServer = rpc.NewGrpcServer
