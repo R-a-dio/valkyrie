@@ -486,6 +486,59 @@ func (ss SongStorage) UpdateHashLink(old, new radio.SongHash) error {
 	return nil
 }
 
+var songFavoritesOfQuery2 = expand(`
+WITH
+-- all faves for this nickname
+faves AS (SELECT 
+		efave.id,
+		efave.isong
+	FROM 
+		efave
+	JOIN
+		enick ON enick.id = efave.inick
+	WHERE enick.nick = :nick
+	ORDER BY id DESC),
+
+-- generate page offsets
+pages AS (SELECT
+		s.id,
+		ROW_NUMBER() OVER (ORDER BY s.id) AS pagenum
+	FROM
+		(SELECT
+			faves.id,
+			ROW_NUMBER() OVER (ORDER BY faves.id) AS rownum
+		FROM
+			faves
+		ORDER BY faves.id DESC) AS s
+		WHERE MOD(rownum, :pagecount) = 0),
+
+-- grab the needle for the specific page we're looking for
+needle AS (SELECT
+	IF((:page - 1) < 0, 0, (SELECT id FROM pages WHERE pagenum = (:page - 1) LIMIT 1)) AS id),
+
+-- select all the esong ids on this page
+songs AS (SELECT DISTINCT
+		faves.isong
+	FROM
+		needle, faves
+	WHERE
+		faves.id <= needle.id
+	ORDER BY faves.id DESC
+	LIMIT :entriesperpage)
+-- select the rest of the data
+SELECT
+	{songColumns},
+	{maybeTrackColumns},
+	{lastplayedSelect},
+	NOW() AS synctime
+FROM
+	songs
+JOIN
+	esong ON songs.isong = esong.id
+LEFT JOIN
+	tracks ON tracks.hash = esong.hash;
+`)
+
 var songFavoritesOfQuery = expand(`
 WITH
 	esong
