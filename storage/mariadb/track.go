@@ -499,7 +499,8 @@ AS (SELECT DISTINCT
 		esong ON esong.id = efave.isong
 	WHERE
 		enick.nick = ?
-	ORDER BY efave.id ASC)
+	ORDER BY efave.id ASC
+	LIMIT ? OFFSET ?)
 SELECT
 	{songColumns},
 	{maybeTrackColumns},
@@ -516,8 +517,7 @@ LEFT JOIN
 	FROM
 		eplay
 	GROUP BY
-		isong) AS eplay ON eplay.isong = esong.id
-LIMIT ? OFFSET ?;
+		isong) AS eplay ON eplay.isong = esong.id;
 `)
 
 var songFavoritesOfDatabaseOnlyQuery = expand(`
