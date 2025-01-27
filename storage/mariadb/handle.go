@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -107,16 +108,26 @@ func (s *StorageService) Close() error {
 // fakeTx is a *sqlx.Tx with the Commit method disabled
 type fakeTx struct {
 	*sqlx.Tx
+	called atomic.Bool
 }
 
 // Commit does nothing
-func (fakeTx) Commit() error {
+func (tx *fakeTx) Commit() error {
+	success := tx.called.CompareAndSwap(false, true)
+	if !success {
+		return sql.ErrTxDone
+	}
 	return nil
 }
 
-// Rollback does nothing
-func (fakeTx) Rollback() error {
-	return nil
+// Rollback only calls the real Rollback if Commit has not been called yet,
+// this is to support the common `defer tx.Rollback()` pattern
+func (tx *fakeTx) Rollback() error {
+	success := tx.called.CompareAndSwap(false, true)
+	if !success {
+		return sql.ErrTxDone
+	}
+	return tx.Tx.Rollback()
 }
 
 type spanTx struct {
@@ -137,28 +148,46 @@ func (tx spanTx) Rollback() error {
 // tx either unwraps the tx given to a *sqlx.Tx, or creates a new transaction if tx is
 // nil. Passing in a StorageTx not returned by this package will panic
 func (s *StorageService) tx(ctx context.Context, tx radio.StorageTx) (context.Context, *sqlx.Tx, radio.StorageTx, error) {
-	if tx == nil {
-		// only create a new span if it's actually a new transaction
+	return beginTx(ctx, s.db, tx)
+}
+
+// beginTx starts a new transaction but only if a transaction doesn't already exist in any of the
+// arguments given.
+func beginTx(ctx context.Context, ex extContext, tx radio.StorageTx) (context.Context, *sqlx.Tx, radio.StorageTx, error) {
+	if tx != nil {
+		// existing transaction, make sure it's one of ours and then use it
+		switch txx := tx.(type) {
+		case *sqlx.Tx:
+			// if this is a real tx, we disable the commit so that the transaction can't
+			// be committed earlier than expected by the creator
+			return ctx, txx, &fakeTx{Tx: txx}, nil
+		case spanTx:
+			return ctx, txx.Tx, &fakeTx{Tx: txx.Tx}, nil
+		case *fakeTx:
+			return ctx, txx.Tx, txx, nil
+		default:
+			panic("mariadb: invalid tx passed to beginTx")
+		}
+	}
+
+	// now check if our ex is already a transaction
+	switch sx := ex.(type) {
+	case *sqlx.Tx:
+		// ex was already a transaction, return it wrapped in a fake
+		return ctx, sx, &fakeTx{Tx: sx}, nil
+	case *sqlx.DB:
+		// it's just our normal db instance, create a new transaction
+		// new transaction
+		tx, err := sx.BeginTxx(ctx, nil)
+		if err != nil {
+			return ctx, nil, nil, err
+		}
 		ctx, span := otel.Tracer("mariadb").Start(ctx, "transaction")
 		end := sync.OnceFunc(func() { span.End() })
-		// new transaction
-		tx, err := s.db.BeginTxx(ctx, nil)
 		return ctx, tx, spanTx{tx, end}, err
 	}
 
-	// existing transaction, make sure it's one of ours and then use it
-	switch txx := tx.(type) {
-	case *sqlx.Tx:
-		// if this is a real tx, we disable the commit so that the transaction can't
-		// be committed earlier than expected by the creator
-		return ctx, txx, fakeTx{txx}, nil
-	case spanTx:
-		return ctx, txx.Tx, txx, nil
-	case fakeTx:
-		return ctx, txx.Tx, txx, nil
-	default:
-		panic("mariadb: invalid tx passed to StorageService")
-	}
+	panic("mariadb: invalid ex passed to beginTx")
 }
 
 func (s *StorageService) Sessions(ctx context.Context) radio.SessionStorage {
@@ -365,21 +394,15 @@ type extContext interface {
 // requireTx returns a handle that uses a transaction, if the handle given already is
 // one using a transaction it returns it as-is, otherwise makes a new transaction
 func requireTx(h handle) (handle, radio.StorageTx, error) {
-	if tx, ok := h.ext.(*sqlx.Tx); ok {
-		return h, fakeTx{tx}, nil
-	}
-
-	db, ok := h.ext.(*sqlx.DB)
-	if !ok {
-		zerolog.Ctx(h.ctx).Panic().Any("ext", h.ext).Msg("unknown type")
-	}
-
-	tx, err := db.BeginTxx(h.ctx, nil)
+	ctx, tx, stx, err := beginTx(h.ctx, h.ext, nil)
 	if err != nil {
 		return h, nil, err
 	}
+
+	// update our handle
+	h.ctx = ctx
 	h.ext = tx
-	return h, tx, nil
+	return h, stx, nil
 }
 
 func namedExecLastInsertId(e sqlx.Ext, query string, arg any) (int64, error) {
