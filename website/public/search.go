@@ -87,6 +87,7 @@ func NewSearchSharedInput(s radio.SearchService, rs radio.RequestStorage, r *htt
 	if r.URL.Query().Has("trackid") {
 		query := uri.Query()
 		query.Del("trackid")
+		query.Del("s")
 		uri.RawQuery = query.Encode()
 		uri.Path = "/search"
 	}

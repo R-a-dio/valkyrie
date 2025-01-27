@@ -63,6 +63,19 @@ func NewFavesInput(ss radio.SongStorage, rs radio.RequestStorage, r *http.Reques
 	dlUrl := *r.URL
 	dlUrl.RawQuery = q.Encode()
 
+	// we also use this input if we're making a request, in which case our url
+	// will be something other than /faves that we can't use for the pagination
+	// logic. We can detect this by looking for a trackid argument and changing
+	// the url to the expected /faves path
+	uri := r.URL
+	if r.URL.Query().Has("trackid") {
+		query := uri.Query()
+		query.Del("trackid")
+		query.Del("s")
+		uri.RawQuery = query.Encode()
+		uri.Path = "/faves"
+	}
+
 	// check if the user can request
 	lastRequest, err := rs.LastRequest(r.RemoteAddr)
 	if err != nil {
@@ -79,7 +92,7 @@ func NewFavesInput(ss radio.SongStorage, rs radio.RequestStorage, r *http.Reques
 		FaveCount:       faveCount,
 		Page: shared.NewPagination(
 			page, shared.PageCount(int64(faveCount), favesPageSize),
-			r.URL,
+			uri,
 		),
 		Input:          middleware.InputFromRequest(r),
 		CSRFTokenInput: csrf.TemplateField(r),
