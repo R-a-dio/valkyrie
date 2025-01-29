@@ -31,7 +31,8 @@ func (SongsInput) TemplateBundle() string {
 type SongsForm struct {
 	CSRFTokenInput template.HTML
 
-	Errors map[string]string
+	Errors  map[string]string
+	Success bool
 
 	// HasDelete indicates if we should show the delete button
 	HasDelete bool
@@ -184,6 +185,7 @@ func (s *State) postSongs(r *http.Request) (*SongsForm, error) {
 		return form, errors.E(op, err, errors.InternalServer)
 	}
 
+	form.Success = true
 	return form, nil
 }
 
