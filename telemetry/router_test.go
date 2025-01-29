@@ -1,6 +1,12 @@
 package telemetry
 
-import "testing"
+import (
+	"context"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
 
 type cleanFunctionCase struct {
 	value  string
@@ -27,4 +33,32 @@ func TestGetFunctionName(t *testing.T) {
 			t.Errorf("%s != %s", v, c.expect)
 		}
 	}
+}
+
+func TestDisableTracing(t *testing.T) {
+	ctx := context.Background()
+
+	r := httptest.NewRequestWithContext(ctx, "", "/", nil)
+	require.True(t, filterSSEEndpoints(r))
+
+	r = httptest.NewRequestWithContext(ctx, "", "/v1/sse?test", nil)
+	require.False(t, filterSSEEndpoints(r))
+}
+
+func BenchmarkDisableTracing(b *testing.B) {
+	ctx := context.Background()
+	rTrue := httptest.NewRequestWithContext(ctx, "", "/schedule", nil)
+	rFalse := httptest.NewRequestWithContext(ctx, "", "/v1/sse", nil)
+
+	b.Run("noskip", func(b *testing.B) {
+		for range b.N {
+			filterSSEEndpoints(rTrue)
+		}
+	})
+
+	b.Run("skip", func(b *testing.B) {
+		for range b.N {
+			filterSSEEndpoints(rFalse)
+		}
+	})
 }

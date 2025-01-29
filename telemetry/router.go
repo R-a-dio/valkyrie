@@ -105,9 +105,17 @@ func useMethodPath(operation string, r *http.Request) string {
 	return r.Method + " " + r.URL.Path
 }
 
+func filterSSEEndpoints(r *http.Request) bool {
+	// TODO: implement this some other way
+	return !strings.HasSuffix(r.URL.Path, "sse")
+}
+
 func NewRouter() chi.Router {
 	r := chi.NewRouter()
-	r.Use(otelhttp.NewMiddleware("http_request", otelhttp.WithSpanNameFormatter(useMethodPath)))
+	r.Use(otelhttp.NewMiddleware("http_request",
+		otelhttp.WithSpanNameFormatter(useMethodPath),
+		otelhttp.WithFilter(filterSSEEndpoints),
+	))
 	return &router{r, true}
 }
 
