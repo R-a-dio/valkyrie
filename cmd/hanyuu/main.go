@@ -53,7 +53,7 @@ func (c cmd) SetFlags(f *flag.FlagSet) {
 		c.setFlags(f)
 	}
 }
-func (c cmd) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
+func (c cmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) subcommands.ExitStatus {
 	// extract extra arguments from the interface slice; it's fine if we panic here
 	// because that is an unrecoverable programmer error
 	errCh := args[0].(chan error)

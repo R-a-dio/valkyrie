@@ -49,7 +49,7 @@ func (h hook) Run(e *zerolog.Event, zerolevel zerolog.Level, msg string) {
 	r.SetTimestamp(now)
 	r.SetObservedTimestamp(now)
 
-	logData := make(map[string]interface{})
+	logData := make(map[string]any)
 	// create a string that appends } to the end of the buf variable you access via reflection
 	ev := fmt.Sprintf("%s}", reflect.ValueOf(e).Elem().FieldByName("buf"))
 	_ = json.Unmarshal([]byte(ev), &logData)

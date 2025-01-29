@@ -186,7 +186,7 @@ type Event struct {
 
 // Echo sends either a PRIVMSG to a channel or a NOTICE to a user based on the prefix
 // used when running the command
-func (e Event) Echo(message string, args ...interface{}) {
+func (e Event) Echo(message string, args ...any) {
 	switch e.Last()[0] {
 	case '.', '!':
 		e.EchoPrivate(message, args...)
@@ -198,13 +198,13 @@ func (e Event) Echo(message string, args ...interface{}) {
 }
 
 // EchoPrivate always sends a message as a NOTICE to the user that invoked the event
-func (e Event) EchoPrivate(message string, args ...interface{}) {
+func (e Event) EchoPrivate(message string, args ...any) {
 	e.Client.Cmd.Notice(e.Source.Name, Fmt(message, args...))
 }
 
 // EchoPublic always sends a message as a PRIVMSG to the channel that
 // the event was invoked on
-func (e Event) EchoPublic(message string, args ...interface{}) {
+func (e Event) EchoPublic(message string, args ...any) {
 	e.Client.Cmd.Message(e.Params[0], Fmt(message, args...))
 }
 

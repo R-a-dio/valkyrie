@@ -170,7 +170,7 @@ func NewUserPermissions(perms ...UserPermission) UserPermissions {
 //
 // Done in a way that it expects all permissions to be a single string or []byte
 // separated by a comma
-func (upp *UserPermissions) Scan(src interface{}) error {
+func (upp *UserPermissions) Scan(src any) error {
 	if upp == nil {
 		return fmt.Errorf("nil found in Scan")
 	}
@@ -640,7 +640,7 @@ func (s SongHash) Value() (driver.Value, error) {
 }
 
 // Scan implements sql.Scanner
-func (s *SongHash) Scan(src interface{}) error {
+func (s *SongHash) Scan(src any) error {
 	if src == nil {
 		return nil
 	}

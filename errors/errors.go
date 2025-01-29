@@ -64,7 +64,7 @@ var As = errors.As
 //
 // If Kind is not specified or Other, we set it to the Kind of
 // the underlying error.
-func E(args ...interface{}) error {
+func E(args ...any) error {
 	if len(args) == 0 {
 		panic("call to errors.E with no arguments")
 	}

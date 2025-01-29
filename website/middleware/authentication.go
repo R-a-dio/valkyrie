@@ -357,10 +357,10 @@ func (ss SessionStore) Commit(token string, b []byte, expiry time.Time) error {
 type JSONCodec struct{}
 
 // Encode implements scs.Codec
-func (JSONCodec) Encode(deadline time.Time, values map[string]interface{}) ([]byte, error) {
+func (JSONCodec) Encode(deadline time.Time, values map[string]any) ([]byte, error) {
 	aux := &struct {
 		Deadline time.Time
-		Values   map[string]interface{}
+		Values   map[string]any
 	}{
 		Deadline: deadline,
 		Values:   values,
@@ -375,10 +375,10 @@ func (JSONCodec) Encode(deadline time.Time, values map[string]interface{}) ([]by
 }
 
 // Decode implements scs.Codec
-func (JSONCodec) Decode(b []byte) (time.Time, map[string]interface{}, error) {
+func (JSONCodec) Decode(b []byte) (time.Time, map[string]any, error) {
 	aux := &struct {
 		Deadline time.Time
-		Values   map[string]interface{}
+		Values   map[string]any
 	}{}
 
 	err := json.Unmarshal(b, aux)

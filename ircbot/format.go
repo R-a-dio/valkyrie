@@ -9,7 +9,7 @@ import (
 )
 
 // Fmt passes the message to girc.Fmt and then calls fmt.Sprintf with arguments given
-func Fmt(message string, args ...interface{}) string {
+func Fmt(message string, args ...any) string {
 	message = girc.Fmt(message)
 	return fmt.Sprintf(message, args...)
 }
@@ -34,7 +34,7 @@ func FormatDuration(t time.Duration, truncate time.Duration) string {
 		return ""
 	}
 
-	var args []interface{}
+	var args []any
 	var msg []string
 	for i, d := range longDurations {
 		if t < truncate {

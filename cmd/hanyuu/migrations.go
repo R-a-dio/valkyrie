@@ -45,7 +45,7 @@ func (m *migrateCmd) SetFlags(f *flag.FlagSet) {
 	f.BoolVar(&m.verbose, "verbose", false, "verbose output")
 }
 
-func (m *migrateCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
+func (m *migrateCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) subcommands.ExitStatus {
 	m.flags = f
 	defer func() {
 		if m.migrate != nil {

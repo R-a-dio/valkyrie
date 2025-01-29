@@ -399,7 +399,7 @@ type extContext interface {
 	// to be a sqlx.Ext so that we can use all extensions added by sqlx
 	DriverName() string
 	Rebind(string) string
-	BindNamed(string, interface{}) (string, []interface{}, error)
+	BindNamed(string, any) (string, []any, error)
 }
 
 // requireTx returns a handle that uses a transaction, if the handle given already is
@@ -446,7 +446,7 @@ func (h handle) span(op errors.Op) (handle, func(...trace.SpanEndOption)) {
 	return h, span.End
 }
 
-func (h handle) Exec(query string, args ...interface{}) (sql.Result, error) {
+func (h handle) Exec(query string, args ...any) (sql.Result, error) {
 	defer func(start time.Time) {
 		zerolog.Ctx(h.ctx).Debug().
 			Str("storage_service", h.service).
@@ -459,7 +459,7 @@ func (h handle) Exec(query string, args ...interface{}) (sql.Result, error) {
 	return h.ext.ExecContext(h.ctx, query, args...)
 }
 
-func (h handle) Query(query string, args ...interface{}) (*sql.Rows, error) {
+func (h handle) Query(query string, args ...any) (*sql.Rows, error) {
 	defer func(start time.Time) {
 		zerolog.Ctx(h.ctx).Debug().
 			Str("storage_service", h.service).
@@ -472,7 +472,7 @@ func (h handle) Query(query string, args ...interface{}) (*sql.Rows, error) {
 	return h.ext.QueryContext(h.ctx, query, args...)
 }
 
-func (h handle) Queryx(query string, args ...interface{}) (*sqlx.Rows, error) {
+func (h handle) Queryx(query string, args ...any) (*sqlx.Rows, error) {
 	defer func(start time.Time) {
 		zerolog.Ctx(h.ctx).Debug().
 			Str("storage_service", h.service).
@@ -485,7 +485,7 @@ func (h handle) Queryx(query string, args ...interface{}) (*sqlx.Rows, error) {
 	return h.ext.QueryxContext(h.ctx, query, args...)
 }
 
-func (h handle) QueryRowx(query string, args ...interface{}) *sqlx.Row {
+func (h handle) QueryRowx(query string, args ...any) *sqlx.Row {
 	defer func(start time.Time) {
 		zerolog.Ctx(h.ctx).Debug().
 			Str("storage_service", h.service).
@@ -498,7 +498,7 @@ func (h handle) QueryRowx(query string, args ...interface{}) *sqlx.Row {
 	return h.ext.QueryRowxContext(h.ctx, query, args...)
 }
 
-func (h handle) BindNamed(query string, arg interface{}) (string, []interface{}, error) {
+func (h handle) BindNamed(query string, arg any) (string, []any, error) {
 	defer func(start time.Time) {
 		zerolog.Ctx(h.ctx).Debug().
 			Str("storage_service", h.service).

@@ -25,7 +25,7 @@ func cleanFunctionName(str string) string {
 	return strings.TrimSuffix(strs[index], "-fm")
 }
 
-func getFunctionName(temp interface{}) string {
+func getFunctionName(temp any) string {
 	name := runtime.FuncForPC(reflect.ValueOf(temp).Pointer()).Name()
 	return cleanFunctionName(name)
 }

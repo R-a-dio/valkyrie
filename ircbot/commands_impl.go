@@ -74,7 +74,7 @@ func LastPlayed(e Event) error {
 	message := "{green}Last Played:{clear}"
 	messageJoin := "{green}|{clear}"
 	onlyFmt := make([]string, len(songs))
-	onlyMetadata := make([]interface{}, len(songs))
+	onlyMetadata := make([]any, len(songs))
 	for i, song := range songs {
 		onlyFmt[i] = " %s "
 		onlyMetadata[i] = song.Metadata
@@ -115,7 +115,7 @@ func StreamerQueue(e Event) error {
 
 	// Grab metadata and set color green if requestable
 	onlyFmt := make([]string, len(songQueue))
-	onlyMetadata := make([]interface{}, len(songQueue))
+	onlyMetadata := make([]any, len(songQueue))
 	for i, song := range songQueue {
 		if song.IsUserRequest {
 			onlyFmt[i] = "{green} %s {clear}"
@@ -130,7 +130,7 @@ func StreamerQueue(e Event) error {
 
 	// Create the args
 	args := append(
-		[]interface{}{FormatPlaybackDurationHours(totalQueueTime)},
+		[]any{FormatPlaybackDurationHours(totalQueueTime)},
 		onlyMetadata...,
 	)
 
@@ -608,7 +608,7 @@ func SearchTrack(e Event) error {
 		format             = "%s {green}(%d) {clear}(LP:{brown}%s{clear})"
 		// setup message and argument list for later
 		message = make([]string, 0, 10)
-		args    = make([]interface{}, 0, 15)
+		args    = make([]any, 0, 15)
 	)
 	// loop over our songs and append to our args and message
 	for _, song := range songs {
@@ -745,7 +745,7 @@ func LastRequestInfo(e Event) error {
 		name = e.Arguments["Nick"]
 	}
 
-	args := []interface{}{
+	args := []any{
 		name,
 		t.Format("Jan 02, 15:04:05"),
 		FormatDuration(time.Since(t).Truncate(time.Second), time.Second),
