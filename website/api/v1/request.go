@@ -13,6 +13,11 @@ import (
 	"github.com/rs/zerolog/hlog"
 )
 
+const (
+	RequestTrackArgument  = "trackid"
+	RequestSourceArgument = "s"
+)
+
 func (a *API) PostRequest(w http.ResponseWriter, r *http.Request) {
 	var message string
 
@@ -48,10 +53,18 @@ func (a *API) PostRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var input templates.TemplateSelectable
+	// get where we came from before we remove the query arguments
+	source := r.FormValue(RequestSourceArgument)
 	ctx := r.Context()
 
+	// remove query arguments that we just consumed
+	query := r.URL.Query()
+	query.Del(RequestTrackArgument)
+	query.Del(RequestSourceArgument)
+	r.URL.RawQuery = query.Encode()
+
 	// figure out where our request came from
-	if source := r.FormValue("s"); source == "fave" {
+	if source == "fave" {
 		fi, err := public.NewFavesInput(
 			a.storage.Song(ctx),
 			a.storage.Request(ctx),
@@ -101,7 +114,7 @@ func (a *API) postRequest(r *http.Request) error {
 
 	ctx := r.Context()
 
-	tid, err := radio.ParseTrackID(r.FormValue("trackid"))
+	tid, err := radio.ParseTrackID(r.FormValue(RequestTrackArgument))
 	if err != nil {
 		return errors.E(op, err, errors.InvalidForm)
 	}
