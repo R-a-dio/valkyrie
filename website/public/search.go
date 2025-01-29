@@ -63,10 +63,16 @@ func NewSearchSharedInput(s radio.SearchService, rs radio.RequestStorage, r *htt
 		return nil, errors.E(op, err)
 	}
 
+	var songs []radio.Song
+	var totalHits int
 	query := r.FormValue("q")
-	searchResult, err := s.Search(ctx, query, searchPageSize, offset)
-	if err != nil {
-		return nil, errors.E(op, err)
+	if len(query) > 0 {
+		searchResult, err := s.Search(ctx, query, searchPageSize, offset)
+		if err != nil {
+			return nil, errors.E(op, err)
+		}
+		songs = searchResult.Songs
+		totalHits = searchResult.TotalHits
 	}
 
 	// RemoteAddr on the request should've already been scrubbed by some middleware to not
@@ -87,11 +93,11 @@ func NewSearchSharedInput(s radio.SearchService, rs radio.RequestStorage, r *htt
 	return &SearchSharedInput{
 		CSRFTokenInput:  csrf.TemplateField(r),
 		Query:           query,
-		Songs:           searchResult.Songs,
+		Songs:           songs,
 		CanRequest:      ok,
 		RequestCooldown: cd,
 		Page: shared.NewPagination(
-			page, shared.PageCount(int64(searchResult.TotalHits), searchPageSize),
+			page, shared.PageCount(int64(totalHits), searchPageSize),
 			r.URL,
 		),
 	}, nil
