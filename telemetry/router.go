@@ -105,16 +105,35 @@ func useMethodPath(operation string, r *http.Request) string {
 	return r.Method + " " + r.URL.Path
 }
 
-func filterSSEEndpoints(r *http.Request) bool {
-	// TODO: implement this some other way
-	return !strings.HasSuffix(r.URL.Path, "sse")
+// returns false if request path is /v1/sse, /admin/booth/sse or has the prefix /admin/telemetry
+func filterBevin(r *http.Request) bool {
+	input := r.URL.Path
+
+	// 15  6  15
+	var l = len(input)
+
+	if l >= 1 && input[0] == '/' {
+		input = input[1:]
+		l -= 1
+	}
+	if l == 6 && input == "v1/sse" {
+		return false
+	}
+	if l == 15 && input == "admin/booth/sse" {
+		return false
+	}
+	if l >= 15 && input[:15] == "admin/telemetry" {
+		return false
+	}
+
+	return true
 }
 
 func NewRouter() chi.Router {
 	r := chi.NewRouter()
 	r.Use(otelhttp.NewMiddleware("http_request",
 		otelhttp.WithSpanNameFormatter(useMethodPath),
-		otelhttp.WithFilter(filterSSEEndpoints),
+		otelhttp.WithFilter(filterBevin),
 	))
 	return &router{r, true}
 }

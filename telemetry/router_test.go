@@ -39,26 +39,28 @@ func TestDisableTracing(t *testing.T) {
 	ctx := context.Background()
 
 	r := httptest.NewRequestWithContext(ctx, "", "/", nil)
-	require.True(t, filterSSEEndpoints(r))
+	require.True(t, filterBevin(r))
 
 	r = httptest.NewRequestWithContext(ctx, "", "/v1/sse?test", nil)
-	require.False(t, filterSSEEndpoints(r))
+	require.False(t, filterBevin(r))
 }
 
-func BenchmarkDisableTracing(b *testing.B) {
-	ctx := context.Background()
-	rTrue := httptest.NewRequestWithContext(ctx, "", "/schedule", nil)
-	rFalse := httptest.NewRequestWithContext(ctx, "", "/v1/sse", nil)
-
-	b.Run("noskip", func(b *testing.B) {
-		for range b.N {
-			filterSSEEndpoints(rTrue)
-		}
-	})
-
-	b.Run("skip", func(b *testing.B) {
-		for range b.N {
-			filterSSEEndpoints(rFalse)
-		}
-	})
+func BenchmarkBevin(b *testing.B) {
+	inputs := []string{
+		"/v1/sse",
+		"/v1/sse",
+		"/admin/booth/sse",
+		"/schedule",
+		"/admin/profile",
+		"/admin/telemetry",
+		`/admin/telemetry/explore?schemaVersion=1&panes={"gi0":{"datasource":"tempo","queries":[{"query":"{name%3D~\"`,
+	}
+	for _, input := range inputs {
+		req := httptest.NewRequest("GET", input, nil)
+		b.Run(input, func(b *testing.B) {
+			for range b.N {
+				filterBevin(req)
+			}
+		})
+	}
 }
