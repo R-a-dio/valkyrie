@@ -497,7 +497,7 @@ faves AS (SELECT
 	JOIN
 		enick ON enick.id = efave.inick
 	WHERE enick.nick = :nick
-	ORDER BY id DESC),
+	ORDER BY efave.id DESC),
 
 -- generate page offsets
 pages AS (SELECT
@@ -510,7 +510,7 @@ pages AS (SELECT
 		FROM
 			faves
 		ORDER BY faves.id DESC) AS s
-		WHERE MOD(rownum, :pagecount) = 0),
+	WHERE MOD(rownum, :entriesperpage) = 0),
 
 -- grab the needle for the specific page we're looking for
 needle AS (SELECT

@@ -16,7 +16,7 @@ CREATE TABLE `permissions` (
 
 INSERT IGNORE INTO `permission_kinds` (
     `permission`
-) VALUES 
+) VALUES
     ("active"),
     ("admin"),
     ("database_delete"),

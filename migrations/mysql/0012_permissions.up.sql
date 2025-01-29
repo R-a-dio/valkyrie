@@ -1,6 +1,6 @@
 INSERT IGNORE INTO `permission_kinds` (
     `permission`
-) VALUES 
+) VALUES
     ("queue_edit"),
     ("robot"),
     ("schedule_edit"),
