@@ -13,26 +13,48 @@ type SessionStorage struct {
 	handle handle
 }
 
+type SessionDeleteParams struct {
+	Token radio.SessionToken
+}
+
+// input: SessionDeleteParams
+const SessionDeleteQuery = `
+DELETE FROM
+	sessions
+WHERE
+	token=:token;
+`
+
 // Delete implements radio.SessionStorage
 func (ss SessionStorage) Delete(token radio.SessionToken) error {
 	const op errors.Op = "mariadb/SessionStorage.Delete"
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
 
-	var query = `
-	DELETE FROM 
-		sessions
-	WHERE
-		token=?;
-	`
-
-	_, err := handle.Exec(query, token)
+	_, err := sqlx.NamedExec(handle, SessionDeleteQuery, SessionDeleteParams{
+		Token: token,
+	})
 	if err != nil {
 		return errors.E(op, err)
 	}
 
 	return nil
 }
+
+// input: radio.Session
+const SessionSaveQuery = `
+INSERT INTO
+	sessions (
+		token,
+		expiry,
+		data
+	) VALUES (
+		:token,
+		:expiry,
+		:data
+	) ON DUPLICATE KEY UPDATE
+		expiry=VALUE(expiry), data=VALUE(data);
+`
 
 // Save implements radio.SessionStorage
 func (ss SessionStorage) Save(session radio.Session) error {
@@ -40,26 +62,29 @@ func (ss SessionStorage) Save(session radio.Session) error {
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
 
-	var query = `
-	INSERT INTO
-		sessions (
-			token,
-			expiry,
-			data
-		) VALUES (
-			:token,
-			:expiry,
-			:data
-		) ON DUPLICATE KEY UPDATE
-			expiry=:expiry, data=:data;
-	`
-
-	_, err := sqlx.NamedExec(handle, query, session)
+	_, err := sqlx.NamedExec(handle, SessionSaveQuery, session)
 	if err != nil {
 		return errors.E(op, err)
 	}
 	return nil
 }
+
+type SessionGetParams struct {
+	Token radio.SessionToken
+}
+
+// input: SessionGetParams
+// output: radio.Session
+const SessionGetQuery = `
+SELECT
+	token,
+	expiry,
+	data
+FROM
+	sessions
+WHERE
+	token=:token;
+`
 
 // Get implements radio.SessionStorage
 func (ss SessionStorage) Get(token radio.SessionToken) (radio.Session, error) {
@@ -67,20 +92,11 @@ func (ss SessionStorage) Get(token radio.SessionToken) (radio.Session, error) {
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
 
-	var query = `
-	SELECT
-		token,
-		expiry,
-		data
-	FROM
-		sessions
-	WHERE
-		token=?;
-	`
-
 	var session radio.Session
 
-	err := sqlx.Get(handle, &session, query, token)
+	err := handle.Get(&session, SessionGetQuery, SessionGetParams{
+		Token: token,
+	})
 	if err != nil {
 		if errors.IsE(err, sql.ErrNoRows) {
 			return session, errors.E(op, errors.SessionUnknown)
