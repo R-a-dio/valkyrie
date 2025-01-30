@@ -42,6 +42,10 @@ type NavBar struct {
 //
 // TODO: change to iter.Seq once we switch to 1.24
 func (nb NavBar) Values() []Item {
+	if nb.items == nil || nb.items.Len() == 0 {
+		return nil
+	}
+
 	v := make([]Item, 0, nb.items.Len())
 	for item := range nb.items.Values() {
 		if len(item.Perm) == 0 {
@@ -71,6 +75,9 @@ func (nb NavBar) WithUser(user *radio.User) NavBar {
 
 // Get returns an item by its name, returns nil if the name does not exist
 func (nb NavBar) Get(name string) *Item {
+	if nb.items == nil {
+		return nil
+	}
 	nbi, ok := nb.items.Get(name)
 	if !ok {
 		return nil

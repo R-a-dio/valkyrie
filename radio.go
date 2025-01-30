@@ -246,9 +246,9 @@ const (
 type User struct {
 	ID            UserID
 	Username      string
-	Password      string
+	Password      string `json:"-"`
 	Email         string
-	RememberToken string
+	RememberToken string `json:"-"`
 	IP            string
 
 	UpdatedAt *time.Time
