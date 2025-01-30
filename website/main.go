@@ -184,7 +184,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		csrf.Encoding(base62.StdEncoding),
 	))
 	// shared input handling, stuff the base template needs
-	r.Use(vmiddleware.InputMiddleware(cfg, statusValue))
+	r.Use(vmiddleware.InputMiddleware(cfg, statusValue, public.NavBar, admin.NavBar))
 	// theme state management
 	r.Use(templates.ThemeCtx(themeValues))
 

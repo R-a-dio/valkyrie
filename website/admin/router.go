@@ -12,10 +12,32 @@ import (
 	"github.com/R-a-dio/valkyrie/util/secret"
 	vmiddleware "github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/R-a-dio/valkyrie/website/shared"
+	"github.com/R-a-dio/valkyrie/website/shared/navbar"
 	"github.com/spf13/afero"
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
+)
+
+var NavBar = navbar.New(`hx-boost="true" hx-push-url="true" hx-target="#content"`,
+	navbar.NewProtectedItem("Admin", radio.PermActive, navbar.Attrs("href", "/admin")),
+	navbar.NewProtectedItem("News", radio.PermNews, navbar.Attrs("href", "/admin/news")),
+	navbar.NewProtectedItem("Queue", radio.PermQueueEdit, navbar.Attrs("href", "/admin/queue")),
+	navbar.NewProtectedItem("Listeners", radio.PermListenerView, navbar.Attrs("href", "/admin/tracker")),
+	navbar.NewProtectedItem("Schedule", radio.PermScheduleEdit, navbar.Attrs("href", "/admin/schedule")),
+	navbar.NewProtectedItem("Proxy", radio.PermProxyKick, navbar.Attrs("href", "/admin/proxy")),
+	navbar.NewProtectedItem("Pending", radio.PermPendingView, navbar.Attrs("href", "/admin/pending")),
+	navbar.NewProtectedItem("Song Database", radio.PermDatabaseView, navbar.Attrs("href", "/admin/songs")),
+	navbar.NewProtectedItem("Users", radio.PermAdmin, navbar.Attrs("href", "/admin/users")),
+	navbar.NewProtectedItem("Telemetry", radio.PermTelemetryView, navbar.Attrs(
+		"href", "/admin/telemetry/",
+		// avoid htmx doing the request, it will try and
+		// insert it into the page with our css/js (that's bad)
+		"hx-boost", "false",
+		"target", "_blank", // open a new tab for dashboard
+	)),
+	navbar.NewProtectedItem("Booth", radio.PermDJ, navbar.Attrs("href", "/admin/booth")),
+	navbar.NewProtectedItem("Profile", radio.PermActive, navbar.Attrs("href", "/admin/profile")),
 )
 
 func NewState(

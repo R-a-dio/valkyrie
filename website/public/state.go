@@ -9,6 +9,7 @@ import (
 	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/R-a-dio/valkyrie/util/secret"
 	"github.com/R-a-dio/valkyrie/website/shared"
+	"github.com/R-a-dio/valkyrie/website/shared/navbar"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -45,6 +46,20 @@ type State struct {
 	Storage   radio.StorageService
 	Search    radio.SearchService
 }
+
+var NavBar = navbar.New(`hx-boost="true" hx-push-url="true" hx-target="#content"`,
+	navbar.NewItem("Home", navbar.Attrs("href", "/")),
+	navbar.NewItem("News", navbar.Attrs("href", "/news")),
+	navbar.NewItem("Help", navbar.Attrs("href", "/help")),
+	navbar.NewItem("Chat", navbar.Attrs("href", "/irc")),
+	navbar.NewItem("Search", navbar.Attrs("href", "/search")),
+	navbar.NewItem("Schedule", navbar.Attrs("href", "/schedule")),
+	navbar.NewItem("Last Played", navbar.Attrs("href", "/last-played")),
+	navbar.NewItem("Queue", navbar.Attrs("href", "/queue")),
+	navbar.NewItem("Favorites", navbar.Attrs("href", "/faves")),
+	navbar.NewItem("Staff", navbar.Attrs("href", "/staff")),
+	navbar.NewItem("Submit", navbar.Attrs("href", "/submit")),
+)
 
 func Route(ctx context.Context, s State) func(chi.Router) {
 	return func(r chi.Router) {

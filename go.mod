@@ -1,8 +1,8 @@
 module github.com/R-a-dio/valkyrie
 
-go 1.23
+go 1.23.0
 
-toolchain go1.23.1
+toolchain go1.23.4
 
 replace github.com/gorilla/csrf => github.com/Wessie/csrf v0.0.0-20240430222011-49a3bdf737c0
 
@@ -97,6 +97,7 @@ require (
 	github.com/docker/docker v27.4.0+incompatible // indirect
 	github.com/docker/go-connections v0.5.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
+	github.com/elliotchance/orderedmap/v3 v3.1.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
