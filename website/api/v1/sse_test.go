@@ -79,7 +79,20 @@ func TestStream(t *testing.T) {
 		a.RegisterGen(timeGen)
 		a.RegisterGen(gen.PtrOf(timeGen))
 
-		genStatus := a.GenForType(reflect.TypeOf(radio.Status{}))
+		genStatus := a.GenForType(reflect.TypeOf(radio.Status{})).Map(func(in radio.Status) radio.Status {
+			in.User.Password = ""
+			in.User.RememberToken = ""
+
+			if in.StreamUser != nil {
+				in.StreamUser.Password = ""
+				in.StreamUser.RememberToken = ""
+			}
+			if in.Song.LastPlayedBy != nil {
+				in.Song.LastPlayedBy.Password = ""
+				in.Song.LastPlayedBy.RememberToken = ""
+			}
+			return in
+		})
 		param := gopter.DefaultGenParameters()
 
 		for i := 0; i < 100; i++ {
