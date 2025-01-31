@@ -36,9 +36,9 @@ const (
 	// the directory name for form templates, these are under <theme>/forms
 	FORMS_DIR = "forms"
 	// directory name of the default templates
-	DEFAULT_DIR = "default-light"
+	DEFAULT_DIR = "default-dark"
 	// directory name of the default admin templates
-	DEFAULT_ADMIN_DIR = "admin-light"
+	DEFAULT_ADMIN_DIR = "admin-dark"
 	// the prefix used on themes that are for the admin panel
 	ADMIN_PREFIX = "admin-"
 )

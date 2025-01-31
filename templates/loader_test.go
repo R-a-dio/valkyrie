@@ -138,14 +138,14 @@ base
 {{ template "empty" }}
 {{ template "empty_part" }}
 {{ end }}
--- default-light/default.tmpl --
+-- default-dark/default.tmpl --
 {{ define "empty" }}
 {{ end }}
--- default-light/partials/empty.tmpl --
+-- default-dark/partials/empty.tmpl --
 {{ define "empty_part" }}
 empty
 {{ end }}
--- admin-light/default.tmpl --
+-- admin-dark/default.tmpl --
 null
 `),
 			theme: "default-light",
@@ -158,13 +158,13 @@ admin-base
 {{ template "admin" }}
 {{ template "admin_partial" }}
 {{ end }}
--- default-light/default.tmpl --
+-- default-dark/default.tmpl --
 {{ define "empty" }}{{ end }}
--- admin-light/default.tmpl --
-{{ define "admin" }}{{ end }}
--- admin-light/partials/admin.tmpl --
-{{ define "admin_partial" }}{{ end }}
 -- admin-dark/default.tmpl --
+{{ define "admin" }}{{ end }}
+-- admin-dark/partials/admin.tmpl --
+{{ define "admin_partial" }}{{ end }}
+-- admin-light/default.tmpl --
 {{ define "admin" }}{{ end }}
 `),
 			theme: "admin-dark",
