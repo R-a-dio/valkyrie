@@ -96,7 +96,20 @@ function addEventListener(name, event, node, fn) {
 }
 
 htmx.createEventSource = function (url) {
-    es = new EventSource(url);
+    current = new URL(window.location.href);
+    theme = current.searchParams.get("theme");
+    if (!theme) {
+        es = new EventSource(url);
+        return es
+    }
+
+    // construct a new url with theme parameter
+    uri = new URL(url, window.location.origin);
+    params = new URLSearchParams(uri.search);
+    params.append("theme", theme);
+    uri.search = params.toString();
+
+    es = new EventSource(uri);
     return es;
 }
 
@@ -243,6 +256,17 @@ htmx.on('htmx:targetError', (event) => {
 
     htmx.ajax('GET', target, {target: 'body', swap: 'outerHTML', headers: {'HX-Request': 'false'}});
 });
+
+htmx.on('htmx:configRequest', (event) => {
+    // if we overwrote the theme with a GET param we need to carry this thing over to other
+    // htmx requests, otherwise stuff will not function or look weird
+    uri = new URL(window.location.href);
+    if (!uri.searchParams.get("theme")) {
+        return
+    }
+
+    event.detail.parameters["theme"] = uri.searchParams.get("theme");
+})
 
 function prettyDuration(d) {
     if (d < 0) {
