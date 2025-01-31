@@ -265,7 +265,9 @@ htmx.on('htmx:configRequest', (event) => {
         return
     }
 
-    event.detail.parameters["theme"] = uri.searchParams.get("theme");
+    if (!event.detail.parameters.has("theme")) {
+        event.detail.parameters["theme"] = uri.searchParams.get("theme");
+    }
 })
 
 function prettyDuration(d) {
