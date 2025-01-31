@@ -97,7 +97,7 @@ var defaultFunctions = map[string]any{
 	"HumanDuration":               HumanDuration,
 	"MediaDuration":               MediaDuration,
 	"Div":                         func(a, b any) int64 { return castInt64(a) / castInt64(b) },
-	"Sub":                         func(a, b any) int64 { return castInt64(a) / castInt64(b) },
+	"Sub":                         func(a, b any) int64 { return castInt64(a) - castInt64(b) },
 	"CalculateSubmissionCooldown": radio.CalculateSubmissionCooldown,
 	"AllUserPermissions":          radio.AllUserPermissions,
 	"HasField":                    HasField,
