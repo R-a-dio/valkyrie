@@ -260,14 +260,18 @@ htmx.on('htmx:targetError', (event) => {
 htmx.on('htmx:configRequest', (event) => {
     // if we overwrote the theme with a GET param we need to carry this thing over to other
     // htmx requests, otherwise stuff will not function or look weird
-    uri = new URL(window.location.href);
-    if (!uri.searchParams.get("theme")) {
+    if (event.detail.parameters.has("theme")) {
+        // theme parameter already exists
         return
     }
 
-    if (!event.detail.parameters.has("theme")) {
-        event.detail.parameters["theme"] = uri.searchParams.get("theme");
+    uri = new URL(window.location.href);
+    if (uri.searchParams.has("theme")) {
+        // theme parameter already exists
+        return
     }
+
+    event.detail.parameters["theme"] = uri.searchParams.get("theme");
 })
 
 function prettyDuration(d) {
