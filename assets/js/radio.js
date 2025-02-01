@@ -260,14 +260,23 @@ htmx.on('htmx:targetError', (event) => {
 htmx.on('htmx:configRequest', (event) => {
     // if we overwrote the theme with a GET param we need to carry this thing over to other
     // htmx requests, otherwise stuff will not function or look weird
+
+    // check if the theme parameter already exists in what htmx gave us
     if (event.detail.parameters.has("theme")) {
-        // theme parameter already exists
         return
     }
 
+    // htmx doesn't include path query arguments in the parameters object so we need to
+    // check that ourselves
+    target = new URL(event.detail.path, window.location.origin);
+    if (target.searchParams.has("theme")) {
+        return
+    }
+
+    // now check if we originally had a theme parameter on our current path
     uri = new URL(window.location.href);
-    if (uri.searchParams.has("theme")) {
-        // theme parameter already exists
+    if (!uri.searchParams.has("theme")) {
+        // if not we don't want to add anything
         return
     }
 
