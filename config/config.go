@@ -343,9 +343,11 @@ func TestConfig() Config {
 
 	cfg.Streamer = nil
 	cfg.Manager = nil
+	cfg.Guest = nil
 	cfg.Tracker = nil
 	cfg.Queue = nil
 	cfg.IRC = nil
+	cfg.Proxy = nil
 
 	c := cfg.Conf()
 	c.Database.DSN = ""
