@@ -18,8 +18,6 @@ import (
 
 	"github.com/BurntSushi/toml"
 	radio "github.com/R-a-dio/valkyrie"
-	"github.com/R-a-dio/valkyrie/rpc"
-	"google.golang.org/grpc"
 )
 
 // defaultConfig is the default configuration for this project
@@ -324,16 +322,11 @@ func newConfig(c config) Config {
 		reloader: new(reload),
 	}
 
-	streamerConn := Value(cfg, func(c Config) *grpc.ClientConn {
-		return rpc.PrepareConn(cfg.Conf().Streamer.RPCAddr.String())
-	})
-
-	// TODO: handle reloads by closing rpc connections
-	cfg.Streamer = newStreamerService(cfg, streamerConn)
+	cfg.Streamer = newStreamerService(cfg)
 	cfg.Manager = newManagerService(cfg)
 	cfg.Guest = newGuestService(cfg)
 	cfg.Tracker = newTrackerService(cfg)
-	cfg.Queue = newQueueService(cfg, streamerConn)
+	cfg.Queue = newQueueService(cfg)
 	cfg.IRC = newIRCService(cfg)
 	cfg.Proxy = newProxyService(cfg)
 
@@ -421,12 +414,15 @@ func (c Config) LoadAndUpdate(filenames ...string) error {
 	return nil
 }
 
+// OnReload lets you register a function that will be called when
+// a configuration reload occurs
 func (c *Config) OnReload(cb func()) {
 	c.reloader.Lock()
 	c.reloader.callbacks = append(c.reloader.callbacks, cb)
 	c.reloader.Unlock()
 }
 
+// TriggerReload is called after a reload occurred
 func (c Config) TriggerReload() {
 	c.reloader.RLock()
 	defer c.reloader.RUnlock()
@@ -478,8 +474,7 @@ func Values[T1, T2 any](cfg Config, fn func(Config) (T1, T2)) func() (T1, T2) {
 // Conf returns the configuration stored inside
 //
 // NOTE: Conf returns a shallow-copy of the config value stored inside; so do not edit
-//
-//	any slices or maps that might be inside
+// any slices or maps that might be inside
 func (c Config) Conf() config {
 	return c.config.Load().(config)
 }

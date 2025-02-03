@@ -9,10 +9,29 @@ import (
 	"google.golang.org/grpc"
 )
 
+func prepareService[T any](cfg Config, creator func(*grpc.ClientConn) T, addrFn func() string) T {
+	addr := addrFn()
+	conn := rpc.PrepareConn(addr)
+
+	cfg.OnReload(func() {
+		// see if the address changed, if it didn't we don't have to close
+		// our connection and can just keep using it
+		if addr != addrFn() {
+			conn.Close()
+		}
+	})
+
+	return creator(conn)
+}
+
 func newGuestService(cfg Config) radio.GuestService {
+	addrFn := Value(cfg, func(c Config) string {
+		return cfg.Conf().Manager.RPCAddr.String()
+	})
+
 	return &guestService{
 		Value(cfg, func(c Config) radio.GuestService {
-			return rpc.NewGuestService(rpc.PrepareConn(cfg.Conf().Manager.RPCAddr.String()))
+			return prepareService(cfg, rpc.NewGuestService, addrFn)
 		}),
 	}
 }
@@ -44,9 +63,12 @@ func (g *guestService) Do(ctx context.Context, nick string, action radio.GuestAc
 var _ radio.GuestService = &guestService{}
 
 func newManagerService(cfg Config) radio.ManagerService {
+	addrFn := Value(cfg, func(c Config) string {
+		return cfg.Conf().Manager.RPCAddr.String()
+	})
 	return &managerService{
 		Value(cfg, func(c Config) radio.ManagerService {
-			return rpc.NewManagerService(rpc.PrepareConn(cfg.Conf().Manager.RPCAddr.String()))
+			return prepareService(cfg, rpc.NewManagerService, addrFn)
 		}),
 	}
 }
@@ -107,9 +129,12 @@ func (m *managerService) UpdateFromStorage(ctx context.Context) error {
 var _ radio.ManagerService = &managerService{}
 
 func newProxyService(cfg Config) radio.ProxyService {
+	addrFn := Value(cfg, func(c Config) string {
+		return cfg.Conf().Proxy.RPCAddr.String()
+	})
 	return &proxyService{
 		Value(cfg, func(c Config) radio.ProxyService {
-			return rpc.NewProxyService(rpc.PrepareConn(cfg.Conf().Proxy.RPCAddr.String()))
+			return prepareService(cfg, rpc.NewProxyService, addrFn)
 		}),
 	}
 }
@@ -138,10 +163,13 @@ func (p *proxyService) ListSources(ctx context.Context) ([]radio.ProxySource, er
 	return p.fn().ListSources(ctx)
 }
 
-func newStreamerService(cfg Config, conn func() *grpc.ClientConn) radio.StreamerService {
+func newStreamerService(cfg Config) radio.StreamerService {
+	addrFn := Value(cfg, func(c Config) string {
+		return cfg.Conf().Streamer.RPCAddr.String()
+	})
 	return &streamerService{
 		Value(cfg, func(c Config) radio.StreamerService {
-			return rpc.NewStreamerService(conn())
+			return prepareService(cfg, rpc.NewStreamerService, addrFn)
 		}),
 	}
 }
@@ -170,10 +198,13 @@ func (s *streamerService) Stop(ctx context.Context, force bool) error {
 	return s.fn().Stop(ctx, force)
 }
 
-func newQueueService(cfg Config, conn func() *grpc.ClientConn) radio.QueueService {
+func newQueueService(cfg Config) radio.QueueService {
+	addrFn := Value(cfg, func(c Config) string {
+		return cfg.Conf().Streamer.RPCAddr.String()
+	})
 	return &queueService{
 		Value(cfg, func(c Config) radio.QueueService {
-			return rpc.NewQueueService(conn())
+			return prepareService(cfg, rpc.NewQueueService, addrFn)
 		}),
 	}
 }
@@ -208,9 +239,12 @@ func (q *queueService) ResetReserved(ctx context.Context) error {
 }
 
 func newTrackerService(cfg Config) radio.ListenerTrackerService {
+	addrFn := Value(cfg, func(c Config) string {
+		return cfg.Conf().Tracker.RPCAddr.String()
+	})
 	return &trackerService{
 		Value(cfg, func(c Config) radio.ListenerTrackerService {
-			return rpc.NewListenerTrackerService(rpc.PrepareConn(cfg.Conf().Tracker.RPCAddr.String()))
+			return prepareService(cfg, rpc.NewListenerTrackerService, addrFn)
 		}),
 	}
 }
@@ -230,9 +264,12 @@ func (t *trackerService) RemoveClient(ctx context.Context, id radio.ListenerClie
 }
 
 func newIRCService(cfg Config) radio.AnnounceService {
+	addrFn := Value(cfg, func(c Config) string {
+		return cfg.Conf().IRC.RPCAddr.String()
+	})
 	return &ircService{
 		Value(cfg, func(c Config) radio.AnnounceService {
-			return rpc.NewAnnouncerService(rpc.PrepareConn(cfg.Conf().IRC.RPCAddr.String()))
+			return prepareService(cfg, rpc.NewAnnouncerService, addrFn)
 		}),
 	}
 }
