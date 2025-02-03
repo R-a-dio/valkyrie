@@ -47,7 +47,9 @@ func NewQueueService(ctx context.Context, cfg config.Config, storage radio.Stora
 	}
 
 	qs := &QueueService{
-		Config:  cfg,
+		cfgMusicPath: config.Value(cfg, func(cfg config.Config) string {
+			return cfg.Conf().MusicPath
+		}),
 		logger:  zerolog.Ctx(ctx),
 		Storage: storage,
 		queue:   queue,
@@ -67,8 +69,8 @@ func NewQueueService(ctx context.Context, cfg config.Config, storage radio.Stora
 
 // QueueService implements radio.QueueService that uses a random population algorithm
 type QueueService struct {
-	config.Config
-	logger *zerolog.Logger
+	cfgMusicPath func() string
+	logger       *zerolog.Logger
 
 	Storage radio.StorageService
 	rand    *rand.Rand
@@ -88,7 +90,7 @@ func (qs *QueueService) append(ctx context.Context, entry radio.QueueEntry) {
 	ctx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 
-	path := util.AbsolutePath(qs.Conf().MusicPath, entry.FilePath)
+	path := util.AbsolutePath(qs.cfgMusicPath(), entry.FilePath)
 	length, err := audio.ProbeDuration(ctx, path)
 	if err != nil {
 		// log any error, but it isn't critical so just continue

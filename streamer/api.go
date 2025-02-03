@@ -19,7 +19,12 @@ func NewGRPCServer(ctx context.Context, cfg config.Config, storage radio.Storage
 	streamer *Streamer) (*grpc.Server, error) {
 
 	s := &streamerService{
-		Config:   cfg,
+		cfgRequestsEnabled: config.Value(cfg, func(cfg config.Config) bool {
+			return cfg.Conf().Streamer.RequestsEnabled
+		}),
+		cfgUserRequestDelay: config.Value(cfg, func(cfg config.Config) time.Duration {
+			return time.Duration(cfg.Conf().UserRequestDelay)
+		}),
 		Storage:  storage,
 		announce: announce,
 		queue:    queue,
@@ -34,7 +39,9 @@ func NewGRPCServer(ctx context.Context, cfg config.Config, storage radio.Storage
 }
 
 type streamerService struct {
-	config.Config
+	cfgRequestsEnabled  func() bool
+	cfgUserRequestDelay func() time.Duration
+
 	Storage radio.StorageService
 
 	announce     radio.AnnounceService
@@ -84,7 +91,7 @@ func (s *streamerService) areWeStreaming() bool {
 func (s *streamerService) RequestSong(ctx context.Context, song radio.Song, identifier string) error {
 	const op errors.Op = "streamer/streamerService.RequestSong"
 
-	if !s.Conf().Streamer.RequestsEnabled {
+	if !s.cfgRequestsEnabled() {
 		return errors.E(op, errors.StreamerNoRequests)
 	}
 
@@ -132,7 +139,7 @@ func (s *streamerService) RequestSong(ctx context.Context, song radio.Song, iden
 	}
 
 	// check if the user is allowed to request
-	waitTime, ok := radio.CalculateCooldown(time.Duration(s.Conf().UserRequestDelay), userLastRequest)
+	waitTime, ok := radio.CalculateCooldown(s.cfgUserRequestDelay(), userLastRequest)
 	if !ok {
 		return errors.E(op, errors.UserCooldown, errors.Delay(waitTime), song)
 	}
