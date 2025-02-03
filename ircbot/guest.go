@@ -25,7 +25,7 @@ func GuestAuth(e Event) error {
 		return nil
 	}
 
-	channel := e.Bot.Conf().IRC.MainChannel
+	channel := e.Bot.cfgMainChannel()
 	if !user.InChannel(channel) {
 		e.EchoPrivate("{yellow}%s {clear}needs to be in the {yellow}%s {clear}channel", nick, channel)
 		return nil
@@ -60,7 +60,7 @@ func GuestCreate(e Event) error {
 		return nil
 	}
 
-	channel := e.Bot.Conf().IRC.MainChannel
+	channel := e.Bot.cfgMainChannel()
 	if !user.InChannel(channel) {
 		e.EchoPrivate("{yellow}%s {clear}needs to be in the {yellow}%s {clear}channel", nick, channel)
 		return nil

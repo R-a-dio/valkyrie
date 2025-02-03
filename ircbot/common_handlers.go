@@ -30,16 +30,14 @@ func (h CommonHandlers) AuthenticateWithNickServ(c *girc.Client, e girc.Event) {
 		}
 	}
 
-	conf := h.Conf()
-	if conf.IRC.NickPassword != "" && c.GetNick() == conf.IRC.Nick {
-		c.Cmd.Messagef("nickserv", "id %s", conf.IRC.NickPassword)
+	if h.cfgNickPassword() != "" && c.GetNick() == h.cfgNick() {
+		c.Cmd.Messagef("nickserv", "id %s", h.cfgNickPassword())
 	}
 }
 
 // JoinDefaultChannels joins all the channels listed in the configuration file
 func (h CommonHandlers) JoinDefaultChannels(c *girc.Client, _ girc.Event) {
-	conf := h.Conf()
-	for _, channel := range conf.IRC.Channels {
+	for _, channel := range h.cfgChannels() {
 		c.Cmd.Join(channel)
 	}
 }

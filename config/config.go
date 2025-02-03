@@ -359,7 +359,8 @@ func TestConfig() Config {
 // LoadFile call from a closure
 type Loader func() (Config, error)
 
-// LoadFile loads a configuration file from the filename given
+// LoadFile loads a configuration file from the filename given, if multiple
+// filenames are given it will load the first one that exists
 func LoadFile(filenames ...string) (Config, error) {
 	var f *os.File
 	var err error

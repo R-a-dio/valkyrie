@@ -30,7 +30,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	defer cancel()
 
 	// setup our announce service
-	announce := NewAnnounceService(b.Config, b.Storage, b)
+	announce := NewAnnounceService(cfg, b.Storage, b)
 
 	// setup a http server for our RPC API
 	srv, err := NewGRPCServer(ctx, announce)
@@ -115,9 +115,27 @@ func NewBot(ctx context.Context, cfg config.Config) (*Bot, error) {
 	ircConf.Version = c.UserAgent
 
 	b := &Bot{
-		Config:   cfg,
+		cfgUserRequestDelay: config.Value(cfg, func(c config.Config) time.Duration {
+			return time.Duration(c.Conf().UserRequestDelay)
+		}),
+		cfgNick: config.Value(cfg, func(c config.Config) string {
+			return cfg.Conf().IRC.Nick
+		}),
+		cfgNickPassword: config.Value(cfg, func(c config.Config) string {
+			return cfg.Conf().IRC.NickPassword
+		}),
+		cfgChannels: config.Value(cfg, func(c config.Config) []string {
+			return cfg.Conf().IRC.Channels
+		}),
+		cfgMainChannel: config.Value(cfg, func(c config.Config) string {
+			return cfg.Conf().IRC.MainChannel
+		}),
 		Storage:  store,
 		Searcher: ss,
+		Queue:    cfg.Queue,
+		Streamer: cfg.Streamer,
+		Manager:  cfg.Manager,
+		Guest:    cfg.Guest,
 		c:        girc.New(ircConf),
 	}
 
@@ -134,11 +152,20 @@ func NewBot(ctx context.Context, cfg config.Config) (*Bot, error) {
 }
 
 type Bot struct {
-	config.Config
+	cfgUserRequestDelay func() time.Duration
+	cfgNick             func() string
+	cfgNickPassword     func() string
+	cfgChannels         func() []string
+	cfgMainChannel      func() string
+
 	Storage radio.StorageService
 
 	// interfaces to other components
 	Searcher radio.SearchService
+	Queue    radio.QueueService
+	Streamer radio.StreamerService
+	Guest    radio.GuestService
+	Manager  radio.ManagerService
 
 	// Values used by commands
 	StatusValue    *util.Value[radio.Status]
@@ -198,14 +225,13 @@ func (b *Bot) syncConfiguration(ctx context.Context) {
 			continue
 		}
 
-		c := b.Conf()
 		// check if we lost our nickname
-		if b.c.GetNick() != c.IRC.Nick {
-			b.c.Cmd.Nick(c.IRC.Nick)
+		if wanted := b.cfgNick(); b.c.GetNick() != wanted {
+			b.c.Cmd.Nick(wanted)
 		}
 
 		// check if we're still on all our wanted channels
-		for _, wanted := range c.IRC.Channels {
+		for _, wanted := range b.cfgChannels() {
 			if !b.c.IsInChannel(wanted) {
 				b.c.Cmd.Join(wanted)
 			}
