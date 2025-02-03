@@ -442,15 +442,33 @@ func Value[T any](cfg Config, fn func(Config) T) func() T {
 	})
 
 	return func() T {
-		gp := store.Load()
-		if gp == nil || *gp == nil {
+		loaded := store.Load()
+		if loaded == nil || *loaded == nil {
+			// we loaded a nil, that means nobody has made this OnceValue yet
+			// so we do the job
 			g := sync.OnceValue(func() T {
 				return fn(cfg)
 			})
-			gp = &g
-			store.Store(gp)
+
+			// now we need to store our OnceValue in the store, but some other
+			// routine might be racing us on the creation so use a CAS loop
+			for loaded == nil || *loaded == nil {
+				if store.CompareAndSwap(loaded, &g) {
+					// if we stored successfully, the store now holds our &g, so
+					// set that as the loaded value
+					loaded = &g
+					break
+				}
+
+				// get the new value from the store, in most cases this will be a
+				// OnceValue that another goroutine just stored so we don't have
+				// to loop. But it's possible for this slow path and the reload path
+				// (that sets the store to nil) be running at the same time so we do
+				// a loop check just to be sure
+				loaded = store.Load()
+			}
 		}
-		return (*gp)()
+		return (*loaded)()
 	}
 }
 
@@ -462,15 +480,33 @@ func Values[T1, T2 any](cfg Config, fn func(Config) (T1, T2)) func() (T1, T2) {
 	})
 
 	return func() (T1, T2) {
-		gp := store.Load()
-		if gp == nil || *gp == nil {
+		loaded := store.Load()
+		if loaded == nil || *loaded == nil {
+			// we loaded a nil, that means nobody has made this OnceValue yet
+			// so we do the job
 			g := sync.OnceValues(func() (T1, T2) {
 				return fn(cfg)
 			})
-			gp = &g
-			store.Store(gp)
+
+			// now we need to store our OnceValue in the store, but some other
+			// routine might be racing us on the creation so use a CAS loop
+			for loaded == nil || *loaded == nil {
+				if store.CompareAndSwap(loaded, &g) {
+					// if we stored successfully, the store now holds our &g, so
+					// set that as the loaded value
+					loaded = &g
+					break
+				}
+
+				// get the new value from the store, in most cases this will be a
+				// OnceValue that another goroutine just stored so we don't have
+				// to loop. But it's possible for this slow path and the reload path
+				// (that sets the store to nil) be running at the same time so we do
+				// a loop check just to be sure
+				loaded = store.Load()
+			}
 		}
-		return (*gp)()
+		return (*loaded)()
 	}
 }
 
