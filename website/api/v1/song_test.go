@@ -71,7 +71,7 @@ func newTestAPI(t *testing.T) (*testAPI, *API) {
 	return &api, &API{
 		Templates:  api.templateMock,
 		storage:    api.storageMock,
-		Config:     cfg,
+		Config:     NewConfig(cfg),
 		songSecret: songSecret,
 		fs:         fs,
 	}
@@ -92,7 +92,7 @@ func createSong(t *testing.T, api *API, id radio.TrackID, filename, metadata str
 	require.NoError(t, err)
 	sdata := base64.URLEncoding.EncodeToString(data)
 
-	fullPath := filepath.Join(api.Config.Conf().MusicPath, filename)
+	fullPath := filepath.Join(api.Config.MusicPath(), filename)
 	require.NoError(t, afero.WriteFile(api.fs, fullPath, []byte(sdata), 0775))
 	return song, sdata
 }

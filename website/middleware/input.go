@@ -17,7 +17,9 @@ type inputKey struct{}
 // InputMiddleware generates an Input for each request and makes it available
 // through InputFromRequest
 func InputMiddleware(cfg config.Config, status *util.Value[radio.Status], publicNavBar navbar.NavBar, adminNavBar navbar.NavBar) func(http.Handler) http.Handler {
-	PublicStreamURL := template.URL(cfg.Conf().Website.PublicStreamURL)
+	PublicStreamURL := config.Value(cfg, func(c config.Config) template.URL {
+		return template.URL(cfg.Conf().Website.PublicStreamURL)
+	})
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
@@ -28,7 +30,7 @@ func InputMiddleware(cfg config.Config, status *util.Value[radio.Status], public
 				IsHTMX:      util.IsHTMX(r),
 				IsUser:      user != nil,
 				User:        user,
-				StreamURL:   PublicStreamURL,
+				StreamURL:   PublicStreamURL(),
 				RequestURL:  template.URL(r.URL.String()),
 				Status:      status.Latest(),
 				NavBar:      publicNavBar,

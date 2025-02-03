@@ -39,7 +39,7 @@ func (a *API) GetSong(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	path := util.AbsolutePath(a.Config.Conf().MusicPath, song.FilePath)
+	path := util.AbsolutePath(a.Config.MusicPath(), song.FilePath)
 
 	f, err := a.fs.Open(path)
 	if err != nil {

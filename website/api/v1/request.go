@@ -69,7 +69,7 @@ func (a *API) PostRequest(w http.ResponseWriter, r *http.Request) {
 			a.storage.Song(ctx),
 			a.storage.Request(ctx),
 			r,
-			time.Duration(a.Config.Conf().UserRequestDelay),
+			time.Duration(a.Config.UserRequestDelay()),
 		)
 		if err != nil {
 			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("")
@@ -82,7 +82,7 @@ func (a *API) PostRequest(w http.ResponseWriter, r *http.Request) {
 			a.Search,
 			a.storage.Request(r.Context()),
 			r,
-			time.Duration(a.Config.Conf().UserRequestDelay),
+			time.Duration(a.Config.UserRequestDelay()),
 		)
 		if err != nil {
 			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("")

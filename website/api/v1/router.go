@@ -3,6 +3,7 @@ package v1
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/CAFxX/httpcompression"
 	"github.com/CAFxX/httpcompression/contrib/klauspost/gzip"
@@ -33,7 +34,7 @@ func NewAPI(ctx context.Context, cfg config.Config,
 
 	api := &API{
 		Context:    ctx,
-		Config:     cfg,
+		Config:     NewConfig(cfg),
 		Search:     se,
 		Templates:  templates,
 		sse:        NewStream(ctx, templates),
@@ -51,9 +52,25 @@ func NewAPI(ctx context.Context, cfg config.Config,
 	return api, nil
 }
 
+type Config struct {
+	UserRequestDelay func() time.Duration
+	MusicPath        func() string
+}
+
+func NewConfig(cfg config.Config) Config {
+	return Config{
+		UserRequestDelay: config.Value(cfg, func(cfg config.Config) time.Duration {
+			return time.Duration(cfg.Conf().UserRequestDelay)
+		}),
+		MusicPath: config.Value(cfg, func(cfg config.Config) string {
+			return cfg.Conf().MusicPath
+		}),
+	}
+}
+
 type API struct {
 	Context    context.Context
-	Config     config.Config
+	Config     Config
 	Search     radio.SearchService
 	Templates  templates.Executor
 	sse        *Stream

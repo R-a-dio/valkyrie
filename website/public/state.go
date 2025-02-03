@@ -96,6 +96,7 @@ func (s *State) errorHandler(w http.ResponseWriter, r *http.Request, err error) 
 
 type Config struct {
 	UserRequestDelay func() time.Duration
+	UserUploadDelay  func() time.Duration
 	MusicPath        func() string
 	AkismetKey       func() string
 	AkismetBlog      func() string
@@ -105,6 +106,9 @@ func NewConfig(cfg config.Config) Config {
 	return Config{
 		UserRequestDelay: config.Value(cfg, func(cfg config.Config) time.Duration {
 			return time.Duration(cfg.Conf().UserRequestDelay)
+		}),
+		UserUploadDelay: config.Value(cfg, func(cfg config.Config) time.Duration {
+			return time.Duration(cfg.Conf().UserUploadDelay)
 		}),
 		AkismetKey: config.Value(cfg, func(cfg config.Config) string {
 			return cfg.Conf().Website.AkismetKey

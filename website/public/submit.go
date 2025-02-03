@@ -87,7 +87,7 @@ func (s *State) canSubmitSong(r *http.Request) (time.Duration, error) {
 	}
 
 	since := time.Since(last)
-	if since > time.Hour { // cooldown has passed so can submit song
+	if since > s.Config.UserUploadDelay() { // cooldown has passed so can submit song
 		return 0, nil
 	}
 

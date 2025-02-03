@@ -39,7 +39,15 @@ func NewAPI(ctx context.Context, cfg config.Config, storage radio.StorageService
 	}
 
 	api := API{
-		Config:      cfg,
+		cfgUserUploadDelay: config.Value(cfg, func(cfg config.Config) time.Duration {
+			return time.Duration(cfg.Conf().UserUploadDelay)
+		}),
+		cfgUserRequestDelay: config.Value(cfg, func(cfg config.Config) time.Duration {
+			return time.Duration(cfg.Conf().UserRequestDelay)
+		}),
+		cfgDJImagePath: config.Value(cfg, func(cfg config.Config) string {
+			return cfg.Conf().Website.DJImagePath
+		}),
 		storage:     storage,
 		streamer:    cfg.Streamer,
 		status:      status,
@@ -50,12 +58,13 @@ func NewAPI(ctx context.Context, cfg config.Config, storage radio.StorageService
 }
 
 type API struct {
-	config.Config
-
-	search   radio.SearchService
-	storage  radio.StorageService
-	streamer radio.StreamerService
-	status   *v0Status
+	cfgUserRequestDelay func() time.Duration
+	cfgUserUploadDelay  func() time.Duration
+	cfgDJImagePath      func() string
+	search              radio.SearchService
+	storage             radio.StorageService
+	streamer            radio.StreamerService
+	status              *v0Status
 
 	StatusValue *util.Value[radio.Status]
 }
@@ -98,21 +107,21 @@ func (a *API) getUserCooldown(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, ok := radio.CalculateCooldown(
-		time.Duration(a.Conf().UserUploadDelay),
+		a.cfgUserUploadDelay(),
 		submissionTime,
 	)
 
 	response := userCooldownResponse{
 		Cooldown: submissionTime.Unix(),
 		Now:      time.Now().Unix(),
-		Delay:    int64(time.Duration(a.Conf().UserUploadDelay) / time.Second),
+		Delay:    int64(a.cfgUserUploadDelay() / time.Second),
 	}
 
 	if ok {
 		response.Message = "You can upload a song!"
 	} else {
 		response.Message = "You cannot upload another song just yet. You can upload " +
-			submissionTime.Add(time.Duration(a.Conf().UserUploadDelay)).Format(timeagoFormat)
+			submissionTime.Add(a.cfgUserUploadDelay()).Format(timeagoFormat)
 	}
 
 	err = json.NewEncoder(w).Encode(response)
@@ -302,7 +311,7 @@ func (a *API) getCanRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, ok := radio.CalculateCooldown(
-		time.Duration(a.Conf().UserRequestDelay),
+		a.cfgUserRequestDelay(),
 		userLastRequest,
 	)
 	if !ok {
@@ -329,7 +338,7 @@ func (a *API) getDJImage(w http.ResponseWriter, r *http.Request) {
 		panic("missing UserByDJIDCtx middleware")
 	}
 
-	filename := filepath.Join(a.Conf().Website.DJImagePath, user.DJ.ID.String())
+	filename := filepath.Join(a.cfgDJImagePath(), user.DJ.ID.String())
 
 	f, err := os.Open(filename)
 	if err != nil {

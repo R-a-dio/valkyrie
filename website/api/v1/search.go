@@ -2,7 +2,6 @@ package v1
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/website/public"
@@ -18,7 +17,7 @@ func (a *API) SearchHTML(w http.ResponseWriter, r *http.Request) {
 		a.Search,
 		a.storage.Request(r.Context()),
 		r,
-		time.Duration(a.Config.Conf().UserRequestDelay),
+		a.Config.UserRequestDelay(),
 		searchPageSize,
 	)
 	if err != nil {
