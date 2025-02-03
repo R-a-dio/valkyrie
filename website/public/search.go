@@ -108,7 +108,7 @@ func (s *State) GetSearch(w http.ResponseWriter, r *http.Request) {
 		s.Search,
 		s.Storage.Request(r.Context()),
 		r,
-		time.Duration(s.Conf().UserRequestDelay),
+		s.Config.UserRequestDelay(),
 	)
 	if err != nil {
 		s.errorHandler(w, r, err)

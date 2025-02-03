@@ -3,6 +3,7 @@ package public
 import (
 	"context"
 	"net/http"
+	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
@@ -24,7 +25,7 @@ func NewState(
 	search radio.SearchService) State {
 
 	return State{
-		Config:    cfg,
+		Config:    NewConfig(cfg),
 		Daypass:   dp,
 		News:      newsCache,
 		Templates: exec,
@@ -36,7 +37,7 @@ func NewState(
 }
 
 type State struct {
-	config.Config
+	Config Config
 
 	Daypass   secret.Secret
 	News      *shared.NewsCache
@@ -91,4 +92,28 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 
 func (s *State) errorHandler(w http.ResponseWriter, r *http.Request, err error) {
 	shared.ErrorHandler(s.Templates, w, r, err)
+}
+
+type Config struct {
+	UserRequestDelay func() time.Duration
+	MusicPath        func() string
+	AkismetKey       func() string
+	AkismetBlog      func() string
+}
+
+func NewConfig(cfg config.Config) Config {
+	return Config{
+		UserRequestDelay: config.Value(cfg, func(cfg config.Config) time.Duration {
+			return time.Duration(cfg.Conf().UserRequestDelay)
+		}),
+		AkismetKey: config.Value(cfg, func(cfg config.Config) string {
+			return cfg.Conf().Website.AkismetKey
+		}),
+		AkismetBlog: config.Value(cfg, func(cfg config.Config) string {
+			return cfg.Conf().Website.AkismetBlog
+		}),
+		MusicPath: config.Value(cfg, func(cfg config.Config) string {
+			return cfg.Conf().MusicPath
+		}),
+	}
 }

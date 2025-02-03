@@ -98,7 +98,7 @@ func (s *State) GetFaves(w http.ResponseWriter, r *http.Request) {
 		s.Storage.Song(ctx),
 		s.Storage.Request(ctx),
 		r,
-		time.Duration(s.Conf().UserRequestDelay),
+		s.Config.UserRequestDelay(),
 	)
 	if err != nil {
 		s.errorHandler(w, r, err)

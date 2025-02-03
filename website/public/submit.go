@@ -195,7 +195,7 @@ func (s *State) postSubmit(r *http.Request) (SubmissionForm, error) {
 
 	// start parsing the form, it's multipart encoded due to file upload and we manually
 	// handle some details due to reasons described in NewSubmissionForm
-	form, err := NewSubmissionForm(s.Storage.Track(r.Context()), filepath.Join(s.Conf().MusicPath, "pending"), r)
+	form, err := NewSubmissionForm(s.Storage.Track(r.Context()), filepath.Join(s.Config.MusicPath(), "pending"), r)
 	if err != nil {
 		if form == nil {
 			return newSubmissionForm(s.Storage.Track(ctx), r, nil), errors.E(op, err)

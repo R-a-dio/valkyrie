@@ -57,7 +57,7 @@ func TestPostSubmit(t *testing.T) {
 	}
 
 	state := State{
-		Config:    cfg,
+		Config:    NewConfig(cfg),
 		Storage:   storage,
 		Templates: executor,
 	}
