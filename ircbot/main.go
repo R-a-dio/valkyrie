@@ -115,19 +115,19 @@ func NewBot(ctx context.Context, cfg config.Config) (*Bot, error) {
 	ircConf.Version = c.UserAgent
 
 	b := &Bot{
-		cfgUserRequestDelay: config.Value(cfg, func(c config.Config) time.Duration {
-			return time.Duration(c.Conf().UserRequestDelay)
+		cfgUserRequestDelay: config.Value(cfg, func(cfg config.Config) time.Duration {
+			return time.Duration(cfg.Conf().UserRequestDelay)
 		}),
-		cfgNick: config.Value(cfg, func(c config.Config) string {
+		cfgNick: config.Value(cfg, func(cfg config.Config) string {
 			return cfg.Conf().IRC.Nick
 		}),
-		cfgNickPassword: config.Value(cfg, func(c config.Config) string {
+		cfgNickPassword: config.Value(cfg, func(cfg config.Config) string {
 			return cfg.Conf().IRC.NickPassword
 		}),
-		cfgChannels: config.Value(cfg, func(c config.Config) []string {
+		cfgChannels: config.Value(cfg, func(cfg config.Config) []string {
 			return cfg.Conf().IRC.Channels
 		}),
-		cfgMainChannel: config.Value(cfg, func(c config.Config) string {
+		cfgMainChannel: config.Value(cfg, func(cfg config.Config) string {
 			return cfg.Conf().IRC.MainChannel
 		}),
 		Storage:  store,

@@ -17,8 +17,8 @@ import (
 func NewEventHandler(ctx context.Context, cfg config.Config) *EventHandler {
 	return &EventHandler{
 		manager: cfg.Manager,
-		primaryMountName: config.Value(cfg, func(c config.Config) string {
-			return c.Conf().Proxy.PrimaryMountName
+		primaryMountName: config.Value(cfg, func(cfg config.Config) string {
+			return cfg.Conf().Proxy.PrimaryMountName
 		}),
 		logger:       *zerolog.Ctx(ctx),
 		metaStream:   eventstream.NewEventStreamNoInit[radio.ProxyMetadataEvent](),

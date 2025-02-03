@@ -18,8 +18,10 @@ import (
 
 func NewStatefulFunctions(cfg config.Config, status *util.Value[radio.Status]) *StatefulFuncs {
 	return &StatefulFuncs{
-		musicPath: config.Value(cfg, func(c config.Config) string { return c.Conf().MusicPath }),
-		status:    status,
+		musicPath: config.Value(cfg, func(cfg config.Config) string {
+			return cfg.Conf().MusicPath
+		}),
+		status: status,
 	}
 }
 

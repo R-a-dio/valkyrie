@@ -55,7 +55,7 @@ func BenchmarkConfigValueAccess(b *testing.B) {
 	cfg, err := LoadFile()
 	require.NoError(b, err)
 
-	value := Value(cfg, func(c Config) URL {
+	value := Value(cfg, func(cfg Config) URL {
 		return cfg.Conf().Tracker.MasterServer
 	})
 

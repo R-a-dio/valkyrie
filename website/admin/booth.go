@@ -375,8 +375,8 @@ func NewBoothAPI(cfg config.Config, tmpl templates.Executor) *BoothAPI {
 		Proxy:   cfg.Proxy,
 		Manager: cfg.Manager,
 		tmpl:    tmpl,
-		connectTimeoutCfg: config.Value(cfg, func(c config.Config) time.Duration {
-			return time.Duration(c.Conf().Streamer.ConnectTimeout)
+		connectTimeoutCfg: config.Value(cfg, func(cfg config.Config) time.Duration {
+			return time.Duration(cfg.Conf().Streamer.ConnectTimeout)
 		}),
 	}
 }

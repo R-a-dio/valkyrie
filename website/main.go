@@ -306,8 +306,8 @@ type websiteStorage struct {
 
 // RedirectLegacyStream redirects a request to the (new) icecast stream url
 func RedirectLegacyStream(cfg config.Config) http.HandlerFunc {
-	redirectUrl := config.Value(cfg, func(c config.Config) string {
-		url := c.Conf().Website.PublicStreamURL
+	redirectUrl := config.Value(cfg, func(cfg config.Config) string {
+		url := cfg.Conf().Website.PublicStreamURL
 		url = strings.TrimPrefix(url, "https:")
 		url = strings.TrimPrefix(url, "http:")
 		return url

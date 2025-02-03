@@ -27,11 +27,11 @@ func NewGRPCServer(ctx context.Context, service radio.AnnounceService) (*grpc.Se
 
 func NewAnnounceService(cfg config.Config, storage radio.StorageService, bot *Bot) *announceService {
 	ann := &announceService{
-		cfgMainChannel: config.Value(cfg, func(c config.Config) string {
-			return c.Conf().IRC.MainChannel
+		cfgMainChannel: config.Value(cfg, func(cfg config.Config) string {
+			return cfg.Conf().IRC.MainChannel
 		}),
-		cfgAnnouncePeriod: config.Value(cfg, func(c config.Config) time.Duration {
-			return time.Duration(c.Conf().IRC.AnnouncePeriod)
+		cfgAnnouncePeriod: config.Value(cfg, func(cfg config.Config) time.Duration {
+			return time.Duration(cfg.Conf().IRC.AnnouncePeriod)
 		}),
 		Storage: storage,
 		bot:     bot,

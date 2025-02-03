@@ -152,14 +152,14 @@ func (s *State) errorHandler(w http.ResponseWriter, r *http.Request, err error, 
 }
 
 func setupMonitoringProxy(cfg config.Config) *httputil.ReverseProxy {
-	monitoringURL := config.Value(cfg, func(c config.Config) *url.URL {
-		return c.Conf().Website.AdminMonitoringURL.URL()
+	monitoringURL := config.Value(cfg, func(cfg config.Config) *url.URL {
+		return cfg.Conf().Website.AdminMonitoringURL.URL()
 	})
-	monitoringUserHeader := config.Value(cfg, func(c config.Config) string {
-		return c.Conf().Website.AdminMonitoringUserHeader
+	monitoringUserHeader := config.Value(cfg, func(cfg config.Config) string {
+		return cfg.Conf().Website.AdminMonitoringUserHeader
 	})
-	monitoringRoleHeader := config.Value(cfg, func(c config.Config) string {
-		return c.Conf().Website.AdminMonitoringRoleHeader
+	monitoringRoleHeader := config.Value(cfg, func(cfg config.Config) string {
+		return cfg.Conf().Website.AdminMonitoringRoleHeader
 	})
 
 	// proxy to the grafana host

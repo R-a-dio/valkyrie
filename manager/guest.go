@@ -54,8 +54,8 @@ func NewGuestService(ctx context.Context, cfg config.Config, m radio.ManagerServ
 	gs := &GuestService{
 		logger: zerolog.Ctx(ctx),
 		us:     us,
-		proxyAddress: config.Value(cfg, func(c config.Config) string {
-			addr, err := resolveGuestProxyAddr(ctx, string(c.Conf().Manager.GuestProxyAddr))
+		proxyAddress: config.Value(cfg, func(cfg config.Config) string {
+			addr, err := resolveGuestProxyAddr(ctx, string(cfg.Conf().Manager.GuestProxyAddr))
 			if err != nil {
 				zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to resolve guest proxy host")
 				return ""
