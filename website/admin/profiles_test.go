@@ -381,7 +381,8 @@ func TestPostProfile(t *testing.T) {
 
 			state := &State{
 				Storage: storage,
-				Config:  cfg,
+				Config:  NewConfig(cfg),
+				Manager: cfg.Manager,
 				FS:      afero.NewMemMapFs(),
 			}
 
@@ -454,7 +455,7 @@ func TestPostProfile(t *testing.T) {
 
 func checkForm(t *testing.T, test profileTest, state *State, got *ProfileForm) {
 	expected := test.ExpectedForm
-	fs := afero.NewBasePathFs(state.FS, state.Conf().Website.DJImagePath)
+	fs := afero.NewBasePathFs(state.FS, state.Config.DJImagePath())
 
 	// password should match
 	assert.NoError(t, got.User.ComparePassword(test.ExpectedPassword))

@@ -285,9 +285,9 @@ func (s *State) postProfile(r *http.Request) (*ProfileForm, error) {
 	if toEdit.DJ.ID != 0 && r.MultipartForm != nil {
 		if f := r.MultipartForm.File["dj.image"]; len(f) > 0 {
 			imagePath, err := postProfileImage(
-				afero.NewBasePathFs(s.FS, s.Conf().Website.DJImagePath),
+				afero.NewBasePathFs(s.FS, s.Config.DJImagePath()),
 				form.DJ.ID,
-				s.Conf().Website.DJImageMaxSize,
+				s.Config.DJImageMaxSize(),
 				f[0],
 			)
 			if err != nil {

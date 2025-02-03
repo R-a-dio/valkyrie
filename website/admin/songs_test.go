@@ -160,7 +160,7 @@ func TestPostSongs(t *testing.T) {
 	// setup state
 	state := State{
 		Storage: storage,
-		Config:  cfg,
+		Config:  NewConfig(cfg),
 		FS:      fs,
 	}
 

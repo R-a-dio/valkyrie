@@ -107,7 +107,7 @@ func NewBoothInput(gs radio.GuestService, ps radio.ProxyService, r *http.Request
 }
 
 func (s *State) GetBooth(w http.ResponseWriter, r *http.Request) {
-	input, err := NewBoothInput(s.Guest, s.Proxy, r, time.Duration(s.Conf().Streamer.ConnectTimeout))
+	input, err := NewBoothInput(s.Guest, s.Proxy, r, s.Config.StreamerConnectTimeout())
 	if err != nil {
 		s.errorHandler(w, r, err, "")
 		return
@@ -225,7 +225,7 @@ func (s *State) PostBoothStopStreamer(w http.ResponseWriter, r *http.Request) {
 func (s *State) postBoothStopStreamer(r *http.Request) (*BoothStopStreamerInput, error) {
 	ctx := r.Context()
 
-	input, err := NewBoothStopStreamerInput(s.Guest, r, time.Duration(s.Conf().Streamer.ConnectTimeout), middleware.InputFromRequest(r).Status.StreamUser)
+	input, err := NewBoothStopStreamerInput(s.Guest, r, s.Config.StreamerConnectTimeout(), middleware.InputFromRequest(r).Status.StreamUser)
 	if err != nil {
 		return nil, err
 	}
@@ -389,7 +389,7 @@ type BoothAPI struct {
 	connectTimeoutCfg func() time.Duration
 }
 
-func (b *BoothAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (s *State) sseBoothAPI(w http.ResponseWriter, r *http.Request) {
 	logger := hlog.FromRequest(r)
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
@@ -406,7 +406,7 @@ func (b *BoothAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	write := func(eventName string, input templates.TemplateSelectable) {
 		var buf bytes.Buffer
 		// execute our template
-		err := b.tmpl.Execute(&buf, r, input)
+		err := s.TemplateExecutor.Execute(&buf, r, input)
 		if err != nil {
 			logger.Error().Ctx(ctx).Err(err).Str("event", eventName).Msg("failed to execute template")
 			return
@@ -422,12 +422,12 @@ func (b *BoothAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// stream for who is currently streaming
-	util.StreamValue(ctx, b.Manager.CurrentUser, func(ctx context.Context, user *radio.User) {
+	util.StreamValue(ctx, s.Manager.CurrentUser, func(ctx context.Context, user *radio.User) {
 		// update the streamer view
 		write("streamer", (*BoothStreamerInput)(user))
 
 		// update the stop button state
-		input, err := NewBoothStopStreamerInput(b.Guest, r, b.connectTimeoutCfg(), user)
+		input, err := NewBoothStopStreamerInput(s.Guest, r, s.Config.StreamerConnectTimeout(), user)
 		if err != nil {
 			logger.Error().Ctx(ctx).Err(err).Msg("failed to create stop-streamer input")
 			return
@@ -437,13 +437,13 @@ func (b *BoothAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	})
 
 	// stream for the generic stream status
-	util.StreamValue(ctx, b.Manager.CurrentStatus, func(ctx context.Context, status radio.Status) {
+	util.StreamValue(ctx, s.Manager.CurrentStatus, func(ctx context.Context, status radio.Status) {
 		write("status", &BoothStatusInput{Status: status})
 	})
 
 	// stream for thread updates
-	util.StreamValue(ctx, b.Manager.CurrentThread, func(ctx context.Context, thread radio.Thread) {
-		input, err := NewBoothSetThreadInput(b.Guest, r, thread)
+	util.StreamValue(ctx, s.Manager.CurrentThread, func(ctx context.Context, thread radio.Thread) {
+		input, err := NewBoothSetThreadInput(s.Guest, r, thread)
 		if err != nil {
 			logger.Error().Ctx(ctx).Err(err).Msg("failed to create thread input")
 			return
@@ -455,7 +455,7 @@ func (b *BoothAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// stream for our own personal status updates from the proxy
 	util.StreamValue(ctx,
 		func(ctx context.Context) (eventstream.Stream[[]radio.ProxySource], error) {
-			return b.Proxy.StatusStream(ctx, me.ID)
+			return s.Proxy.StatusStream(ctx, me.ID)
 		},
 		func(ctx context.Context, conns []radio.ProxySource) {
 			input := &BoothProxyStatusInput{
@@ -466,14 +466,14 @@ func (b *BoothAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		},
 	)
 
-	util.StreamValue(ctx, b.Proxy.SourceStream, func(ctx context.Context, event radio.ProxySourceEvent) {
+	util.StreamValue(ctx, s.Proxy.SourceStream, func(ctx context.Context, event radio.ProxySourceEvent) {
 		switch event.Event {
 		case radio.SourceConnect, radio.SourceDisconnect:
 		default:
 			return
 		}
 
-		input, err := NewBoothStreamerList(ctx, b.Proxy)
+		input, err := NewBoothStreamerList(ctx, s.Proxy)
 		if err != nil {
 			logger.Error().Ctx(ctx).Err(err).Msg("failed to create streamer list input")
 			return

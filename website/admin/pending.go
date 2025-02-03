@@ -10,7 +10,6 @@ import (
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
-	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/streamer/audio"
 	"github.com/R-a-dio/valkyrie/util"
@@ -84,7 +83,7 @@ func (s *State) GetPendingSong(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// grab the path of the song and make it absolute
-	path := util.AbsolutePath(s.Conf().MusicPath, song.FilePath)
+	path := util.AbsolutePath(s.Config.MusicPath(), song.FilePath)
 
 	// if we want the audio file, send that back
 	if r.FormValue("spectrum") == "" {
@@ -257,10 +256,10 @@ func (s *State) postPendingDoReplace(r *http.Request, form PendingForm) (Pending
 	}
 
 	// grab the path of the existing entry
-	existingPath := util.AbsolutePath(s.Conf().MusicPath, existing.FilePath)
+	existingPath := util.AbsolutePath(s.Config.MusicPath(), existing.FilePath)
 
 	// then the path of the new entry
-	pendingPath := util.AbsolutePath(pendingPath(s.Config), form.FilePath)
+	pendingPath := util.AbsolutePath(pendingPath(s.Config.MusicPath()), form.FilePath)
 
 	// and move the new to the old path
 	err = s.FS.Rename(pendingPath, existingPath)
@@ -307,7 +306,7 @@ func (s *State) postPendingDoDecline(r *http.Request, form PendingForm) (Pending
 	}
 
 	// make path absolute if it isn't
-	filePath := util.AbsolutePath(pendingPath(s.Config), form.FilePath)
+	filePath := util.AbsolutePath(pendingPath(s.Config.MusicPath()), form.FilePath)
 
 	// remove the file
 	err = s.FS.Remove(filePath)
@@ -323,8 +322,8 @@ func (s *State) postPendingDoDecline(r *http.Request, form PendingForm) (Pending
 	return form, nil
 }
 
-func pendingPath(cfg config.Config) string {
-	return filepath.Join(cfg.Conf().MusicPath, "pending")
+func pendingPath(musicPath string) string {
+	return filepath.Join(musicPath, "pending")
 }
 
 func (s *State) postPendingDoAccept(r *http.Request, form PendingForm) (PendingForm, error) {
@@ -371,10 +370,10 @@ func (s *State) postPendingDoAccept(r *http.Request, form PendingForm) (PendingF
 	if err != nil {
 		return form, errors.E(op, err, errors.InternalServer)
 	}
-	newFilePath := filepath.Join(s.Conf().MusicPath, newFilename)
+	newFilePath := filepath.Join(s.Config.MusicPath(), newFilename)
 
 	// make path absolute if it isn't
-	track.FilePath = util.AbsolutePath(pendingPath(s.Config), track.FilePath)
+	track.FilePath = util.AbsolutePath(pendingPath(s.Config.MusicPath()), track.FilePath)
 
 	// rename the file to the actual music directory
 	err = s.FS.Rename(track.FilePath, newFilePath)

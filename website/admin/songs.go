@@ -170,7 +170,7 @@ func (s *State) postSongs(r *http.Request) (*SongsForm, error) {
 
 		// successfully deleted the song from the database, now we just
 		// need to remove the file we have on-disk
-		toRemovePath := util.AbsolutePath(s.Conf().MusicPath, form.Song.FilePath)
+		toRemovePath := util.AbsolutePath(s.Config.MusicPath(), form.Song.FilePath)
 
 		err = s.FS.Remove(toRemovePath)
 		if err != nil {
