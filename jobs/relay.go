@@ -54,7 +54,6 @@ func ExecuteRelay(ctx context.Context, cfg config.Config) error {
 		return err
 	})
 
-	var prevUser *radio.User
 	for {
 		select {
 		case <-ctx.Done():
@@ -72,15 +71,12 @@ func ExecuteRelay(ctx context.Context, cfg config.Config) error {
 				continue
 			}
 
-			if prevUser == nil || prevUser.ID != user.ID {
-				// update the user in the manager
-				prevUser = user
-
-				err = cfg.Manager.UpdateUser(ctx, user)
-				if err != nil {
-					zerolog.Ctx(ctx).Err(err).Msg("failed to update user")
-					continue
-				}
+			// just let the manager handle duplicate user updates, it's more important
+			// we're actually correct at some point
+			err = cfg.Manager.UpdateUser(ctx, user)
+			if err != nil {
+				zerolog.Ctx(ctx).Err(err).Msg("failed to update user")
+				continue
 			}
 		}
 	}
