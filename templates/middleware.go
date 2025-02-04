@@ -145,6 +145,17 @@ func ThemeCtx(tv *ThemeValues) func(http.Handler) http.Handler {
 	}
 }
 
+// ThemeCtxSimple just always sets the theme to the provided theme, ignoring cookies and
+// any other configurable
+func ThemeCtxSimple(theme radio.ThemeName) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := SetTheme(r.Context(), theme, true)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
 func (tv *ThemeValues) decide(value string) radio.ThemeName {
 	name, overwrite_dj, overwrite_holiday := cookieDecode(value)
 

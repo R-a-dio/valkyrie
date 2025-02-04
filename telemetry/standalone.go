@@ -66,7 +66,7 @@ func ExecuteStandalone(ctx context.Context, cfg config.Config) error {
 	authentication := vmiddleware.NewAuthentication(storage, executor, sessionManager)
 	r.Use(authentication.UserMiddleware)
 	// theme handling, not really needed but the login middleware wants it
-	r.Use(templates.ThemeCtx(templates.NewThemeValues(siteTemplates.ResolveThemeName)))
+	r.Use(templates.ThemeCtxSimple(templates.ThemeAdminDefault))
 
 	rvp := reverseproxy.New(ctx, cfg)
 
