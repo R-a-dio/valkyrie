@@ -24,7 +24,6 @@ import (
 	_ "github.com/R-a-dio/valkyrie/storage/mariadb" // mariadb storage interface
 	"github.com/R-a-dio/valkyrie/telemetry"
 	"github.com/R-a-dio/valkyrie/telemetry/otelzerolog"
-	"github.com/R-a-dio/valkyrie/telemetry/reverseproxy"
 	"github.com/R-a-dio/valkyrie/tracker"
 	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/website"
@@ -282,7 +281,7 @@ var telemetryProxyCmd = cmd{
 	usage: `telemetry-proxy:
 	run the telemetry proxy as a standalone server instead of going through the website server
 	`,
-	execute: withConfig(reverseproxy.ExecuteStandalone),
+	execute: withConfig(telemetry.ExecuteStandalone),
 }
 
 var listenerTrackerCmd = cmd{
