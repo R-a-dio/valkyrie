@@ -146,7 +146,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	// recover from panics
 	r.Use(vmiddleware.Recoverer)
 	// session handling
-	sessionManager := vmiddleware.NewSessionManager(ctx, storage)
+	sessionManager := vmiddleware.NewSessionManager(ctx, storage, !cfg.Conf().DevelopmentMode)
 	r.Use(sessionManager.LoadAndSave)
 	// user handling
 	authentication := vmiddleware.NewAuthentication(storage, executor, sessionManager)
