@@ -54,6 +54,7 @@ func ExecuteRelay(ctx context.Context, cfg config.Config) error {
 		return err
 	})
 
+	var lastThread radio.Thread
 	for {
 		select {
 		case <-ctx.Done():
@@ -64,7 +65,7 @@ func ExecuteRelay(ctx context.Context, cfg config.Config) error {
 			)(ctx, meta)
 
 			// we also check for the DJ everytime metadata changes
-			user, err := getUser(ctx, ss.User(ctx))
+			info, err := getUser(ctx, ss.User(ctx))
 			if err != nil {
 				// do nothing if this failed
 				zerolog.Ctx(ctx).Err(err).Msg("failed to retrieve user from api")
@@ -73,10 +74,14 @@ func ExecuteRelay(ctx context.Context, cfg config.Config) error {
 
 			// just let the manager handle duplicate user updates, it's more important
 			// we're actually correct at some point
-			err = cfg.Manager.UpdateUser(ctx, user)
+			err = cfg.Manager.UpdateUser(ctx, info.User)
 			if err != nil {
 				zerolog.Ctx(ctx).Err(err).Msg("failed to update user")
-				continue
+			}
+
+			if info.Thread != lastThread {
+				lastThread = info.Thread
+				cfg.Manager.UpdateThread(ctx, info.Thread)
 			}
 		}
 	}
@@ -87,10 +92,16 @@ type apiResponse struct {
 		DJ struct {
 			ID int `json:"id"`
 		} `json:"dj"`
+		Thread string `json:"thread"`
 	} `json:"main"`
 }
 
-func getUser(ctx context.Context, us radio.UserStorage) (*radio.User, error) {
+type Info struct {
+	User   *radio.User
+	Thread radio.Thread
+}
+
+func getUser(ctx context.Context, us radio.UserStorage) (*Info, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://r-a-d.io/api", nil)
 	if err != nil {
 		return nil, err
@@ -109,7 +120,15 @@ func getUser(ctx context.Context, us radio.UserStorage) (*radio.User, error) {
 		return nil, err
 	}
 
-	return us.GetByDJID(radio.DJID(res.Main.DJ.ID))
+	user, err := us.GetByDJID(radio.DJID(res.Main.DJ.ID))
+	if err != nil {
+		return nil, err
+	}
+
+	return &Info{
+		User:   user,
+		Thread: radio.Thread(res.Main.Thread),
+	}, nil
 }
 
 func newConn(ctx context.Context, uri *url.URL) (net.Conn, error) {
