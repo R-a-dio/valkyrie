@@ -4,11 +4,11 @@ import (
 	"context"
 	"net/http"
 	"net/http/httputil"
-	"net/url"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
+	"github.com/R-a-dio/valkyrie/telemetry/reverseproxy"
 	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/R-a-dio/valkyrie/util/secret"
 	vmiddleware "github.com/R-a-dio/valkyrie/website/middleware"
@@ -42,7 +42,7 @@ var NavBar = navbar.New(`hx-boost="true" hx-push-url="true" hx-target="#content"
 )
 
 func NewState(
-	_ context.Context,
+	ctx context.Context,
 	cfg config.Config,
 	tv *templates.ThemeValues,
 	daypass secret.Secret,
@@ -58,6 +58,7 @@ func NewState(
 ) State {
 	return State{
 		Config:           NewConfig(cfg),
+		TelemetryProxy:   reverseproxy.New(ctx, cfg),
 		ThemeConfig:      tv,
 		Daypass:          daypass,
 		SongSecret:       songSecret,
@@ -81,6 +82,8 @@ func NewState(
 type State struct {
 	// Config is the configuration for the admin panel
 	Config Config
+	// TelemetryProxy is the reverseproxy used to access the telemetry backend
+	TelemetryProxy *httputil.ReverseProxy
 	// ThemeConfig is the theme state for the website
 	ThemeConfig *templates.ThemeValues
 	// Daypass is the submission daypass
@@ -151,8 +154,7 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 		r.Post("/booth/set-thread", p(radio.PermDJ, s.PostBoothSetThread))
 
 		// setup monitoring endpoint
-		proxy := s.setupMonitoringProxy()
-		r.Handle("/telemetry/*", p(radio.PermTelemetryView, proxy.ServeHTTP))
+		r.Handle("/telemetry/*", p(radio.PermTelemetryView, s.TelemetryProxy.ServeHTTP))
 
 		// debug handlers, might not be needed later
 		r.Post("/api/streamer/stop", p(radio.PermAdmin, s.PostStreamerStop))
@@ -178,29 +180,7 @@ func (s *State) errorHandler(w http.ResponseWriter, r *http.Request, err error, 
 	shared.ErrorHandler(s.TemplateExecutor, w, r, err)
 }
 
-func (s *State) setupMonitoringProxy() *httputil.ReverseProxy {
-	// proxy to the grafana host
-	return &httputil.ReverseProxy{
-		Rewrite: func(pr *httputil.ProxyRequest) {
-			pr.SetURL(s.Config.AdminMonitoringURL())
-			pr.SetXForwarded()
-			pr.Out.Host = pr.In.Host
-
-			u := vmiddleware.UserFromContext(pr.In.Context())
-			pr.Out.Header.Add(s.Config.AdminMonitoringUserHeader(), u.Username)
-			if u.UserPermissions.Has(radio.PermAdmin) {
-				pr.Out.Header.Add(s.Config.AdminMonitoringRoleHeader(), "Admin")
-			}
-		},
-	}
-}
-
 type Config struct {
-	// telemetry configuration
-	AdminMonitoringURL        func() *url.URL
-	AdminMonitoringRoleHeader func() string
-	AdminMonitoringUserHeader func() string
-
 	// other things
 	StreamerConnectTimeout func() time.Duration
 	MusicPath              func() string
@@ -210,15 +190,6 @@ type Config struct {
 
 func NewConfig(cfg config.Config) Config {
 	return Config{
-		AdminMonitoringURL: config.Value(cfg, func(cfg config.Config) *url.URL {
-			return cfg.Conf().Website.AdminMonitoringURL.URL()
-		}),
-		AdminMonitoringUserHeader: config.Value(cfg, func(cfg config.Config) string {
-			return cfg.Conf().Website.AdminMonitoringUserHeader
-		}),
-		AdminMonitoringRoleHeader: config.Value(cfg, func(cfg config.Config) string {
-			return cfg.Conf().Website.AdminMonitoringRoleHeader
-		}),
 		StreamerConnectTimeout: config.Value(cfg, func(cfg config.Config) time.Duration {
 			return time.Duration(cfg.Conf().Streamer.ConnectTimeout)
 		}),

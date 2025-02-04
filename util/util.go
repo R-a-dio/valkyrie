@@ -36,6 +36,14 @@ func init() {
 	must(mime.AddExtensionType(".flac", "audio/flac"))
 }
 
+func ZerologLoggerFunc(r *http.Request, status, size int, duration time.Duration) {
+	hlog.FromRequest(r).Info().Ctx(r.Context()).
+		Int("status_code", status).
+		Int("response_size_bytes", size).
+		Dur("elapsed_ms", duration).
+		Msg("http request")
+}
+
 // IsHTMX checks if a request was made by HTMX through the Hx-Request header
 func IsHTMX(r *http.Request) bool {
 	return r.Header.Get("Hx-Request") == "true" && r.Header.Get("Hx-History-Restore-Request") != "true"

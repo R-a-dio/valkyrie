@@ -40,14 +40,6 @@ import (
 
 var NewRouter = func() chi.Router { return chi.NewRouter() }
 
-func zerologLoggerFunc(r *http.Request, status, size int, duration time.Duration) {
-	hlog.FromRequest(r).Info().Ctx(r.Context()).
-		Int("status_code", status).
-		Int("response_size_bytes", size).
-		Dur("elapsed_ms", duration).
-		Msg("http request")
-}
-
 // Execute runs a website instance with the configuration given
 func Execute(ctx context.Context, cfg config.Config) error {
 	const op errors.Op = "website/Execute"
@@ -147,7 +139,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		hlog.MethodHandler("method"),
 		hlog.ProtoHandler("protocol"),
 		hlog.CustomHeaderHandler("is_htmx", "Hx-Request"),
-		hlog.AccessHandler(zerologLoggerFunc),
+		hlog.AccessHandler(util.ZerologLoggerFunc),
 	)
 	// clean our IP of a port number
 	r.Use(removePortFromAddress)
