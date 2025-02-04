@@ -303,16 +303,16 @@ func NewSessionStore(ctx context.Context, storage radio.SessionStorageService) S
 	return SessionStore{ctx, storage}
 }
 
-func NewSessionManager(ctx context.Context, storage radio.SessionStorageService) *scs.SessionManager {
+func NewSessionManager(ctx context.Context, storage radio.SessionStorageService, secure bool) *scs.SessionManager {
 	m := scs.New()
 	m.Store = NewSessionStore(ctx, storage)
 	m.Codec = JSONCodec{}
 	m.Lifetime = 150 * 24 * time.Hour
-	m.Cookie = scs.SessionCookie{
-		Name: "admin",
-		Path: "/",
-		//SameSite: http.SameSiteStrictMode,
-		//Secure: true,
+	m.Cookie.Name = "admin"
+	m.Cookie.Path = "/"
+	if secure {
+		m.Cookie.Secure = true
+		m.Cookie.SameSite = http.SameSiteStrictMode
 	}
 	return m
 }
