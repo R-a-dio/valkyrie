@@ -56,26 +56,32 @@ func NewState(
 	auth vmiddleware.Authentication,
 	fs afero.Fs,
 ) State {
+	var rvp *httputil.ReverseProxy
+	if !cfg.Conf().Telemetry.StandaloneProxy.Enabled {
+		rvp = reverseproxy.New(ctx, cfg)
+	}
+
 	return State{
-		Config:           NewConfig(cfg),
-		TelemetryProxy:   reverseproxy.New(ctx, cfg),
-		ThemeConfig:      tv,
-		Daypass:          daypass,
-		SongSecret:       songSecret,
-		News:             newsCache,
-		Storage:          storage,
-		Search:           search,
-		Guest:            cfg.Guest,
-		Proxy:            cfg.Proxy,
-		Streamer:         cfg.Streamer,
-		Manager:          cfg.Manager,
-		Queue:            cfg.Queue,
-		Tracker:          cfg.Tracker,
-		Templates:        siteTmpl,
-		TemplateExecutor: exec,
-		SessionManager:   sessionManager,
-		Authentication:   auth,
-		FS:               fs,
+		Config:            NewConfig(cfg),
+		TelemetryProxy:    rvp,
+		TelemetryProxyURL: string(cfg.Conf().Telemetry.StandaloneProxy.URL),
+		ThemeConfig:       tv,
+		Daypass:           daypass,
+		SongSecret:        songSecret,
+		News:              newsCache,
+		Storage:           storage,
+		Search:            search,
+		Guest:             cfg.Guest,
+		Proxy:             cfg.Proxy,
+		Streamer:          cfg.Streamer,
+		Manager:           cfg.Manager,
+		Queue:             cfg.Queue,
+		Tracker:           cfg.Tracker,
+		Templates:         siteTmpl,
+		TemplateExecutor:  exec,
+		SessionManager:    sessionManager,
+		Authentication:    auth,
+		FS:                fs,
 	}
 }
 
@@ -84,6 +90,8 @@ type State struct {
 	Config Config
 	// TelemetryProxy is the reverseproxy used to access the telemetry backend
 	TelemetryProxy *httputil.ReverseProxy
+	// TelemetryProxyURL is the url the standalone proxy can be found at, if enabled
+	TelemetryProxyURL string
 	// ThemeConfig is the theme state for the website
 	ThemeConfig *templates.ThemeValues
 	// Daypass is the submission daypass
@@ -154,7 +162,12 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 		r.Post("/booth/set-thread", p(radio.PermDJ, s.PostBoothSetThread))
 
 		// setup monitoring endpoint
-		r.Handle("/telemetry/*", p(radio.PermTelemetryView, s.TelemetryProxy.ServeHTTP))
+		if s.TelemetryProxy != nil {
+			r.Handle("/telemetry/*", p(radio.PermTelemetryView, s.TelemetryProxy.ServeHTTP))
+		} else {
+			r.Handle("/telemetry/*", p(radio.PermTelemetryView,
+				http.RedirectHandler(s.TelemetryProxyURL, http.StatusFound).ServeHTTP))
+		}
 
 		// debug handlers, might not be needed later
 		r.Post("/api/streamer/stop", p(radio.PermAdmin, s.PostStreamerStop))
@@ -181,7 +194,6 @@ func (s *State) errorHandler(w http.ResponseWriter, r *http.Request, err error, 
 }
 
 type Config struct {
-	// other things
 	StreamerConnectTimeout func() time.Duration
 	MusicPath              func() string
 	DJImagePath            func() string

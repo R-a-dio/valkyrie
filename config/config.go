@@ -167,6 +167,12 @@ type telemetry struct {
 	Endpoint           string
 	Auth               string
 	PrometheusEndpoint string
+
+	StandaloneProxy struct {
+		Enabled    bool
+		URL        URL
+		ListenAddr AddrPort
+	}
 }
 
 type providers struct {

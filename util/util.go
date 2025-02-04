@@ -21,6 +21,7 @@ import (
 	"github.com/Wessie/fdstore"
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/hlog"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

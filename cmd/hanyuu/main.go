@@ -24,6 +24,7 @@ import (
 	_ "github.com/R-a-dio/valkyrie/storage/mariadb" // mariadb storage interface
 	"github.com/R-a-dio/valkyrie/telemetry"
 	"github.com/R-a-dio/valkyrie/telemetry/otelzerolog"
+	"github.com/R-a-dio/valkyrie/telemetry/reverseproxy"
 	"github.com/R-a-dio/valkyrie/tracker"
 	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/website"
@@ -275,6 +276,15 @@ var proxyCmd = cmd{
 	noSIGUSR2: true,
 }
 
+var telemetryProxyCmd = cmd{
+	name:     "telemetry-proxy",
+	synopsis: "runs the telemetry proxy",
+	usage: `telemetry-proxy:
+	run the telemetry proxy as a standalone server instead of going through the website server
+	`,
+	execute: withConfig(reverseproxy.ExecuteStandalone),
+}
+
 var listenerTrackerCmd = cmd{
 	name:     "listener-tracker",
 	synopsis: "runs the icecast listener tracker",
@@ -326,6 +336,7 @@ func main() {
 	subcommands.Register(proxyCmd, "")
 	subcommands.Register(listenerTrackerCmd, "")
 	subcommands.Register(bleveCmd, "")
+	subcommands.Register(telemetryProxyCmd, "")
 
 	subcommands.Register(listenerLogCmd, "jobs")
 	subcommands.Register(requestCountCmd, "jobs")

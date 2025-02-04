@@ -2,17 +2,21 @@ package reverseproxy
 
 import (
 	"context"
+	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/storage"
+	"github.com/R-a-dio/valkyrie/templates"
+	"github.com/R-a-dio/valkyrie/templates/functions"
 	"github.com/R-a-dio/valkyrie/util"
-	"github.com/R-a-dio/valkyrie/website"
 	vmiddleware "github.com/R-a-dio/valkyrie/website/middleware"
-	"github.com/go-chi/chi/middleware"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
 )
@@ -53,7 +57,20 @@ func ExecuteStandalone(ctx context.Context, cfg config.Config) error {
 		return errors.E(op, err)
 	}
 
-	r := website.NewRouter()
+	// construct our stateful template functions, it uses the latest values from the manager
+	templateFuncs := functions.NewStatefulFunctions(cfg, nil)
+	// construct our templates from files on disk
+	siteTemplates, err := templates.FromDirectory(
+		cfg.Conf().TemplatePath,
+		templateFuncs,
+	)
+	if err != nil {
+		return errors.E(op, err)
+	}
+	siteTemplates.Production = true
+	executor := siteTemplates.Executor()
+
+	r := chi.NewRouter()
 	r.Use(middleware.RealIP)
 	// setup zerolog details
 	r.Use(
@@ -70,13 +87,40 @@ func ExecuteStandalone(ctx context.Context, cfg config.Config) error {
 	// recover from panics
 	r.Use(vmiddleware.Recoverer)
 	// session handling
-	sessionManager := vmiddleware.NewSessionManager(ctx, storage)
+	sessionManager := vmiddleware.NewSessionManager(ctx, storage, true)
 	r.Use(sessionManager.LoadAndSave)
 	// user handling
 	authentication := vmiddleware.NewAuthentication(storage, executor, sessionManager)
 	r.Use(authentication.UserMiddleware)
+
 	rvp := New(ctx, cfg)
 
-	srv
-	return nil
+	r.Get("/logout", authentication.LogoutHandler)
+	r.Route("/", func(r chi.Router) {
+		r = r.With(
+			authentication.LoginMiddleware,
+		)
+
+		r.Handle("/", vmiddleware.RequirePermission(radio.PermTelemetryView, rvp.ServeHTTP))
+	})
+
+	conf := cfg.Conf()
+
+	server := &http.Server{
+		Addr:              conf.Telemetry.StandaloneProxy.ListenAddr.String(),
+		Handler:           r,
+		ReadHeaderTimeout: time.Second * 5,
+	}
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- server.ListenAndServe()
+	}()
+
+	select {
+	case <-ctx.Done():
+		return server.Close()
+	case err = <-errCh:
+		return err
+	}
 }
