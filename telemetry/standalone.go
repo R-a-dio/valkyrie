@@ -76,7 +76,7 @@ func ExecuteStandalone(ctx context.Context, cfg config.Config) error {
 			authentication.LoginMiddleware,
 		)
 
-		r.Handle("/", vmiddleware.RequirePermission(radio.PermTelemetryView, rvp.ServeHTTP))
+		r.Handle("/*", vmiddleware.RequirePermission(radio.PermTelemetryView, rvp.ServeHTTP))
 	})
 
 	conf := cfg.Conf()
