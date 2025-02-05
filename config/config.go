@@ -635,6 +635,9 @@ func (ap AddrPort) MarshalText() ([]byte, error) {
 var localAddr = netip.MustParseAddr("127.0.0.1")
 
 func (ap *AddrPort) UnmarshalText(text []byte) error {
+	if len(text) == 0 {
+		return nil
+	}
 	res, err := ParseAddrPort(string(text))
 	if err != nil {
 		return err
