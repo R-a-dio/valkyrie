@@ -226,7 +226,7 @@ FROM
 RIGHT JOIN
 	eplay ON esong.id = eplay.isong
 LEFT JOIN
-	tracks ON esong.hash_link = tracks.hash
+	tracks ON tracks.hash = esong.hash_link
 LEFT JOIN
 	djs ON eplay.djs_id = djs.id
 LEFT JOIN
@@ -536,7 +536,8 @@ FROM
 JOIN
 	esong ON songs.isong = esong.id
 LEFT JOIN
-	tracks ON tracks.hash = esong.hash;
+	tracks ON tracks.hash = esong.hash_link
+GROUP BY tracks.id;
 `)
 
 var songFavoritesOfQuery = expand(`
@@ -594,7 +595,7 @@ SELECT
 FROM
 	tracks
 JOIN
-	esong ON tracks.hash = esong.hash
+	esong ON tracks.hash = esong.hash_link
 LEFT JOIN
 	(SELECT
 		MAX(dt) AS dt,
@@ -1391,38 +1392,46 @@ func (ts TrackStorage) Random(limit int) ([]radio.Song, error) {
 
 var trackRandomFavoriteOfQuery = expand(`
 WITH
-	esong
-AS (SELECT DISTINCT
-		esong.*
-	FROM
-		enick
-	JOIN
-		efave ON efave.inick = enick.id
-	JOIN
-		esong ON esong.id = efave.isong
-	WHERE
-		enick.nick = ?)
+faves AS (SELECT
+        efave.id,
+        efave.isong
+    FROM
+        efave
+    JOIN
+        enick ON enick.id = efave.inick
+    WHERE
+        enick.nick = :nick
+    AND
+        EXISTS(SELECT
+                *
+            FROM
+                tracks
+            JOIN
+                esong ON esong.id = efave.isong
+            WHERE
+                tracks.usable=1
+            AND
+                tracks.hash=esong.hash_link)
+    ORDER BY rand() LIMIT 0,:limit)
 SELECT
 	{songColumns},
 	{trackColumns},
-	COALESCE(eplay.dt, TIMESTAMP('0000-00-00 00:00:00')) AS lastplayed,
+	{lastplayedSelect},
 	NOW() AS synctime
 FROM
-	tracks
+	faves
 JOIN
-	esong ON tracks.hash = esong.hash
-LEFT JOIN
-	(SELECT
-		MAX(dt) AS dt,
-		isong
-	FROM
-		eplay
-	GROUP BY
-		isong) AS eplay ON eplay.isong = esong.id
-WHERE
-	tracks.usable=1
-ORDER BY rand() LIMIT 0,?;
+    esong ON esong.id = faves.isong
+JOIN
+    tracks ON tracks.hash = esong.hash_link
+GROUP BY
+    tracks.id;
 `)
+
+type RandomFavoriteOfParams struct {
+	Nick  string
+	Limit int
+}
 
 func (ts TrackStorage) RandomFavoriteOf(nick string, limit int) ([]radio.Song, error) {
 	const op errors.Op = "mariadb/TrackStorage.RandomFavoriteOf"
@@ -1431,7 +1440,10 @@ func (ts TrackStorage) RandomFavoriteOf(nick string, limit int) ([]radio.Song, e
 
 	var songs = []radio.Song{}
 
-	err := sqlx.Select(handle, &songs, trackRandomFavoriteOfQuery, nick, limit)
+	err := handle.Select(&songs, trackRandomFavoriteOfQuery, RandomFavoriteOfParams{
+		Nick:  nick,
+		Limit: limit,
+	})
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
