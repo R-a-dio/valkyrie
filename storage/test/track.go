@@ -457,7 +457,7 @@ func generateTrack() radio.Song {
 		"LastPlayedBy": gen.PtrOf(genUser()),
 		"DatabaseTrack": gen.StructPtr(reflect.TypeFor[radio.DatabaseTrack](), map[string]gopter.Gen{
 			"Artist":   gen.AlphaString(),
-			"Title":    gen.AlphaString(),
+			"Title":    gen.AlphaString().SuchThat(func(s string) bool { return len(s) > 1 }),
 			"Album":    gen.AlphaString(),
 			"Tags":     gen.AlphaString(),
 			"FilePath": gen.AlphaString(),
