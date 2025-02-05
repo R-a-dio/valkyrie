@@ -24,7 +24,7 @@ const newsColumns = `
 	COALESCE(users.ip, '') AS 'user.ip',
 	users.updated_at  AS 'user.updated_at',
 	users.deleted_at AS 'user.deleted_at',
-	COALESCE(users.created_at, TIMESTAMP('2010-10-10 10:10:10')) AS 'user.created_at',
+	COALESCE(users.created_at, TIMESTAMP('2010-10-10')) AS 'user.created_at',
 	group_concat(permissions.permission) AS 'user.userpermissions',
 	COALESCE(djs.id, 0) AS 'user.dj.id',
 	COALESCE(djs.regex, '') AS 'user.dj.regex',
@@ -59,10 +59,14 @@ LEFT JOIN
 LEFT JOIN
 	permissions ON users.id = permissions.user_id
 WHERE
-	radio_news.id=?
+	radio_news.id=:id
 GROUP BY
 	radio_news.id;
 `)
+
+type NewsGetParams struct {
+	ID radio.NewsPostID
+}
 
 // Get implements radio.NewsStorage
 func (ns NewsStorage) Get(id radio.NewsPostID) (*radio.NewsPost, error) {
@@ -72,7 +76,7 @@ func (ns NewsStorage) Get(id radio.NewsPostID) (*radio.NewsPost, error) {
 
 	var post radio.NewsPost
 
-	err := sqlx.Get(handle, &post, newsGetQuery, id)
+	err := handle.Get(&post, newsGetQuery, NewsGetParams{ID: id})
 	if err != nil {
 		if errors.IsE(err, sql.ErrNoRows) {
 			return nil, errors.E(op, errors.NewsUnknown)
@@ -205,22 +209,26 @@ func (ns NewsStorage) Update(post radio.NewsPost) error {
 	return nil
 }
 
+const newsDeleteQuery = `
+UPDATE
+	radio_news
+SET
+	deleted_at=NOW()
+WHERE
+	id=:id;
+`
+
+type NewsDeleteParams struct {
+	ID radio.NewsPostID
+}
+
 // Delete implements radio.NewsStorage
 func (ns NewsStorage) Delete(id radio.NewsPostID) error {
 	const op errors.Op = "mariadb/NewsStorage.Delete"
 	handle, deferFn := ns.handle.span(op)
 	defer deferFn()
 
-	var query = `
-	UPDATE 
-		radio_news
-	SET
-		deleted_at=NOW()
-	WHERE
-		id=?;
-	`
-
-	res, err := handle.Exec(query, id)
+	res, err := sqlx.NamedExec(handle, newsDeleteQuery, NewsDeleteParams{ID: id})
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -252,8 +260,13 @@ GROUP BY
 	radio_news.id
 ORDER BY
 	radio_news.created_at DESC
-LIMIT ? OFFSET ?;
+LIMIT :limit OFFSET :offset;
 `)
+
+type NewsListParams struct {
+	Limit  int64
+	Offset int64
+}
 
 // List implements radio.NewsStorage
 func (ns NewsStorage) List(limit int64, offset int64) (radio.NewsList, error) {
@@ -265,7 +278,10 @@ func (ns NewsStorage) List(limit int64, offset int64) (radio.NewsList, error) {
 		Entries: make([]radio.NewsPost, 0, limit),
 	}
 
-	err := sqlx.Select(handle, &news.Entries, newsListQuery, limit, offset)
+	err := handle.Select(&news.Entries, newsListQuery, NewsListParams{
+		Limit:  limit,
+		Offset: offset,
+	})
 	if err != nil {
 		return radio.NewsList{}, errors.E(op, err)
 	}
@@ -297,7 +313,7 @@ GROUP BY
 	radio_news.id
 ORDER BY
 	radio_news.created_at DESC
-LIMIT ? OFFSET ?;
+LIMIT :limit OFFSET :offset;
 `)
 
 // ListPublic implements radio.NewsStorage
@@ -310,7 +326,10 @@ func (ns NewsStorage) ListPublic(limit int64, offset int64) (radio.NewsList, err
 		Entries: make([]radio.NewsPost, 0, limit),
 	}
 
-	err := sqlx.Select(handle, &news.Entries, newsListPublicQuery, limit, offset)
+	err := handle.Select(&news.Entries, newsListPublicQuery, NewsListParams{
+		Limit:  limit,
+		Offset: offset,
+	})
 	if err != nil {
 		return radio.NewsList{}, errors.E(op, err)
 	}
@@ -324,64 +343,70 @@ func (ns NewsStorage) ListPublic(limit int64, offset int64) (radio.NewsList, err
 	return news, nil
 }
 
+const newsCommentsQuery = `
+SELECT
+	radio_comments.id AS id,
+	radio_comments.news_id AS postid,
+	radio_comments.comment AS body,
+	radio_comments.ip AS identifier,
+	radio_comments.user_id AS userid,
+	radio_comments.created_at AS created_at,
+	radio_comments.deleted_at AS deleted_at,
+	radio_comments.updated_at AS updated_at,
+
+	COALESCE(users.user, '') AS 'user.username',
+	COALESCE(users.pass, '') AS 'user.password',
+	COALESCE(users.email, '') AS 'user.email',
+	COALESCE(users.ip, '') AS 'user.ip',
+	users.updated_at  AS 'user.updated_at',
+	users.deleted_at AS 'user.deleted_at',
+	COALESCE(users.created_at, TIMESTAMP('2010-10-10')) AS 'user.created_at',
+	group_concat(permissions.permission) AS 'user.userpermissions',
+	COALESCE(djs.id, 0) AS 'user.dj.id',
+	COALESCE(djs.regex, '') AS 'user.dj.regex',
+	COALESCE(djs.djname, '') AS 'user.dj.name',
+
+	COALESCE(djs.djtext, '') AS 'user.dj.text',
+	COALESCE(djs.djimage, '') AS 'user.dj.image',
+
+	COALESCE(djs.visible, 0) AS 'user.dj.visible',
+	COALESCE(djs.priority, 0) AS 'user.dj.priority',
+	COALESCE(djs.role, '') AS 'user.dj.role',
+
+	COALESCE(djs.css, '') AS 'user.dj.css',
+	COALESCE(djs.djcolor, '') AS 'user.dj.color',
+	COALESCE(djs.theme_name, '') AS 'user.dj.theme'
+FROM
+	radio_comments
+LEFT JOIN
+	users ON users.id = radio_comments.user_id
+LEFT JOIN
+	djs ON users.djid = djs.id
+LEFT JOIN
+	permissions ON users.id = permissions.user_id
+WHERE
+	radio_comments.news_id = :id
+GROUP BY
+	radio_comments.id
+ORDER BY
+	radio_comments.created_at DESC;
+`
+
+type NewsCommentsParams struct {
+	ID radio.NewsPostID
+}
+
 // Comments implements radio.NewsStorage
 func (ns NewsStorage) Comments(postid radio.NewsPostID) ([]radio.NewsComment, error) {
 	const op errors.Op = "mariadb/NewsStorage.Comments"
 	handle, deferFn := ns.handle.span(op)
 	defer deferFn()
 
-	var query = `
-	SELECT
-		radio_comments.id AS id,
-		radio_comments.news_id AS postid,
-		radio_comments.comment AS body,
-		radio_comments.ip AS identifier,
-		radio_comments.user_id AS userid,
-		radio_comments.created_at AS created_at,
-		radio_comments.deleted_at AS deleted_at,
-		radio_comments.updated_at AS updated_at,
-
-		COALESCE(users.user, '') AS 'user.username',
-		COALESCE(users.pass, '') AS 'user.password',
-		COALESCE(users.email, '') AS 'user.email',
-		COALESCE(users.ip, '') AS 'user.ip',
-		users.updated_at  AS 'user.updated_at',
-		users.deleted_at AS 'user.deleted_at',
-		COALESCE(users.created_at, TIMESTAMP('2010-10-10 10:10:10')) AS 'user.created_at',
-		group_concat(permissions.permission) AS 'user.userpermissions',
-		COALESCE(djs.id, 0) AS 'user.dj.id',
-		COALESCE(djs.regex, '') AS 'user.dj.regex',
-		COALESCE(djs.djname, '') AS 'user.dj.name',
-	
-		COALESCE(djs.djtext, '') AS 'user.dj.text',
-		COALESCE(djs.djimage, '') AS 'user.dj.image',
-	
-		COALESCE(djs.visible, 0) AS 'user.dj.visible',
-		COALESCE(djs.priority, 0) AS 'user.dj.priority',
-		COALESCE(djs.role, '') AS 'user.dj.role',
-	
-		COALESCE(djs.css, '') AS 'user.dj.css',
-		COALESCE(djs.djcolor, '') AS 'user.dj.color',
-		COALESCE(djs.theme_name, '') AS 'user.dj.theme'
-	FROM
-		radio_comments
-	LEFT JOIN
-		users ON users.id = radio_comments.user_id
-	LEFT JOIN
-		djs ON users.djid = djs.id
-	LEFT JOIN
-		permissions ON users.id = permissions.user_id
-	WHERE
-		radio_comments.news_id = ?
-	GROUP BY
-		radio_comments.id
-	ORDER BY
-		radio_comments.created_at DESC;
-	`
-
 	var comments = []radio.NewsComment{}
 
-	err := sqlx.Select(handle, &comments, query, postid)
+	err := handle.Select(&comments, newsCommentsQuery, NewsCommentsParams{
+		ID: postid,
+	})
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
@@ -395,66 +420,66 @@ func (ns NewsStorage) Comments(postid radio.NewsPostID) ([]radio.NewsComment, er
 	return comments, nil
 }
 
+const newsCommentsPublicQuery = `
+SELECT
+	radio_comments.id AS id,
+	radio_comments.news_id AS postid,
+	radio_comments.comment AS body,
+	radio_comments.ip AS identifier,
+	radio_comments.user_id AS userid,
+	radio_comments.created_at AS created_at,
+	radio_comments.deleted_at AS deleted_at,
+	radio_comments.updated_at AS updated_at,
+
+	COALESCE(users.id, 0) AS 'user.id',
+	COALESCE(users.user, '') AS 'user.username',
+	COALESCE(users.pass, '') AS 'user.password',
+	COALESCE(users.email, '') AS 'user.email',
+	COALESCE(users.ip, '') AS 'user.ip',
+	users.updated_at  AS 'user.updated_at',
+	users.deleted_at AS 'user.deleted_at',
+	COALESCE(users.created_at, TIMESTAMP('2010-10-10')) AS 'user.created_at',
+	group_concat(permissions.permission) AS 'user.userpermissions',
+	COALESCE(djs.id, 0) AS 'user.dj.id',
+	COALESCE(djs.regex, '') AS 'user.dj.regex',
+	COALESCE(djs.djname, '') AS 'user.dj.name',
+
+	COALESCE(djs.djtext, '') AS 'user.dj.text',
+	COALESCE(djs.djimage, '') AS 'user.dj.image',
+
+	COALESCE(djs.visible, 0) AS 'user.dj.visible',
+	COALESCE(djs.priority, 0) AS 'user.dj.priority',
+	COALESCE(djs.role, '') AS 'user.dj.role',
+
+	COALESCE(djs.css, '') AS 'user.dj.css',
+	COALESCE(djs.djcolor, '') AS 'user.dj.color',
+	COALESCE(djs.theme_name, '') AS 'user.dj.theme'
+FROM
+	radio_comments
+LEFT JOIN
+	users ON users.id = radio_comments.user_id
+LEFT JOIN
+	djs ON users.djid = djs.id
+LEFT JOIN
+	permissions ON users.id = permissions.user_id
+WHERE
+	radio_comments.news_id = :id AND
+	radio_comments.deleted_at IS NULL
+GROUP BY
+	radio_comments.id
+ORDER BY
+	radio_comments.created_at DESC;
+`
+
 // CommentsPublic implements radio.NewsStorage
 func (ns NewsStorage) CommentsPublic(postid radio.NewsPostID) ([]radio.NewsComment, error) {
 	const op errors.Op = "mariadb/NewsStorage.Comments"
 	handle, deferFn := ns.handle.span(op)
 	defer deferFn()
 
-	var query = `
-	SELECT
-		radio_comments.id AS id,
-		radio_comments.news_id AS postid,
-		radio_comments.comment AS body,
-		radio_comments.ip AS identifier,
-		radio_comments.user_id AS userid,
-		radio_comments.created_at AS created_at,
-		radio_comments.deleted_at AS deleted_at,
-		radio_comments.updated_at AS updated_at,
-
-		COALESCE(users.id, 0) AS 'user.id',
-		COALESCE(users.user, '') AS 'user.username',
-		COALESCE(users.pass, '') AS 'user.password',
-		COALESCE(users.email, '') AS 'user.email',
-		COALESCE(users.ip, '') AS 'user.ip',
-		users.updated_at  AS 'user.updated_at',
-		users.deleted_at AS 'user.deleted_at',
-		COALESCE(users.created_at, TIMESTAMP('2010-10-10 10:10:10')) AS 'user.created_at',
-		group_concat(permissions.permission) AS 'user.userpermissions',
-		COALESCE(djs.id, 0) AS 'user.dj.id',
-		COALESCE(djs.regex, '') AS 'user.dj.regex',
-		COALESCE(djs.djname, '') AS 'user.dj.name',
-	
-		COALESCE(djs.djtext, '') AS 'user.dj.text',
-		COALESCE(djs.djimage, '') AS 'user.dj.image',
-	
-		COALESCE(djs.visible, 0) AS 'user.dj.visible',
-		COALESCE(djs.priority, 0) AS 'user.dj.priority',
-		COALESCE(djs.role, '') AS 'user.dj.role',
-	 
-		COALESCE(djs.css, '') AS 'user.dj.css',
-		COALESCE(djs.djcolor, '') AS 'user.dj.color',
-		COALESCE(djs.theme_name, '') AS 'user.dj.theme'
-	FROM
-		radio_comments
-	LEFT JOIN
-		users ON users.id = radio_comments.user_id
-	LEFT JOIN
-		djs ON users.djid = djs.id
-	LEFT JOIN
-		permissions ON users.id = permissions.user_id
-	WHERE
-		radio_comments.news_id = ? AND
-		radio_comments.deleted_at IS NULL
-	GROUP BY
-		radio_comments.id
-	ORDER BY
-		radio_comments.created_at DESC;
-	`
-
 	var comments = []radio.NewsComment{}
 
-	err := sqlx.Select(handle, &comments, query, postid)
+	err := handle.Select(&comments, newsCommentsPublicQuery, NewsCommentsParams{ID: postid})
 	if err != nil {
 		return nil, errors.E(op, err)
 	}

@@ -20,6 +20,12 @@ var sqlxNamedTests = []namedTest{
 	{"songCreateQuery", songCreateQuery, radio.Song{DatabaseTrack: &radio.DatabaseTrack{}}},
 	{"newsCreateQuery", newsCreateQuery, radio.NewsPost{}},
 	{"newsUpdateQuery", newsUpdateQuery, radio.NewsPost{}},
+	{"newsGetQuery", newsGetQuery, NewsGetParams{}},
+	{"newsDeleteQuery", newsDeleteQuery, NewsDeleteParams{}},
+	{"newsListQuery", newsListQuery, NewsListParams{}},
+	{"newsListPublicQuery", newsListPublicQuery, NewsListParams{}},
+	{"newsComments", newsCommentsQuery, NewsCommentsParams{}},
+	{"newsCommentsPublic", newsCommentsPublicQuery, NewsCommentsParams{}},
 	{"submissionInsertPostPendingQuery", submissionInsertPostPendingQuery, adjustedPendingSong{}},
 }
 
