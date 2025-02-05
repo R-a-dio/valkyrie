@@ -67,7 +67,7 @@ const maybeTrackColumns = `
 	COALESCE(tracks.priority, 0) AS priority,
 	IF(tracks.usable, TRUE, FALSE) AS usable,
 	IF(tracks.need_reupload, TRUE, FALSE) AS needreplacement,
-	COALESCE(tracks.lastrequested, TIMESTAMP('0000-00-00 00:00:00')) AS lastrequested,
+	COALESCE(tracks.lastrequested, TIMESTAMP('0000-00-00')) AS lastrequested,
 	COALESCE(tracks.requestcount, 0) AS requestcount
 `
 
@@ -88,7 +88,7 @@ const maybeSongColumns = `
 `
 
 const lastplayedSelect = `
-	COALESCE((SELECT dt FROM eplay JOIN esong AS esong2 ON esong2.id = eplay.isong WHERE esong2.hash_link=esong.hash_link ORDER BY dt DESC LIMIT 1), TIMESTAMP('0000-00-00 00:00:00')) AS lastplayed
+	COALESCE((SELECT dt FROM eplay JOIN esong AS esong2 ON esong2.id = eplay.isong WHERE esong2.hash_link=esong.hash_link ORDER BY dt DESC LIMIT 1), TIMESTAMP('0000-00-00')) AS lastplayed
 `
 
 // SongStorage implements radio.SongStorage
@@ -205,9 +205,9 @@ SELECT
 	COALESCE(users.pass, '') AS 'lastplayedby.password',
 	COALESCE(users.email, '') AS 'lastplayedby.email',
 	COALESCE(users.ip, '') AS 'lastplayedby.ip',
-	COALESCE(users.updated_at, TIMESTAMP('0000-00-00 00:00:00')) AS 'lastplayedby.updated_at',
-	COALESCE(users.deleted_at, TIMESTAMP('0000-00-00 00:00:00')) AS 'lastplayedby.deleted_at',
-	COALESCE(users.created_at, TIMESTAMP('0000-00-00 00:00:00')) AS 'lastplayedby.created_at',
+	COALESCE(users.updated_at, TIMESTAMP('0000-00-00')) AS 'lastplayedby.updated_at',
+	COALESCE(users.deleted_at, TIMESTAMP('0000-00-00')) AS 'lastplayedby.deleted_at',
+	COALESCE(users.created_at, TIMESTAMP('0000-00-00')) AS 'lastplayedby.created_at',
 	(SELECT group_concat(permission) FROM permissions WHERE user_id=users.id) AS 'lastplayedby.userpermissions',
 	COALESCE(djs.id, 0) AS 'lastplayedby.dj.id',
 	COALESCE(djs.regex, '') AS 'lastplayedby.dj.regex',
@@ -558,7 +558,7 @@ AS (SELECT DISTINCT
 SELECT
 	{songColumns},
 	{maybeTrackColumns},
-	COALESCE(eplay.dt, TIMESTAMP('0000-00-00 00:00:00')) AS lastplayed,
+	COALESCE(eplay.dt, TIMESTAMP('0000-00-00')) AS lastplayed,
 	NOW() AS synctime
 FROM
 	esong
@@ -590,7 +590,7 @@ AS (SELECT DISTINCT
 SELECT
 	{songColumns},
 	{trackColumns},
-	COALESCE(eplay.dt, TIMESTAMP('0000-00-00 00:00:00')) AS lastplayed,
+	COALESCE(eplay.dt, TIMESTAMP('0000-00-00')) AS lastplayed,
 	NOW() AS synctime
 FROM
 	tracks
@@ -1393,26 +1393,26 @@ func (ts TrackStorage) Random(limit int) ([]radio.Song, error) {
 var trackRandomFavoriteOfQuery = expand(`
 WITH
 faves AS (SELECT
-        efave.id,
-        efave.isong
-    FROM
-        efave
-    JOIN
-        enick ON enick.id = efave.inick
-    WHERE
-        enick.nick = :nick
-    AND
-        EXISTS(SELECT
-                *
-            FROM
-                tracks
-            JOIN
-                esong ON esong.id = efave.isong
-            WHERE
-                tracks.usable=1
-            AND
-                tracks.hash=esong.hash_link)
-    ORDER BY rand() LIMIT 0,:limit)
+		efave.id,
+		efave.isong
+	FROM
+		efave
+	JOIN
+		enick ON enick.id = efave.inick
+	WHERE
+		enick.nick = :nick
+	AND
+		EXISTS(SELECT
+				*
+			FROM
+				tracks
+			JOIN
+				esong ON esong.id = efave.isong
+			WHERE
+				tracks.usable=1
+			AND
+				tracks.hash=esong.hash_link)
+	ORDER BY rand() LIMIT :limit )
 SELECT
 	{songColumns},
 	{trackColumns},
@@ -1421,11 +1421,11 @@ SELECT
 FROM
 	faves
 JOIN
-    esong ON esong.id = faves.isong
+	esong ON esong.id = faves.isong
 JOIN
-    tracks ON tracks.hash = esong.hash_link
+	tracks ON tracks.hash = esong.hash_link
 GROUP BY
-    tracks.id;
+	tracks.id;
 `)
 
 type RandomFavoriteOfParams struct {

@@ -16,6 +16,7 @@ type namedTest struct {
 var sqlxNamedTests = []namedTest{
 	{"trackInsertQuery", trackInsertQuery, radio.Song{DatabaseTrack: &radio.DatabaseTrack{}}},
 	{"trackUpdateMetadataQuery", trackUpdateMetadataQuery, radio.Song{DatabaseTrack: &radio.DatabaseTrack{}}},
+	{"trackRandomFavoriteOf", trackRandomFavoriteOfQuery, RandomFavoriteOfParams{}},
 	{"songCreateQuery", songCreateQuery, radio.Song{DatabaseTrack: &radio.DatabaseTrack{}}},
 	{"newsCreateQuery", newsCreateQuery, radio.NewsPost{}},
 	{"newsUpdateQuery", newsUpdateQuery, radio.NewsPost{}},
