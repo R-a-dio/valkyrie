@@ -296,6 +296,25 @@ function prettyDuration(d) {
     return rtf.format(Math.floor(d / 60), "minute");
 }
 
+function mediumDuration(s) {
+    if (s < 0) s = -s;
+    const time = {
+      day: Math.floor(s / 86400),
+      hour: Math.floor(s / 3600) % 24,
+      minute: Math.floor(s / 60) % 60
+    };
+
+    return Object.entries(time)
+      .filter(val => val[1] !== 0)
+      .map(([key, val]) => {
+        if (key.length > 1) {
+            return `${val} ${key}${val !== 1 ? 's' : ''}${key !== "minute" ? ',' : ''}`
+        }
+        return `${val}${key}`
+      })
+      .join(' ');
+}
+
 function smallDuration(s) {
     if (s < 0) s = -s;
     const time = {
@@ -396,6 +415,10 @@ function updateTimes() {
             case "absolute":
                 node.textContent = absoluteTime(node.dateTime);
                 node.dataset.timeset = true;
+                break;
+            case "medium":
+                node.textContent = mediumDuration(d);
+                nextUpdate = Math.min(nextUpdate, 1);
                 break;
             case "small":
                 node.textContent = smallDuration(d);
