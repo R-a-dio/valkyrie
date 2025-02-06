@@ -158,7 +158,7 @@ func (a *API) getNews(w http.ResponseWriter, r *http.Request) {
 			Title:     e.Title,
 			Header:    e.Header,
 			Body:      e.Body,
-			UpdatedAt: e.CreatedAt,
+			UpdatedAt: e.CreatedAt.Format("2006-01-02 15:04:05"),
 			Author: newsAuthorResponse{
 				ID:   e.User.ID,
 				User: e.User.Username,
@@ -166,7 +166,7 @@ func (a *API) getNews(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if e.UpdatedAt != nil {
-			nr.UpdatedAt = *e.UpdatedAt
+			nr.UpdatedAt = e.UpdatedAt.Format("2006-01-02 15:04:05")
 		}
 		response = append(response, nr)
 	}
@@ -182,7 +182,7 @@ type newsResponse struct {
 	Title     string             `json:"title"`
 	Header    string             `json:"header"`
 	Body      string             `json:"text"`
-	UpdatedAt time.Time          `json:"updated_at"`
+	UpdatedAt string             `json:"updated_at"`
 	Author    newsAuthorResponse `json:"author"`
 }
 
