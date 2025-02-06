@@ -9,6 +9,8 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/lrstanley/girc"
 	"github.com/rs/zerolog"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 var (
@@ -38,6 +40,7 @@ var (
 type HandlerFn func(Event) error
 
 type RegexHandler struct {
+	name  string
 	regex string
 	fn    HandlerFn
 }
@@ -79,7 +82,16 @@ func (rh RegexHandlers) Execute(c *girc.Client, e girc.Event) {
 			continue
 		}
 
-		ctx, cancel := context.WithTimeout(rh.ctx, time.Second*5)
+		tracer := otel.Tracer("github.com/R-a-dio/valkyrie/ircbot")
+		//TODO: is tracer -> timeout the order for context parenting?
+		ctx, span := tracer.Start(rh.ctx, "ircbot.command")
+		defer span.End()
+
+		h := rh.handlers[i]
+
+		span.SetAttributes(attribute.String("command", h.name))
+
+		ctx, cancel := context.WithTimeout(ctx, time.Second*5)
 		defer cancel()
 
 		event := Event{
@@ -92,7 +104,7 @@ func (rh RegexHandlers) Execute(c *girc.Client, e girc.Event) {
 		}
 
 		// execute our handler
-		err := rh.handlers[i].fn(event)
+		err := h.fn(event)
 		if err != nil {
 			switch {
 			case errors.Is(errors.SearchNoResults, err):
@@ -105,6 +117,9 @@ func (rh RegexHandlers) Execute(c *girc.Client, e girc.Event) {
 				event.Echo("An error has occurred")
 				zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("handler error")
 			}
+
+			span.RecordError(err)
+
 			return
 		}
 
@@ -113,25 +128,25 @@ func (rh RegexHandlers) Execute(c *girc.Client, e girc.Event) {
 }
 
 var reHandlers = []RegexHandler{
-	{reNowPlaying, NowPlaying},
-	{reLastPlayed, LastPlayed},
-	{reQueue, StreamerQueue},
-	{reQueueLength, StreamerQueueLength},
-	{reDJ, StreamerUserInfo},
-	{reFave, FaveTrack},
-	{reFaveList, FaveList},
-	{reThread, ThreadURL},
-	{reTopic, ChannelTopic},
-	{reKill, KillStreamer},
-	{reRandomRequest, RandomTrackRequest},
-	{reLuckyRequest, LuckyTrackRequest},
-	{reSearch, SearchTrack},
-	{reRequest, RequestTrack},
-	{reLastRequestInfo, LastRequestInfo},
-	{reTrackInfo, TrackInfo},
-	{reTrackTags, TrackTags},
-	{reGuestAuth, GuestAuth},
-	{reGuestCreate, GuestCreate},
+	{"now_playing", reNowPlaying, NowPlaying},
+	{"last_played", reLastPlayed, LastPlayed},
+	{"streamer_queue", reQueue, StreamerQueue},
+	{"streamer_queue_length", reQueueLength, StreamerQueueLength},
+	{"streamer_user_info", reDJ, StreamerUserInfo},
+	{"fave_track", reFave, FaveTrack},
+	{"fave_list", reFaveList, FaveList},
+	{"thread_url", reThread, ThreadURL},
+	{"channel_topic", reTopic, ChannelTopic},
+	{"kill_streamer", reKill, KillStreamer},
+	{"random_track_request", reRandomRequest, RandomTrackRequest},
+	{"lucky_track_request", reLuckyRequest, LuckyTrackRequest},
+	{"search_track", reSearch, SearchTrack},
+	{"request_track", reRequest, RequestTrack},
+	{"last_request_info", reLastRequestInfo, LastRequestInfo},
+	{"track_info", reTrackInfo, TrackInfo},
+	{"track_tags", reTrackTags, TrackTags},
+	{"guest_auth", reGuestAuth, GuestAuth},
+	{"guest_create", reGuestCreate, GuestCreate},
 }
 
 func RegisterCommandHandlers(ctx context.Context, b *Bot) error {
