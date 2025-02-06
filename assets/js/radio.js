@@ -191,6 +191,8 @@ htmx.on('htmx:load', (event) => {
         admin_player.dataset.haslistener = true;
         admin_player.volume = localStorage.getItem("admin-player-volume") === null ? 0.1 : localStorage.getItem("admin-player-volume") / 100;
         let update = (ev) => {
+            if (!document.querySelector("#admin-player-time"))
+                return;
             curMin = Math.floor(admin_player.currentTime / 60).toString();
             curSec = Math.floor(admin_player.currentTime % 60).toString();
             durMin = Math.floor(admin_player.duration / 60).toString();
