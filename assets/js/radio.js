@@ -296,6 +296,45 @@ function prettyDuration(d) {
     return rtf.format(Math.floor(d / 60), "minute");
 }
 
+function mediumDuration(seconds) {
+    if (seconds < 0) seconds = -seconds;
+    
+    const units = [
+        { name: 'year', seconds: 31536000 },
+        { name: 'day', seconds: 86400 },
+        { name: 'hour', seconds: 3600 },
+        { name: 'minute', seconds: 60 }/*,
+        { name: 'second', seconds: 1 }*/
+    ];
+    
+    const parts = [];
+    let remaining = seconds;
+    
+    for (const unit of units) {
+        const value = Math.floor(remaining / unit.seconds);
+        remaining %= unit.seconds;
+        
+        if (value > 0) {
+            parts.push({
+                value,
+                unit: unit.name
+            });
+        }
+    }
+    
+    if (parts.length === 0) {
+        return '0 minutes';
+    }
+    
+    return parts
+        .map(({ value, unit }, index) => {
+            const isLast = index === parts.length - 1;
+            const plural = value !== 1 ? 's' : '';
+            return `${value} ${unit}${plural}${isLast ? '' : ','}`;
+        })
+        .join(' ');
+}
+
 function smallDuration(s) {
     if (s < 0) s = -s;
     const time = {
@@ -396,6 +435,10 @@ function updateTimes() {
             case "absolute":
                 node.textContent = absoluteTime(node.dateTime);
                 node.dataset.timeset = true;
+                break;
+            case "medium":
+                node.textContent = mediumDuration(d);
+                nextUpdate = Math.min(nextUpdate, 1);
                 break;
             case "small":
                 node.textContent = smallDuration(d);
