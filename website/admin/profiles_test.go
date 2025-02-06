@@ -520,7 +520,7 @@ func TestProfileFormRoundTrip(t *testing.T) {
 			}
 			var out ProfileForm
 
-			out.Update(in.ToValues())
+			out.Update(in.ToValues(), true)
 			// null the djid, since we don't actually roundtrip it but it is required
 			// by the ToValues to be set
 			in.DJ.ID = 0

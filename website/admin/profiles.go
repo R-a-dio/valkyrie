@@ -514,8 +514,8 @@ func NewProfileForm(user radio.User, r *http.Request) (*ProfileForm, error) {
 	}
 
 	form := newProfileForm(user, r)
-	form.Update(values)
-	if form.IsAdmin { // only allow updating permissions by admin
+	form.Update(values, form.IsAdmin)
+	if form.IsAdmin {
 		form.UserPermissions = form.newPermissions
 	}
 	return &form, nil
@@ -553,7 +553,7 @@ func generatePermissionList(by, other radio.User) []ProfilePermissionEntry {
 	return entries
 }
 
-func (pf *ProfileForm) Update(form url.Values) {
+func (pf *ProfileForm) Update(form url.Values, isAdmin bool) {
 	if form.Has("username") {
 		pf.Username = form.Get("username")
 	}
@@ -563,14 +563,8 @@ func (pf *ProfileForm) Update(form url.Values) {
 	if form.Has("email") {
 		pf.Email = form.Get("email")
 	}
-	if form.Has("dj.visible") {
-		pf.DJ.Visible = form.Get("dj.visible") != ""
-	}
 	if form.Has("dj.name") {
 		pf.DJ.Name = form.Get("dj.name")
-	}
-	if prio, err := strconv.Atoi(form.Get("dj.priority")); err == nil {
-		pf.DJ.Priority = prio
 	}
 	if form.Has("dj.regex") {
 		pf.DJ.Regex = form.Get("dj.regex")
@@ -587,9 +581,22 @@ func (pf *ProfileForm) Update(form url.Values) {
 	pf.PasswordChangeForm.New = form.Get("password.new")
 	pf.PasswordChangeForm.Repeated = form.Get("password.repeated")
 
-	pf.newPermissions = make(radio.UserPermissions)
+	if !isAdmin {
+		// if we're not an admin, we are done here
+		return
+	}
+
+	// otherwise, admins can edit a bunch more fields
+	newPermissions := make(radio.UserPermissions)
 	for _, perm := range form["permissions"] {
-		pf.newPermissions[radio.UserPermission(perm)] = struct{}{}
+		newPermissions[radio.UserPermission(perm)] = struct{}{}
+	}
+	pf.newPermissions = newPermissions
+
+	pf.DJ.Visible = form.Has("dj.visible")
+
+	if prio, err := strconv.Atoi(form.Get("dj.priority")); err == nil {
+		pf.DJ.Priority = prio
 	}
 }
 
