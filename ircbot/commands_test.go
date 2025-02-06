@@ -24,7 +24,7 @@ func TestHandlerTimeout(t *testing.T) {
 	bot.Storage = ms
 	bot.Searcher = mss
 
-	hdls := RegexHandler{
+	hdls := RegexHandler{"test",
 		"*", func(e Event) error {
 			deadline, _ := e.Ctx.Deadline()
 			c := time.NewTicker(time.Until(deadline) + time.Second)

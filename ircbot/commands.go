@@ -2,7 +2,6 @@ package ircbot
 
 import (
 	"context"
-	gerr "errors"
 	"regexp"
 	"time"
 
@@ -75,22 +74,24 @@ type RegexHandlers struct {
 
 // Execute implements girc.Handler
 func (rh RegexHandlers) Execute(c *girc.Client, e girc.Event) {
-	s := e.Last()
+	line := e.Last()
 
 	for i, re := range rh.cache {
-		match := FindNamedSubmatches(re, s)
+		match := FindNamedSubmatches(re, line)
 		if match == nil {
 			continue
 		}
 
-		tracer := otel.Tracer("github.com/R-a-dio/valkyrie/ircbot")
-		//TODO: is tracer -> timeout the order for context parenting?
-		ctx, span := tracer.Start(rh.ctx, "ircbot.command")
+		handler := rh.handlers[i]
+
+		ctx, span := otel.Tracer("github.com/R-a-dio/valkyrie/ircbot").Start(rh.ctx, handler.name)
 		defer span.End()
 
-		h := rh.handlers[i]
-
-		span.SetAttributes(attribute.String("command", h.name))
+		span.SetAttributes(
+			attribute.String("nick", e.Source.Name),
+			attribute.String("host", e.Source.Host),
+			attribute.String("line", line),
+		)
 
 		ctx, cancel := context.WithTimeout(ctx, time.Second*15)
 		defer cancel()
@@ -105,7 +106,7 @@ func (rh RegexHandlers) Execute(c *girc.Client, e girc.Event) {
 		}
 
 		// execute our handler
-		err := h.fn(event)
+		err := handler.fn(event)
 		if err != nil {
 			switch {
 			case errors.Is(errors.SearchNoResults, err):
@@ -114,8 +115,9 @@ func (rh RegexHandlers) Execute(c *girc.Client, e girc.Event) {
 				fallthrough
 			case errors.Is(errors.SongCooldown, err):
 				event.Echo(CooldownMessageFromError(err))
-			case gerr.Is(err, context.Canceled):
+			case errors.IsE(err, context.Canceled):
 				event.Echo("Timeout reached")
+				zerolog.Ctx(ctx).Error().Ctx(ctx).Msg("handler timeout")
 			default:
 				event.Echo("An error has occurred")
 				zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("handler error")
