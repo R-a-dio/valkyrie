@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"os"
 	"reflect"
+	"regexp"
 	"strings"
 	"time"
 
@@ -102,6 +103,7 @@ var defaultFunctions = map[string]any{
 	"AllUserPermissions":          radio.AllUserPermissions,
 	"HasField":                    HasField,
 	"SongPair":                    SongPair,
+	"TimeAgo":                     TimeAgo,
 }
 
 type SongPairing struct {
@@ -251,6 +253,53 @@ func HumanDuration(d time.Duration) string {
 		return fmt.Sprintf("%dd%s", days, d%day)
 	}
 	return d.String()
+}
+
+// example usage: {{ TimeAgo .CreatedAt "%y foo, %d, %h hours, %mbar" }}
+// -> "2 foo, 23, 11 hours, 12bar" if >0 years have passed, otherwise
+// "23, 11 hours, 12bar" etc.
+func TimeAgo(t time.Time, format string) string {
+	elapsed := time.Since(t).Truncate(time.Second)
+	
+	units := []struct {
+		placeholder string
+		duration    time.Duration
+	}{
+		{"%y", 365 * 24 * time.Hour},
+		{"%d", 24 * time.Hour},
+		{"%h", time.Hour},
+		{"%m", time.Minute},
+		{"%s", time.Second},
+	}
+
+	components := make(map[string]int64)
+	remaining := elapsed
+	for _, unit := range units {
+		components[unit.placeholder] = int64(remaining / unit.duration)
+		remaining = remaining % unit.duration
+	}
+
+	re := regexp.MustCompile(`(%[ydhms])`)
+	segments := re.Split(format, -1)
+	matches := re.FindAllString(format, -1)
+
+	// "seconds only" special case
+	if len(matches) == 1 && matches[0] == "%s" {
+		return fmt.Sprintf("%d%s", components["%s"], segments[1])
+	}
+
+	var parts []string
+	for i, match := range matches {
+		if value := components[match]; value > 0 || i == len(matches)-1 {
+			parts = append(parts, strings.TrimRight(fmt.Sprintf("%d%s", value, segments[i+1]), ", "))
+		}
+	}
+
+	if len(parts) == 0 && len(matches) > 0 {
+		return fmt.Sprintf("%d%s", components["%s"], segments[re.FindStringIndex(format)[1]:])
+	}
+
+	return strings.Join(parts, ", ")
 }
 
 func MediaDuration(d time.Duration) string {
