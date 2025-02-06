@@ -8,7 +8,6 @@ import (
 
 	"github.com/cenkalti/backoff"
 	"github.com/rs/zerolog"
-	"go.opentelemetry.io/otel/trace"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
@@ -174,8 +173,6 @@ type Bot struct {
 	UserValue      *util.Value[*radio.User]
 
 	c *girc.Client
-
-	tel *trace.TracerProvider
 }
 
 // runClient connects the irc client and tries to keep it connected until
