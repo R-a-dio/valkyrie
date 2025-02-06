@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -488,6 +489,8 @@ type v0StatusMain struct {
 
 	Queue      []v0StatusListEntry `json:"queue"`
 	LastPlayed []v0StatusListEntry `json:"lp"`
+
+	Tags []string `json:"tags"`
 }
 
 type v0StatusDJ struct {
@@ -602,8 +605,15 @@ func (s *v0Status) createStatusJSON(ctx context.Context) (v0StatusJSON, error) {
 	// Song might not have a track associated with it, so we
 	// have to check for that first, before reading the TrackID
 	var trackID int
+	var tags []string
 	if ms.Song.HasTrack() {
 		trackID = int(ms.Song.TrackID)
+		tags = strings.Split(ms.Song.Tags, " ")
+		if len(tags) == 0 {
+			// make sure it's an empty slice, so it outputs a []
+			// and not a null
+			tags = []string{}
+		}
 	}
 
 	// Thread seems to be a literal "none" if no thread is supposed to be shown in
@@ -639,6 +649,7 @@ func (s *v0Status) createStatusJSON(ctx context.Context) (v0StatusJSON, error) {
 		},
 		Queue:      queue,
 		LastPlayed: lastplayed,
+		Tags:       tags,
 	}
 
 	return status, nil
