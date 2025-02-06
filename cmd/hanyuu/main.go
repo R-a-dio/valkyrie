@@ -220,15 +220,6 @@ var tracksHashCmd = cmd{
 	execute: withConfig(jobs.ExecuteTracksHash),
 }
 
-var relayCmd = cmd{
-	name:     "relay",
-	synopsis: "relays an icecast stream",
-	usage: `relay:
-	don't ever use this command
-	`,
-	execute: withConfig(jobs.ExecuteRelay),
-}
-
 var requestCountCmd = cmd{
 	name:     "requestcount",
 	synopsis: "reduce request counter in database",
@@ -341,7 +332,6 @@ func main() {
 	subcommands.Register(requestCountCmd, "jobs")
 	subcommands.Register(tracksHashCmd, "jobs")
 	subcommands.Register(indexSearchCmd, "jobs")
-	subcommands.Register(relayCmd, "jobs")
 	subcommands.Register(&databaseCmd{}, "jobs")
 	// verifier job is in streamer.go for the above reason
 
