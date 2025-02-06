@@ -2,7 +2,6 @@ package manager
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"regexp"
 	"time"
@@ -50,16 +49,13 @@ func NewTuneinUpdater(ctx context.Context, cfg config.Config, manager radio.Mana
 	ctx, tu.cancel = context.WithCancel(ctx)
 
 	util.StreamValue(ctx, manager.CurrentSong, func(ctx context.Context, su *radio.SongUpdate) {
-		log.Println("update", su)
 		if su == nil {
 			return
 		}
 
-		log.Println(time.Since(su.Info.Start))
 		if time.Since(su.Info.Start) < time.Second*5 {
 			err := tu.Update(ctx, su.Metadata)
 			if err != nil {
-				log.Println(err)
 				zerolog.Ctx(ctx).Err(err).Ctx(ctx).Msg("failed to update tunein")
 			}
 		}

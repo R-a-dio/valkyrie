@@ -116,6 +116,7 @@ func getAPI(ctx context.Context, us radio.UserStorage, ss radio.SongStorage) (*I
 	if err != nil {
 		return nil, err
 	}
+	req.Host = "r-a-d.io"
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -270,6 +271,7 @@ func (ln *listener) newConn(ctx context.Context, u *url.URL) (io.ReadCloser, int
 	if err != nil {
 		return nil, 0, err
 	}
+	req.Host = "r-a-d.io"
 	// we don't want to re-use connections for the audio stream
 	req.Close = true
 	// we want interleaved metadata so we have to ask for it
