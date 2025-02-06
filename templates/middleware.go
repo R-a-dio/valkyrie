@@ -59,23 +59,8 @@ func NewThemeValues(resolver func(radio.ThemeName) radio.ThemeName) *ThemeValues
 	}
 }
 
-func (tv *ThemeValues) resolve(theme radio.ThemeName) radio.ThemeName {
-	if theme == "" {
-		return theme
-	}
-	// resolve the theme that was passed in
-	resolved := tv.resolver(theme)
-	if resolved != theme {
-		// if input and output are not the same it means the theme didn't exist
-		// and we shouldn't use it, so just unset it
-		return ""
-	}
-
-	return resolved
-}
-
 func (tv *ThemeValues) StoreHoliday(theme radio.ThemeName) {
-	tv.holiday.Store(tv.resolve(theme))
+	tv.holiday.Store(tv.resolver(theme))
 }
 
 func (tv *ThemeValues) LoadHoliday() radio.ThemeName {
@@ -83,7 +68,7 @@ func (tv *ThemeValues) LoadHoliday() radio.ThemeName {
 }
 
 func (tv *ThemeValues) StoreDJ(theme radio.ThemeName) {
-	tv.dj.Store(tv.resolve(theme))
+	tv.dj.Store(tv.resolver(theme))
 }
 
 // ThemeCtx adds a theme entry into the context of the request, that is acquirable by
@@ -117,15 +102,15 @@ func ThemeCtx(tv *ThemeValues) func(http.Handler) http.Handler {
 			// then run the theme through the decider, this will handle holiday themes, dj themes and the
 			// user configured stuff from the cookie
 			if !isAdmin { // but only if we're not loading admin pages, the special themes wont have support for those
-				themeResolved = tv.decide(theme)
+				themeResolved = tv.resolver(tv.decide(theme))
 			} else {
-				themeResolved = tv.resolve(radio.ThemeName(theme))
+				themeResolved = tv.resolver(radio.ThemeName(theme))
 			}
 
 			// or if the user set a theme in the url query (?theme=<thing>) we use that and ignore
 			// the cookie setting completely
 			if tmp := r.URL.Query().Get("theme"); tmp != "" {
-				themeResolved = tv.resolve(radio.ThemeName(tmp))
+				themeResolved = tv.resolver(radio.ThemeName(tmp))
 			}
 
 			// it's possible for a user to set a theme that is not compatible with the page they're requesting,
