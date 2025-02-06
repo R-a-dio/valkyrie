@@ -444,9 +444,11 @@ function updateTimes() {
                 node.textContent = smallDuration(d);
                 nextUpdate = Math.min(nextUpdate, 1);
                 break;
-            default:
+            case "pretty":
                 node.textContent = prettyDuration(d);
                 nextUpdate = Math.min(nextUpdate, Math.abs(d) % 60);
+                break;
+            default:
                 break;
         }
     })
