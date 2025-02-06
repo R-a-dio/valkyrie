@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -41,7 +42,7 @@ func ExecuteRelay(ctx context.Context, cfg config.Config) error {
 	var conn net.Conn
 
 	// setup a goroutine that reads data from icecast
-	ln, _ := Listen(ctx, "https://r-a-d.io/main.mp3", func(ctx context.Context, data []byte) error {
+	ln, _ := Listen(ctx, os.Getenv("RELAY_STREAM_ENDPOINT"), func(ctx context.Context, data []byte) error {
 		var err error
 		if conn == nil {
 			conn, err = newConn(ctx, endpoint)
@@ -64,8 +65,8 @@ func ExecuteRelay(ctx context.Context, cfg config.Config) error {
 				icecast.UserAgent(cfg.Conf().UserAgent),
 			)(ctx, meta)
 
-			// we also check for the DJ everytime metadata changes
-			info, err := getUser(ctx, ss.User(ctx))
+			// we also check the api everytime metadata changes
+			info, err := getAPI(ctx, ss.User(ctx), ss.Song(ctx))
 			if err != nil {
 				// do nothing if this failed
 				zerolog.Ctx(ctx).Err(err).Msg("failed to retrieve user from api")
@@ -93,16 +94,25 @@ type apiResponse struct {
 			ID int `json:"id"`
 		} `json:"dj"`
 		Thread string `json:"thread"`
+		Queue  []queueEntry
 	} `json:"main"`
+}
+
+type queueEntry struct {
+	Metadata  string `json:"meta" db:"meta"`
+	Time      string `json:"time"`
+	Type      int    `json:"type" db:"type"`
+	Timestamp int64  `json:"timestamp" db:"time"`
 }
 
 type Info struct {
 	User   *radio.User
 	Thread radio.Thread
+	Queue  radio.Queue
 }
 
-func getUser(ctx context.Context, us radio.UserStorage) (*Info, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://r-a-d.io/api", nil)
+func getAPI(ctx context.Context, us radio.UserStorage, ss radio.SongStorage) (*Info, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, os.Getenv("RELAY_API_ENDPOINT"), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -125,9 +135,29 @@ func getUser(ctx context.Context, us radio.UserStorage) (*Info, error) {
 		return nil, err
 	}
 
+	var queue radio.Queue
+	/* turns out we can't actually overwrite the queue easily
+	for _, qe := range res.Main.Queue {
+		song, err := ss.FromMetadata(qe.Metadata)
+		if err != nil {
+			// skip if this fails
+			zerolog.Ctx(ctx).Err(err).Ctx(ctx).Msg("failed to retrieve song from metadata")
+			continue
+		}
+
+		queue = append(queue, radio.QueueEntry{
+			QueueID:           radio.NewQueueID(),
+			Song:              *song,
+			IsUserRequest:     qe.Type == 1,
+			ExpectedStartTime: time.Unix(qe.Timestamp, 0),
+		})
+	}
+	*/
+
 	return &Info{
 		User:   user,
 		Thread: radio.Thread(res.Main.Thread),
+		Queue:  queue,
 	}, nil
 }
 
