@@ -2,6 +2,7 @@ package ircbot
 
 import (
 	"context"
+	gerr "errors"
 	"regexp"
 	"time"
 
@@ -79,7 +80,7 @@ func (rh RegexHandlers) Execute(c *girc.Client, e girc.Event) {
 			continue
 		}
 
-		ctx, cancel := context.WithTimeout(rh.ctx, time.Second*5)
+		ctx, cancel := context.WithTimeout(rh.ctx, time.Second*15)
 		defer cancel()
 
 		event := Event{
@@ -101,6 +102,8 @@ func (rh RegexHandlers) Execute(c *girc.Client, e girc.Event) {
 				fallthrough
 			case errors.Is(errors.SongCooldown, err):
 				event.Echo(CooldownMessageFromError(err))
+			case gerr.Is(err, context.Canceled):
+				event.Echo("Timeout reached")
 			default:
 				event.Echo("An error has occurred")
 				zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("handler error")
@@ -134,8 +137,8 @@ var reHandlers = []RegexHandler{
 	{reGuestCreate, GuestCreate},
 }
 
-func RegisterCommandHandlers(ctx context.Context, b *Bot) error {
-	h := NewRegexHandlers(ctx, b, reHandlers...)
+func RegisterCommandHandlers(ctx context.Context, b *Bot, handlers ...RegexHandler) error {
+	h := NewRegexHandlers(ctx, b, handlers...)
 	// while RegexHandlers is a girc.Handler, girc does not expose a way to register said
 	// interface as background handler; so we pass the method bound to AddBg instead
 	b.c.Handlers.AddBg(girc.PRIVMSG, h.Execute)

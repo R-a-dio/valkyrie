@@ -143,7 +143,7 @@ func NewBot(ctx context.Context, cfg config.Config) (*Bot, error) {
 	if err = RegisterCommonHandlers(b, b.c); err != nil {
 		return nil, err
 	}
-	if err = RegisterCommandHandlers(ctx, b); err != nil {
+	if err = RegisterCommandHandlers(ctx, b, reHandlers...); err != nil {
 		return nil, err
 	}
 
