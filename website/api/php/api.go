@@ -151,12 +151,24 @@ func (a *API) getNews(w http.ResponseWriter, r *http.Request) {
 
 	// copy the entries to sanitized output struct
 	entries := result.Entries
-	var response = make([]newsResponse, len(entries))
+	var response = make([]newsResponse, 0, len(entries))
 
-	for i := range response {
-		response[i].Title = entries[i].Title
-		response[i].Header = entries[i].Header
-		response[i].Body = entries[i].Body
+	for _, e := range entries {
+		nr := newsResponse{
+			Title:     e.Title,
+			Header:    e.Header,
+			Body:      e.Body,
+			UpdatedAt: e.CreatedAt,
+			Author: newsAuthorResponse{
+				ID:   e.User.ID,
+				User: e.User.Username,
+			},
+		}
+
+		if e.UpdatedAt != nil {
+			nr.UpdatedAt = *e.UpdatedAt
+		}
+		response = append(response, nr)
 	}
 
 	err = json.NewEncoder(w).Encode(response)
@@ -167,9 +179,16 @@ func (a *API) getNews(w http.ResponseWriter, r *http.Request) {
 }
 
 type newsResponse struct {
-	Title  string `json:"title"`
-	Header string `json:"header"`
-	Body   string `json:"text"`
+	Title     string             `json:"title"`
+	Header    string             `json:"header"`
+	Body      string             `json:"text"`
+	UpdatedAt time.Time          `json:"updated_at"`
+	Author    newsAuthorResponse `json:"author"`
+}
+
+type newsAuthorResponse struct {
+	ID   radio.UserID `json:"id"`
+	User string       `json:"user"`
 }
 
 func (a *API) getSearch(w http.ResponseWriter, r *http.Request) {
