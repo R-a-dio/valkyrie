@@ -155,6 +155,7 @@ func NewFaveDownloadEntry(song radio.Song) FaveDownloadEntry {
 		entry.LastPlayed = &tmp
 	}
 
+	entry.Metadata = song.Metadata
 	return entry
 }
 
