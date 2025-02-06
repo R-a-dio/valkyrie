@@ -296,23 +296,43 @@ function prettyDuration(d) {
     return rtf.format(Math.floor(d / 60), "minute");
 }
 
-function mediumDuration(s) {
-    if (s < 0) s = -s;
-    const time = {
-      day: Math.floor(s / 86400),
-      hour: Math.floor(s / 3600) % 24,
-      minute: Math.floor(s / 60) % 60
-    };
-
-    return Object.entries(time)
-      .filter(val => val[1] !== 0)
-      .map(([key, val]) => {
-        if (key.length > 1) {
-            return `${val} ${key}${val !== 1 ? 's' : ''}${key !== "minute" ? ',' : ''}`
+function mediumDuration(seconds) {
+    if (seconds < 0) seconds = -seconds;
+    
+    const units = [
+        { name: 'year', seconds: 31536000 },
+        { name: 'day', seconds: 86400 },
+        { name: 'hour', seconds: 3600 },
+        { name: 'minute', seconds: 60 }/*,
+        { name: 'second', seconds: 1 }*/
+    ];
+    
+    const parts = [];
+    let remaining = seconds;
+    
+    for (const unit of units) {
+        const value = Math.floor(remaining / unit.seconds);
+        remaining %= unit.seconds;
+        
+        if (value > 0) {
+            parts.push({
+                value,
+                unit: unit.name
+            });
         }
-        return `${val}${key}`
-      })
-      .join(' ');
+    }
+    
+    if (parts.length === 0) {
+        return '0 minutes';
+    }
+    
+    return parts
+        .map(({ value, unit }, index) => {
+            const isLast = index === parts.length - 1;
+            const plural = value !== 1 ? 's' : '';
+            return `${value} ${unit}${plural}${isLast ? '' : ','}`;
+        })
+        .join(' ');
 }
 
 function smallDuration(s) {
