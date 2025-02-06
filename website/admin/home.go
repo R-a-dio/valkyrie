@@ -32,7 +32,7 @@ func NewHomeInput(r *http.Request, dp secret.Secret, ht radio.ThemeName) HomeInp
 		HolidayTheme:       ht,
 		CSRFTokenInput:     csrf.TemplateField(r),
 		CanTemplateReload:  input.User.UserPermissions.Has(radio.PermAdmin),
-		CanKillStreamer:    input.User.UserPermissions.Has(radio.PermDJ),
+		CanKillStreamer:    input.User.UserPermissions.Has(radio.PermAdmin),
 		CanSetHolidayTheme: input.User.UserPermissions.Has(radio.PermAdmin),
 	}
 }
