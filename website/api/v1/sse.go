@@ -87,8 +87,7 @@ func (a *API) sendQueue(ctx context.Context, user *radio.User) {
 	if user != nil && radio.IsRobot(*user) {
 		rq, err := a.queue.Entries(ctx)
 		if err != nil {
-			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Str("sse", "queue").Msg("")
-			return
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Str("sse", "queue").Msg("failed to retrieve queue")
 		}
 		q = rq
 	}

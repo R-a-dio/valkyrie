@@ -6,6 +6,7 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/website/middleware"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
 )
 
@@ -43,9 +44,7 @@ func (s *State) getHome(w http.ResponseWriter, r *http.Request) error {
 
 	queue, err := s.Queue.Entries(ctx)
 	if err != nil {
-		hlog.FromRequest(r).Error().Ctx(r.Context()).Err(err).Msg("streamer queue unavailable")
-		// continue with an empty queue instead
-		queue = []radio.QueueEntry{}
+		zerolog.Ctx(ctx).Error().Ctx(r.Context()).Err(err).Msg("failed to retrieve queue")
 	}
 	input.Queue = queue
 

@@ -541,7 +541,7 @@ func (s *v0Status) createStatusJSON(ctx context.Context) (v0StatusJSON, error) {
 
 		q, err := s.queue.Entries(ctx)
 		if err != nil {
-			return last, err
+			zerolog.Ctx(ctx).Err(err).Ctx(ctx).Msg("failed to retrieve queue")
 		}
 
 		q = q.Limit(5)

@@ -5,6 +5,7 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/website/middleware"
+	"github.com/rs/zerolog/hlog"
 )
 
 type QueueInput struct {
@@ -20,7 +21,7 @@ func (QueueInput) TemplateBundle() string {
 func NewQueueInput(qs radio.QueueService, r *http.Request) (*QueueInput, error) {
 	queue, err := qs.Entries(r.Context())
 	if err != nil {
-		return nil, err
+		hlog.FromRequest(r).Err(err).Ctx(r.Context()).Msg("failed to retrieve queue")
 	}
 
 	return &QueueInput{

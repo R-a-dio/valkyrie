@@ -8,6 +8,7 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/gorilla/csrf"
+	"github.com/rs/zerolog/hlog"
 )
 
 type QueueInput struct {
@@ -26,7 +27,7 @@ func NewQueueInput(qs radio.QueueService, r *http.Request) (*QueueInput, error) 
 
 	queue, err := qs.Entries(r.Context())
 	if err != nil {
-		return nil, errors.E(op, err)
+		hlog.FromRequest(r).Err(errors.E(op, err)).Ctx(r.Context()).Msg("failed to retrieve queue")
 	}
 
 	input := &QueueInput{
