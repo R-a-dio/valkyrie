@@ -3,6 +3,7 @@ package manager
 import (
 	"context"
 	"net"
+	"net/http"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -46,6 +47,17 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	gs, err := NewGuestService(guestCtx, cfg, m, store)
 	if err != nil {
 		return err
+	}
+
+	// setup tunein integration if it's enabled
+	if cfg.Conf().Tunein.Enabled {
+		tu, err := NewTuneinUpdater(ctx, cfg, m, http.DefaultClient)
+		if err != nil {
+			zerolog.Ctx(ctx).WithLevel(zerolog.PanicLevel).Err(err).Ctx(ctx).Msg("failed to setup tunein updater")
+			// continue running if this fails, we don't care that much about tunein
+		} else {
+			defer tu.Close()
+		}
 	}
 
 	// setup a http server for our RPC API

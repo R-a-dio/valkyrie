@@ -94,6 +94,9 @@ var defaultConfig = config{
 		Endpoint:           ":4317",
 		PrometheusEndpoint: "localhost:9091",
 	},
+	Tunein: tunein{
+		Endpoint: "https://air.radiotime.com/Playing.ashx",
+	},
 }
 
 // config represents a full configuration file of this project, each tool part
@@ -128,6 +131,9 @@ type config struct {
 	Tracker  tracker
 
 	Telemetry telemetry
+
+	// tunein.com scrobbling configuration
+	Tunein tunein
 }
 
 type tracker struct {
@@ -269,6 +275,19 @@ type manager struct {
 
 	GuestProxyAddr  URL
 	GuestAuthPeriod Duration
+}
+
+type tunein struct {
+	// Enabled indicates of tunein scrobbling is enabled
+	Enabled bool
+	// Endpint to send updates to
+	Endpoint string
+	// StationID is the station id from tunein
+	StationID string
+	// PartnerID is the partner id from tunein
+	PartnerID string
+	// Key is the api key to access the tunein api
+	Key string
 }
 
 type search struct {
