@@ -198,7 +198,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	// it's mostly self-contained to the /api/* route, except for /request that
 	// leaked out at some point
 	logger.Info().Ctx(ctx).Str("event", "init").Str("part", "api_v0").Msg("")
-	v0, err := phpapi.NewAPI(ctx, cfg, storage, statusValue)
+	v0, err := phpapi.NewAPI(ctx, cfg, storage, newsCache, statusValue)
 	if err != nil {
 		return errors.E(op, err)
 	}

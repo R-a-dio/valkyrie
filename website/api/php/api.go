@@ -18,6 +18,7 @@ import (
 	"github.com/R-a-dio/valkyrie/search"
 	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/website/middleware"
+	"github.com/R-a-dio/valkyrie/website/shared"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
 	"go.opentelemetry.io/otel"
@@ -28,7 +29,7 @@ import (
 )
 
 func NewAPI(ctx context.Context, cfg config.Config, storage radio.StorageService,
-	statusValue *util.Value[radio.Status]) (*API, error) {
+	newsCache *shared.NewsCache, statusValue *util.Value[radio.Status]) (*API, error) {
 
 	status, err := newV0Status(ctx, storage, cfg.Queue, statusValue)
 	if err != nil {
@@ -51,6 +52,7 @@ func NewAPI(ctx context.Context, cfg config.Config, storage radio.StorageService
 		}),
 		storage:     storage,
 		streamer:    cfg.Streamer,
+		newsCache:   newsCache,
 		status:      status,
 		search:      searcher,
 		StatusValue: statusValue,
@@ -65,6 +67,7 @@ type API struct {
 	search              radio.SearchService
 	storage             radio.StorageService
 	streamer            radio.StreamerService
+	newsCache           *shared.NewsCache
 	status              *v0Status
 
 	StatusValue *util.Value[radio.Status]
@@ -155,10 +158,20 @@ func (a *API) getNews(w http.ResponseWriter, r *http.Request) {
 	var response = make([]newsResponse, 0, len(entries))
 
 	for _, e := range entries {
+		header, err := a.newsCache.RenderHeader(e)
+		if err != nil {
+			hlog.FromRequest(r).Err(err).Ctx(r.Context()).Msg("failed to render news header")
+		}
+
+		body, err := a.newsCache.RenderBody(e)
+		if err != nil {
+			hlog.FromRequest(r).Err(err).Ctx(r.Context()).Msg("failed to render news body")
+		}
+
 		nr := newsResponse{
 			Title:     e.Title,
-			Header:    e.Header,
-			Body:      e.Body,
+			Header:    string(header.Output),
+			Body:      string(body.Output),
 			UpdatedAt: e.CreatedAt.Format("2006-01-02 15:04:05"),
 			Author: newsAuthorResponse{
 				ID:   e.User.ID,
