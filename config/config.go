@@ -74,12 +74,14 @@ var defaultConfig = config{
 		Fallback: "https://relay0.r-a-d.io/main.mp3",
 	},
 	Proxy: proxy{
-		RPCAddr:          MustParseAddrPort(":5151"),
-		ListenAddr:       MustParseAddrPort(":1337"),
-		MasterServer:     "http://127.0.0.1:8000",
-		MasterUsername:   "source",
-		MasterPassword:   "hackme",
-		PrimaryMountName: "/main.mp3",
+		RPCAddr:            MustParseAddrPort(":5151"),
+		ListenAddr:         MustParseAddrPort(":1337"),
+		MasterServer:       "http://127.0.0.1:8000",
+		MasterUsername:     "source",
+		MasterPassword:     "hackme",
+		PrimaryMountName:   "/main.mp3",
+		IcecastDescription: "a valkyrie in testing (change this in the config file)",
+		IcecastName:        "valkyrie-stream",
 	},
 	Tracker: tracker{
 		RPCAddr:          MustParseAddrPort(":4949"),
@@ -166,6 +168,11 @@ type proxy struct {
 	MasterPassword string
 	// PrimaryMountName is the mountname to propagate all events for
 	PrimaryMountName string
+
+	// IcecastDescription is the description to send to icecast for the streams
+	IcecastDescription string
+	// IcecastName is the name to send to icecast for the streams
+	IcecastName string
 }
 
 type telemetry struct {

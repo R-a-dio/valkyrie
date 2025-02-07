@@ -83,7 +83,11 @@ func (m *Mount) newConn() (net.Conn, error) {
 		defer cancel()
 
 		m.logger.Info().Ctx(ctx).Str("url", uri.Redacted()).Msg("dialing icecast")
-		conn, err = icecast.DialURL(ctx, uri, icecast.ContentType(m.ContentType))
+		conn, err = icecast.DialURL(ctx, uri,
+			icecast.ContentType(m.ContentType),
+			icecast.Description(m.cfg.Conf().Proxy.IcecastDescription),
+			icecast.Name(m.cfg.Conf().Proxy.IcecastName),
+		)
 		if err != nil {
 			m.logger.Error().Ctx(ctx).Err(err).Msg("failed connecting to master server")
 			return err
