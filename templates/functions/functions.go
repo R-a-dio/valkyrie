@@ -17,7 +17,7 @@ import (
 	"github.com/dustin/go-humanize"
 )
 
-func NewStatefulFunctions(cfg config.Config, status *util.Value[radio.Status]) *StatefulFuncs {
+func NewStatefulFunctions(cfg config.Config, status util.StreamValuer[radio.Status]) *StatefulFuncs {
 	return &StatefulFuncs{
 		musicPath: config.Value(cfg, func(cfg config.Config) string {
 			return cfg.Conf().MusicPath
@@ -28,7 +28,7 @@ func NewStatefulFunctions(cfg config.Config, status *util.Value[radio.Status]) *
 
 type StatefulFuncs struct {
 	musicPath func() string
-	status    *util.Value[radio.Status]
+	status    util.StreamValuer[radio.Status]
 }
 
 func (sf *StatefulFuncs) Status() radio.Status {

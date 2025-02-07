@@ -198,19 +198,29 @@ func OneOff[T any](ctx context.Context, fn StreamFn[T]) (T, error) {
 	return s.Next()
 }
 
-// StatusValue is a silly special cased StreamValue that updates the statuses listener
-// count before setting it as last value, since just listening to CurrentStatus by itself
+// NewStatusValue is a silly special cased *Value that updates the statuses listener
+// count before returning the status, since just listening to CurrentStatus by itself
 // will only have listeners update when a song change occurs
-func StatusValue(ctx context.Context, m radio.ManagerService) *Value[radio.Status] {
-	var v Value[radio.Status]
+func NewStatusValue(ctx context.Context, m radio.ManagerService) StreamValuer[radio.Status] {
+	return &statusValue{
+		sv: StreamValue(ctx, m.CurrentStatus),
+		lv: StreamValue(ctx, m.CurrentListeners),
+	}
+}
 
-	lv := StreamValue(ctx, m.CurrentListeners)
-	StreamValue(ctx, m.CurrentStatus, func(ctx context.Context, status radio.Status) {
-		status.Listeners = lv.Latest()
-		v.last.Store(&status)
-	})
+type StreamValuer[T any] interface {
+	Latest() T
+}
 
-	return &v
+type statusValue struct {
+	sv StreamValuer[radio.Status]
+	lv StreamValuer[radio.Listeners]
+}
+
+func (sv *statusValue) Latest() radio.Status {
+	status := sv.sv.Latest()
+	status.Listeners = sv.lv.Latest()
+	return status
 }
 
 // StreamValue opens the stream created by StreamFn and calls any callbackFn given everytime a new

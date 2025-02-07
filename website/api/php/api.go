@@ -29,7 +29,7 @@ import (
 )
 
 func NewAPI(ctx context.Context, cfg config.Config, storage radio.StorageService,
-	newsCache *shared.NewsCache, statusValue *util.Value[radio.Status]) (*API, error) {
+	newsCache *shared.NewsCache, statusValue util.StreamValuer[radio.Status]) (*API, error) {
 
 	status, err := newV0Status(ctx, storage, cfg.Queue, statusValue)
 	if err != nil {
@@ -70,7 +70,7 @@ type API struct {
 	newsCache           *shared.NewsCache
 	status              *v0Status
 
-	StatusValue *util.Value[radio.Status]
+	StatusValue util.StreamValuer[radio.Status]
 }
 
 func (a *API) Route(r chi.Router) {
@@ -436,7 +436,7 @@ func (a *API) postRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func newV0Status(ctx context.Context, storage radio.SongStorageService,
-	queue radio.QueueService, status *util.Value[radio.Status]) (*v0Status, error) {
+	queue radio.QueueService, status util.StreamValuer[radio.Status]) (*v0Status, error) {
 
 	s := v0Status{
 		songs:            storage,
@@ -467,7 +467,7 @@ type v0Status struct {
 	// queue for queue contents
 	queue radio.QueueService
 	// status value
-	status *util.Value[radio.Status]
+	status util.StreamValuer[radio.Status]
 
 	updatePeriod     time.Duration
 	longUpdatePeriod time.Duration
