@@ -18,6 +18,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	otelcodes "go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
@@ -28,7 +29,11 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
+	traceapi "go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
+	grpccodes "google.golang.org/grpc/codes"
+	"google.golang.org/grpc/stats"
+	"google.golang.org/grpc/status"
 )
 
 func Init(ctx context.Context, cfg config.Config, service string) (func(), error) {
@@ -249,7 +254,47 @@ var originalGrpcDial = rpc.GrpcDial
 
 func GrpcDial(addr string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
 	opts = append(opts,
-		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+		grpc.WithStatsHandler(newotelgrpcWrapper(otelgrpc.NewClientHandler())),
 	)
 	return originalGrpcDial(addr, opts...)
+}
+
+var _ stats.Handler = &otelgrpcWrapper{}
+
+func newotelgrpcWrapper(otel stats.Handler) stats.Handler {
+	return &otelgrpcWrapper{otel}
+}
+
+type otelgrpcWrapper struct {
+	otel stats.Handler
+}
+
+// HandleConn implements stats.Handler.
+func (o *otelgrpcWrapper) HandleConn(ctx context.Context, cs stats.ConnStats) {
+	o.otel.HandleConn(ctx, cs)
+}
+
+// HandleRPC implements stats.Handler.
+func (o *otelgrpcWrapper) HandleRPC(ctx context.Context, rs stats.RPCStats) {
+	end, ok := rs.(*stats.End)
+	if ok && end.Error != nil {
+		s, _ := status.FromError(end.Error)
+		if s.Code() == grpccodes.Canceled {
+			// span was canceled by someone, not a deadline so we want
+			// to mark the span as OK instead of Error which is what otelgrpc does
+			// for us normally
+			traceapi.SpanFromContext(ctx).SetStatus(otelcodes.Ok, "context canceled")
+		}
+	}
+	o.otel.HandleRPC(ctx, rs)
+}
+
+// TagConn implements stats.Handler.
+func (o *otelgrpcWrapper) TagConn(ctx context.Context, cti *stats.ConnTagInfo) context.Context {
+	return o.otel.TagConn(ctx, cti)
+}
+
+// TagRPC implements stats.Handler.
+func (o *otelgrpcWrapper) TagRPC(ctx context.Context, rti *stats.RPCTagInfo) context.Context {
+	return o.otel.TagRPC(ctx, rti)
 }
