@@ -15,6 +15,7 @@ import (
 	"github.com/adtac/go-akismet/akismet"
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/csrf"
+	"github.com/rs/zerolog/hlog"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -248,6 +249,7 @@ func (s *State) PostNewsEntry(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if isSpam {
+			hlog.FromRequest(r).Warn().Ctx(r.Context()).Str("comment", comment.Body).Msg("news comment was marked as spam")
 			s.errorHandler(w, r, errors.E(op, errors.Spam))
 			return
 		}
