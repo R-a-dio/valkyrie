@@ -203,8 +203,8 @@ func (pm *ProxyManager) SendMetadata(ctx context.Context, metadata *Metadata) er
 		return nil
 	}
 
-	// metadata for a mount that doesn't exist, we store it temporarily
-	// to see if a new source client will appear soon
+	// metadata for a mount that doesn't exist, we store it
+	// temporarily to see if a new source client will appear soon
 	zerolog.Ctx(ctx).Info().
 		Str("mount", metadata.MountName).
 		Str("username", metadata.User.Username).

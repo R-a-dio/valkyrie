@@ -40,8 +40,9 @@ type Mount struct {
 
 	// Sources is the different sources of audio data, the mount
 	// broadcasts the data of the first entry and voids the others
-	SourcesMu *sync.RWMutex        `json:"-"`
-	Sources   []*MountSourceClient `json:"-"`
+	SourcesMu *sync.RWMutex            `json:"-"`
+	Sources   []*MountSourceClient     `json:"-"`
+	metaStore map[Identifier]*Metadata `json:"-"`
 }
 
 func NewMount(ctx context.Context,
@@ -66,6 +67,7 @@ func NewMount(ctx context.Context,
 		Name:        name,
 		Conn:        util.NewTypedValue(conn),
 		SourcesMu:   new(sync.RWMutex),
+		metaStore:   make(map[Identifier]*Metadata),
 	}
 
 	return mount
@@ -201,7 +203,7 @@ type MountSourceClient struct {
 	logger zerolog.Logger
 }
 
-func (msc *MountSourceClient) GoLive(ctx context.Context, out MetadataWriter) {
+func (msc *MountSourceClient) GoLive(ctx context.Context, out io.Writer) {
 	msc.MW.SetWriter(out)
 	msc.MW.SetLive(ctx, true)
 	msc.logger.Info().
@@ -213,16 +215,29 @@ func (msc *MountSourceClient) GoLive(ctx context.Context, out MetadataWriter) {
 // SendMetadata finds the source associated with this metadata and updates
 // their internal metadata. This does no transmission of metadata to the
 // master server.
-func (m *Mount) SendMetadata(ctx context.Context, meta *Metadata) {
+func (m *Mount) SendMetadata(ctx context.Context, metadata *Metadata) {
 	m.SourcesMu.RLock()
 	defer m.SourcesMu.RUnlock()
+
+	var found bool
 	// see if we have a source associated with this metadata
 	for _, msc := range m.Sources {
-		if msc.Source.Identifier != meta.Identifier {
+		if msc.Source.Identifier != metadata.Identifier {
 			continue
 		}
 
-		msc.Source.Metadata.Store(meta)
+		msc.Source.Metadata.Store(metadata)
+		found = true
+	}
+
+	// store the metadata if we didn't find a source
+	if !found {
+		zerolog.Ctx(ctx).Info().
+			Str("mount", metadata.MountName).
+			Str("username", metadata.User.Username).
+			Str("address", metadata.Addr).
+			Msg("storing metadata because source does not exist")
+		m.metaStore[metadata.Identifier] = metadata
 	}
 }
 
@@ -251,6 +266,12 @@ func (m *Mount) AddSource(ctx context.Context, source *SourceClient) {
 
 	if msc.Priority > ADJUST_PRIORITY_THRESHOLD {
 		adjustPriority(m.Sources)
+	}
+
+	// check if we have stored metadata on the mount itself
+	if meta := m.metaStore[source.Identifier]; meta != nil {
+		delete(m.metaStore, source.Identifier)
+		source.Metadata.Store(meta)
 	}
 
 	// send an event that we connected
