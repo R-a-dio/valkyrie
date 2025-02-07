@@ -18,7 +18,12 @@ import (
 
 const MaxQuerySize = 512
 
-func NewQuery(ctx context.Context, query string) (*RadioQuery, error) {
+func NewQuery(ctx context.Context, query string) (query.Query, error) {
+	query = strings.TrimSpace(query)
+	if query == "*" {
+		// as a special case a singular wildcard query is turned into a match all query
+		return bleve.NewMatchAllQuery(), nil
+	}
 	if len(query) > MaxQuerySize { // cut off the query if it goes past our MaxQuerySize
 		// but in a nice way, where we remove any invalid utf8 characters from the end
 		query = CutoffAtRune(query[:MaxQuerySize])
