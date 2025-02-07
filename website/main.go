@@ -174,6 +174,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		csrf.Path("/"),
 		csrf.Secure(!cfg.Conf().DevelopmentMode), // disable https requirement under dev mode
 		csrf.Encoding(base62.StdEncoding),
+		csrf.MaxAge(int((time.Hour * 24 * 7).Seconds())), // 7 days
 	))
 	// shared input handling, stuff the base template needs
 	r.Use(vmiddleware.InputMiddleware(cfg, statusValue, public.NavBar, admin.NavBar))
