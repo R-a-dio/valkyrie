@@ -16,6 +16,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/util/eventstream"
 	"github.com/Wessie/fdstore"
@@ -195,6 +196,21 @@ func OneOff[T any](ctx context.Context, fn StreamFn[T]) (T, error) {
 	defer s.Close()
 
 	return s.Next()
+}
+
+// StatusValue is a silly special cased StreamValue that updates the statuses listener
+// count before setting it as last value, since just listening to CurrentStatus by itself
+// will only have listeners update when a song change occurs
+func StatusValue(ctx context.Context, m radio.ManagerService) *Value[radio.Status] {
+	var v Value[radio.Status]
+
+	lv := StreamValue(ctx, m.CurrentListeners)
+	StreamValue(ctx, m.CurrentStatus, func(ctx context.Context, status radio.Status) {
+		status.Listeners = lv.Latest()
+		v.last.Store(&status)
+	})
+
+	return &v
 }
 
 // StreamValue opens the stream created by StreamFn and calls any callbackFn given everytime a new

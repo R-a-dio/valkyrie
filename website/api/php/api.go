@@ -571,8 +571,7 @@ func (s *v0Status) createStatusJSON(ctx context.Context) (v0StatusJSON, error) {
 	lastplayed := last.Main.LastPlayed
 
 	// see if we need to update the queue and lastplayed values
-	if last.ListCreatedOn.IsZero() ||
-		now.Sub(last.ListCreatedOn) < s.longUpdatePeriod {
+	if last.ListCreatedOn.IsZero() || now.Sub(last.ListCreatedOn) < s.longUpdatePeriod {
 
 		q, err := s.queue.Entries(ctx)
 		if err != nil {

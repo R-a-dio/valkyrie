@@ -78,7 +78,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	}
 
 	// status RPC value
-	statusValue := util.StreamValue(ctx, cfg.Manager.CurrentStatus)
+	statusValue := util.StatusValue(ctx, cfg.Manager)
 
 	// templates
 	// construct our stateful template functions, it uses the latest values from the manager
