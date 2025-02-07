@@ -59,6 +59,9 @@ func (ss SubmissionStorage) InsertPostPending(pend radio.PendingSong) error {
 	if pend.AcceptedSong != nil {
 		adjusted.NullTrackID = &pend.AcceptedSong.TrackID
 	}
+	if adjusted.Metadata == "" {
+		adjusted.Metadata = pend.Filename
+	}
 
 	_, err := sqlx.NamedExec(handle, submissionInsertPostPendingQuery, adjusted)
 	if err != nil {
