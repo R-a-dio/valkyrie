@@ -525,13 +525,9 @@ func RandomTrackRequest(e Event) error {
 			return nil
 		}
 
-		// if user cooldown the user isn't allowed to request yet
-		if errors.Is(errors.UserCooldown, err) {
-			return errors.E(op, err)
-		}
-
-		// if not a song cooldown error we received some other error so exit early
+		// the only error that isn't fatal here is a SongCooldown one
 		if !errors.Is(errors.SongCooldown, err) {
+			// UserCooldown and StreamerNoRequests are handled by the parent handler
 			return errors.E(op, err)
 		}
 	}
@@ -656,31 +652,42 @@ func RequestTrack(e Event) error {
 	return nil
 }
 
-// CooldownMessageFromError returns a friendlier, coloured error message for cooldown
-// related errors
-func CooldownMessageFromError(err error) string {
-	// user cooldown messages
-	if errors.Is(errors.UserCooldown, err) {
-		d, ok := errors.SelectDelay(err)
-		if !ok {
-			return "{green}No cooldown found."
-		}
+// MessageFromError returns a friendlier, coloured error message for errors
+func MessageFromError(err error) string {
+	switch {
+	case errors.Is(errors.UserCooldown, err):
+		return userCooldownMessageFromError(err)
+	case errors.Is(errors.SongCooldown, err):
+		return songCooldownMessageFromError(err)
+	case errors.Is(errors.StreamerNoRequests, err):
+		return "{brown}The streamer is currently not taking requests."
+	case errors.Is(errors.SearchNoResults, err):
+		return "Your search returned no results"
+	case errors.Is(errors.UserUnknown, err):
+		return ""
+	}
+	return ""
+}
 
-		switch d := time.Duration(d); {
-		case d < time.Minute*10:
-			return "{green}Only less than ten minutes before you can request again!"
-		case d < time.Minute*30:
-			return "{blue}You need to wait at most another half hour until you can request!"
-		case d < time.Minute*61:
-			return "{brown}You still have quite a lot of time before you can request again..."
-		}
+func userCooldownMessageFromError(err error) string {
+	d, ok := errors.SelectDelay(err)
+	if !ok {
+		return "{green}No cooldown found."
 	}
 
-	// song cooldown messages
-	if !errors.Is(errors.SongCooldown, err) {
-		panic("invalid error passed to CooldownMessageFromError: " + err.Error())
+	switch d := time.Duration(d); {
+	case d < time.Minute*10:
+		return "{green}Only less than ten minutes before you can request again!"
+	case d < time.Minute*30:
+		return "{blue}You need to wait at most another half hour until you can request!"
+	case d < time.Minute*61:
+		return "{brown}You still have quite a lot of time before you can request again..."
+	default:
+		return "{red}No."
 	}
+}
 
+func songCooldownMessageFromError(err error) string {
 	d, ok := errors.SelectDelay(err)
 	if !ok {
 		return "{green}No cooldown found."

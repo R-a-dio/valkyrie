@@ -108,23 +108,20 @@ func (rh RegexHandlers) Execute(c *girc.Client, e girc.Event) {
 		// execute our handler
 		err := handler.fn(event)
 		if err != nil {
+			msg := MessageFromError(err)
+
 			switch {
-			case errors.Is(errors.SearchNoResults, err):
-				event.Echo("Your search returned no results")
-			case errors.Is(errors.UserCooldown, err):
-				fallthrough
-			case errors.Is(errors.SongCooldown, err):
-				event.Echo(CooldownMessageFromError(err))
+			case msg != "":
+				event.Echo(msg)
 			case errors.IsE(err, context.Canceled):
 				event.Echo("Timeout reached")
 				zerolog.Ctx(ctx).Error().Ctx(ctx).Msg("handler timeout")
 			default:
-				event.Echo("An error has occurred")
+				event.Echo("An error has occurred: %s", span.SpanContext().SpanID())
 				zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("handler error")
 			}
 
 			span.RecordError(err)
-
 			return
 		}
 
