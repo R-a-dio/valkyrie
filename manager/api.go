@@ -262,6 +262,7 @@ func (m *Manager) runStatusUpdates(ctx context.Context, ready chan struct{}) {
 	// store initial value, for if we get a song update before a listener update
 	listenerCount := <-listenerCh
 	var songStartListenerCount radio.Listeners
+	var songStartUser *radio.User
 
 	// communicate that we are ready to handle events
 	close(ready)
@@ -291,7 +292,7 @@ func (m *Manager) runStatusUpdates(ctx context.Context, ready chan struct{}) {
 			m.mu.Lock()
 
 			if su == nil || !m.status.Song.EqualTo(su.Song) {
-				err := m.finishSong(ctx, m.status, songStartListenerCount)
+				err := m.finishSong(ctx, m.status, songStartListenerCount, songStartUser)
 				if err != nil {
 					zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed finishSong")
 				}
@@ -302,6 +303,7 @@ func (m *Manager) runStatusUpdates(ctx context.Context, ready chan struct{}) {
 				// listeners we have at the start of it
 				if !m.status.Song.EqualTo(su.Song) {
 					songStartListenerCount = listenerCount
+					songStartUser = m.status.StreamUser
 				}
 				m.status.Song = su.Song
 				m.status.SongInfo = su.Info
@@ -323,7 +325,7 @@ func (m *Manager) runStatusUpdates(ctx context.Context, ready chan struct{}) {
 	}
 }
 
-func (m *Manager) finishSong(ctx context.Context, status radio.Status, startListenerCount radio.Listeners) error {
+func (m *Manager) finishSong(ctx context.Context, status radio.Status, startListenerCount radio.Listeners, startUser *radio.User) error {
 	const op errors.Op = "manager/Manager.finishSong"
 	ctx, span := otel.Tracer("manager").Start(ctx, string(op))
 	defer span.End()
@@ -345,7 +347,11 @@ func (m *Manager) finishSong(ctx context.Context, status radio.Status, startList
 	defer tx.Rollback()
 
 	// add a play to the song
-	err = ss.AddPlay(status.Song, status.User, ldiff)
+	user := status.User
+	if startUser != nil {
+		user = *startUser
+	}
+	err = ss.AddPlay(status.Song, user, ldiff)
 	if err != nil {
 		return errors.E(op, err)
 	}

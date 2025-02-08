@@ -1,8 +1,8 @@
 package bleve
 
 import (
-	"fmt"
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -45,7 +45,7 @@ func (s *prioScoreSort) Value(a *search.DocumentMatch) string {
 
 	// boost sort score if we had a large match score; this means that
 	// there were exact matches
-	if (score > 0.5) {
+	if score > 0.5 {
 		prio += 1000
 	}
 
