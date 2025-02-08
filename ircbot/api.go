@@ -138,7 +138,7 @@ func (ann *announceService) AnnounceSong(ctx context.Context, status radio.Statu
 	// create a map of all the users so we get simpler and faster lookups
 	users := make(map[string]struct{}, len(channel.UserList))
 	for _, name := range channel.UserList {
-		users[name] = struct{}{}
+		users[strings.ToLower(name)] = struct{}{}
 	}
 
 	// we want to send as few NOTICEs as possible, so send to server MAXTARGETS at a time
@@ -165,7 +165,7 @@ func (ann *announceService) AnnounceSong(ctx context.Context, status radio.Statu
 	var chunk = make([]string, 0, maxtargets)
 	for _, name := range usersWithFave {
 		// check if the user is in the channel
-		if _, ok := users[name]; !ok {
+		if _, ok := users[strings.ToLower(name)]; !ok {
 			continue
 		}
 
