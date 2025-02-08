@@ -325,6 +325,8 @@ func (m *Manager) runStatusUpdates(ctx context.Context, ready chan struct{}) {
 
 func (m *Manager) finishSong(ctx context.Context, status radio.Status, startListenerCount radio.Listeners) error {
 	const op errors.Op = "manager/Manager.finishSong"
+	ctx, span := otel.Tracer("manager").Start(ctx, string(op))
+	defer span.End()
 
 	// calculate the listener difference
 	diff := startListenerCount - status.Listeners

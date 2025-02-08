@@ -134,16 +134,21 @@ func (tx *fakeTx) Rollback() error {
 
 type spanTx struct {
 	*sqlx.Tx
-	end func()
+	span trace.Span
+	end  func()
 }
 
 func (tx spanTx) Commit() error {
 	defer tx.end()
+	tx.span.AddEvent("commit")
+
 	return tx.Tx.Commit()
 }
 
 func (tx spanTx) Rollback() error {
 	defer tx.end()
+	tx.span.AddEvent("rollback")
+
 	return tx.Tx.Rollback()
 }
 
@@ -186,7 +191,7 @@ func beginTx(ctx context.Context, ex extContext, tx radio.StorageTx) (context.Co
 		}
 		ctx, span := otel.Tracer("mariadb").Start(ctx, "transaction")
 		end := sync.OnceFunc(func() { span.End() })
-		return ctx, tx, spanTx{tx, end}, err
+		return ctx, tx, spanTx{tx, span, end}, err
 	}
 
 	panic("mariadb: invalid ex passed to beginTx")
