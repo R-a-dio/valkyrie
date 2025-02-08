@@ -9,12 +9,12 @@ import (
 	"unicode/utf8"
 
 	"github.com/blevesearch/bleve/v2/analysis"
+	"github.com/blevesearch/bleve/v2/analysis/token/length"
 	"github.com/blevesearch/bleve/v2/analysis/token/lowercase"
 	"github.com/blevesearch/bleve/v2/analysis/token/ngram"
 	"github.com/blevesearch/bleve/v2/analysis/token/unicodenorm"
 	"github.com/blevesearch/bleve/v2/analysis/token/unique"
 	"github.com/blevesearch/bleve/v2/analysis/tokenizer/character"
-	"github.com/blevesearch/bleve/v2/analysis/tokenizer/whitespace"
 	"github.com/blevesearch/bleve/v2/registry"
 	"github.com/ikawaha/kagome-dict/ipa"
 	"github.com/ikawaha/kagome/v2/tokenizer"
@@ -62,8 +62,32 @@ func NewMultiAnalyzer(pre PrefilterFn, a ...analysis.Analyzer) analysis.Analyzer
 }
 
 func AnalyzerConstructor(config map[string]interface{}, cache *registry.Cache) (analysis.Analyzer, error) {
-	// construct our normal analyzer
-	tokenizer, err := cache.TokenizerNamed(whitespace.Name)
+	toLowerFilter, err := cache.TokenFilterNamed(lowercase.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	normalizeFilter := unicodenorm.MustNewUnicodeNormalizeFilter(unicodenorm.NFC)
+
+	tokenizer := character.NewCharacterTokenizer(func(r rune) bool { return !unicode.IsSpace(r) })
+
+	// construct the japanese specific analyzer
+	japanese := &analysis.DefaultAnalyzer{
+		Tokenizer: NewKagomeTokenizer(tokenizer),
+		TokenFilters: []analysis.TokenFilter{
+			toLowerFilter,
+			normalizeFilter,
+			FilterFn(RomajiFilter),
+			NgramFilter(NgramFilterMin, NgramFilterMax),
+			unique.NewUniqueTermFilter(),
+		},
+	}
+
+	return japanese, nil
+}
+
+func ExactAnalyzerConstructor(config map[string]interface{}, cache *registry.Cache) (analysis.Analyzer, error) {
+	tokenizer, err := cache.TokenizerNamed("unicode")
 	if err != nil {
 		return nil, err
 	}
@@ -75,40 +99,22 @@ func AnalyzerConstructor(config map[string]interface{}, cache *registry.Cache) (
 
 	normalizeFilter := unicodenorm.MustNewUnicodeNormalizeFilter(unicodenorm.NFC)
 
-	normal := &analysis.DefaultAnalyzer{
-		Tokenizer: tokenizer,
-		TokenFilters: []analysis.TokenFilter{
-			toLowerFilter,
-			//shingle.NewShingleFilter(2, 4, true, " ", "_"),
-			normalizeFilter,
-			NgramFilter(NgramFilterMin, NgramFilterMax),
-		},
-	}
-
-	// construct the japanese specific analyzer
-	japanese := &analysis.DefaultAnalyzer{
-		Tokenizer: NewKagomeTokenizer(),
+	// construct an exact term analyzer
+	exact := &analysis.DefaultAnalyzer{
+		Tokenizer: NewKagomeTokenizer(tokenizer),
 		TokenFilters: []analysis.TokenFilter{
 			toLowerFilter,
 			normalizeFilter,
-			FilterFn(RomajiFilter),
-			NgramFilter(NgramFilterMin, NgramFilterMax),
+			length.NewLengthFilter(2, 0), // filter away single char terms
 			unique.NewUniqueTermFilter(),
 		},
 	}
-
-	_ = normal
-	return japanese, nil
-	/*
-		return NewMultiAnalyzer(nihongo.Romaji,
-			japanese,
-			normal,
-		), nil
-	*/
+	return exact, nil
 }
 
 func init() {
 	registry.RegisterAnalyzer("radio", AnalyzerConstructor)
+	registry.RegisterAnalyzer("exact", ExactAnalyzerConstructor)
 }
 
 type FilterFn func(input analysis.TokenStream) analysis.TokenStream
@@ -161,7 +167,7 @@ func NgramFilter(min, max int) analysis.TokenFilter {
 		for i, tok := range input {
 			if len(tok.Term) > max {
 				// add the original token if it's above max
-				rv = append(rv, tok)
+				//rv = append(rv, tok)
 			}
 			// add the ngram tokens if this isn't a shingle
 			if tok.Type != analysis.Shingle {
@@ -177,7 +183,7 @@ type KagomeTokenizer struct {
 	whitespace analysis.Tokenizer
 }
 
-func NewKagomeTokenizer() *KagomeTokenizer {
+func NewKagomeTokenizer(tokeniz analysis.Tokenizer) *KagomeTokenizer {
 	tok, err := tokenizer.New(ipa.Dict(), tokenizer.OmitBosEos())
 	if err != nil {
 		return nil
@@ -185,7 +191,7 @@ func NewKagomeTokenizer() *KagomeTokenizer {
 
 	return &KagomeTokenizer{
 		kagome:     tok,
-		whitespace: character.NewCharacterTokenizer(func(r rune) bool { return !unicode.IsSpace(r) }),
+		whitespace: tokeniz,
 	}
 }
 

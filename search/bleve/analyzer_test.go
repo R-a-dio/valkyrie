@@ -4,13 +4,17 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode"
 	"unicode/utf8"
+	
+	"github.com/blevesearch/bleve/v2/analysis/tokenizer/character"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func FuzzTokenizer(f *testing.F) {
-	tok := NewKagomeTokenizer()
+	tokenizer := character.NewCharacterTokenizer(func(r rune) bool { return !unicode.IsSpace(r) })
+	tok := NewKagomeTokenizer(tokenizer)
 
 	f.Fuzz(func(t *testing.T, in []byte) {
 		now := time.Now()
@@ -68,7 +72,8 @@ func BenchmarkAnalyzer(b *testing.B) {
 }
 
 func BenchmarkTokenizer(b *testing.B) {
-	tok := NewKagomeTokenizer()
+	tokenizer := character.NewCharacterTokenizer(func(r rune) bool { return !unicode.IsSpace(r) })
+	tok := NewKagomeTokenizer(tokenizer)
 
 	fn := func(s string) func(b *testing.B) {
 		in := []byte(s)

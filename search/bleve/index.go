@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -21,6 +22,7 @@ import (
 
 const (
 	indexAnalyzerName = "radio"
+	exactAnalyzerName = "exact"
 )
 
 type prioScoreSort struct {
@@ -81,6 +83,8 @@ type indexSong struct {
 	Artist string `bleve:"artist"`
 	Album  string `bleve:"album"`
 	Tags   string `bleve:"tags"`
+	// combined field for exact term matches
+	Exact string `bleve:"exact"`
 	// time fields
 	LastRequested time.Time `bleve:"lastrequested"`
 	LastPlayed    time.Time `bleve:"lastplayed"`
@@ -102,11 +106,14 @@ func (is *indexSong) BleveType() string {
 func toIndexSong(s radio.Song) *indexSong {
 	data, _ := msgpack.Marshal(s)
 
+	exact := strings.Join([]string{s.Title, s.Artist, s.Album, s.Tags}, " ")
+
 	return &indexSong{
 		Title:         s.Title,
 		Artist:        s.Artist,
 		Album:         s.Album,
 		Tags:          s.Tags,
+		Exact:         exact,
 		LastRequested: s.LastRequested,
 		LastPlayed:    s.LastPlayed,
 		ID:            s.TrackID.String(),
@@ -227,6 +234,13 @@ func constructIndexMapping() (mapping.IndexMapping, error) {
 	sm.AddFieldMappingsAt("album", album)
 	tags := mixedTextMapping()
 	sm.AddFieldMappingsAt("tags", tags)
+
+	exact := bleve.NewTextFieldMapping()
+	exact.Analyzer = exactAnalyzerName
+	exact.Index = true
+	exact.Store = false
+	exact.IncludeInAll = false
+	sm.AddFieldMappingsAt("exact", exact)
 
 	acceptor := bleve.NewKeywordFieldMapping()
 	acceptor.Index = true

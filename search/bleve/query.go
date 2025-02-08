@@ -61,6 +61,8 @@ func (rq *RadioQuery) Searcher(ctx context.Context, i index.IndexReader, m mappi
 	field := m.DefaultSearchField()
 	analyzerName := m.AnalyzerNameForPath(field)
 	analyzer := m.AnalyzerNamed(analyzerName)
+	
+	exactAnalyzer := m.AnalyzerNamed("exact")
 
 	// analyze our query with the default analyzer, this should be the same one as
 	// used for the index generation
@@ -70,12 +72,13 @@ func (rq *RadioQuery) Searcher(ctx context.Context, i index.IndexReader, m mappi
 		noneQuery := query.NewMatchNoneQuery()
 		return noneQuery.Searcher(ctx, i, m, options)
 	}
+	
+	exactTokens := exactAnalyzer.Analyze([]byte(rq.Query))
 
 	// otherwise do some light filtering on the tokens returned, while we want these for
 	// the indexing operation, we don't need (or want) all of them for the query search
 	//should := make([]query.Query, 0, 0)
 	must := make([]query.Query, 0, len(tokens))
-	must_exact := make([]query.Query, 0, len(tokens))
 	for _, token := range tokens {
 		// skip shingle tokens, these will only match if they're in the exact order and exact token composition
 		// which is not useful for our purpose
@@ -86,10 +89,6 @@ func (rq *RadioQuery) Searcher(ctx context.Context, i index.IndexReader, m mappi
 		// skip tokens longer than our ngram filter, these won't match ever unless it's an exact match with
 		// what is in the index
 		if utf8.RuneCount(token.Term) > NgramFilterMax {
-			tq := query.NewTermQuery(string(token.Term))
-			tq.SetField(field)
-			tq.SetBoost(2.0)
-			must_exact = append(must_exact, tq)
 			continue
 		}
 
@@ -101,6 +100,21 @@ func (rq *RadioQuery) Searcher(ctx context.Context, i index.IndexReader, m mappi
 
 	cq := query.NewConjunctionQuery(must)
 	cq.SetBoost(1.0)
+
+	// check the exact field for exact matches, they boost the score
+	must_exact := make([]query.Query, 0, len(tokens))
+	for _, token := range exactTokens {
+		// skip shingle tokens, these will only match if they're in the exact order and exact token composition
+		// which is not useful for our purpose
+		if token.Type == analysis.Shingle {
+			// TODO: check if we want to add these to a disjunction query
+			continue
+		}
+		tq := query.NewTermQuery(string(token.Term))
+		tq.SetField("exact")
+		tq.SetBoost(2.0)
+		must_exact = append(must_exact, tq)
+	}
 
 	cq_exact := query.NewConjunctionQuery(must_exact)
 	cq_exact.SetBoost(1.0)
