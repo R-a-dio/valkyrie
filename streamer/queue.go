@@ -11,7 +11,6 @@ import (
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/streamer/audio"
-	"github.com/R-a-dio/valkyrie/util"
 	"github.com/rs/zerolog"
 	"go.opentelemetry.io/otel"
 )
@@ -47,11 +46,9 @@ func NewQueueService(ctx context.Context, cfg config.Config, storage radio.Stora
 	}
 
 	qs := &QueueService{
-		cfgMusicPath: config.Value(cfg, func(cfg config.Config) string {
-			return cfg.Conf().MusicPath
-		}),
 		logger:  zerolog.Ctx(ctx),
 		Storage: storage,
+		prober:  audio.NewProber(cfg, time.Second*2), // wait 2 seconds at most for ffprobe to run
 		queue:   queue,
 		rand:    config.NewRand(true),
 	}
@@ -69,11 +66,11 @@ func NewQueueService(ctx context.Context, cfg config.Config, storage radio.Stora
 
 // QueueService implements radio.QueueService that uses a random population algorithm
 type QueueService struct {
-	cfgMusicPath func() string
-	logger       *zerolog.Logger
+	logger *zerolog.Logger
 
 	Storage radio.StorageService
 	rand    *rand.Rand
+	prober  audio.Prober
 
 	// mu protects the fields below
 	mu    sync.Mutex
@@ -87,14 +84,10 @@ type QueueService struct {
 // song length with ffprobe and calculates the ExpectedStartTime on the entry
 func (qs *QueueService) append(ctx context.Context, entry radio.QueueEntry) {
 	// try running an ffprobe to get a more accurate song length
-	ctx, cancel := context.WithTimeout(ctx, time.Second)
-	defer cancel()
-
-	path := util.AbsolutePath(qs.cfgMusicPath(), entry.FilePath)
-	length, err := audio.ProbeDuration(ctx, path)
+	length, err := qs.prober(ctx, entry.Song)
 	if err != nil {
 		// log any error, but it isn't critical so just continue
-		qs.logger.Error().Ctx(ctx).Err(err).Ctx(ctx).Msg("duration probe failure")
+		qs.logger.Error().Ctx(ctx).Err(err).Msg("duration probe failure")
 	}
 
 	if length > 0 { // only change the length if we actually got one

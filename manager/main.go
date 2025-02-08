@@ -13,6 +13,7 @@ import (
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/rpc"
 	"github.com/R-a-dio/valkyrie/storage"
+	"github.com/R-a-dio/valkyrie/streamer/audio"
 	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/util/eventstream"
 	"github.com/Wessie/fdstore"
@@ -35,7 +36,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	}
 	defer ln.Close()
 
-	m, err := NewManager(ctx, store, state)
+	m, err := NewManager(ctx, store, audio.NewProber(cfg, time.Second), state)
 	if err != nil {
 		return err
 	}
@@ -126,10 +127,11 @@ func Execute(ctx context.Context, cfg config.Config) error {
 }
 
 // NewManager returns a manager ready for use
-func NewManager(ctx context.Context, store radio.StorageService, state []byte) (*Manager, error) {
+func NewManager(ctx context.Context, store radio.StorageService, prober audio.Prober, state []byte) (*Manager, error) {
 	m := Manager{
 		logger:  zerolog.Ctx(ctx),
 		Storage: store,
+		prober:  prober,
 		status:  radio.Status{},
 	}
 
@@ -174,6 +176,7 @@ type Manager struct {
 	logger  *zerolog.Logger
 	running atomic.Bool
 	Storage radio.StorageService
+	prober  audio.Prober
 
 	// mu protects the fields below and their contents
 	mu     sync.Mutex

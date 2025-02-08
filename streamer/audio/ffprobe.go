@@ -12,9 +12,28 @@ import (
 	"strings"
 	"time"
 
+	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
+	"github.com/R-a-dio/valkyrie/util"
 	"github.com/rs/zerolog"
 )
+
+type Prober func(ctx context.Context, song radio.Song) (time.Duration, error)
+
+func NewProber(cfg config.Config, timeout time.Duration) Prober {
+	cfgMusicPath := config.Value(cfg, func(cfg config.Config) string {
+		return cfg.Conf().MusicPath
+	})
+
+	return func(ctx context.Context, song radio.Song) (time.Duration, error) {
+		ctx, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
+
+		path := util.AbsolutePath(cfgMusicPath(), song.FilePath)
+		return ProbeDuration(ctx, path)
+	}
+}
 
 // ProbeDuration attempts to call ffprobe on the file given and returns
 // the duration as returned by it. Requires ffprobe findable in the PATH.

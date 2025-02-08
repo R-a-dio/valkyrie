@@ -101,8 +101,11 @@ func TestManager(t *testing.T) {
 			return us
 		},
 	}
+	prober := func(ctx context.Context, song radio.Song) (time.Duration, error) {
+		return 0, errors.New("not implemented")
+	}
 
-	m, err := NewManager(ctx, storage, nil)
+	m, err := NewManager(ctx, storage, prober, nil)
 	require.NoError(t, err)
 	require.NotNil(t, m)
 	// the status should now be our initial song and user

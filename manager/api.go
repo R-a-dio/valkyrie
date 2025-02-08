@@ -132,10 +132,25 @@ func (m *Manager) UpdateSong(ctx context.Context, su *radio.SongUpdate) error {
 		// it to the end time as an estimated end
 		if su.Song.Length > 0 { // updater song
 			info.End = info.End.Add(su.Song.Length)
-		} else if song.Length > 0 { // storage song
+			goto length_done
+		}
+
+		if song.HasTrack() { // database song, try probe for duration
+			length, err := m.prober(ctx, *song)
+			if err != nil {
+				m.logger.Error().Ctx(ctx).Err(err).Msg("duration probe failure")
+			} else {
+				info.End = info.End.Add(length)
+			}
+			goto length_done
+		}
+
+		if song.Length > 0 { // storage song
 			info.End = info.End.Add(song.Length)
+			goto length_done
 		}
 	}
+length_done:
 
 	// now we've filled in any missing information on both 'song' and 'info' so we
 	// can now check if we are even interested in this thing
