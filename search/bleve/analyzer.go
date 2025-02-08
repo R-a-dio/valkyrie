@@ -161,7 +161,7 @@ func NgramFilter(min, max int) analysis.TokenFilter {
 		for i, tok := range input {
 			if len(tok.Term) > max {
 				// add the original token if it's above max
-				//rv = append(rv, tok)
+				rv = append(rv, tok)
 			}
 			// add the ngram tokens if this isn't a shingle
 			if tok.Type != analysis.Shingle {

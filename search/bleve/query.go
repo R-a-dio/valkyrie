@@ -1,6 +1,7 @@
 package bleve
 
 import (
+	"fmt"
 	"context"
 	"strings"
 	"unicode/utf8"
@@ -75,7 +76,9 @@ func (rq *RadioQuery) Searcher(ctx context.Context, i index.IndexReader, m mappi
 	// the indexing operation, we don't need (or want) all of them for the query search
 	//should := make([]query.Query, 0, 0)
 	must := make([]query.Query, 0, len(tokens))
+	must_exact := make([]query.Query, 0, len(tokens))
 	for _, token := range tokens {
+		fmt.Println(token)
 		// skip shingle tokens, these will only match if they're in the exact order and exact token composition
 		// which is not useful for our purpose
 		if token.Type == analysis.Shingle {
@@ -85,21 +88,30 @@ func (rq *RadioQuery) Searcher(ctx context.Context, i index.IndexReader, m mappi
 		// skip tokens longer than our ngram filter, these won't match ever unless it's an exact match with
 		// what is in the index
 		if utf8.RuneCount(token.Term) > NgramFilterMax {
-			// TODO: check if we want to add these to a disjunction query
+			tq := query.NewTermQuery(string(token.Term))
+			tq.SetField(field)
+			tq.SetBoost(2.0)
+			must_exact = append(must_exact, tq)
 			continue
 		}
 
 		tq := query.NewTermQuery(string(token.Term))
 		tq.SetField(field)
-		tq.SetBoost(1.0)
+		tq.SetBoost(0.2)
 		must = append(must, tq)
 	}
 
 	cq := query.NewConjunctionQuery(must)
 	cq.SetBoost(1.0)
+	
+	cq_exact := query.NewConjunctionQuery(must_exact)
+	cq_exact.SetBoost(1.0)
+	
+	dq := query.NewDisjunctionQuery([]query.Query{cq_exact, cq})
+	dq.SetBoost(1.0)
 
-	//fmt.Println(query.DumpQuery(m, cq))
-	return cq.Searcher(ctx, i, m, options)
+	//fmt.Println(query.DumpQuery(m, dq))
+	return dq.Searcher(ctx, i, m, options)
 }
 
 func filterQuery(q *query.Query, filter ...func(q *query.Query)) {
