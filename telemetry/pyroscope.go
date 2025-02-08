@@ -7,6 +7,7 @@ import (
 
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/grafana/pyroscope-go"
+	"github.com/rs/zerolog"
 )
 
 func IsPyroscopeEnabled(cfg config.Config) bool {
@@ -14,7 +15,7 @@ func IsPyroscopeEnabled(cfg config.Config) bool {
 }
 
 func InitPyroscope(ctx context.Context, cfg config.Config, service string) (Profiler, error) {
-	if IsPyroscopeEnabled(cfg) {
+	if !IsPyroscopeEnabled(cfg) {
 		// disable if there is no endpoint configured
 		return noopPyroscope{}, nil
 	}
@@ -39,6 +40,8 @@ func InitPyroscope(ctx context.Context, cfg config.Config, service string) (Prof
 			pyroscope.ProfileBlockDuration,
 		},
 	}
+
+	zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("starting pyroscope profiling")
 
 	profiler, err := pyroscope.Start(conf)
 	if err != nil {
