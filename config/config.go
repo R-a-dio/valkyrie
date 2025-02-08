@@ -186,6 +186,11 @@ type telemetry struct {
 		URL        URL
 		ListenAddr AddrPort
 	}
+
+	Pyroscope struct {
+		Endpoint   URL
+		UploadRate Duration
+	}
 }
 
 type providers struct {

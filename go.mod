@@ -27,6 +27,8 @@ require (
 	github.com/golang-migrate/migrate/v4 v4.18.1
 	github.com/google/subcommands v1.2.0
 	github.com/gorilla/csrf v1.7.2
+	github.com/grafana/otel-profiling-go v0.5.1
+	github.com/grafana/pyroscope-go v1.2.0
 	github.com/ikawaha/kagome-dict/ipa v1.2.0
 	github.com/ikawaha/kagome/v2 v2.10.0
 	github.com/jmoiron/sqlx v1.4.0
@@ -108,6 +110,7 @@ require (
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
+	github.com/grafana/pyroscope-go/godeltaprof v0.1.8 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.25.1 // indirect
 	github.com/ikawaha/kagome-dict v1.1.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect

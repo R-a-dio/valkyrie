@@ -11,6 +11,7 @@ import (
 	"github.com/R-a-dio/valkyrie/storage/mariadb"
 	"github.com/R-a-dio/valkyrie/website"
 	"github.com/XSAM/otelsql"
+	otelpyroscope "github.com/grafana/otel-profiling-go"
 	"github.com/jmoiron/sqlx"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/push"
@@ -37,11 +38,21 @@ import (
 )
 
 func Init(ctx context.Context, cfg config.Config, service string) (func(), error) {
+	pp, err := InitPyroscope(ctx, cfg, service)
+	if err != nil {
+		return nil, err
+	}
+
 	tp, err := InitTracer(ctx, cfg, service)
 	if err != nil {
 		return nil, err
 	}
-	otel.SetTracerProvider(tp)
+	// if pyroscope is installed and enabled, wrap our trace provider for linkage support
+	var wrapped traceapi.TracerProvider = tp
+	if IsPyroscopeEnabled(cfg) {
+		wrapped = otelpyroscope.NewTracerProvider(tp)
+	}
+	otel.SetTracerProvider(wrapped)
 
 	mp, err := InitMetric(ctx, cfg, service)
 	if err != nil {
@@ -98,6 +109,7 @@ func Init(ctx context.Context, cfg config.Config, service string) (func(), error
 		// then at our own timeout so we don't wait forever on telemetry shutdown
 		ctx, cancel := context.WithTimeout(ctx, time.Second*10)
 		defer cancel()
+		pp.Stop()
 		tp.Shutdown(ctx)
 		mp.Shutdown(ctx)
 		lp.Shutdown(ctx)
@@ -136,7 +148,6 @@ func InitTracer(ctx context.Context, cfg config.Config, service string) (*trace.
 		trace.WithResource(res),
 	)
 
-	otel.SetTracerProvider(tp)
 	return tp, nil
 }
 
@@ -169,7 +180,6 @@ func InitMetric(ctx context.Context, cfg config.Config, service string) (*metric
 		metric.WithResource(res),
 	)
 
-	otel.SetMeterProvider(mp)
 	return mp, nil
 }
 
