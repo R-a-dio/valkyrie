@@ -85,7 +85,7 @@ func Init(ctx context.Context, cfg config.Config, service string) (func(), error
 		collectors.WithGoCollectorRuntimeMetrics(collectors.MetricsAll),
 	)
 
-	pusher := push.New(cfg.Conf().Telemetry.PrometheusEndpoint, "radio:"+service).
+	pusher := push.New(cfg.Conf().Telemetry.PrometheusEndpoint, "radio."+service).
 		Collector(rc)
 	go func() {
 		ticker := time.NewTicker(time.Second * 15)
@@ -137,7 +137,7 @@ func InitTracer(ctx context.Context, cfg config.Config, service string) (*trace.
 	if err != nil {
 		return nil, err
 	}
-	res, err = resource.Merge(res, resource.NewWithAttributes(semconv.SchemaURL, semconv.ServiceName("radio:"+service)))
+	res, err = resource.Merge(res, resource.NewWithAttributes(semconv.SchemaURL, semconv.ServiceName("radio."+service)))
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +170,7 @@ func InitMetric(ctx context.Context, cfg config.Config, service string) (*metric
 	if err != nil {
 		return nil, err
 	}
-	res, err = resource.Merge(res, resource.NewWithAttributes(semconv.SchemaURL, semconv.ServiceName("radio:"+service)))
+	res, err = resource.Merge(res, resource.NewWithAttributes(semconv.SchemaURL, semconv.ServiceName("radio."+service)))
 	if err != nil {
 		return nil, err
 	}
@@ -203,7 +203,7 @@ func InitLogs(ctx context.Context, cfg config.Config, service string) (*log.Logg
 	if err != nil {
 		return nil, err
 	}
-	res, err = resource.Merge(res, resource.NewWithAttributes(semconv.SchemaURL, semconv.ServiceName("radio:"+service)))
+	res, err = resource.Merge(res, resource.NewWithAttributes(semconv.SchemaURL, semconv.ServiceName("radio."+service)))
 	if err != nil {
 		return nil, err
 	}

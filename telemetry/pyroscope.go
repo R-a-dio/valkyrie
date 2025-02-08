@@ -22,7 +22,7 @@ func InitPyroscope(ctx context.Context, cfg config.Config, service string) (Prof
 	runtime.SetBlockProfileRate(5)
 
 	conf := pyroscope.Config{
-		ApplicationName: "radio:" + service,
+		ApplicationName: "radio." + service,
 		ServerAddress:   string(cfg.Conf().Telemetry.Pyroscope.Endpoint),
 		UploadRate:      time.Duration(cfg.Conf().Telemetry.Pyroscope.UploadRate),
 		ProfileTypes: []pyroscope.ProfileType{
