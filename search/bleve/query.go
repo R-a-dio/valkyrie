@@ -1,7 +1,6 @@
 package bleve
 
 import (
-	"fmt"
 	"context"
 	"strings"
 	"unicode/utf8"
@@ -78,7 +77,6 @@ func (rq *RadioQuery) Searcher(ctx context.Context, i index.IndexReader, m mappi
 	must := make([]query.Query, 0, len(tokens))
 	must_exact := make([]query.Query, 0, len(tokens))
 	for _, token := range tokens {
-		fmt.Println(token)
 		// skip shingle tokens, these will only match if they're in the exact order and exact token composition
 		// which is not useful for our purpose
 		if token.Type == analysis.Shingle {
@@ -103,10 +101,10 @@ func (rq *RadioQuery) Searcher(ctx context.Context, i index.IndexReader, m mappi
 
 	cq := query.NewConjunctionQuery(must)
 	cq.SetBoost(1.0)
-	
+
 	cq_exact := query.NewConjunctionQuery(must_exact)
 	cq_exact.SetBoost(1.0)
-	
+
 	dq := query.NewDisjunctionQuery([]query.Query{cq_exact, cq})
 	dq.SetBoost(1.0)
 
