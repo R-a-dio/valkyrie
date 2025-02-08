@@ -126,7 +126,7 @@ func (a *API) postRequest(r *http.Request) error {
 
 	err = a.streamer.RequestSong(ctx, *song, r.RemoteAddr)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 
 	return nil

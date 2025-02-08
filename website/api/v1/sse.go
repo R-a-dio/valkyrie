@@ -48,18 +48,14 @@ func (a *API) runStatusUpdates(ctx context.Context) {
 		if status.Thread != previous.Thread {
 			log.Debug().Ctx(ctx).Str("event", EventThread).Any("value", status).Msg("sending")
 			a.sse.SendThread(status.Thread)
-			// TODO: add an actual sendThread as well
-			// TODO: see if we need this hack at all
 			// send a queue after a thread update, since our default theme
-			// uses the queue template for the thread location
-			//go a.sendQueue(ctx)
+			// uses the queue and thread in the same location
+			go a.sendQueue(ctx, status.StreamUser)
 		}
 
 		// only pass an update through if the song is different from the previous one
 		if !status.Song.EqualTo(previous.Song) {
 			// update the listener count with a more recent value
-			// FIXME: this doesn't actually change the status retrieved inside the templates
-			// 		by calling the Status function
 			status.Listeners = listeners.Load()
 
 			log.Debug().Ctx(ctx).Str("event", EventMetadata).Any("value", status).Msg("sending")
@@ -69,8 +65,7 @@ func (a *API) runStatusUpdates(ctx context.Context) {
 		}
 
 		// same goes for the user one, only pass it through if the user actually changed
-		if status.User.ID != previous.User.ID ||
-			status.User.DJ != previous.User.DJ {
+		if status.User.ID != previous.User.ID || status.User.DJ != previous.User.DJ {
 			log.Debug().Ctx(ctx).Str("event", EventStreamer).Any("value", status.User).Msg("sending")
 			a.sse.SendStreamer(status.User)
 			// send the queue for this user, this should fix a small desync issue where metadata
