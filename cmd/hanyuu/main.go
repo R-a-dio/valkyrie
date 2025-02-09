@@ -26,6 +26,7 @@ import (
 	"github.com/R-a-dio/valkyrie/telemetry/otelzerolog"
 	"github.com/R-a-dio/valkyrie/tracker"
 	"github.com/R-a-dio/valkyrie/util"
+	"github.com/R-a-dio/valkyrie/util/buildinfo"
 	"github.com/R-a-dio/valkyrie/website"
 	"github.com/Wessie/fdstore"
 	"github.com/google/subcommands"
@@ -131,20 +132,9 @@ var versionCmd = cmd{
 	execute: printVersion,
 }
 
-var CommitHash = sync.OnceValue[string](func() string {
-	if info, ok := debug.ReadBuildInfo(); ok { // requires go version 1.12+
-		for _, setting := range info.Settings {
-			if setting.Key == "vcs.revision" {
-				return setting.Value
-			}
-		}
-	}
-	return "(devel)"
-})
-
 func printVersion(context.Context, config.Loader) error {
 	if info, ok := debug.ReadBuildInfo(); ok { // requires go version 1.12+
-		fmt.Printf("%s %s\n", info.Path, CommitHash())
+		fmt.Printf("%s %s\n", info.Path, buildinfo.Version)
 		for _, mod := range info.Deps {
 			fmt.Printf("\t%s %s\n", mod.Path, mod.Version)
 		}
@@ -294,11 +284,6 @@ var bleveCmd = cmd{
 	noSIGUSR2: true,
 }
 
-var (
-	InstrumentationName    = "github.com/R-a-dio/valkyrie"
-	InstrumentationVersion = CommitHash()
-)
-
 func main() {
 	var disableStdout bool
 	// setup configuration file as top-level flag
@@ -359,8 +344,8 @@ func main() {
 	}
 	// use the opentelemetry zerolog hook
 	logger = logger.Level(level).Hook(otelzerolog.Hook(
-		InstrumentationName,
-		InstrumentationVersion,
+		buildinfo.InstrumentationName,
+		buildinfo.InstrumentationVersion,
 	))
 
 	// setup root context

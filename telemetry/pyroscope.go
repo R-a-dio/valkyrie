@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/R-a-dio/valkyrie/config"
+	"github.com/R-a-dio/valkyrie/util/buildinfo"
 	"github.com/grafana/pyroscope-go"
 	"github.com/rs/zerolog"
 )
@@ -25,7 +26,11 @@ func InitPyroscope(ctx context.Context, cfg config.Config, service string) (Prof
 	conf := pyroscope.Config{
 		ApplicationName: "radio." + service,
 		ServerAddress:   string(cfg.Conf().Telemetry.Pyroscope.Endpoint),
-		UploadRate:      time.Duration(cfg.Conf().Telemetry.Pyroscope.UploadRate),
+		Tags: map[string]string{
+			"service_git_ref":    buildinfo.GitRef,
+			"service_repository": "https://github.com/r-a-dio/valkyrie",
+		},
+		UploadRate: time.Duration(cfg.Conf().Telemetry.Pyroscope.UploadRate),
 		ProfileTypes: []pyroscope.ProfileType{
 			pyroscope.ProfileCPU,
 			pyroscope.ProfileAllocObjects,

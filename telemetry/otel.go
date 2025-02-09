@@ -9,6 +9,7 @@ import (
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/rpc"
 	"github.com/R-a-dio/valkyrie/storage/mariadb"
+	"github.com/R-a-dio/valkyrie/util/buildinfo"
 	"github.com/R-a-dio/valkyrie/website"
 	"github.com/XSAM/otelsql"
 	otelpyroscope "github.com/grafana/otel-profiling-go"
@@ -118,6 +119,21 @@ func Init(ctx context.Context, cfg config.Config, service string) (func(), error
 	return closeFn, err
 }
 
+func GenerateResource(service string) (*resource.Resource, error) {
+	res, err := resource.Merge(resource.Default(), resource.Environment())
+	if err != nil {
+		return nil, err
+	}
+	res, err = resource.Merge(res, resource.NewWithAttributes(semconv.SchemaURL,
+		semconv.ServiceName("radio."+service),
+		semconv.ServiceVersion(buildinfo.Version),
+	))
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
 func InitTracer(ctx context.Context, cfg config.Config, service string) (*trace.TracerProvider, error) {
 	conf := cfg.Conf().Telemetry
 
@@ -133,11 +149,7 @@ func InitTracer(ctx context.Context, cfg config.Config, service string) (*trace.
 		return nil, err
 	}
 
-	res, err := resource.Merge(resource.Default(), resource.Environment())
-	if err != nil {
-		return nil, err
-	}
-	res, err = resource.Merge(res, resource.NewWithAttributes(semconv.SchemaURL, semconv.ServiceName("radio."+service)))
+	res, err := GenerateResource(service)
 	if err != nil {
 		return nil, err
 	}
@@ -166,11 +178,7 @@ func InitMetric(ctx context.Context, cfg config.Config, service string) (*metric
 		return nil, err
 	}
 
-	res, err := resource.Merge(resource.Default(), resource.Environment())
-	if err != nil {
-		return nil, err
-	}
-	res, err = resource.Merge(res, resource.NewWithAttributes(semconv.SchemaURL, semconv.ServiceName("radio."+service)))
+	res, err := GenerateResource(service)
 	if err != nil {
 		return nil, err
 	}
@@ -199,11 +207,7 @@ func InitLogs(ctx context.Context, cfg config.Config, service string) (*log.Logg
 		return nil, err
 	}
 
-	res, err := resource.Merge(resource.Default(), resource.Environment())
-	if err != nil {
-		return nil, err
-	}
-	res, err = resource.Merge(res, resource.NewWithAttributes(semconv.SchemaURL, semconv.ServiceName("radio."+service)))
+	res, err := GenerateResource(service)
 	if err != nil {
 		return nil, err
 	}
