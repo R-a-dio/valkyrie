@@ -15,6 +15,7 @@ import (
 	"github.com/R-a-dio/valkyrie/util"
 	"github.com/lrstanley/girc"
 	"github.com/rs/zerolog"
+	"go.opentelemetry.io/otel"
 	"google.golang.org/grpc"
 )
 
@@ -67,6 +68,8 @@ type announceService struct {
 
 func (ann *announceService) AnnounceSong(ctx context.Context, status radio.Status) error {
 	const op errors.Op = "irc/announceService.AnnounceSong"
+	ctx, span := otel.Tracer("").Start(ctx, string(op))
+	defer span.End()
 
 	// don't do the announcement if the last one was recent enough
 	if time.Since(ann.lastAnnounceSongTime) < ann.cfgAnnouncePeriod() {
@@ -215,6 +218,8 @@ func (ann *announceService) AnnounceSong(ctx context.Context, status radio.Statu
 
 func (ann *announceService) AnnounceRequest(ctx context.Context, song radio.Song) error {
 	const op errors.Op = "irc/announceService.AnnounceRequest"
+	ctx, span := otel.Tracer("").Start(ctx, string(op))
+	defer span.End()
 
 	message := "Requested:{green} '%s'"
 
@@ -257,7 +262,12 @@ func (ann *announceService) AnnounceRequest(ctx context.Context, song radio.Song
 }
 
 func (ann *announceService) AnnounceThread(ctx context.Context, thread radio.Thread) error {
+	const op errors.Op = "ircbot/announceService.AnnounceThread"
+	ctx, span := otel.Tracer("").Start(ctx, string(op))
+	defer span.End()
+
 	if ann.lastThread == thread {
+		zerolog.Ctx(ctx).Info().Ctx(ctx).Str("thread", thread).Msg("skipping thread announce because thread is the same as last")
 		return nil
 	}
 
@@ -268,6 +278,10 @@ func (ann *announceService) AnnounceThread(ctx context.Context, thread radio.Thr
 }
 
 func (ann *announceService) AnnounceUser(ctx context.Context, user *radio.User) error {
+	const op errors.Op = "ircbot/announceService.AnnounceUser"
+	ctx, span := otel.Tracer("").Start(ctx, string(op))
+	defer span.End()
+
 	const userDelay = time.Second * 15
 
 	if !user.IsValid() {
@@ -280,6 +294,7 @@ func (ann *announceService) AnnounceUser(ctx context.Context, user *radio.User) 
 	ann.userMu.Lock()
 	defer ann.userMu.Unlock()
 	if ann.userLast == user.DJ.Name {
+		zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("skipping user announce because user is the same as last")
 		return nil
 	}
 
@@ -295,6 +310,7 @@ func (ann *announceService) queueChangeTopic(ctx context.Context, user *radio.Us
 	const topicDelay = time.Second * 30
 
 	ann.topicTimerMu.Lock()
+	defer ann.topicTimerMu.Unlock()
 	if ann.topicTimer != nil {
 		// stop any timer that is already running
 		ann.topicTimer.Stop()
@@ -302,13 +318,14 @@ func (ann *announceService) queueChangeTopic(ctx context.Context, user *radio.Us
 	// start a timer for updating the topic
 	ann.topicTimer = time.AfterFunc(topicDelay, func() {
 		ann.topicTimerMu.Lock()
+		defer ann.topicTimerMu.Unlock()
 		if time.Since(ann.topicLastEdit) < topicDelay {
 			// if our last edit was recent, just queue another update a bit
 			// into the future
-			ann.topicTimerMu.Unlock()
+			zerolog.Ctx(ctx).Info().Dur("timeout", topicDelay).Msg("recent topic change, waiting more")
 			ann.queueChangeTopic(ctx, user)
+			return
 		}
-		defer ann.topicTimerMu.Unlock()
 
 		err := ann.changeTopic(context.WithoutCancel(ctx), user)
 		if err != nil {
@@ -319,13 +336,14 @@ func (ann *announceService) queueChangeTopic(ctx context.Context, user *radio.Us
 		ann.topicTimer.Stop()
 		ann.topicTimer = nil
 	})
-	ann.topicTimerMu.Unlock()
 }
 
 var reOtherTopicBit = regexp.MustCompile(`(.*?r/.*/dio.*?)(\|.*?\|)(.*)`)
 
 func (ann *announceService) changeTopic(ctx context.Context, user *radio.User) error {
 	const op errors.Op = "ircbot/announceService.changeTopic"
+	ctx, span := otel.Tracer("").Start(ctx, string(op))
+	defer span.End()
 
 	channel := ann.bot.c.LookupChannel(ann.cfgMainChannel())
 	if channel == nil {
@@ -351,7 +369,7 @@ func (ann *announceService) changeTopic(ctx context.Context, user *radio.User) e
 	// now the group we're interested in is the second one, so replace that with
 	// our new status print
 	match[1] = Fmt(
-		"|{orange} Stream:{red} %s {orange}DJ:{red} %s {cyan} https://r-a-d.io {clear}|",
+		"|{orange} Stream:{red} %s {orange}DJ:{red} %s{cyan} https://r-a-d.io {clear}|",
 		topicStatus, topicName,
 	)
 

@@ -15,6 +15,7 @@ import (
 	"github.com/R-a-dio/valkyrie/search"
 	"github.com/R-a-dio/valkyrie/storage"
 	"github.com/R-a-dio/valkyrie/util"
+	"github.com/R-a-dio/valkyrie/util/buildinfo"
 	"github.com/lrstanley/girc"
 )
 
@@ -112,7 +113,7 @@ func NewBot(ctx context.Context, cfg config.Config) (*Bot, error) {
 	ircConf.Bind = c.IRC.BindAddr
 	ircConf.AllowFlood = c.IRC.AllowFlood
 	ircConf.RecoverFunc = girc.DefaultRecoverHandler
-	ircConf.Version = c.UserAgent
+	ircConf.Version = c.UserAgent + " (" + buildinfo.ShortRef + ")"
 
 	b := &Bot{
 		cfgUserRequestDelay: config.Value(cfg, func(cfg config.Config) time.Duration {
