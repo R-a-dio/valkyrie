@@ -4,4 +4,8 @@ Disallow: /search
 Disallow: /last-played
 Disallow: /queue
 Disallow: /faves
+Disallow: /api
+Disallow: /api/
+Disallow: /v1
+Disallow: /v1/
 Allow: /
