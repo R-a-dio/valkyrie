@@ -83,6 +83,10 @@ type QueueService struct {
 // append appends the entry given to the queue, it tries to probe a more accurate
 // song length with ffprobe and calculates the ExpectedStartTime on the entry
 func (qs *QueueService) append(ctx context.Context, entry radio.QueueEntry) {
+	const op errors.Op = "streamer/QueueService.append"
+	ctx, span := otel.Tracer("queue").Start(ctx, string(op))
+	defer span.End()
+
 	// try running an ffprobe to get a more accurate song length
 	length, err := qs.prober(ctx, entry.Song)
 	if err != nil {
@@ -119,6 +123,8 @@ func (qs *QueueService) calculateExpectedStartTime() {
 // AddRequest implements radio.QueueService
 func (qs *QueueService) AddRequest(ctx context.Context, song radio.Song, identifier string) error {
 	const op errors.Op = "streamer/QueueService.AddRequest"
+	ctx, span := otel.Tracer("queue").Start(ctx, string(op))
+	defer span.End()
 
 	qs.mu.Lock()
 	defer qs.mu.Unlock()
@@ -139,6 +145,8 @@ func (qs *QueueService) AddRequest(ctx context.Context, song radio.Song, identif
 // ReserveNext implements radio.QueueService
 func (qs *QueueService) ReserveNext(ctx context.Context) (*radio.QueueEntry, error) {
 	const op errors.Op = "streamer/QueueService.ReserveNext"
+	ctx, span := otel.Tracer("queue").Start(ctx, string(op))
+	defer span.End()
 
 	qs.mu.Lock()
 	defer qs.mu.Unlock()
@@ -160,6 +168,10 @@ func (qs *QueueService) ReserveNext(ctx context.Context) (*radio.QueueEntry, err
 
 // ResetReserved implements radio.QueueService
 func (qs *QueueService) ResetReserved(ctx context.Context) error {
+	const op errors.Op = "streamer/QueueService.ResetReserved"
+	ctx, span := otel.Tracer("queue").Start(ctx, string(op))
+	defer span.End()
+
 	qs.mu.Lock()
 	defer qs.mu.Unlock()
 
@@ -171,6 +183,8 @@ func (qs *QueueService) ResetReserved(ctx context.Context) error {
 // Remove removes the song given from the queue
 func (qs *QueueService) Remove(ctx context.Context, id radio.QueueID) (bool, error) {
 	const op errors.Op = "streamer/QueueService.Remove"
+	ctx, span := otel.Tracer("queue").Start(ctx, string(op))
+	defer span.End()
 
 	qs.mu.Lock()
 	defer qs.mu.Unlock()
@@ -226,6 +240,10 @@ func (qs *QueueService) Remove(ctx context.Context, id radio.QueueID) (bool, err
 
 // Entries returns all entries in the queue
 func (qs *QueueService) Entries(ctx context.Context) (radio.Queue, error) {
+	const op errors.Op = "streamer/QueueService.Entries"
+	ctx, span := otel.Tracer("queue").Start(ctx, string(op))
+	defer span.End()
+
 	qs.mu.Lock()
 	defer qs.mu.Unlock()
 

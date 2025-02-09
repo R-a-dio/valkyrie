@@ -457,7 +457,7 @@ func (s *Streamer) encoder(ctx context.Context, encoder *audio.LAME) error {
 			Uint64("trackid", uint64(entry.TrackID)).
 			Str("metadata", entry.Metadata).
 			Msg("starting decoding")
-		pcm, err := audio.DecodeFileGain(s.AudioFormat, filename)
+		pcm, err := audio.DecodeFileGain(ctx, s.AudioFormat, filename)
 		if err != nil {
 			s.queue.Remove(ctx, entry.QueueID)
 			continue

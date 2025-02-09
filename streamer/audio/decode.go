@@ -1,23 +1,30 @@
 package audio
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 
+	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/justincormack/go-memfd"
+	"go.opentelemetry.io/otel"
 )
 
 // DecodeFile decodes the filename given to an in-memory buffer as
 // PCM audio data
-func DecodeFile(filename string) (*MemoryBuffer, error) {
-	ff, err := newFFmpeg(filename)
+func DecodeFile(ctx context.Context, filename string) (*MemoryBuffer, error) {
+	const op errors.Op = "streamer/audio.DecodeFile"
+	ctx, span := otel.Tracer("").Start(ctx, string(op))
+	defer span.End()
+
+	ff, err := newFFmpeg(ctx, filename)
 	if err != nil {
 		return nil, err
 	}
 
-	return ff.Run()
+	return ff.Run(ctx)
 }
 
 type ffmpeg struct {
@@ -28,7 +35,7 @@ type ffmpeg struct {
 
 // newFFmpeg prepares a new ffmpeg process for decoding the filename given. The context
 // given is passed to os/exec.Cmd
-func newFFmpeg(filename string) (*ffmpeg, error) {
+func newFFmpeg(ctx context.Context, filename string) (*ffmpeg, error) {
 	// prepare arguments
 	args := []string{
 		"-hide_banner",
@@ -41,10 +48,10 @@ func newFFmpeg(filename string) (*ffmpeg, error) {
 		"-",
 	}
 
-	return newFFmpegCmd(filename, args)
+	return newFFmpegCmd(ctx, filename, args)
 }
 
-func newFFmpegCmd(name string, args []string) (*ffmpeg, error) {
+func newFFmpegCmd(ctx context.Context, name string, args []string) (*ffmpeg, error) {
 	out, err := NewMemoryBuffer(name, nil)
 	if err != nil {
 		return nil, err
@@ -57,14 +64,18 @@ func newFFmpegCmd(name string, args []string) (*ffmpeg, error) {
 	}
 
 	// prepare the os/exec command and give us access to output
-	cmd := exec.Command("ffmpeg", args...)
+	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
 	cmd.Stdout = out.Memfd.File
 	// stderr is only used when an error is reported by exec.Cmd
 	cmd.Stderr = errOut.File
 	return &ffmpeg{Cmd: cmd, Stdout: out, Stderr: errOut}, nil
 }
 
-func newFFmpegCmdFile(name string, args []string) (*ffmpeg, error) {
+func newFFmpegCmdFile(ctx context.Context, name string, args []string) (*ffmpeg, error) {
+	const op errors.Op = "streamer/audio.newFFmpegCmdFile"
+	ctx, span := otel.Tracer("").Start(ctx, string(op))
+	defer span.End()
+
 	out, err := NewMemoryBuffer(name, nil)
 	if err != nil {
 		return nil, err
@@ -79,7 +90,7 @@ func newFFmpegCmdFile(name string, args []string) (*ffmpeg, error) {
 	args = append(args, "-y", fmt.Sprintf("/proc/%d/fd/%d", os.Getpid(), out.Fd()))
 
 	// prepare the os/exec command and give us access to output
-	cmd := exec.Command("ffmpeg", args...)
+	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
 	//cmd.Stdout = out.Memfd.File
 	// stderr is only used when an error is reported by exec.Cmd
 	cmd.Stderr = errOut.File
@@ -99,8 +110,8 @@ func (ff *ffmpeg) ReadError() error {
 	return fmt.Errorf("stderr: %s", string(out))
 }
 
-func (ff *ffmpeg) Output() ([]byte, error) {
-	out, err := ff.Run()
+func (ff *ffmpeg) Output(ctx context.Context) ([]byte, error) {
+	out, err := ff.Run(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -109,8 +120,8 @@ func (ff *ffmpeg) Output() ([]byte, error) {
 	return io.ReadAll(out)
 }
 
-func (ff *ffmpeg) ErrOutput() ([]byte, error) {
-	_, err := ff.Run()
+func (ff *ffmpeg) ErrOutput(ctx context.Context) ([]byte, error) {
+	_, err := ff.Run(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +131,11 @@ func (ff *ffmpeg) ErrOutput() ([]byte, error) {
 	return io.ReadAll(ff.Stderr)
 }
 
-func (ff *ffmpeg) Run() (*MemoryBuffer, error) {
+func (ff *ffmpeg) Run(ctx context.Context) (*MemoryBuffer, error) {
+	const op errors.Op = "streamer/audio/ffmpeg.Run"
+	ctx, span := otel.Tracer("").Start(ctx, string(op))
+	defer span.End()
+
 	// try and start the ffmpeg instance
 	if err := ff.Cmd.Start(); err != nil {
 		ff.Close() // close everything if we fail

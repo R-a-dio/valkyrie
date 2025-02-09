@@ -10,6 +10,7 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/spf13/afero"
+	"go.opentelemetry.io/otel"
 )
 
 // DeleteID3Tags runs `id3v2 --delete-all <filename>` this removes any id3 tags
@@ -22,6 +23,8 @@ func DeleteID3Tags(ctx context.Context, filename string) {
 // it as an in-memory file.
 func WriteMetadata(ctx context.Context, f afero.File, song radio.Song) (*MemoryBuffer, error) {
 	const op errors.Op = "streamer/audio.WriteMetadata"
+	ctx, span := otel.Tracer("").Start(ctx, string(op))
+	defer span.End()
 
 	args := []string{
 		"-hide_banner",
@@ -55,13 +58,13 @@ func WriteMetadata(ctx context.Context, f afero.File, song radio.Song) (*MemoryB
 	}
 	//args = append(args, "-")
 
-	ff, err := newFFmpegCmdFile("metadata-"+song.TrackID.String(), args)
+	ff, err := newFFmpegCmdFile(ctx, "metadata-"+song.TrackID.String(), args)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
 	ff.Cmd.Stdin = f
 
-	out, err := ff.Run()
+	out, err := ff.Run(ctx)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}

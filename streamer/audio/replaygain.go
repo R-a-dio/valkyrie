@@ -2,18 +2,19 @@ package audio
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 )
 
 // DecodeFileGain decodes the path given with replaygain applied
-func DecodeFileGain(af AudioFormat, filename string) (*PCMReader, error) {
-	ff, err := newFFmpegWithReplaygain(filename)
+func DecodeFileGain(ctx context.Context, af AudioFormat, filename string) (*PCMReader, error) {
+	ff, err := newFFmpegWithReplaygain(ctx, filename)
 	if err != nil {
 		return nil, err
 	}
 
-	mb, err := ff.Run()
+	mb, err := ff.Run(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -28,7 +29,7 @@ func DecodeFileGain(af AudioFormat, filename string) (*PCMReader, error) {
 	return NewPCMReader(af, mr), nil
 }
 
-func newFFmpegWithReplaygain(filename string) (*ffmpeg, error) {
+func newFFmpegWithReplaygain(ctx context.Context, filename string) (*ffmpeg, error) {
 	const (
 		// target loudness in LUFs (Loudness Units Full Scale)
 		I = -14
@@ -49,13 +50,13 @@ func newFFmpegWithReplaygain(filename string) (*ffmpeg, error) {
 		"-",
 	}
 
-	ff, err := newFFmpegCmd(filename, args)
+	ff, err := newFFmpegCmd(ctx, filename, args)
 	if err != nil {
 		return nil, err
 	}
 
 	// ffmpeg outputs the analyzes on stderr
-	data, err := ff.ErrOutput()
+	data, err := ff.ErrOutput(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +93,7 @@ func newFFmpegWithReplaygain(filename string) (*ffmpeg, error) {
 		"-",
 	}
 
-	return newFFmpegCmd(filename, args)
+	return newFFmpegCmd(ctx, filename, args)
 }
 
 type replaygainInfo struct {

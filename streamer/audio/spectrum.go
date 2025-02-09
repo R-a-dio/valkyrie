@@ -8,10 +8,13 @@ import (
 
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/justincormack/go-memfd"
+	"go.opentelemetry.io/otel"
 )
 
 func Spectrum(ctx context.Context, filename string) (*os.File, error) {
 	const op errors.Op = "streamer/audio.Spectrum"
+	ctx, span := otel.Tracer("").Start(ctx, string(op))
+	defer span.End()
 
 	f, err := memfd.CreateNameFlags("spectrum", memfd.AllowSealing|memfd.Cloexec)
 	if err != nil {

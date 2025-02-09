@@ -54,7 +54,7 @@ func ExecuteVerifier(ctx context.Context, cfg config.Config) error {
 }
 
 func decodeFile(ctx context.Context, filename string) error {
-	buf, err := audio.DecodeFile(filename)
+	buf, err := audio.DecodeFile(ctx, filename)
 	if err != nil {
 		return err
 	}
