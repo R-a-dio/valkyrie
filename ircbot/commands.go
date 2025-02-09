@@ -33,8 +33,8 @@ var (
 	reLastRequestInfo = "lastr(equest)?( (?P<Nick>.+))?"
 	reTrackInfo       = "i(nfo)?( (?P<TrackID>[0-9]+))?"
 	reTrackTags       = "tags( (?P<TrackID>[0-9]+))?"
-	reGuestAuth       = "(guest|guestauth|auth)( (?P<Nick>.+))?"
-	reGuestCreate     = "newguest( (?P<Nick>.+))?"
+	reGuestAuth       = `(guest|guestauth|auth)( (?P<Nick>.+?))?(\s|$)`
+	reGuestCreate     = `newguest( (?P<Nick>.+?))?(\s|$)`
 )
 
 type HandlerFn func(Event) error
