@@ -29,7 +29,12 @@ var (
 )
 
 func ErrorHandler(exec templates.Executor, w http.ResponseWriter, r *http.Request, err error) {
-	hlog.FromRequest(r).Error().Ctx(r.Context()).Err(err).Msg("")
+	if errors.IsE(err, ErrNotFound) {
+		// only log as an error if it's not something we expect
+		hlog.FromRequest(r).Info().Ctx(r.Context()).Err(err).Msg("")
+	} else {
+		hlog.FromRequest(r).Error().Ctx(r.Context()).Err(err).Msg("")
+	}
 
 	var statusCode = http.StatusInternalServerError
 	var msg = http.StatusText(statusCode)
