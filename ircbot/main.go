@@ -148,6 +148,7 @@ func NewBot(ctx context.Context, cfg config.Config) (*Bot, error) {
 	if err = RegisterCommandHandlers(ctx, b, reHandlers...); err != nil {
 		return nil, err
 	}
+	//b.c.Handlers.Add(girc.ALL_EVENTS, ZerologLogger(ctx))
 
 	go b.syncConfiguration(ctx)
 	return b, nil
@@ -239,5 +240,26 @@ func (b *Bot) syncConfiguration(ctx context.Context) {
 				b.c.Cmd.Join(wanted)
 			}
 		}
+	}
+}
+
+func ZerologLogger(ctx context.Context) func(c *girc.Client, e girc.Event) {
+	logger := zerolog.Ctx(ctx)
+
+	return func(c *girc.Client, e girc.Event) {
+		z := logger.Info().
+			Time("timestamp", e.Timestamp).
+			Str("command", e.Command)
+
+		if e.Source != nil {
+			z = z.Str("host", e.Source.Host).
+				Str("ident", e.Source.Ident).
+				Str("name", e.Source.Name)
+		}
+		if !e.Sensitive {
+			z = z.Strs("params", e.Params)
+		}
+
+		z.Msg("raw-event")
 	}
 }
