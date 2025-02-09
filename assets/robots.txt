@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /irc
+Disallow: /search
+Disallow: /last-played
+Disallow: /queue
+Disallow: /faves
+Allow: /
