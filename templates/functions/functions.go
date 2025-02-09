@@ -83,7 +83,7 @@ func TemplateFuncs() template.FuncMap {
 }
 
 var defaultFunctions = map[string]any{
-	"Version":                     func() string { return buildinfo.Version },
+	"Version":                     func() string { return buildinfo.ShortRef },
 	"printjson":                   PrintJSON,
 	"safeHTML":                    SafeHTML,
 	"safeHTMLAttr":                SafeHTMLAttr,

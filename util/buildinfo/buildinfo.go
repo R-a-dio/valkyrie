@@ -9,6 +9,7 @@ var (
 	InstrumentationVersion = commitHash()
 	Version                = commitHash()
 	GitRef                 = commitHash()
+	ShortRef               = GitRef[:7]
 )
 
 func commitHash() string {
