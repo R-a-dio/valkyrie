@@ -35,8 +35,12 @@ func ExecuteTracksHash(ctx context.Context, cfg config.Config) error {
 		zerolog.Ctx(ctx).Info().
 			Int64("trackid", int64(song.TrackID)).
 			Str("metadata", song.Metadata).
+			Str("original", current.String()).
+			Str("new", song.Hash.String()).
 			Msg("mismatched hash")
 
+		// restore the original hash, so UpdateMetadata is aware of it changing
+		song.Hash = current
 		// trim whitespace from artist and title, since those are the cause
 		// of the mismatched hash
 		song.Artist = strings.TrimSpace(song.Artist)
