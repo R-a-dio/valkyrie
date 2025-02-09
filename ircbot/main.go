@@ -8,6 +8,7 @@ import (
 
 	"github.com/cenkalti/backoff"
 	"github.com/rs/zerolog"
+	"go.opentelemetry.io/otel"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
@@ -189,20 +190,21 @@ func (b *Bot) runClient(ctx context.Context) error {
 
 	doConnect := func() error {
 		const op errors.Op = "irc/Bot.runClient.doConnect"
+		ctx, span := otel.Tracer("").Start(ctx, string(op))
+		defer span.End()
 
 		zerolog.Ctx(ctx).Info().Ctx(ctx).Str("address", b.c.Config.Server).Msg("connecting")
 		err := b.c.Connect()
 		if err != nil {
-			zerolog.Ctx(ctx).Error().Ctx(ctx).Str("address", b.c.Config.Server).Err(err).Msg("connecting")
+			zerolog.Ctx(ctx).Error().Ctx(ctx).Str("address", b.c.Config.Server).Err(err).Msg("error connecting")
 			// reset the backoff if we managed to stay connected for a decent period of
 			// time so we will retry fast again
 			if cb.GetElapsedTime() > time.Minute*10 {
 				cb.Reset()
 			}
-
-			err = errors.E(op, err)
+			return errors.E(op, err)
 		}
-		return err
+		return nil
 	}
 
 	return backoff.Retry(doConnect, cb)
