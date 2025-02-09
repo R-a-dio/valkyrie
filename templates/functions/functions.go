@@ -14,6 +14,7 @@ import (
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/util"
+	"github.com/R-a-dio/valkyrie/util/buildinfo"
 	"github.com/dustin/go-humanize"
 )
 
@@ -82,6 +83,7 @@ func TemplateFuncs() template.FuncMap {
 }
 
 var defaultFunctions = map[string]any{
+	"Version":                     func() string { return buildinfo.Version },
 	"printjson":                   PrintJSON,
 	"safeHTML":                    SafeHTML,
 	"safeHTMLAttr":                SafeHTMLAttr,
