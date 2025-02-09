@@ -190,6 +190,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	r.Get("/R-a-dio", redirectHandler)
 
 	// serve assets from the assets directory
+	r.Get("/robots.txt", StaticFile(cfg.Conf().AssetsPath, "robots.txt"))
 	r.Handle("/assets/*", http.StripPrefix("/assets/",
 		AssetsHandler(cfg.Conf().AssetsPath, siteTemplates)),
 	)
@@ -339,6 +340,13 @@ func skipCSRFProtection(next http.Handler) http.Handler {
 			r = csrf.UnsafeSkipCheck(r)
 		}
 		next.ServeHTTP(w, r)
+	})
+}
+
+func StaticFile(assetsPath string, filename string) http.HandlerFunc {
+	filepath := filepath.Join(assetsPath, "robots.txt")
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, filepath)
 	})
 }
 
