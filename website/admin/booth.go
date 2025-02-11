@@ -514,11 +514,11 @@ func (s *State) sseBoothAPI(w http.ResponseWriter, r *http.Request) {
 
 type BoothStreamerInput radio.User
 
-func (BoothStreamerInput) TemplateBundle() string {
+func (*BoothStreamerInput) TemplateBundle() string {
 	return "booth"
 }
 
-func (BoothStreamerInput) TemplateName() string {
+func (*BoothStreamerInput) TemplateName() string {
 	return "streamer"
 }
 
