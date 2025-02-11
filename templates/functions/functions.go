@@ -1,9 +1,15 @@
 package functions
 
 import (
+	"bytes"
+	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
 	"html/template"
+	"io"
+	"io/fs"
 	"os"
 	"reflect"
 	"regexp"
@@ -16,6 +22,7 @@ import (
 	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/util/buildinfo"
 	"github.com/dustin/go-humanize"
+	"github.com/rs/zerolog"
 )
 
 func NewStatefulFunctions(cfg config.Config, status util.StreamValuer[radio.Status]) *StatefulFuncs {
@@ -28,12 +35,97 @@ func NewStatefulFunctions(cfg config.Config, status util.StreamValuer[radio.Stat
 }
 
 type StatefulFuncs struct {
+	// for SongFileSize
 	musicPath func() string
-	status    util.StreamValuer[radio.Status]
+	// for WithVersion
+	withVersion *withVersion
+	// for Status
+	status util.StreamValuer[radio.Status]
+}
+
+func NewWithVersionFunc(ctx context.Context, prefix string, fsys fs.FS) *withVersion {
+	return &withVersion{
+		logger: zerolog.Ctx(ctx),
+		prefix: prefix,
+		fs:     fsys,
+	}
+}
+
+type withVersion struct {
+	logger *zerolog.Logger
+	prefix string
+	fs     fs.FS
+	cache  util.Map[string, template.URL]
 }
 
 func (sf *StatefulFuncs) Status() radio.Status {
 	return sf.status.Latest()
+}
+
+func (sf *StatefulFuncs) UpdateWithVersion(wv *withVersion) {
+	sf.withVersion = wv
+}
+
+func (sf *StatefulFuncs) WithVersion(urlPath string) template.URL {
+	if sf.withVersion == nil {
+		return template.URL(urlPath)
+	}
+	return sf.withVersion.WithVersion(urlPath)
+}
+
+var withVersionTmplRaw = `{{.Path}}{{with .Version}}?v={{.}}{{end}}`
+
+var withVersionTmpl = template.Must(template.New("withVersion").Parse(withVersionTmplRaw))
+
+type withVersionInput struct {
+	Path    string
+	Version string
+}
+
+func (wv *withVersion) WithVersion(urlPath string) template.URL {
+	if wv == nil {
+		return template.URL(urlPath)
+	}
+
+	if res, ok := wv.cache.Load(urlPath); ok {
+		return res
+	}
+
+	render := func(store bool, version string) template.URL {
+		var buf bytes.Buffer
+		withVersionTmpl.Execute(&buf, withVersionInput{
+			Path:    urlPath,
+			Version: version,
+		})
+
+		output := template.URL(buf.String())
+		if store {
+			wv.cache.Store(urlPath, output)
+		}
+
+		wv.logger.Info().Str("path", urlPath).Str("version", version).Msg("withVersion render")
+		return output
+	}
+
+	path := strings.TrimPrefix(urlPath, wv.prefix)
+	f, err := wv.fs.Open(path)
+	if err != nil {
+		// if we can't open the file, just render it without version
+		wv.logger.Err(err).Str("path", path).Msg("failed to  open file in withVersion")
+		return render(false, "")
+	}
+	defer f.Close()
+
+	// hash the contents of the file
+	h := fnv.New64()
+	_, err = io.Copy(h, f)
+	if err != nil {
+		wv.logger.Err(err).Str("path", path).Msg("failed to copy file in withVersion")
+		// couldn't read the files contents, render it without a version
+		return render(false, "")
+	}
+
+	return render(true, hex.EncodeToString(h.Sum(nil)))
 }
 
 func (sf *StatefulFuncs) SongFileSize(song any) string {
@@ -75,6 +167,7 @@ func (sf *StatefulFuncs) FuncMap() template.FuncMap {
 	return map[string]any{
 		"Status":       sf.Status,
 		"SongFileSize": sf.SongFileSize,
+		"WithVersion":  sf.WithVersion,
 	}
 }
 

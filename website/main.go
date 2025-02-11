@@ -191,9 +191,14 @@ func Execute(ctx context.Context, cfg config.Config) error {
 
 	// serve assets from the assets directory
 	r.Get("/robots.txt", StaticFile(cfg.Conf().AssetsPath, "robots.txt"))
-	r.Handle("/assets/*", http.StripPrefix("/assets/",
-		AssetsHandler(cfg.Conf().AssetsPath, siteTemplates)),
-	)
+
+	const assetsPrefix = "/assets/"
+	assetsFs := NewAssetsFS(cfg.Conf().AssetsPath, siteTemplates)
+	// register route for assets
+	r.Handle(assetsPrefix+"*", http.StripPrefix(assetsPrefix, http.FileServerFS(assetsFs)))
+	// register assets version function for inside of the templates
+	//templateFuncs.UpdateWithVersion(functions.NewWithVersionFunc(ctx, assetsPrefix, assetsFs))
+
 	r.Handle("/set-theme", templates.SetThemeHandler(templates.ThemeCookieName))
 
 	// version 0 of the api (the legacy PHP version)
@@ -344,16 +349,14 @@ func skipCSRFProtection(next http.Handler) http.Handler {
 }
 
 func StaticFile(assetsPath string, filename string) http.HandlerFunc {
-	filepath := filepath.Join(assetsPath, "robots.txt")
+	filepath := filepath.Join(assetsPath, filename)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, filepath)
 	})
 }
 
-func AssetsHandler(assetsPath string, site *templates.Site) http.Handler {
-	base := os.DirFS(assetsPath)
-
-	return http.FileServer(http.FS(assetsFS{base, site}))
+func NewAssetsFS(assetsPath string, site *templates.Site) fs.FS {
+	return assetsFS{os.DirFS(assetsPath), site}
 }
 
 type assetsFS struct {
