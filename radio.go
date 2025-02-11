@@ -1062,6 +1062,9 @@ type TrackStorage interface {
 	// QueueCandidates returns tracks that are candidates to be queue'd by the
 	// default queue implementation
 	QueueCandidates() ([]TrackID, error)
+
+	// NoTrackMetadata returns tracks which have no candidate track metadata
+	NoTrackMetadata() ([]Song, error)
 }
 
 // RequestStorageService is a service able to supply a RequestStorage
@@ -1548,4 +1551,33 @@ func NickToUsername(nick string) string {
 
 func IsGuest(user User) bool {
 	return user.UserPermissions.HasExplicit(PermGuest)
+}
+
+type TrackMetadata struct {
+	TrackID
+	// ID is a unique ID given by the provider
+	ID           string
+	AlbumArtPath string
+	// Safe is whether this metadata is safe to be freely served to the public
+	Safe bool
+	// Primary is if this metadata should be considered the "true" metadata for a track
+	Primary bool
+}
+
+type TrackMetadataStorageService interface {
+	TrackMetadata(context.Context) TrackMetadataStorage
+	TrackMetadataTx(context.Context, StorageTx) (TrackMetadataStorage, StorageTx, error)
+}
+
+// TrackMetadataStorage stores metadata about tracks
+//
+// This metadata contains various information about a track
+// and is from a certain metadata provider.
+// TrackMetadata keeps track of the ID returned by the provider,
+// and is a candidate until determined "primary"
+type TrackMetadataStorage interface {
+	Create(TrackMetadata) (*TrackMetadata, error)
+
+	// FromTrackID returns metadata associated with a TrackID
+	FromTrackID(TrackID) ([]TrackID, error)
 }
