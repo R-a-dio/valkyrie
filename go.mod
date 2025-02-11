@@ -36,7 +36,7 @@ require (
 	github.com/jxskiss/base62 v1.1.0
 	github.com/klauspost/compress v1.17.11
 	github.com/leanovate/gopter v0.2.11
-	github.com/lrstanley/girc v0.0.0-20240914071631-5c0cc76257bf
+	github.com/lrstanley/girc v0.0.0-20250210232310-6320efdc80f9
 	github.com/prometheus/client_golang v1.20.5
 	github.com/robpike/nihongo v0.0.0-20230705220025-ab7f6184a918
 	github.com/rs/xid v1.6.0
