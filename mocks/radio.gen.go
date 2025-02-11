@@ -4021,6 +4021,9 @@ var _ radio.TrackStorage = &TrackStorageMock{}
 //			NeedReplacementFunc: func() ([]radio.Song, error) {
 //				panic("mock out the NeedReplacement method")
 //			},
+//			NoTrackMetadataFunc: func() ([]radio.Song, error) {
+//				panic("mock out the NoTrackMetadata method")
+//			},
 //			QueueCandidatesFunc: func() ([]radio.TrackID, error) {
 //				panic("mock out the QueueCandidates method")
 //			},
@@ -4078,6 +4081,9 @@ type TrackStorageMock struct {
 
 	// NeedReplacementFunc mocks the NeedReplacement method.
 	NeedReplacementFunc func() ([]radio.Song, error)
+
+	// NoTrackMetadataFunc mocks the NoTrackMetadata method.
+	NoTrackMetadataFunc func() ([]radio.Song, error)
 
 	// QueueCandidatesFunc mocks the QueueCandidates method.
 	QueueCandidatesFunc func() ([]radio.TrackID, error)
@@ -4142,6 +4148,9 @@ type TrackStorageMock struct {
 		// NeedReplacement holds details about calls to the NeedReplacement method.
 		NeedReplacement []struct {
 		}
+		// NoTrackMetadata holds details about calls to the NoTrackMetadata method.
+		NoTrackMetadata []struct {
+		}
 		// QueueCandidates holds details about calls to the QueueCandidates method.
 		QueueCandidates []struct {
 		}
@@ -4196,6 +4205,7 @@ type TrackStorageMock struct {
 	lockGet                   sync.RWMutex
 	lockInsert                sync.RWMutex
 	lockNeedReplacement       sync.RWMutex
+	lockNoTrackMetadata       sync.RWMutex
 	lockQueueCandidates       sync.RWMutex
 	lockRandom                sync.RWMutex
 	lockRandomFavoriteOf      sync.RWMutex
@@ -4445,6 +4455,33 @@ func (mock *TrackStorageMock) NeedReplacementCalls() []struct {
 	mock.lockNeedReplacement.RLock()
 	calls = mock.calls.NeedReplacement
 	mock.lockNeedReplacement.RUnlock()
+	return calls
+}
+
+// NoTrackMetadata calls NoTrackMetadataFunc.
+func (mock *TrackStorageMock) NoTrackMetadata() ([]radio.Song, error) {
+	if mock.NoTrackMetadataFunc == nil {
+		panic("TrackStorageMock.NoTrackMetadataFunc: method is nil but TrackStorage.NoTrackMetadata was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockNoTrackMetadata.Lock()
+	mock.calls.NoTrackMetadata = append(mock.calls.NoTrackMetadata, callInfo)
+	mock.lockNoTrackMetadata.Unlock()
+	return mock.NoTrackMetadataFunc()
+}
+
+// NoTrackMetadataCalls gets all the calls that were made to NoTrackMetadata.
+// Check the length with:
+//
+//	len(mockedTrackStorage.NoTrackMetadataCalls())
+func (mock *TrackStorageMock) NoTrackMetadataCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockNoTrackMetadata.RLock()
+	calls = mock.calls.NoTrackMetadata
+	mock.lockNoTrackMetadata.RUnlock()
 	return calls
 }
 
@@ -7269,5 +7306,231 @@ func (mock *ScheduleStorageMock) UpdateCalls() []struct {
 	mock.lockUpdate.RLock()
 	calls = mock.calls.Update
 	mock.lockUpdate.RUnlock()
+	return calls
+}
+
+// Ensure, that TrackMetadataStorageServiceMock does implement radio.TrackMetadataStorageService.
+// If this is not the case, regenerate this file with moq.
+var _ radio.TrackMetadataStorageService = &TrackMetadataStorageServiceMock{}
+
+// TrackMetadataStorageServiceMock is a mock implementation of radio.TrackMetadataStorageService.
+//
+//	func TestSomethingThatUsesTrackMetadataStorageService(t *testing.T) {
+//
+//		// make and configure a mocked radio.TrackMetadataStorageService
+//		mockedTrackMetadataStorageService := &TrackMetadataStorageServiceMock{
+//			TrackMetadataFunc: func(contextMoqParam context.Context) radio.TrackMetadataStorage {
+//				panic("mock out the TrackMetadata method")
+//			},
+//			TrackMetadataTxFunc: func(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.TrackMetadataStorage, radio.StorageTx, error) {
+//				panic("mock out the TrackMetadataTx method")
+//			},
+//		}
+//
+//		// use mockedTrackMetadataStorageService in code that requires radio.TrackMetadataStorageService
+//		// and then make assertions.
+//
+//	}
+type TrackMetadataStorageServiceMock struct {
+	// TrackMetadataFunc mocks the TrackMetadata method.
+	TrackMetadataFunc func(contextMoqParam context.Context) radio.TrackMetadataStorage
+
+	// TrackMetadataTxFunc mocks the TrackMetadataTx method.
+	TrackMetadataTxFunc func(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.TrackMetadataStorage, radio.StorageTx, error)
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// TrackMetadata holds details about calls to the TrackMetadata method.
+		TrackMetadata []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+		}
+		// TrackMetadataTx holds details about calls to the TrackMetadataTx method.
+		TrackMetadataTx []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+			// StorageTx is the storageTx argument value.
+			StorageTx radio.StorageTx
+		}
+	}
+	lockTrackMetadata   sync.RWMutex
+	lockTrackMetadataTx sync.RWMutex
+}
+
+// TrackMetadata calls TrackMetadataFunc.
+func (mock *TrackMetadataStorageServiceMock) TrackMetadata(contextMoqParam context.Context) radio.TrackMetadataStorage {
+	if mock.TrackMetadataFunc == nil {
+		panic("TrackMetadataStorageServiceMock.TrackMetadataFunc: method is nil but TrackMetadataStorageService.TrackMetadata was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+	}{
+		ContextMoqParam: contextMoqParam,
+	}
+	mock.lockTrackMetadata.Lock()
+	mock.calls.TrackMetadata = append(mock.calls.TrackMetadata, callInfo)
+	mock.lockTrackMetadata.Unlock()
+	return mock.TrackMetadataFunc(contextMoqParam)
+}
+
+// TrackMetadataCalls gets all the calls that were made to TrackMetadata.
+// Check the length with:
+//
+//	len(mockedTrackMetadataStorageService.TrackMetadataCalls())
+func (mock *TrackMetadataStorageServiceMock) TrackMetadataCalls() []struct {
+	ContextMoqParam context.Context
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+	}
+	mock.lockTrackMetadata.RLock()
+	calls = mock.calls.TrackMetadata
+	mock.lockTrackMetadata.RUnlock()
+	return calls
+}
+
+// TrackMetadataTx calls TrackMetadataTxFunc.
+func (mock *TrackMetadataStorageServiceMock) TrackMetadataTx(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.TrackMetadataStorage, radio.StorageTx, error) {
+	if mock.TrackMetadataTxFunc == nil {
+		panic("TrackMetadataStorageServiceMock.TrackMetadataTxFunc: method is nil but TrackMetadataStorageService.TrackMetadataTx was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+		StorageTx       radio.StorageTx
+	}{
+		ContextMoqParam: contextMoqParam,
+		StorageTx:       storageTx,
+	}
+	mock.lockTrackMetadataTx.Lock()
+	mock.calls.TrackMetadataTx = append(mock.calls.TrackMetadataTx, callInfo)
+	mock.lockTrackMetadataTx.Unlock()
+	return mock.TrackMetadataTxFunc(contextMoqParam, storageTx)
+}
+
+// TrackMetadataTxCalls gets all the calls that were made to TrackMetadataTx.
+// Check the length with:
+//
+//	len(mockedTrackMetadataStorageService.TrackMetadataTxCalls())
+func (mock *TrackMetadataStorageServiceMock) TrackMetadataTxCalls() []struct {
+	ContextMoqParam context.Context
+	StorageTx       radio.StorageTx
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+		StorageTx       radio.StorageTx
+	}
+	mock.lockTrackMetadataTx.RLock()
+	calls = mock.calls.TrackMetadataTx
+	mock.lockTrackMetadataTx.RUnlock()
+	return calls
+}
+
+// Ensure, that TrackMetadataStorageMock does implement radio.TrackMetadataStorage.
+// If this is not the case, regenerate this file with moq.
+var _ radio.TrackMetadataStorage = &TrackMetadataStorageMock{}
+
+// TrackMetadataStorageMock is a mock implementation of radio.TrackMetadataStorage.
+//
+//	func TestSomethingThatUsesTrackMetadataStorage(t *testing.T) {
+//
+//		// make and configure a mocked radio.TrackMetadataStorage
+//		mockedTrackMetadataStorage := &TrackMetadataStorageMock{
+//			CreateFunc: func(trackMetadata radio.TrackMetadata) (*radio.TrackMetadata, error) {
+//				panic("mock out the Create method")
+//			},
+//			FromTrackIDFunc: func(trackID radio.TrackID) ([]radio.TrackID, error) {
+//				panic("mock out the FromTrackID method")
+//			},
+//		}
+//
+//		// use mockedTrackMetadataStorage in code that requires radio.TrackMetadataStorage
+//		// and then make assertions.
+//
+//	}
+type TrackMetadataStorageMock struct {
+	// CreateFunc mocks the Create method.
+	CreateFunc func(trackMetadata radio.TrackMetadata) (*radio.TrackMetadata, error)
+
+	// FromTrackIDFunc mocks the FromTrackID method.
+	FromTrackIDFunc func(trackID radio.TrackID) ([]radio.TrackID, error)
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// Create holds details about calls to the Create method.
+		Create []struct {
+			// TrackMetadata is the trackMetadata argument value.
+			TrackMetadata radio.TrackMetadata
+		}
+		// FromTrackID holds details about calls to the FromTrackID method.
+		FromTrackID []struct {
+			// TrackID is the trackID argument value.
+			TrackID radio.TrackID
+		}
+	}
+	lockCreate      sync.RWMutex
+	lockFromTrackID sync.RWMutex
+}
+
+// Create calls CreateFunc.
+func (mock *TrackMetadataStorageMock) Create(trackMetadata radio.TrackMetadata) (*radio.TrackMetadata, error) {
+	if mock.CreateFunc == nil {
+		panic("TrackMetadataStorageMock.CreateFunc: method is nil but TrackMetadataStorage.Create was just called")
+	}
+	callInfo := struct {
+		TrackMetadata radio.TrackMetadata
+	}{
+		TrackMetadata: trackMetadata,
+	}
+	mock.lockCreate.Lock()
+	mock.calls.Create = append(mock.calls.Create, callInfo)
+	mock.lockCreate.Unlock()
+	return mock.CreateFunc(trackMetadata)
+}
+
+// CreateCalls gets all the calls that were made to Create.
+// Check the length with:
+//
+//	len(mockedTrackMetadataStorage.CreateCalls())
+func (mock *TrackMetadataStorageMock) CreateCalls() []struct {
+	TrackMetadata radio.TrackMetadata
+} {
+	var calls []struct {
+		TrackMetadata radio.TrackMetadata
+	}
+	mock.lockCreate.RLock()
+	calls = mock.calls.Create
+	mock.lockCreate.RUnlock()
+	return calls
+}
+
+// FromTrackID calls FromTrackIDFunc.
+func (mock *TrackMetadataStorageMock) FromTrackID(trackID radio.TrackID) ([]radio.TrackID, error) {
+	if mock.FromTrackIDFunc == nil {
+		panic("TrackMetadataStorageMock.FromTrackIDFunc: method is nil but TrackMetadataStorage.FromTrackID was just called")
+	}
+	callInfo := struct {
+		TrackID radio.TrackID
+	}{
+		TrackID: trackID,
+	}
+	mock.lockFromTrackID.Lock()
+	mock.calls.FromTrackID = append(mock.calls.FromTrackID, callInfo)
+	mock.lockFromTrackID.Unlock()
+	return mock.FromTrackIDFunc(trackID)
+}
+
+// FromTrackIDCalls gets all the calls that were made to FromTrackID.
+// Check the length with:
+//
+//	len(mockedTrackMetadataStorage.FromTrackIDCalls())
+func (mock *TrackMetadataStorageMock) FromTrackIDCalls() []struct {
+	TrackID radio.TrackID
+} {
+	var calls []struct {
+		TrackID radio.TrackID
+	}
+	mock.lockFromTrackID.RLock()
+	calls = mock.calls.FromTrackID
+	mock.lockFromTrackID.RUnlock()
 	return calls
 }
