@@ -115,6 +115,12 @@ func NewBot(ctx context.Context, cfg config.Config) (*Bot, error) {
 	ircConf.AllowFlood = c.IRC.AllowFlood
 	ircConf.RecoverFunc = girc.DefaultRecoverHandler
 	ircConf.Version = c.UserAgent + " (" + buildinfo.ShortRef + ")"
+	if c.IRC.NickPassword != "" {
+		ircConf.SASL = &girc.SASLPlain{
+			User: c.IRC.Nick,
+			Pass: c.IRC.NickPassword,
+		}
+	}
 
 	b := &Bot{
 		cfgUserRequestDelay: config.Value(cfg, func(cfg config.Config) time.Duration {

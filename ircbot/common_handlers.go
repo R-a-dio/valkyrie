@@ -9,7 +9,9 @@ import (
 func RegisterCommonHandlers(b *Bot, c *girc.Client) error {
 	ch := CommonHandlers{b}
 	c.Handlers.Add(girc.CONNECTED, ch.AuthenticateWithNickServ)
-	c.Handlers.Add(girc.NICK, ch.AuthenticateWithNickServ)
+	if c.Config.SASL == nil {
+		c.Handlers.Add(girc.NICK, ch.AuthenticateWithNickServ)
+	}
 	c.Handlers.Add(girc.CONNECTED, ch.JoinDefaultChannels)
 	return nil
 }
