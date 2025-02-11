@@ -26,13 +26,13 @@ var (
 	reThread          = "thread( (?P<thread>.+))?"
 	reTopic           = "topic( (?P<topic>.+))?"
 	reKill            = "kill( (?P<force>force))?"
-	reRandomRequest   = "ra(ndom)?( ((?P<isFave>f(ave)?)( (?P<Nick>.+))?|(?P<Query>.+)))?"
+	reRandomRequest   = `ra(ndom)?( ((?P<isFave>f(ave)?) ?(?P<Nick>.+)?|(?P<Query>.+)))?`
 	reLuckyRequest    = "l(ucky)? (?P<Query>.+)"
 	reSearch          = "s(earch)? ((?P<TrackID>[0-9]+)|(?P<Query>.+))"
 	reRequest         = "r(equest)? (?P<TrackID>[0-9]+)"
-	reLastRequestInfo = "lastr(equest)?( (?P<Nick>.+))?"
-	reTrackInfo       = "i(nfo)?( (?P<TrackID>[0-9]+))?"
-	reTrackTags       = "tags( (?P<TrackID>[0-9]+))?"
+	reLastRequestInfo = "lastr(equest)? ?(?P<Nick>.+)?"
+	reTrackInfo       = "i(nfo)? ?(?P<TrackID>[0-9]+)?"
+	reTrackTags       = "tags ?(?P<TrackID>[0-9]+)?"
 	reGuestAuth       = `(guest|guestauth|auth)( (?P<Nick>.+?))?(\s|$)`
 	reGuestCreate     = `newguest( (?P<Nick>.+?))?(\s|$)`
 )
