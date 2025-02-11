@@ -115,12 +115,20 @@ func (a authentication) LoginMiddleware(next http.Handler) http.Handler {
 	const op errors.Op = "admin/authentication.LoginMiddleware"
 
 	// setup ratelimiting to the POST handler
-	ipLimiter := httprate.Limit(3, 1*time.Minute, httprate.WithKeyByIP())
-	userLimit := httprate.Limit(3, 1*time.Minute, httprate.WithKeyFuncs(func(r *http.Request) (string, error) {
-		return r.FormValue("username"), nil
-	}))
+	limiter := httprate.Limit(3, 1*time.Minute,
+		httprate.WithKeyByIP(), // IP address rate limiting
+		httprate.WithKeyFuncs(func(r *http.Request) (string, error) {
+			return r.FormValue("username"), nil // login username rate limiting
+		}),
+		httprate.WithLimitHandler(func(w http.ResponseWriter, r *http.Request) { // log things hitting the limit
+			hlog.FromRequest(r).Warn().Ctx(r.Context()).
+				Str("username", r.FormValue("username")).
+				Str("ip", r.RemoteAddr).
+				Msg("hit ratelimiter")
+		}),
+	)
 
-	postHandler := ipLimiter(userLimit(http.HandlerFunc(a.PostLogin)))
+	postHandler := limiter(http.HandlerFunc(a.PostLogin))
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
