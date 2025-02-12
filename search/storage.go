@@ -58,6 +58,7 @@ type partialStorage interface {
 	radio.SubmissionStorageService
 	radio.NewsStorageService
 	radio.ScheduleStorageService
+	radio.TrackMetadataStorageService
 	Close() error
 }
 

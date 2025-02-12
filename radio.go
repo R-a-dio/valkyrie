@@ -908,6 +908,7 @@ type StorageService interface {
 	SubmissionStorageService
 	NewsStorageService
 	ScheduleStorageService
+	TrackMetadataStorageService
 	// Close closes the storage service and cleans up any resources
 	Close() error
 }
@@ -1576,8 +1577,8 @@ type TrackMetadataStorageService interface {
 // TrackMetadata keeps track of the ID returned by the provider,
 // and is a candidate until determined "primary"
 type TrackMetadataStorage interface {
-	Create(TrackMetadata) (*TrackMetadata, error)
+	Create(TrackMetadata) error
 
 	// FromTrackID returns metadata associated with a TrackID
-	FromTrackID(TrackID) ([]TrackID, error)
+	FromTrackID(TrackID) ([]TrackMetadata, error)
 }
