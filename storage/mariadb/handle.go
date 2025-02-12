@@ -452,6 +452,24 @@ func (s *StorageService) ScheduleTx(ctx context.Context, tx radio.StorageTx) (ra
 	return storage, tx, nil
 }
 
+func (s *StorageService) TrackMetadata(ctx context.Context) radio.TrackMetadataStorage {
+	return TrackMetadataStorage{
+		handle: newHandle(ctx, s.db, s.queries, "schedule"),
+	}
+}
+
+func (s *StorageService) TrackMetadataTx(ctx context.Context, tx radio.StorageTx) (radio.TrackMetadataStorage, radio.StorageTx, error) {
+	ctx, db, tx, err := s.tx(ctx, tx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	storage := TrackMetadataStorage{
+		handle: newHandle(ctx, db, s.queries, "schedule"),
+	}
+	return storage, tx, nil
+}
+
 type extContext interface {
 	sqlx.ExecerContext
 	sqlx.QueryerContext
