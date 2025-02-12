@@ -46,6 +46,8 @@ type config struct {
 
 	// tunein.com scrobbling configuration
 	Tunein tunein
+
+	Metadata []metadata
 }
 
 type tracker struct {
@@ -122,6 +124,8 @@ type providers struct {
 	Storage string
 	// Search is the name of the SearchService provider to use
 	Search string
+	// Metadata is the name of track metadata providers to use
+	Metadata []string
 }
 
 // database is the configuration for the database/sql package
@@ -236,6 +240,14 @@ type balancer struct {
 	Addr string
 	// Fallback is the stream to default to.
 	Fallback string
+}
+
+type metadata struct {
+	// Name is the name of the metadata provider
+	Name string
+	// Auth is an arbitrary string containing authentication information for the provider
+	// It is up to the individual provider to parse and use it correctly
+	Auth string
 }
 
 // errors is a slice of multiple config-file errors
