@@ -2,13 +2,13 @@ var timeOffset = 0;
 // the minimal time between update functions in ms
 var minUpdate = 1000;
 // timer for the <time> updater
-var timeUpdateTimer = 0;
+var timeUpdateTimer = timeUpdateTimer || 0;
 // timer for the <progress> updater
-var progressUpdateTimer = 0;
+var progressUpdateTimer = progressUpdateTimer || 0;
 // Stream instance for the stream audio player
-var stream = undefined;
+var stream = stream || undefined;
 // Audio element for the admin player
-var admin_player = new Audio();
+var admin_player = admin_player || new Audio();
 
 function now() {
     return Date.now() - timeOffset
@@ -123,7 +123,7 @@ htmx.on('htmx:sendError', (event) => {
 
 htmx.on('htmx:sseError', (event) => {
     // don't show an error if the close was on purpose
-    if (es.readyState === es.CLOSED) return;
+    if (event.detail.source.readyState === event.detail.source.CLOSED) return;
     displayError("[SSE Error]\r\nyou'll not receive live page updates while this box is showing\r\nserver might be down or your internet, it will retry every 5 seconds.", "error-sse");
 })
 
@@ -358,18 +358,18 @@ function smallDuration(s) {
       .join(' ');
 }
 
-const rtf = new Intl.RelativeTimeFormat("en", {
+var rtf = new Intl.RelativeTimeFormat("en", {
     localeMatcher: "best fit", // other values: "lookup"
     numeric: "always", // other values: "auto"
     style: "long", // other values: "short" or "narrow"
 });
 
-const dtf = new Intl.DateTimeFormat("default", {
+var dtf = new Intl.DateTimeFormat("default", {
     timeStyle: "long",
     hour12: false,
 })
 
-const dtfLong = new Intl.DateTimeFormat("default", {
+var dtfLong = new Intl.DateTimeFormat("default", {
     timeStyle: "long",
     dateStyle: "short",
 })
@@ -488,7 +488,7 @@ setTimeout(updateTimes, 1000);
 setTimeout(updateProgress, 1000);
 
 // Stream <audio> element handling
-class Stream {
+var Stream = class {
     constructor(url) {
         this.url = url;
         this.audio = null;
