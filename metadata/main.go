@@ -12,13 +12,7 @@ import (
 func Execute(ctx context.Context, cfg config.Config) error {
 	const op errors.Op = "metadata/Execute"
 
-	upd, err := NewUpdater(ctx, cfg)
-	if err != nil {
-		return errors.E(op, err)
-	}
-	err = upd.start(ctx)
-	if err != nil {
-		return errors.E(op, err)
-	}
+	_ = cfg.Conf().Providers.Metadata
+
 	return nil
 }
