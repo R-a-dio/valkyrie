@@ -190,6 +190,7 @@ htmx.on('htmx:load', (event) => {
         admin_player.preload = "none";
         admin_player.dataset.haslistener = true;
         admin_player.volume = localStorage.getItem("admin-player-volume") === null ? 0.1 : localStorage.getItem("admin-player-volume") / 100;
+        admin_player.onended = () => { document.querySelectorAll(".adminPlayerPlayPauseButton").forEach((elt) => { elt.textContent = "Play"; elt.dataset.state = "Play"; }) };
         let update = (ev) => {
             if (!document.querySelector("#admin-player-time"))
                 return;
