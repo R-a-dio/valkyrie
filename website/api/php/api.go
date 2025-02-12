@@ -636,17 +636,22 @@ func (s *v0Status) createStatusJSON(ctx context.Context) (v0StatusJSON, error) {
 	}
 
 	dj := ms.User.DJ
+	djName := dj.Name
+	if radio.IsGuest(ms.User) {
+		djName = "guest:" + djName // see https://github.com/R-a-dio/valkyrie/issues/228
+	}
+
 	status.Main = v0StatusMain{
 		NowPlaying:  ms.Song.Metadata,
 		Listeners:   ms.Listeners,
-		IsAFKStream: ms.User.Username == "AFK",
+		IsAFKStream: radio.IsRobot(ms.User),
 		StartTime:   ms.SongInfo.Start.Unix(),
 		EndTime:     endTime,
 		LastSet:     now.Format("2006-01-02 15:04:05"),
 		TrackID:     trackID,
 		Thread:      thread,
 		Requesting:  radio.IsRobot(ms.User),
-		DJName:      dj.Name,
+		DJName:      djName,
 		DJ: v0StatusDJ{
 			ID:          int(dj.ID),
 			Name:        dj.Name,
