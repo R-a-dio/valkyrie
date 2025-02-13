@@ -219,7 +219,7 @@ func NewConfig(cfg config.Config) Config {
 			return string(cfg.Conf().Telemetry.StandaloneProxy.URL)
 		}),
 		BoothStreamURL: config.Value(cfg, func(c config.Config) *url.URL {
-			return cfg.Conf().Website.BoothStreamURL.URL()
+			return cfg.Conf().Manager.GuestProxyAddr.URL()
 		}),
 	}
 }

@@ -2,6 +2,7 @@ package manager
 
 import (
 	"context"
+	"net/url"
 	"testing"
 	"time"
 
@@ -125,11 +126,19 @@ func TestResolveGuestProxyAddr(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	ip, err := resolveGuestProxyAddr(ctx, "localhost:80")
+	ip, err := resolveGuestProxyAddr(ctx, mustURL("//localhost:80"))
 	require.NoError(t, err)
 	require.NotZero(t, ip)
 
-	ip, err = resolveGuestProxyAddr(ctx, "127.0.0.1:80")
+	ip, err = resolveGuestProxyAddr(ctx, mustURL("//127.0.0.1:80"))
 	require.NoError(t, err)
 	require.NotZero(t, ip)
+}
+
+func mustURL(s string) *url.URL {
+	u, err := url.Parse(s)
+	if err != nil {
+		panic(err)
+	}
+	return u
 }

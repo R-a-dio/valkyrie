@@ -3,6 +3,7 @@ package manager
 import (
 	"context"
 	"net"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -32,13 +33,8 @@ type GuestService struct {
 	Authorized map[GuestNick]*Guest
 }
 
-func resolveGuestProxyAddr(ctx context.Context, addr string) (string, error) {
-	host, _, err := net.SplitHostPort(addr)
-	if err != nil {
-		return "", err
-	}
-
-	addrs, err := net.DefaultResolver.LookupIP(ctx, "ip4", host)
+func resolveGuestProxyAddr(ctx context.Context, uri *url.URL) (string, error) {
+	addrs, err := net.DefaultResolver.LookupIP(ctx, "ip4", uri.Hostname())
 	if err != nil {
 		return "", err
 	}
@@ -55,7 +51,7 @@ func NewGuestService(ctx context.Context, cfg config.Config, m radio.ManagerServ
 		logger: zerolog.Ctx(ctx),
 		us:     us,
 		proxyAddress: config.Value(cfg, func(cfg config.Config) string {
-			addr, err := resolveGuestProxyAddr(ctx, string(cfg.Conf().Manager.GuestProxyAddr))
+			addr, err := resolveGuestProxyAddr(ctx, cfg.Conf().Manager.GuestProxyAddr.URL())
 			if err != nil {
 				zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to resolve guest proxy host")
 				return ""
