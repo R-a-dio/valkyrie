@@ -124,8 +124,6 @@ type providers struct {
 	Storage string
 	// Search is the name of the SearchService provider to use
 	Search string
-	// Metadata is the name of track metadata providers to use
-	Metadata []string
 }
 
 // database is the configuration for the database/sql package
