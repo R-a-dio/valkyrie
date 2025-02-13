@@ -2,12 +2,12 @@ package ircbot
 
 import (
 	"context"
+	"math/rand/v2"
 	"regexp"
 	"strings"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
-	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/rs/zerolog"
 )
@@ -503,11 +503,9 @@ func RandomTrackRequest(e Event) error {
 		return nil
 	}
 
-	rand := config.NewRand(false)
-
 	// select songs randomly of what we have
 	for len(songs) > 0 {
-		n := rand.Intn(len(songs))
+		n := rand.IntN(len(songs))
 		song := songs[n]
 		// swap our last element with the one we selected to remove it from the list
 		songs[n] = songs[len(songs)-1]

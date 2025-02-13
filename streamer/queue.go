@@ -3,7 +3,7 @@ package streamer
 import (
 	"context"
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"sync"
 	"time"
 
@@ -50,7 +50,6 @@ func NewQueueService(ctx context.Context, cfg config.Config, storage radio.Stora
 		Storage: storage,
 		prober:  audio.NewProber(cfg, time.Second*2), // wait 2 seconds at most for ffprobe to run
 		queue:   queue,
-		rand:    config.NewRand(true),
 	}
 
 	if err = qs.populate(ctx); err != nil {
@@ -69,7 +68,6 @@ type QueueService struct {
 	logger *zerolog.Logger
 
 	Storage radio.StorageService
-	rand    *rand.Rand
 	prober  audio.Prober
 
 	// mu protects the fields below
@@ -309,7 +307,7 @@ outer:
 		}
 
 		// grab a candidate at random
-		n := qs.rand.Intn(len(candidates))
+		n := rand.IntN(len(candidates))
 		id := candidates[n]
 
 		candidates[n] = candidates[len(candidates)-1]
