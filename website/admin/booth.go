@@ -6,6 +6,7 @@ import (
 	"context"
 	"html/template"
 	"net/http"
+	"net/url"
 	"slices"
 	"time"
 
@@ -53,10 +54,11 @@ type BoothInput struct {
 	boothInput
 	CSRFTokenInput template.HTML
 
-	StreamerList *BoothStreamerList
-	ProxyStatus  *BoothProxyStatusInput
-	StreamerInfo *BoothStopStreamerInput
-	ThreadInfo   *BoothSetThreadInput
+	StreamerList   *BoothStreamerList
+	ProxyStatus    *BoothProxyStatusInput
+	StreamerInfo   *BoothStopStreamerInput
+	ThreadInfo     *BoothSetThreadInput
+	BoothStreamURL *url.URL
 }
 
 type BoothProxyStatusInput struct {
@@ -68,13 +70,14 @@ func (BoothProxyStatusInput) TemplateName() string {
 	return "proxy-status"
 }
 
-func NewBoothInput(gs radio.GuestService, ps radio.ProxyService, r *http.Request, connectTimeout time.Duration) (*BoothInput, error) {
+func NewBoothInput(gs radio.GuestService, ps radio.ProxyService, r *http.Request, connectTimeout time.Duration, boothStreamURL *url.URL) (*BoothInput, error) {
 	const op errors.Op = "website/admin.NewBoothInput"
 
 	// setup the input here, we need some of the fields it populates
 	input := &BoothInput{
 		Input:          middleware.InputFromRequest(r),
 		CSRFTokenInput: csrf.TemplateField(r),
+		BoothStreamURL: boothStreamURL,
 	}
 
 	connections, err := util.OneOff(r.Context(), func(ctx context.Context) (eventstream.Stream[[]radio.ProxySource], error) {
@@ -107,7 +110,7 @@ func NewBoothInput(gs radio.GuestService, ps radio.ProxyService, r *http.Request
 }
 
 func (s *State) GetBooth(w http.ResponseWriter, r *http.Request) {
-	input, err := NewBoothInput(s.Guest, s.Proxy, r, s.Config.StreamerConnectTimeout())
+	input, err := NewBoothInput(s.Guest, s.Proxy, r, s.Config.StreamerConnectTimeout(), s.Config.BoothStreamURL())
 	if err != nil {
 		s.errorHandler(w, r, err, "")
 		return

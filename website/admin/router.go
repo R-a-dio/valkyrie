@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httputil"
+	"net/url"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -62,36 +63,33 @@ func NewState(
 	}
 
 	return State{
-		Config:            NewConfig(cfg),
-		TelemetryProxy:    rvp,
-		TelemetryProxyURL: string(cfg.Conf().Telemetry.StandaloneProxy.URL),
-		ThemeConfig:       tv,
-		Daypass:           daypass,
-		SongSecret:        songSecret,
-		News:              newsCache,
-		Storage:           storage,
-		Search:            search,
-		Guest:             cfg.Guest,
-		Proxy:             cfg.Proxy,
-		Streamer:          cfg.Streamer,
-		Manager:           cfg.Manager,
-		Queue:             cfg.Queue,
-		Tracker:           cfg.Tracker,
-		Templates:         siteTmpl,
-		TemplateExecutor:  exec,
-		SessionManager:    sessionManager,
-		Authentication:    auth,
-		FS:                fs,
+		Config:           NewConfig(cfg),
+		TelemetryProxy:   rvp,
+		ThemeConfig:      tv,
+		Daypass:          daypass,
+		SongSecret:       songSecret,
+		News:             newsCache,
+		Storage:          storage,
+		Search:           search,
+		Guest:            cfg.Guest,
+		Proxy:            cfg.Proxy,
+		Streamer:         cfg.Streamer,
+		Manager:          cfg.Manager,
+		Queue:            cfg.Queue,
+		Tracker:          cfg.Tracker,
+		Templates:        siteTmpl,
+		TemplateExecutor: exec,
+		SessionManager:   sessionManager,
+		Authentication:   auth,
+		FS:               fs,
 	}
 }
 
 type State struct {
 	// Config is the configuration for the admin panel
 	Config Config
-	// TelemetryProxy is the reverseproxy used to access the telemetry backend
+	// TelemetryProxy is the reverseproxy used to access the telemetry backend or nil if it isn't enabled
 	TelemetryProxy *httputil.ReverseProxy
-	// TelemetryProxyURL is the url the standalone proxy can be found at, if enabled
-	TelemetryProxyURL string
 	// ThemeConfig is the theme state for the website
 	ThemeConfig *templates.ThemeValues
 	// Daypass is the submission daypass
@@ -165,8 +163,9 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 		if s.TelemetryProxy != nil {
 			r.Handle("/telemetry/*", p(radio.PermTelemetryView, s.TelemetryProxy.ServeHTTP))
 		} else {
-			r.Handle("/telemetry/*", p(radio.PermTelemetryView,
-				http.RedirectHandler(s.TelemetryProxyURL, http.StatusFound).ServeHTTP))
+			r.Handle("/telemetry/*", p(radio.PermTelemetryView, func(w http.ResponseWriter, r *http.Request) {
+				http.Redirect(w, r, s.Config.TelemetryProxyURL(), http.StatusFound)
+			}))
 		}
 
 		// debug handlers, might not be needed later
@@ -198,6 +197,8 @@ type Config struct {
 	MusicPath              func() string
 	DJImagePath            func() string
 	DJImageMaxSize         func() int64
+	TelemetryProxyURL      func() string
+	BoothStreamURL         func() *url.URL
 }
 
 func NewConfig(cfg config.Config) Config {
@@ -213,6 +214,12 @@ func NewConfig(cfg config.Config) Config {
 		}),
 		DJImageMaxSize: config.Value(cfg, func(cfg config.Config) int64 {
 			return cfg.Conf().Website.DJImageMaxSize
+		}),
+		TelemetryProxyURL: config.Value(cfg, func(c config.Config) string {
+			return string(cfg.Conf().Telemetry.StandaloneProxy.URL)
+		}),
+		BoothStreamURL: config.Value(cfg, func(c config.Config) *url.URL {
+			return cfg.Conf().Website.BoothStreamURL.URL()
 		}),
 	}
 }

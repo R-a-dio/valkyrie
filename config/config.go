@@ -45,6 +45,7 @@ var defaultConfig = config{
 		AdminMonitoringURL:        "http://grafana:3000",
 		AdminMonitoringUserHeader: "x-proxy-user",
 		AdminMonitoringRoleHeader: "x-proxy-role",
+		BoothStreamURL:            "localhost:1337",
 	},
 	Streamer: streamer{
 		RPCAddr:         MustParseAddrPort(":4545"),
@@ -231,6 +232,9 @@ type website struct {
 	// AdminMonitoringUserHeader is the header to use for passing in the username
 	AdminMonitoringUserHeader string
 	AdminMonitoringRoleHeader string
+
+	// BoothStreamURL is the URL shown on the booth page for DJs to connect to
+	BoothStreamURL URL
 }
 
 // streamer contains all the fields only relevant to the streamer
