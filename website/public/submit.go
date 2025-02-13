@@ -414,6 +414,12 @@ func NewSubmissionForm(ts radio.TrackStorage, tempdir string, r *http.Request) (
 	}
 	defer f.Close()
 
+	// try to change its permissions, since CreateTemp gives us 0600
+	if err = f.Chmod(0664); err != nil {
+		// not a critical error, but we do log it
+		hlog.FromRequest(r).Warn().Str("filename", f.Name()).Msg("failed to adjust file modes")
+	}
+
 	// open the uploaded file for copying
 	uploaded, err := track.Open()
 	if err != nil {
