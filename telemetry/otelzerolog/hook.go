@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/R-a-dio/valkyrie/util/pool"
 	"github.com/rs/zerolog"
 	"go.opentelemetry.io/otel/log"
 	"go.opentelemetry.io/otel/log/global"
@@ -19,11 +20,17 @@ func Hook(instrumentation_name, instrumentation_version string) zerolog.Hook {
 		log.WithInstrumentationVersion(instrumentation_version),
 	)
 
-	return &hook{logger}
+	return &hook{
+		logger: logger,
+		pool: pool.NewPool(func() map[string]any {
+			return make(map[string]any, 10)
+		}),
+	}
 }
 
 type hook struct {
 	logger log.Logger
+	pool   *pool.Pool[map[string]any]
 }
 
 func (h hook) Run(e *zerolog.Event, zerolevel zerolog.Level, msg string) {
@@ -49,30 +56,36 @@ func (h hook) Run(e *zerolog.Event, zerolevel zerolog.Level, msg string) {
 	r.SetTimestamp(now)
 	r.SetObservedTimestamp(now)
 
-	logData := make(map[string]any)
+	logData := h.pool.Get()
 	// create a string that appends } to the end of the buf variable you access via reflection
 	ev := fmt.Sprintf("%s}", reflect.ValueOf(e).Elem().FieldByName("buf"))
 	_ = json.Unmarshal([]byte(ev), &logData)
 
+	attrs := make([]log.KeyValue, 0, len(logData)+2)
 	for k, v := range logData {
-		r.AddAttributes(convertToKeyValue(k, v))
+		attrs = append(attrs, convertToKeyValue(k, v))
 	}
+
+	// clear the map we used, and put it back into our pool
+	clear(logData)
+	h.pool.Put(logData)
 
 	// add SpanId and TraceId if applicable
 	spanCtx := trace.SpanFromContext(ctx).SpanContext()
 	if spanCtx.HasSpanID() {
-		r.AddAttributes(log.KeyValue{
+		attrs = append(attrs, log.KeyValue{
 			Key:   "SpanId",
 			Value: log.StringValue(spanCtx.SpanID().String()),
 		})
 	}
 	if spanCtx.HasTraceID() {
-		r.AddAttributes(log.KeyValue{
+		attrs = append(attrs, log.KeyValue{
 			Key:   "TraceId",
 			Value: log.StringValue(spanCtx.TraceID().String()),
 		})
 	}
 
+	r.AddAttributes(attrs...)
 	h.logger.Emit(ctx, r)
 }
 
