@@ -195,7 +195,9 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	const assetsPrefix = "/assets/"
 	assetsFs := NewAssetsFS(cfg.Conf().AssetsPath, siteTemplates)
 	// register route for assets
-	r.Handle(assetsPrefix+"*", http.StripPrefix(assetsPrefix, http.FileServerFS(assetsFs)))
+	r.Handle(assetsPrefix+"*", http.StripPrefix(assetsPrefix,
+		CacheControl("max-age=600", http.FileServerFS(assetsFs)),
+	))
 	// register assets version function for inside of the templates
 	//templateFuncs.UpdateWithVersion(functions.NewWithVersionFunc(ctx, assetsPrefix, assetsFs))
 
@@ -390,4 +392,11 @@ func (fsys assetsFS) Open(name string) (fs.File, error) {
 
 	// find theme and pass through the assets fs
 	return fsys.site.Theme(radio.ThemeName(theme)).Assets().Open(rest)
+}
+
+func CacheControl(value string, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Cache-Control", "max-age=600")
+		next.ServeHTTP(w, r)
+	})
 }

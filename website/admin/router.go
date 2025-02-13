@@ -19,6 +19,7 @@ import (
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 var NavBar = navbar.New(`hx-boost="true" hx-push-url="true" hx-target="#content"`,
@@ -128,6 +129,7 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 		// the login middleware will require atleast the active permission
 		r = r.With(
 			s.Authentication.LoginMiddleware,
+			middleware.NoCache,
 		)
 		p := vmiddleware.RequirePermission
 		r.Handle("/set-theme", templates.SetThemeHandler(

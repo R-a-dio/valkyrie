@@ -12,6 +12,7 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/alexedwards/scs/v2"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/httprate"
 	"github.com/gorilla/csrf"
 	"github.com/rs/zerolog"
@@ -96,15 +97,17 @@ func (a authentication) UserMiddleware(next http.Handler) http.Handler {
 
 		user, err := a.storage.User(ctx).Get(username)
 		if err != nil {
+			// username doesn't exist, log the error
 			err = errors.E(op, err)
-			http.Error(w,
-				http.StatusText(http.StatusInternalServerError),
-				http.StatusInternalServerError)
-			hlog.FromRequest(r).Error().Ctx(ctx).Err(err).Msg("")
+			hlog.FromRequest(r).Warn().Ctx(ctx).Err(err).Msg("failed to retrieve user from session")
+			// then send them on their way as unauthenticated
+			next.ServeHTTP(w, RequestWithUser(r, nil))
 			return
 		}
 
-		next.ServeHTTP(w, RequestWithUser(r, user))
+		r = RequestWithUser(r, user)
+		// also add no-cache headers to any authenticated request
+		middleware.NoCache(next).ServeHTTP(w, r)
 	})
 }
 
@@ -173,7 +176,8 @@ func (a authentication) LoginMiddleware(next http.Handler) http.Handler {
 
 		// otherwise, user is active so forward them to their destination
 		r = RequestWithUser(r, user)
-		next.ServeHTTP(w, r)
+		// also add no-cache headers to any authenticated request
+		middleware.NoCache(next).ServeHTTP(w, r)
 	})
 }
 
