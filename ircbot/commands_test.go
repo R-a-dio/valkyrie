@@ -49,3 +49,11 @@ func TestHandlerTimeout(t *testing.T) {
 	// ev := girc.ParseEvent("PRIVMSG #test :test")
 
 }
+
+func TestReHandlersCompiles(t *testing.T) {
+	for _, re := range reHandlers {
+		t.Run(re.name, func(t *testing.T) {
+			compileRegex(re.regex)
+		})
+	}
+}

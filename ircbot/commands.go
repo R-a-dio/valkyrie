@@ -15,7 +15,7 @@ import (
 
 var (
 	// rePrefix is prefixed to all the below regex at runtime
-	rePrefix          = "^[.!@]"
+	rePrefix          = "(?i)^[.!@]"
 	reNowPlaying      = "n(ow)?p(laying)?$"
 	reLastPlayed      = "l(ast)?p(layed)?$"
 	reQueue           = "q(ueue)?$"
@@ -54,11 +54,15 @@ func NewRegexHandlers(ctx context.Context, bot *Bot, handlers ...RegexHandler) R
 	}
 
 	for i, handler := range handlers {
-		h.cache[i] = regexp.MustCompile(rePrefix + handler.regex)
+		h.cache[i] = compileRegex(handler.regex)
 		h.cache[i].Longest()
 	}
 
 	return h
+}
+
+func compileRegex(regex string) *regexp.Regexp {
+	return regexp.MustCompile(rePrefix + regex)
 }
 
 // RegexHandlers is a collection of handlers that are triggered based on a regular
