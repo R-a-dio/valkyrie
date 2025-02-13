@@ -18,12 +18,12 @@ import (
 func NewNewsCache() *NewsCache {
 	return &NewsCache{
 		trusted: goldmark.New(
-			markdown.RadioMarkdownOptions()...,
+			markdown.RadioMarkdownOptions(false)...,
 		//goldmark.WithRendererOptions(
 		//html.WithUnsafe(), // TODO: see if we want to enable this
 		//),
 		),
-		untrusted: goldmark.New(markdown.RadioMarkdownOptions()...),
+		untrusted: goldmark.New(markdown.RadioMarkdownOptions(false)...),
 		pool:      pool.NewResetPool(func() *bytes.Buffer { return new(bytes.Buffer) }),
 		cache:     new(util.Map[newsCacheKey, NewsMarkdown]),
 	}

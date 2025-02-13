@@ -3,6 +3,7 @@ package markdown
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"reflect"
 	"strconv"
 	"unicode"
@@ -16,12 +17,12 @@ import (
 	goldutil "github.com/yuin/goldmark/util"
 )
 
-func RadioMarkdownOptions() []goldmark.Option {
+func RadioMarkdownOptions(debug bool) []goldmark.Option {
 	return []goldmark.Option{
 		goldmark.WithParser(NoBlockQuoteParser()),
 		goldmark.WithParserOptions(
 			parser.WithInlineParsers(
-				goldutil.Prioritized(&MemeQuoteParser{}, 1),
+				goldutil.Prioritized(&MemeQuoteParser{debugEnabled: debug}, 1),
 			),
 		),
 		goldmark.WithRendererOptions(
@@ -58,7 +59,15 @@ func NoBlockQuoteParser() parser.Parser {
 	)
 }
 
-type MemeQuoteParser struct{}
+type MemeQuoteParser struct {
+	debugEnabled bool
+}
+
+func (p *MemeQuoteParser) debug(s string, args ...any) {
+	if p.debugEnabled {
+		log.Printf(s, args...)
+	}
+}
 
 var _ parser.InlineParser = (*MemeQuoteParser)(nil)
 
@@ -80,7 +89,9 @@ func (p *MemeQuoteParser) Parse(parent ast.Node, reader text.Reader, pc parser.C
 		stop := bytes.IndexFunc(line, unicode.IsSpace)
 		if stop < 0 {
 			// no whitespace left?
-			return nil
+			p.debug("no whitespace at end of line found")
+			// continue with just the whole line then
+			stop = len(line)
 		}
 
 		// grab the number, if it is one
@@ -88,8 +99,10 @@ func (p *MemeQuoteParser) Parse(parent ast.Node, reader text.Reader, pc parser.C
 		number, err := strconv.ParseInt(string(shouldNumber), 10, 64)
 		if err != nil {
 			// it wasn't a number, leave it alone
+			p.debug("text after >> wasn't a number")
 			return nil
 		} else if number < 0 {
+			p.debug("number is below zero")
 			// or if it's below zero, we don't have any comment IDs below zero
 			return nil
 		}

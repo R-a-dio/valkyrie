@@ -2,9 +2,10 @@ package markdown
 
 import (
 	"bytes"
-	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/util"
 )
@@ -12,20 +13,26 @@ import (
 var data []byte
 
 func TestMemeQuotesExtension(t *testing.T) {
-	data = []byte(`	`)
+	data = []byte(`>>5555
 
-	md := goldmark.New(RadioMarkdownOptions()...)
+>>6666
+yes
+	`)
+
+	md := goldmark.New(RadioMarkdownOptions(false)...)
 
 	var buf bytes.Buffer
 	err := md.Convert([]byte(data), &buf)
+	require.NoError(t, err)
 
-	fmt.Println(err)
-	fmt.Println(buf.String())
+	result := buf.String()
+	assert.Contains(t, result, `href="#5555"`, "result did not contain href")
+	assert.Contains(t, result, `href="#6666"`, "result did not contain href")
 }
 
 func FuzzRadioStyleMarkdown(f *testing.F) {
 	f.Fuzz(func(t *testing.T, orig string) {
-		markdown := goldmark.New(RadioMarkdownOptions()...)
+		markdown := goldmark.New(RadioMarkdownOptions(false)...)
 		var buf bytes.Buffer
 		err := markdown.Convert(util.StringToReadOnlyBytes(orig), &buf)
 		if err != nil {
