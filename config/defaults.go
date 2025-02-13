@@ -42,7 +42,6 @@ var defaultConfig = config{
 	},
 	Manager: manager{
 		RPCAddr:         MustParseAddrPort(":4646"),
-		StreamURL:       "",
 		FallbackNames:   []string{"fallback"},
 		GuestProxyAddr:  "//localhost:9123",
 		GuestAuthPeriod: Duration(time.Hour * 24),

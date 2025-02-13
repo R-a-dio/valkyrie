@@ -61,7 +61,7 @@ type tracker struct {
 	MasterUsername string
 	// MasterPassword is the admin password for the master icecast
 	MasterPassword string
-	// PrimaryMountName is the mountname to keep track of
+	// PrimaryMountName is the mountname to keep track of, for example "/main.mp3"
 	PrimaryMountName string
 }
 
@@ -86,19 +86,33 @@ type proxy struct {
 }
 
 type telemetry struct {
-	Use                bool
-	Endpoint           string
-	Auth               string
+	// Use disables telemetry when false
+	Use bool
+	// Endpoint is the endpoint that the opentelemetry collector is on
+	Endpoint string
+	// Auth is the value send in the Authorization header
+	Auth string
+	// PrometheusEndpoint is the endpoint that prometheus remotewrite is on
 	PrometheusEndpoint string
 
+	// StandaloneProxy lets you run the telemetry reverse-proxy as a standalone
+	// service instead of being embedded in the website service
 	StandaloneProxy struct {
-		Enabled    bool
-		URL        URL
+		// Enabled enables or disables the standalone version, this is only used
+		// to update the redirect in the website service, you're responsible for
+		// running the service somehow
+		Enabled bool
+		// URL is the accessable url that /admin/telemetry should redirect to
+		URL URL
+		// ListenAddr is where the reverse-proxy should be listening
 		ListenAddr AddrPort
 	}
 
+	// Pyroscope contains configuration values for the pyroscope support
 	Pyroscope struct {
-		Endpoint   URL
+		// Endpoint is where the pyroscope instance lives
+		Endpoint URL
+		// UploadRate is how often pyroscope should collect data
 		UploadRate Duration
 	}
 }
@@ -189,13 +203,12 @@ type irc struct {
 type manager struct {
 	// RPCAddr is the address for the RPC API
 	RPCAddr AddrPort
-	// StreamURL is the url to listen to the mp3 stream
-	StreamURL string
 	// FallbackNames is a list of strings that indicate an icecast stream is playing a
 	// fallback stream
 	FallbackNames []string
-
-	GuestProxyAddr  URL
+	// GuestProxyAddr is the address guests should connect to to stream to icecast
+	GuestProxyAddr URL
+	// GuestAuthPeriod is how long a guest will be authorized to do things as a guest
 	GuestAuthPeriod Duration
 }
 
