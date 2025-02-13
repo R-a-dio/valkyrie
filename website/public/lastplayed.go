@@ -8,6 +8,7 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/R-a-dio/valkyrie/website/shared"
+	"github.com/rs/zerolog/hlog"
 )
 
 const (
@@ -30,7 +31,10 @@ func NewLastPlayedInput(s radio.SongStorageService, r *http.Request) (*LastPlaye
 
 	key, page, err := getPageFrom(r)
 	if err != nil {
-		return nil, errors.E(op, err)
+		// this means someone is inputting weird stuff manually almost certainly
+		// but log it anyway, we then proceed with the defaults that getPageFrom
+		// returns for us
+		hlog.FromRequest(r).Warn().Ctx(r.Context()).Msg("weird form, proceeding with defaults")
 	}
 
 	ss := s.Song(r.Context())
