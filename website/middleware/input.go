@@ -8,6 +8,7 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
+	"github.com/R-a-dio/valkyrie/templates"
 	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/website/shared/navbar"
 )
@@ -35,6 +36,7 @@ func InputMiddleware(cfg config.Config, status util.StreamValuer[radio.Status], 
 				Status:      status.Latest(),
 				NavBar:      publicNavBar,
 				AdminNavBar: adminNavBar.WithUser(user),
+				Theme:       templates.GetTheme(ctx),
 			}
 
 			ctx = context.WithValue(ctx, inputKey{}, input)
@@ -79,6 +81,8 @@ type Input struct {
 	NavBar navbar.NavBar
 	// AdminNavBar is the admin navbar, see documentation of NavBar
 	AdminNavBar navbar.NavBar
+	// Theme is the current theme being rendered
+	Theme radio.ThemeName
 }
 
 func (Input) TemplateName() string {

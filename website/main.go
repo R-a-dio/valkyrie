@@ -176,10 +176,10 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		csrf.Encoding(base62.StdEncoding),
 		csrf.MaxAge(int((time.Hour * 24 * 7).Seconds())), // 7 days
 	))
-	// shared input handling, stuff the base template needs
-	r.Use(vmiddleware.InputMiddleware(cfg, statusValue, public.NavBar, admin.NavBar))
 	// theme state management
 	r.Use(templates.ThemeCtx(themeValues))
+	// shared input handling, stuff the base template needs
+	r.Use(vmiddleware.InputMiddleware(cfg, statusValue, public.NavBar, admin.NavBar))
 
 	// legacy urls that once pointed to our stream, redirect them to the new url
 	redirectHandler := RedirectLegacyStream(cfg)
