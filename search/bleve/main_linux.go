@@ -71,15 +71,9 @@ func NewServer(ctx context.Context, idx *indexWrap) (*http.Server, error) {
 	r := website.NewRouter()
 	r.Use(middleware.Recoverer)
 	r.Use(
-		hlog.NewHandler(*logger),
-		hlog.RemoteAddrHandler("ip"),
-		hlog.UserAgentHandler("user_agent"),
+		util.NewZerologAttributes(*logger),
 		hlog.RequestIDHandler("req_id", "Request-Id"),
-		hlog.URLHandler("url"),
-		hlog.MethodHandler("method"),
-		hlog.ProtoHandler("protocol"),
-		hlog.CustomHeaderHandler("is_htmx", "Hx-Request"),
-		hlog.AccessHandler(zerologLoggerFunc),
+		hlog.AccessHandler(util.ZerologLoggerFunc),
 	)
 
 	r.Get(searchPath, SearchHandler(idx))

@@ -33,14 +33,6 @@ type Server struct {
 	events     *EventHandler
 }
 
-func zerologLoggerFunc(r *http.Request, status, size int, duration time.Duration) {
-	hlog.FromRequest(r).Info().
-		Int("status_code", status).
-		Int("response_size_bytes", size).
-		Dur("elapsed_ms", duration).
-		Msg("http request")
-}
-
 func NewServer(ctx context.Context, cfg config.Config, manager radio.ManagerService, uss radio.UserStorageService) (*Server, error) {
 	const op errors.Op = "proxy.NewServer"
 
@@ -65,15 +57,9 @@ func NewServer(ctx context.Context, cfg config.Config, manager radio.ManagerServ
 	r := website.NewRouter()
 	// setup zerolog
 	r.Use(
-		hlog.NewHandler(*logger),
-		hlog.RemoteAddrHandler("ip"),
-		hlog.UserAgentHandler("user_agent"),
+		util.NewZerologAttributes(*logger),
 		hlog.RequestIDHandler("req_id", "Request-Id"),
-		hlog.URLHandler("url"),
-		hlog.MethodHandler("method"),
-		hlog.ProtoHandler("protocol"),
-		hlog.CustomHeaderHandler("is_htmx", "Hx-Request"),
-		hlog.AccessHandler(zerologLoggerFunc),
+		hlog.AccessHandler(util.ZerologLoggerFunc),
 	)
 	r.Use(chiware.Recoverer)
 	// handle basic authentication

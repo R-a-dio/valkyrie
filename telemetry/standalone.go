@@ -47,14 +47,8 @@ func ExecuteStandalone(ctx context.Context, cfg config.Config) error {
 	r.Use(middleware.RealIP)
 	// setup zerolog details
 	r.Use(
-		hlog.NewHandler(*logger),
-		hlog.RemoteAddrHandler("ip"),
-		hlog.UserAgentHandler("user_agent"),
+		util.NewZerologAttributes(*logger),
 		hlog.RequestIDHandler("req_id", "Request-Id"),
-		hlog.URLHandler("url"),
-		hlog.MethodHandler("method"),
-		hlog.ProtoHandler("protocol"),
-		hlog.CustomHeaderHandler("is_htmx", "Hx-Request"),
 		hlog.AccessHandler(util.ZerologLoggerFunc),
 	)
 	// recover from panics

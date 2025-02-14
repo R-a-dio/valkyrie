@@ -131,7 +131,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	r.Use(middleware.RealIP)
 	// setup zerolog details
 	r.Use(
-		NewZerologAttributes(*logger),
+		util.NewZerologAttributes(*logger),
 		hlog.RequestIDHandler("req_id", "Request-Id"),
 		hlog.AccessHandler(util.ZerologLoggerFunc),
 	)
@@ -394,33 +394,4 @@ func CacheControl(value string, next http.Handler) http.Handler {
 		w.Header().Add("Cache-Control", "max-age=600")
 		next.ServeHTTP(w, r)
 	})
-}
-
-// NewZerologAttributes aggregates a bunch of zerolog/hlog middleware into a single one
-//
-//	hlog.NewHandler(*logger)
-//	hlog.RemoteAddrHandler("ip")
-//	hlog.UserAgentHandler("user_agent")
-//	hlog.URLHandler("url")
-//	hlog.MethodHandler("method")
-//	hlog.ProtoHandler("protocol")
-//	hlog.CustomHeaderHandler("is_htmx", "Hx-Request")
-//	hlog.RefererHandler("referer")
-func NewZerologAttributes(logger zerolog.Logger) func(next http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			l := logger.With().
-				Str("url", r.URL.String()).
-				Str("method", r.Method).
-				Str("ip", r.RemoteAddr).
-				Str("user_agent", r.Header.Get("User-Agent")).
-				Str("referer", r.Header.Get("Referer")).
-				Str("is_htmx", r.Header.Get("Hx-Request")).
-				Str("req_id", "").
-				Str("protocol", r.Proto).
-				Logger()
-			r = r.WithContext(l.WithContext(r.Context()))
-			next.ServeHTTP(w, r)
-		})
-	}
 }

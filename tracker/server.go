@@ -153,14 +153,9 @@ func NewServer(ctx context.Context, cfg config.Config) *Server {
 	r := website.NewRouter()
 
 	r.Use(
-		hlog.NewHandler(*zerolog.Ctx(ctx)),
-		hlog.RemoteAddrHandler("ip"),
-		hlog.UserAgentHandler("user_agent"),
+		util.NewZerologAttributes(*zerolog.Ctx(ctx)),
 		hlog.RequestIDHandler("req_id", "Request-Id"),
-		hlog.URLHandler("url"),
-		hlog.MethodHandler("method"),
-		hlog.ProtoHandler("protocol"),
-		hlog.AccessHandler(zerologLoggerFunc),
+		hlog.AccessHandler(util.ZerologLoggerFunc),
 	)
 	r.Post("/listener_joined", ListenerAdd(ctx, s.recorder))
 	r.Post("/listener_left", ListenerRemove(ctx, s.recorder))
@@ -178,14 +173,6 @@ func NewServer(ctx context.Context, cfg config.Config) *Server {
 	s.grpc = gs
 
 	return s
-}
-func zerologLoggerFunc(r *http.Request, status, size int, duration time.Duration) {
-	hlog.FromRequest(r).Info().Ctx(r.Context()).
-		Int("status_code", status).
-		Int("response_size_bytes", size).
-		Dur("elapsed_ms", duration).
-		Str("url", r.URL.String()).
-		Msg("http request")
 }
 
 func ListenerAdd(ctx context.Context, recorder *Recorder) http.HandlerFunc {

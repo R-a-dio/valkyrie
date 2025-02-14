@@ -5,7 +5,6 @@ import (
 	"io"
 	"net/http"
 	"strconv"
-	"time"
 	"unsafe"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -41,14 +40,6 @@ var _cache = cache{
 type cache struct {
 	enc *pool.Pool[*msgpack.Encoder]
 	dec *pool.Pool[*msgpack.Decoder]
-}
-
-func zerologLoggerFunc(r *http.Request, status, size int, duration time.Duration) {
-	hlog.FromRequest(r).Info().Ctx(r.Context()).
-		Int("status_code", status).
-		Int("response_size_bytes", size).
-		Dur("elapsed_ms", duration).
-		Msg("http request")
 }
 
 func DeleteHandler(idx *indexWrap) http.HandlerFunc {

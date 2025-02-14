@@ -46,6 +46,41 @@ func ZerologLoggerFunc(r *http.Request, status, size int, duration time.Duration
 		Msg("http request")
 }
 
+// NewZerologAttributes aggregates a bunch of zerolog/hlog middleware into a single one
+//
+//	hlog.NewHandler(*logger)
+//	hlog.RemoteAddrHandler("ip")
+//	hlog.UserAgentHandler("user_agent")
+//	hlog.URLHandler("url")
+//	hlog.MethodHandler("method")
+//	hlog.ProtoHandler("protocol")
+//	hlog.CustomHeaderHandler("is_htmx", "Hx-Request")
+//	hlog.RefererHandler("referer")
+func NewZerologAttributes(logger zerolog.Logger) func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			zctx := logger.With().
+				Str("url", r.URL.String()).
+				Str("method", r.Method).
+				Str("ip", r.RemoteAddr).
+				Bool("is_htmx", IsHTMX(r)).
+				Str("req_id", "").
+				Str("protocol", r.Proto)
+
+			if ua := r.Header.Get("User-Agent"); ua != "" {
+				zctx = zctx.Str("user_agent", ua)
+			}
+			if ref := r.Header.Get("Referer"); ref != "" {
+				zctx = zctx.Str("referer", ref)
+			}
+
+			l := zctx.Logger()
+			r = r.WithContext(l.WithContext(r.Context()))
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 // IsHTMX checks if a request was made by HTMX through the Hx-Request header
 func IsHTMX(r *http.Request) bool {
 	return r.Header.Get("Hx-Request") == "true" && r.Header.Get("Hx-History-Restore-Request") != "true"
