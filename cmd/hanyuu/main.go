@@ -18,6 +18,7 @@ import (
 	"github.com/R-a-dio/valkyrie/ircbot"
 	"github.com/R-a-dio/valkyrie/jobs"
 	"github.com/R-a-dio/valkyrie/manager"
+	"github.com/R-a-dio/valkyrie/metadata"
 	"github.com/R-a-dio/valkyrie/proxy"
 	"github.com/R-a-dio/valkyrie/search/bleve"
 	_ "github.com/R-a-dio/valkyrie/search/storage"  // storage search interface
@@ -284,6 +285,16 @@ var bleveCmd = cmd{
 	noSIGUSR2: true,
 }
 
+var metadataCmd = cmd{
+	name:     "metadata",
+	synopsis: "runs the metadata searcher",
+	usage: `metadata:
+	runs the metadata searcher
+	`,
+	execute:   withConfig(metadata.Execute),
+	noSIGUSR2: true,
+}
+
 func main() {
 	var disableStdout bool
 	// setup configuration file as top-level flag
@@ -311,6 +322,7 @@ func main() {
 	subcommands.Register(proxyCmd, "")
 	subcommands.Register(listenerTrackerCmd, "")
 	subcommands.Register(bleveCmd, "")
+	subcommands.Register(metadataCmd, "")
 	subcommands.Register(telemetryProxyCmd, "")
 
 	subcommands.Register(listenerLogCmd, "jobs")
