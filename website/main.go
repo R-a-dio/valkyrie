@@ -206,6 +206,9 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	if err != nil {
 		return errors.E(op, err)
 	}
+
+	// strip trailing slashes for all other routes
+	r = r.With(middleware.StripSlashes)
 	r.Route("/api", v0.Route)
 	r.Route(`/request/{TrackID:[0-9]+}`, v0.RequestRoute)
 
