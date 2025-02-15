@@ -43,6 +43,11 @@ func isCompletion(cmd *cobra.Command) bool {
 	return false
 }
 
+const (
+	flagTelemetry = "telemetry"
+	flagConfig    = "config"
+)
+
 func main() {
 	// global flags
 	var configFile string
@@ -57,34 +62,14 @@ func main() {
 		Use:   "hanyuu",
 		Short: "collection of services, helpers and one-off jobs in one executable",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			// disable the prerun if this is a completion command supplied by cobra
-			if isCompletion(cmd) {
-				return nil
-			}
-
 			if disableStdout {
 				cmd.SetOut(io.Discard)
 			}
 
-			// load the configuration file before the command runs
-			cfg, err := config.LoadFile(configFile, os.Getenv("HANYUU_CONFIG"))
-			if err != nil {
-				return err
-			}
-			cmd.SetContext(cfgWithContext(cmd.Context(), cfg))
-
 			// setup logging
-			err = NewLogger(cmd, cmd.OutOrStdout(), logLevel)
+			err := NewLogger(cmd, cmd.OutOrStdout(), logLevel)
 			if err != nil {
 				return err
-			}
-
-			// either of these being true enables the telemetry
-			if enableTelemetry || cfg.Conf().Telemetry.Use {
-				telemetryShutdown, err = SetupTelemetry(cmd, cfg)
-				if err != nil {
-					zerolog.Ctx(cmd.Context()).Err(err).Ctx(cmd.Context()).Msg("failed to initialize telemetry")
-				}
 			}
 			return nil
 		},
@@ -98,10 +83,10 @@ func main() {
 	}
 
 	// add global flags
-	root.PersistentFlags().StringVar(&configFile, "config", "hanyuu.toml", "filepath to configuration file")
+	root.PersistentFlags().StringVar(&configFile, flagConfig, "hanyuu.toml", "filepath to configuration file")
+	root.PersistentFlags().BoolVar(&enableTelemetry, flagTelemetry, false, "enable telemetry collection")
 	root.PersistentFlags().StringVar(&logLevel, "log", "info", "what log level to use")
 	root.PersistentFlags().BoolVarP(&disableStdout, "quiet", "q", false, "set to disable logs being printed to stdout")
-	root.PersistentFlags().BoolVar(&enableTelemetry, "telemetry", false, "enable telemetry collection")
 
 	root.AddGroup(
 		&cobra.Group{ID: "services", Title: "long-running services"},
@@ -306,6 +291,26 @@ func signalHandler(fn cobraFn) cobraFn {
 		// setup the actual execution environment for the command
 		launchedCh := make(chan struct{}, 1)
 		errCh := make(chan error, 1)
+
+		// load the configuration file
+		configFile, _ := cmd.PersistentFlags().GetString(flagConfig)
+		cfg, err := config.LoadFile(configFile, os.Getenv("HANYUU_CONFIG"))
+		if err != nil {
+			return err
+		}
+		ctx = cfgWithContext(ctx, cfg)
+
+		// setup telemetry if this is wanted
+		if enable, _ := cmd.PersistentFlags().GetBool(flagTelemetry); enable || cfg.Conf().Telemetry.Use {
+			telemetryCleanup, err := SetupTelemetry(cmd, cfg)
+			if err != nil {
+				zerolog.Ctx(cmd.Context()).Err(err).Ctx(cmd.Context()).Msg("failed to initialize telemetry")
+			}
+			if telemetryCleanup != nil {
+				defer telemetryCleanup()
+			}
+		}
+
 		// add the updated ctx to the cmd
 		cmd.SetContext(ctx)
 		go func() {
