@@ -9,10 +9,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/cmd"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/search"
@@ -282,7 +282,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	select {
 	case <-ctx.Done():
 		return server.Close()
-	case <-util.Signal(syscall.SIGUSR2):
+	case <-cmd.USR2Signal(ctx):
 		// store our "not really persistent" state
 		state, _ := json.Marshal(websiteStorage{
 			HolidayTheme: themeValues.LoadHoliday(),

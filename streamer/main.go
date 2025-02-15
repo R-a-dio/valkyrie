@@ -3,11 +3,10 @@ package streamer
 import (
 	"context"
 	"net"
-	"syscall"
 
+	"github.com/R-a-dio/valkyrie/cmd"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/storage"
-	"github.com/R-a-dio/valkyrie/util"
 	"github.com/Wessie/fdstore"
 	"github.com/rs/zerolog"
 )
@@ -54,7 +53,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 
 	// wait for our context to be canceled or Serve to error out
 	select {
-	case <-util.Signal(syscall.SIGUSR2):
+	case <-cmd.USR2Signal(ctx):
 		zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("SIGUSR2 received")
 		if err := streamer.handleRestart(ctx); err != nil {
 			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to handle restart")
