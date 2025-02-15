@@ -7,8 +7,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
-	"os/signal"
 	"path/filepath"
 	"runtime/debug"
 	"strings"
@@ -393,15 +391,6 @@ func (tc *CallbackTimer) Stop() bool {
 		return tc.timer.Stop()
 	}
 	return true
-}
-
-// Signal returns a channel that will receive the signals given as
-// arguments, similar to signal.Notify but creating the channel for you
-// on the fly.
-func Signal(signals ...os.Signal) <-chan os.Signal {
-	signalCh := make(chan os.Signal, len(signals))
-	signal.Notify(signalCh, signals...)
-	return signalCh
 }
 
 // RestoreOrListen tries to restore a listener with the name given from
