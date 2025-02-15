@@ -30,19 +30,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func isCompletion(cmd *cobra.Command) bool {
-	name := constructServiceName(cmd)
-
-	switch {
-	case strings.HasPrefix(name, "completion"):
-		return true
-	case strings.HasPrefix(name, "__complete"):
-		return true
-	}
-
-	return false
-}
-
 const (
 	flagTelemetry = "telemetry"
 	flagConfig    = "config"
@@ -265,17 +252,18 @@ func convertExecuteFn(fn ExecuteFn) cobraFn {
 
 // SimpleCommand is the wrapper to use when your function is already a cobraFn
 func SimpleCommand(fn cobraFn) cobraFn {
-	return signalHandler(fn)
+	return executeCommand(fn)
 }
 
 // Command is the wrapper to use when your function is an ExecuteFn and does
 // not require smooth-restart support (let us handle SIGUSR2)
 func Command(fn ExecuteFn) cobraFn {
-	return signalHandler(convertExecuteFn(fn))
+	return executeCommand(convertExecuteFn(fn))
 }
 
-// signalHandler handles OS and Systemd signals while executing the fn given.
-func signalHandler(fn cobraFn) cobraFn {
+// executeCommand sets up the environment and executes the function given with it, it
+// handles OS signals, config loading, telemetry setup and systemd notifications
+func executeCommand(fn cobraFn) cobraFn {
 	return func(cmd *cobra.Command, args []string) error {
 		// make a ctx we can cancel
 		ctx, cancel := context.WithCancel(cmd.Context())
