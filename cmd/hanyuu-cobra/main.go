@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	. "github.com/R-a-dio/valkyrie/cmd"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/ircbot"
 	"github.com/R-a-dio/valkyrie/jobs"
@@ -28,8 +29,6 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 )
-
-type ExecuteFn func(context.Context, config.Config) error
 
 func isCompletion(cmd *cobra.Command) bool {
 	name := constructServiceName(cmd)
@@ -136,7 +135,7 @@ func main() {
 			GroupID: "services",
 			Short:   "run the manager, inter-process state management",
 			Args:    cobra.NoArgs,
-			RunE:    CommandWithRestartSupport(manager.Execute),
+			RunE:    Command(manager.Execute),
 		},
 		&cobra.Command{
 			Use:     "irc",
@@ -150,14 +149,14 @@ func main() {
 			GroupID: "services",
 			Short:   "run the website",
 			Args:    cobra.NoArgs,
-			RunE:    CommandWithRestartSupport(website.Execute),
+			RunE:    Command(website.Execute),
 		},
 		&cobra.Command{
 			Use:     "proxy",
 			GroupID: "services",
 			Short:   "run the icecast proxy",
 			Args:    cobra.NoArgs,
-			RunE:    CommandWithRestartSupport(proxy.Execute),
+			RunE:    Command(proxy.Execute),
 		},
 		&cobra.Command{
 			Use:     "telemetry-proxy",
@@ -171,21 +170,21 @@ func main() {
 			GroupID: "services",
 			Short:   "run the icecast listener tracker",
 			Args:    cobra.NoArgs,
-			RunE:    CommandWithRestartSupport(tracker.Execute),
+			RunE:    Command(tracker.Execute),
 		},
 		&cobra.Command{
 			Use:     "blevesearch",
 			GroupID: "services",
 			Short:   "run the bleve search provider",
 			Args:    cobra.NoArgs,
-			RunE:    CommandWithRestartSupport(bleve.Execute),
+			RunE:    Command(bleve.Execute),
 		},
 		&cobra.Command{
 			Use:     "streamer",
 			GroupID: "services",
 			Short:   "run the AFK streamer",
 			Args:    cobra.NoArgs,
-			RunE:    CommandWithRestartSupport(streamer.Execute),
+			RunE:    Command(streamer.Execute),
 		},
 	)
 
@@ -281,38 +280,34 @@ func convertExecuteFn(fn ExecuteFn) cobraFn {
 
 // SimpleCommand is the wrapper to use when your function is already a cobraFn
 func SimpleCommand(fn cobraFn) cobraFn {
-	return signalHandler(true, fn)
+	return signalHandler(fn)
 }
 
 // Command is the wrapper to use when your function is an ExecuteFn and does
 // not require smooth-restart support (let us handle SIGUSR2)
 func Command(fn ExecuteFn) cobraFn {
-	return signalHandler(true, convertExecuteFn(fn))
-}
-
-// CommandWithRestartSupport is the wrapper to use when your function is an ExecuteFn
-// and does need smooth-restart support (let the ExecuteFn handle SIGUSR2)
-func CommandWithRestartSupport(fn ExecuteFn) cobraFn {
-	return signalHandler(false, convertExecuteFn(fn))
+	return signalHandler(convertExecuteFn(fn))
 }
 
 // signalHandler handles OS and Systemd signals while executing the fn given.
-// `handleSIGUSR2` indicates if this function should exit when a SIGUSR2
-// signal is received.
-func signalHandler(handleSIGUSR2 bool, fn cobraFn) cobraFn {
+func signalHandler(fn cobraFn) cobraFn {
 	return func(cmd *cobra.Command, args []string) error {
 		// make a ctx we can cancel
 		ctx, cancel := context.WithCancel(cmd.Context())
 		defer cancel()
-		cmd.SetContext(ctx)
 
 		// setup signal handling
 		signalCh := make(chan os.Signal, 5)
 		signal.Notify(signalCh, os.Interrupt, syscall.SIGHUP, syscall.SIGUSR2)
 
+		// put in a way for the commands to tell us to not react to USR2
+		ctx, USR2WasUsed := WithUSR2Signal(ctx)
+
 		// setup the actual execution environment for the command
 		launchedCh := make(chan struct{}, 1)
 		errCh := make(chan error, 1)
+		// add the updated ctx to the cmd
+		cmd.SetContext(ctx)
 		go func() {
 			// send a signal that this goroutine is now running
 			launchedCh <- struct{}{}
@@ -331,19 +326,18 @@ func signalHandler(handleSIGUSR2 bool, fn cobraFn) cobraFn {
 			case sig := <-signalCh:
 				switch sig {
 				case os.Interrupt:
-					zerolog.Ctx(cmd.Context()).Info().Msg("SIGINT received")
+					zerolog.Ctx(ctx).Info().Msg("SIGINT received")
 					return nil
 				case syscall.SIGHUP:
-					zerolog.Ctx(cmd.Context()).Info().Msg("SIGHUP received: not implemented")
+					zerolog.Ctx(ctx).Info().Msg("SIGHUP received: not implemented")
 					// notify systemd that we reloaded correctly even though it isn't implemented,
 					// otherwise it will hang forever waiting for us to signal it
 					if fdstore.Notify(fdstore.Reloading) == nil {
 						_ = fdstore.Notify(fdstore.Ready)
 					}
 				case syscall.SIGUSR2:
-					// only react to SIGUSR2 if we're asked to, otherwise whatever command is running
-					// will be unhappy with us
-					if handleSIGUSR2 {
+					// only react to SIGUSR2 if the signal handler we added was called
+					if !USR2WasUsed() {
 						return nil
 					}
 				}
@@ -353,7 +347,7 @@ func signalHandler(handleSIGUSR2 bool, fn cobraFn) cobraFn {
 				// we need to signal systemd that we're ready, doing this "correctly" would mean doing
 				// it in each separate commands main loop, but we just do it here for now
 				if err := fdstore.Notify(fdstore.Ready); !errors.Is(err, fdstore.ErrNoSocket) {
-					zerolog.Ctx(cmd.Context()).Err(err).Msg("failed to send sd_notify READY")
+					zerolog.Ctx(ctx).Err(err).Msg("failed to send sd_notify READY")
 				}
 			}
 		}

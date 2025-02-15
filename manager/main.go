@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/cmd"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/rpc"
 	"github.com/R-a-dio/valkyrie/storage"
@@ -88,7 +88,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	select {
 	case <-ctx.Done():
 		return nil
-	case <-util.Signal(syscall.SIGUSR2):
+	case <-cmd.USR2Signal(ctx):
 		zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("SIGUSR2 received")
 		// on a restart signal we want to capture the current state and pass it
 		// to the next process, however it is possible there are in-flight updates

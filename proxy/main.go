@@ -3,8 +3,8 @@ package proxy
 import (
 	"context"
 	"net"
-	"syscall"
 
+	"github.com/R-a-dio/valkyrie/cmd"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/rpc"
@@ -52,7 +52,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	case <-ctx.Done():
 		grpcSrv.Stop()
 		return srv.Close()
-	case <-util.Signal(syscall.SIGUSR2):
+	case <-cmd.USR2Signal(ctx):
 		if err := srv.storeSelf(ctx, fdstorage); err != nil {
 			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to store self")
 		}
