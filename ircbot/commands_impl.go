@@ -794,6 +794,14 @@ func TrackInfo(e Event) error {
 
 	song, err := e.ArgumentTrack("TrackID")
 	if err != nil {
+		// if the argument was a valid number, but the ID didn't exist
+		// actually error out
+		if errors.Is(errors.SongUnknown, err) {
+			return errors.E(op, err)
+		}
+
+		// otherwise it was probably someone typing something behind the
+		// command, and we can use the current track for them
 		song, err = e.CurrentTrack()
 		if err != nil {
 			return errors.E(op, err)
@@ -855,6 +863,14 @@ func TrackTags(e Event) error {
 
 	song, err := e.ArgumentTrack("TrackID")
 	if err != nil {
+		// if the argument was a valid number, but the ID didn't exist
+		// actually error out
+		if errors.Is(errors.SongUnknown, err) {
+			return errors.E(op, err)
+		}
+
+		// otherwise it was probably someone typing something behind the
+		// command, and we can use the current track for them
 		song, err = e.CurrentTrack()
 		if err != nil {
 			return errors.E(op, err)
