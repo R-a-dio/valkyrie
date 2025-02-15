@@ -662,7 +662,9 @@ func MessageFromError(err error) string {
 	case errors.Is(errors.SearchNoResults, err):
 		return "Your search returned no results"
 	case errors.Is(errors.UserUnknown, err):
-		return ""
+		return "No such user exists"
+	case errors.Is(errors.SongUnknown, err):
+		return "No such song exists"
 	}
 	return ""
 }

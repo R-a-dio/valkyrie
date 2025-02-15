@@ -217,6 +217,10 @@ func bleveToRadio(result *bleve.SearchResult) (*radio.SearchResult, error) {
 
 	var res radio.SearchResult
 
+	if len(result.Hits) == 0 {
+		return &res, errors.E(op, errors.SearchNoResults)
+	}
+
 	res.TotalHits = int(result.Total)
 	res.Songs = make([]radio.Song, len(result.Hits))
 	for i, hit := range result.Hits {
