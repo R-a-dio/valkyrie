@@ -240,7 +240,7 @@ func (a *API) getSearch(w http.ResponseWriter, r *http.Request) {
 	// key from the url router, query is part of the url
 	query := chi.URLParamFromCtx(ctx, "query")
 	result, err := a.search.Search(ctx, query, int64(limit), int64(offset))
-	if err != nil {
+	if err != nil && !errors.Is(errors.SearchNoResults, err) {
 		hlog.FromRequest(r).Error().Ctx(r.Context()).Err(err).Msg("")
 		return
 	}

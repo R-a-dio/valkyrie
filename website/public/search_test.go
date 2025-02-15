@@ -21,8 +21,8 @@ import (
 
 func TestNewSearchInput(t *testing.T) {
 	ss := &mocks.SearchServiceMock{
-		SearchFunc: func(ctx context.Context, query string, limit, offset int64) (*radio.SearchResult, error) {
-			return &radio.SearchResult{
+		SearchFunc: func(ctx context.Context, query string, limit, offset int64) (radio.SearchResult, error) {
+			return radio.SearchResult{
 				Songs: make([]radio.Song, limit),
 			}, nil
 		},
@@ -50,8 +50,8 @@ func TestNewSearchInput(t *testing.T) {
 
 func TestNewSearchSharedInputURLFix(t *testing.T) {
 	ss := &mocks.SearchServiceMock{
-		SearchFunc: func(ctx context.Context, query string, limit, offset int64) (*radio.SearchResult, error) {
-			return &radio.SearchResult{}, nil
+		SearchFunc: func(ctx context.Context, query string, limit, offset int64) (radio.SearchResult, error) {
+			return radio.SearchResult{}, nil
 		},
 	}
 	rs := &mocks.RequestStorageMock{

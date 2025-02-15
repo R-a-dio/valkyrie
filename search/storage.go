@@ -42,7 +42,7 @@ func (bg background) Delete(ctx context.Context, tids ...radio.TrackID) error {
 	return nil
 }
 
-func (bg background) Search(ctx context.Context, query string, limit, offset int64) (*radio.SearchResult, error) {
+func (bg background) Search(ctx context.Context, query string, limit, offset int64) (radio.SearchResult, error) {
 	return bg.search.Search(ctx, query, limit, offset)
 }
 

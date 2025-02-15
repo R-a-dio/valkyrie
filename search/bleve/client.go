@@ -51,34 +51,34 @@ func (se *SearchError) Error() string {
 
 var _ radio.SearchService = &Client{}
 
-func (c *Client) Search(ctx context.Context, query string, limit int64, offset int64) (*radio.SearchResult, error) {
+func (c *Client) Search(ctx context.Context, query string, limit int64, offset int64) (radio.SearchResult, error) {
 	const op errors.Op = "search/bleve.Client.Search"
 	uri := c.searchURL + fmt.Sprintf("?q=%s&limit=%d&offset=%d", url.QueryEscape(query), limit, offset)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
-		return nil, errors.E(op, err)
+		return radio.SearchResult{}, errors.E(op, err)
 	}
 
 	resp, err := c.hc.Do(req)
 	if err != nil {
-		return nil, errors.E(op, err)
+		return radio.SearchResult{}, errors.E(op, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.E(op, decodeError(resp.Body))
+		return radio.SearchResult{}, errors.E(op, decodeError(resp.Body))
 	}
 
 	result := new(bleve.SearchResult)
 	err = decodeResult(resp.Body, result)
 	if err != nil {
-		return nil, errors.E(op, err)
+		return radio.SearchResult{}, errors.E(op, err)
 	}
 
 	res, err := bleveToRadio(result)
 	if err != nil {
-		return nil, errors.E(op, err)
+		return radio.SearchResult{}, errors.E(op, err)
 	}
 	return res, nil
 }
