@@ -242,7 +242,7 @@ func (s *Streamer) userChange(ctx context.Context, user *radio.User, timer *util
 			return
 		}
 
-		if time.Since(s.lastStartPoke.Load()) < time.Duration(timeout) {
+		if time.Since(s.lastStartPoke.Load()) < time.Duration(time.Minute) {
 			// we have been poked recently, so just connect instantly
 			zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("starting because recent poke")
 			s.Start(context.WithoutCancel(ctx))

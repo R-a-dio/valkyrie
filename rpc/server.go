@@ -3,16 +3,52 @@ package rpc
 import (
 	"context"
 	"io"
+	"runtime/debug"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/util/eventstream"
+	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/recovery"
+	"github.com/rs/zerolog"
+	otelcodes "go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
+func recoverFn(ctx context.Context, rvr any) error {
+	err, ok := rvr.(error)
+	if !ok {
+		err = errors.New("panic in grpc server")
+	}
+
+	span := trace.SpanFromContext(ctx)
+	span.SetStatus(otelcodes.Error, "panic in grpc server")
+	span.RecordError(err, trace.WithStackTrace(true))
+
+	zerolog.Ctx(ctx).WithLevel(zerolog.PanicLevel).Str("stack", string(debug.Stack())).Msg("panic in grpc server")
+	return status.Errorf(codes.Unknown, "panic in server handler")
+}
+
 var NewGrpcServer = func(_ context.Context, opts ...grpc.ServerOption) *grpc.Server {
+	// handle panics that happen inside of any grpc server handlers
+	recoveryOpts := []recovery.Option{
+		recovery.WithRecoveryHandlerContext(recoverFn),
+	}
+	// append them to the end, recovery handlers should typically be last in the chain so
+	// that other middleware can operate on the recovered state instead of being directly
+	// affected by any panic
+	opts = append(opts,
+		grpc.UnaryInterceptor(
+			recovery.UnaryServerInterceptor(recoveryOpts...),
+		),
+		grpc.StreamInterceptor(
+			recovery.StreamServerInterceptor(recoveryOpts...),
+		),
+	)
 	return grpc.NewServer(opts...)
 }
 
