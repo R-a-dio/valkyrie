@@ -80,6 +80,10 @@ func (s *streamerService) Queue(ctx context.Context) (radio.Queue, error) {
 }
 
 func (s *streamerService) areWeStreaming() bool {
+	latest := s.streamer.userValue.Latest()
+	if latest == nil {
+		return false
+	}
 	return s.streamer.userValue.Latest().ID == s.streamer.StreamUser.ID
 }
 
