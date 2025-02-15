@@ -78,7 +78,7 @@ func (c *Client) Search(ctx context.Context, query string, limit int64, offset i
 
 	res, err := bleveToRadio(result)
 	if err != nil {
-		return radio.SearchResult{}, errors.E(op, err)
+		return res, errors.E(op, err)
 	}
 	return res, nil
 }
