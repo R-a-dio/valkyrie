@@ -336,7 +336,7 @@ func signalHandler(fn cobraFn) cobraFn {
 						_ = fdstore.Notify(fdstore.Ready)
 					}
 				case syscall.SIGUSR2:
-					// only react to SIGUSR2 if the signal handler we added was called
+					// only react to SIGUSR2 if the signal handler we added was not called
 					if !USR2WasUsed() {
 						return nil
 					}
