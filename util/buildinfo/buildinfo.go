@@ -14,7 +14,7 @@ var (
 	GitRef                 = getBuildInfoKey(keyRevision, "(devel)")
 	GitMod                 = getBuildInfoKey(keyTime, "unknown")
 	InstrumentationName    = "github.com/R-a-dio/valkyrie"
-	InstrumentationVersion = GitRef
+	InstrumentationVersion = ShortRef
 	Version                = GitRef
 	ShortRef               = GitRef[:7]
 )

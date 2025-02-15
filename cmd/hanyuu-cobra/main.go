@@ -1,0 +1,402 @@
+package main
+
+import (
+	"context"
+	"errors"
+	"io"
+	"os"
+	"os/signal"
+	"runtime/debug"
+	"slices"
+	"strings"
+	"syscall"
+	"time"
+
+	"github.com/R-a-dio/valkyrie/config"
+	"github.com/R-a-dio/valkyrie/ircbot"
+	"github.com/R-a-dio/valkyrie/jobs"
+	"github.com/R-a-dio/valkyrie/manager"
+	"github.com/R-a-dio/valkyrie/proxy"
+	"github.com/R-a-dio/valkyrie/search/bleve"
+	"github.com/R-a-dio/valkyrie/streamer"
+	"github.com/R-a-dio/valkyrie/telemetry"
+	"github.com/R-a-dio/valkyrie/telemetry/otelzerolog"
+	"github.com/R-a-dio/valkyrie/tracker"
+	"github.com/R-a-dio/valkyrie/util/buildinfo"
+	"github.com/R-a-dio/valkyrie/website"
+	"github.com/Wessie/fdstore"
+	"github.com/rs/zerolog"
+	"github.com/spf13/cobra"
+)
+
+type ExecuteFn func(context.Context, config.Config) error
+
+func isCompletion(cmd *cobra.Command) bool {
+	name := constructServiceName(cmd)
+
+	switch {
+	case strings.HasPrefix(name, "completion"):
+		return true
+	case strings.HasPrefix(name, "__complete"):
+		return true
+	}
+
+	return false
+}
+
+func main() {
+	// global flags
+	var configFile string
+	var logLevel string
+	var disableStdout bool
+	var enableTelemetry bool
+
+	// telemetry stuff needs to be shutdown if we're using it
+	var telemetryShutdown func()
+
+	root := &cobra.Command{
+		Use:   "hanyuu",
+		Short: "collection of services, helpers and one-off jobs in one executable",
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			// disable the prerun if this is a completion command supplied by cobra
+			if isCompletion(cmd) {
+				return nil
+			}
+
+			if disableStdout {
+				cmd.SetOut(io.Discard)
+			}
+
+			// load the configuration file before the command runs
+			cfg, err := config.LoadFile(configFile, os.Getenv("HANYUU_CONFIG"))
+			if err != nil {
+				return err
+			}
+			cmd.SetContext(cfgWithContext(cmd.Context(), cfg))
+
+			// setup logging
+			err = NewLogger(cmd, cmd.OutOrStdout(), logLevel)
+			if err != nil {
+				return err
+			}
+
+			// either of these being true enables the telemetry
+			if enableTelemetry || cfg.Conf().Telemetry.Use {
+				telemetryShutdown, err = SetupTelemetry(cmd, cfg)
+				if err != nil {
+					zerolog.Ctx(cmd.Context()).Err(err).Ctx(cmd.Context()).Msg("failed to initialize telemetry")
+				}
+			}
+			return nil
+		},
+		PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
+			if telemetryShutdown != nil {
+				telemetryShutdown()
+			}
+			return nil
+		},
+		Version: buildinfo.GitRef + " (" + buildinfo.GitMod + ")",
+	}
+
+	// add global flags
+	root.PersistentFlags().StringVar(&configFile, "config", "hanyuu.toml", "filepath to configuration file")
+	root.PersistentFlags().StringVar(&logLevel, "log", "info", "what log level to use")
+	root.PersistentFlags().BoolVarP(&disableStdout, "quiet", "q", false, "set to disable logs being printed to stdout")
+	root.PersistentFlags().BoolVar(&enableTelemetry, "telemetry", false, "enable telemetry collection")
+
+	root.AddGroup(
+		&cobra.Group{ID: "services", Title: "long-running services"},
+		&cobra.Group{ID: "jobs", Title: "one-off jobs"},
+		&cobra.Group{ID: "helpers", Title: "helper functions"},
+	)
+
+	// generic management commands
+	root.AddCommand(
+		&cobra.Command{
+			Use:   "version",
+			Short: "prints a verbose versions list",
+			Long:  "prints all module versions",
+			Args:  cobra.NoArgs,
+			Run:   versionVerbose,
+		},
+		&cobra.Command{
+			Use:   "config",
+			Short: "prints the current configuration",
+			Args:  cobra.NoArgs,
+			RunE: func(cmd *cobra.Command, args []string) error {
+				return cfgFromContext(cmd.Context()).Save(cmd.OutOrStdout())
+			},
+		},
+	)
+
+	// service commands
+	root.AddCommand(
+		&cobra.Command{
+			Use:     "manager",
+			GroupID: "services",
+			Short:   "run the manager, inter-process state management",
+			Args:    cobra.NoArgs,
+			RunE:    CommandWithRestartSupport(manager.Execute),
+		},
+		&cobra.Command{
+			Use:     "irc",
+			GroupID: "services",
+			Short:   "run the IRC bot",
+			Args:    cobra.NoArgs,
+			RunE:    Command(ircbot.Execute),
+		},
+		&cobra.Command{
+			Use:     "website",
+			GroupID: "services",
+			Short:   "run the website",
+			Args:    cobra.NoArgs,
+			RunE:    CommandWithRestartSupport(website.Execute),
+		},
+		&cobra.Command{
+			Use:     "proxy",
+			GroupID: "services",
+			Short:   "run the icecast proxy",
+			Args:    cobra.NoArgs,
+			RunE:    CommandWithRestartSupport(proxy.Execute),
+		},
+		&cobra.Command{
+			Use:     "telemetry-proxy",
+			GroupID: "services",
+			Short:   "run the telemetry reverse-proxy as a standalone process",
+			Args:    cobra.NoArgs,
+			RunE:    Command(telemetry.ExecuteStandalone),
+		},
+		&cobra.Command{
+			Use:     "listener-tracker",
+			GroupID: "services",
+			Short:   "run the icecast listener tracker",
+			Args:    cobra.NoArgs,
+			RunE:    CommandWithRestartSupport(tracker.Execute),
+		},
+		&cobra.Command{
+			Use:     "blevesearch",
+			GroupID: "services",
+			Short:   "run the bleve search provider",
+			Args:    cobra.NoArgs,
+			RunE:    CommandWithRestartSupport(bleve.Execute),
+		},
+		&cobra.Command{
+			Use:     "streamer",
+			GroupID: "services",
+			Short:   "run the AFK streamer",
+			Args:    cobra.NoArgs,
+			RunE:    CommandWithRestartSupport(streamer.Execute),
+		},
+	)
+
+	// one-off jobs
+	root.AddCommand(
+		&cobra.Command{
+			Use:     "requestcount",
+			GroupID: "jobs",
+			Short:   "reduce request counter in the database",
+			Args:    cobra.NoArgs,
+			RunE:    Command(jobs.ExecuteRequestCount),
+		},
+		&cobra.Command{
+			Use:     "check-tracks",
+			GroupID: "jobs",
+			Short:   "checks the tracks table for mismatching hashes, and fixes them",
+			Args:    cobra.NoArgs,
+			RunE:    Command(jobs.ExecuteTracksHash),
+		},
+		&cobra.Command{
+			Use:     "index-search",
+			GroupID: "jobs",
+			Short:   "re-index the search index from storage",
+			Args:    cobra.NoArgs,
+			RunE:    Command(jobs.ExecuteIndexSearch),
+		},
+		&cobra.Command{
+			Use:     "listenerlog",
+			GroupID: "jobs",
+			Short:   "log listener count to the database",
+			Args:    cobra.NoArgs,
+			RunE:    Command(jobs.ExecuteListenerLog),
+		},
+		&cobra.Command{
+			Use:     "verifier",
+			GroupID: "jobs",
+			Short:   "verifies that tracks marked unusable can be decoded with ffmpeg",
+			Args:    cobra.NoArgs,
+			RunE:    Command(jobs.ExecuteVerifier),
+		},
+	)
+
+	// subcommands
+	root.AddCommand(
+		DatabaseCommand(),
+		MigrationCommand(),
+	)
+
+	cmd, err := root.ExecuteC()
+	if err != nil {
+		zerolog.Ctx(cmd.Context()).Fatal().Err(err).Msg("fatal error occured")
+	}
+}
+
+// constructServiceName constructs a name from the command, it does this by
+// walking upwards and collecting their .Name() joined by periods. That is
+// if we run `hanyuu migrate up` the name will come out as `migrate.up`
+func constructServiceName(cmd *cobra.Command) string {
+	var names []string
+	for cmd != nil {
+		names = append(names, cmd.Name())
+		cmd = cmd.Parent()
+	}
+
+	slices.Reverse(names)
+	if len(names) > 1 {
+		// remove the 'hanyuu' if a subcommand was called
+		names = names[1:]
+	}
+	return strings.Join(names, ".")
+}
+
+type configKey struct{}
+
+func cfgFromContext(ctx context.Context) config.Config {
+	return ctx.Value(configKey{}).(config.Config)
+}
+
+func cfgWithContext(ctx context.Context, cfg config.Config) context.Context {
+	return context.WithValue(ctx, configKey{}, cfg)
+}
+
+// cobraFn is the function cobra expects in its Command.RunE, only defined
+// here for readability concerns
+type cobraFn func(cmd *cobra.Command, args []string) error
+
+// convertExecuteFn converts an ExecuteFn to a cobraFn
+func convertExecuteFn(fn ExecuteFn) cobraFn {
+	return func(cmd *cobra.Command, args []string) error {
+		return fn(cmd.Context(), cfgFromContext(cmd.Context()))
+	}
+}
+
+// SimpleCommand is the wrapper to use when your function is already a cobraFn
+func SimpleCommand(fn cobraFn) cobraFn {
+	return signalHandler(true, fn)
+}
+
+// Command is the wrapper to use when your function is an ExecuteFn and does
+// not require smooth-restart support (let us handle SIGUSR2)
+func Command(fn ExecuteFn) cobraFn {
+	return signalHandler(true, convertExecuteFn(fn))
+}
+
+// CommandWithRestartSupport is the wrapper to use when your function is an ExecuteFn
+// and does need smooth-restart support (let the ExecuteFn handle SIGUSR2)
+func CommandWithRestartSupport(fn ExecuteFn) cobraFn {
+	return signalHandler(false, convertExecuteFn(fn))
+}
+
+// signalHandler handles OS and Systemd signals while executing the fn given.
+// `handleSIGUSR2` indicates if this function should exit when a SIGUSR2
+// signal is received.
+func signalHandler(handleSIGUSR2 bool, fn cobraFn) cobraFn {
+	return func(cmd *cobra.Command, args []string) error {
+		// make a ctx we can cancel
+		ctx, cancel := context.WithCancel(cmd.Context())
+		defer cancel()
+		cmd.SetContext(ctx)
+
+		// setup signal handling
+		signalCh := make(chan os.Signal, 5)
+		signal.Notify(signalCh, os.Interrupt, syscall.SIGHUP, syscall.SIGUSR2)
+
+		// setup the actual execution environment for the command
+		launchedCh := make(chan struct{}, 1)
+		errCh := make(chan error, 1)
+		go func() {
+			// send a signal that this goroutine is now running
+			launchedCh <- struct{}{}
+			// run the actual command
+			errCh <- fn(cmd, args)
+		}()
+
+		// when we exit, try and send this knowledge to systemd
+		defer func() {
+			_ = fdstore.Notify(fdstore.Stopping)
+			_ = fdstore.WaitBarrier(time.Second)
+		}()
+
+		for {
+			select {
+			case sig := <-signalCh:
+				switch sig {
+				case os.Interrupt:
+					zerolog.Ctx(cmd.Context()).Info().Msg("SIGINT received")
+					return nil
+				case syscall.SIGHUP:
+					zerolog.Ctx(cmd.Context()).Info().Msg("SIGHUP received: not implemented")
+					// notify systemd that we reloaded correctly even though it isn't implemented,
+					// otherwise it will hang forever waiting for us to signal it
+					if fdstore.Notify(fdstore.Reloading) == nil {
+						_ = fdstore.Notify(fdstore.Ready)
+					}
+				case syscall.SIGUSR2:
+					// only react to SIGUSR2 if we're asked to, otherwise whatever command is running
+					// will be unhappy with us
+					if handleSIGUSR2 {
+						return nil
+					}
+				}
+			case err := <-errCh:
+				return err
+			case <-launchedCh:
+				// we need to signal systemd that we're ready, doing this "correctly" would mean doing
+				// it in each separate commands main loop, but we just do it here for now
+				if err := fdstore.Notify(fdstore.Ready); !errors.Is(err, fdstore.ErrNoSocket) {
+					zerolog.Ctx(cmd.Context()).Err(err).Msg("failed to send sd_notify READY")
+				}
+			}
+		}
+	}
+}
+
+func versionVerbose(cmd *cobra.Command, args []string) {
+	if info, ok := debug.ReadBuildInfo(); ok { // requires go version 1.12+
+		cmd.Printf("%s %s\n", info.Path, buildinfo.Version)
+		for _, mod := range info.Deps {
+			cmd.Printf("\t%s %s\n", mod.Path, mod.Version)
+		}
+	} else {
+		cmd.Printf("%s %s\n", "valkyrie", "(devel)")
+	}
+}
+
+func NewLogger(cmd *cobra.Command, out io.Writer, level string) error {
+	zlevel, err := zerolog.ParseLevel(level)
+	if err != nil {
+		return err
+	}
+
+	lo := zerolog.ConsoleWriter{Out: out}
+	logger := zerolog.New(lo).
+		Level(zlevel).With().
+		Timestamp().
+		Str("service.name", constructServiceName(cmd)).
+		Str("service.version", buildinfo.ShortRef).
+		Logger()
+
+	cmd.SetContext(logger.WithContext(cmd.Context()))
+	return nil
+}
+
+func SetupTelemetry(cmd *cobra.Command, cfg config.Config) (func(), error) {
+	logger := zerolog.Ctx(cmd.Context()).Hook(otelzerolog.Hook(
+		buildinfo.InstrumentationName,
+		buildinfo.InstrumentationVersion,
+	))
+
+	ctx := logger.WithContext(cmd.Context())
+	cmd.SetContext(ctx)
+
+	return telemetry.Init(ctx, cfg, constructServiceName(cmd))
+}
