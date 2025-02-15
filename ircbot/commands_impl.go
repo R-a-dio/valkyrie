@@ -244,7 +244,13 @@ func StreamerUserInfo(e Event) error {
 	// otherwise we should only care if the user is the one we are aware of
 	// but for now we only have one robot ever so just assume thats the value
 	// TODO: make this work with multiple streamers
-	return e.Bot.Streamer.Start(e.Ctx)
+	err = e.Bot.Streamer.Start(e.Ctx)
+	if err != nil {
+		return err
+	}
+
+	e.EchoPrivate("Hanyuu-sama has been awakened, drop stream before 1 minute has passed please")
+	return nil
 }
 
 func FaveTrack(e Event) error {
