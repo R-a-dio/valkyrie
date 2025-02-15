@@ -13,6 +13,7 @@ import (
 	"github.com/R-a-dio/valkyrie/website/shared/navbar"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 func NewState(
@@ -64,6 +65,8 @@ var NavBar = navbar.New(`hx-boost="true" hx-push-url="true" hx-target="#content"
 
 func Route(ctx context.Context, s State) func(chi.Router) {
 	return func(r chi.Router) {
+		r.Use(middleware.StripSlashes)
+
 		r.Get("/", s.GetHome)
 		r.Get("/index", s.GetHome)
 		r.Get("/news", s.GetNews)

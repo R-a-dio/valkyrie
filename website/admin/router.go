@@ -126,12 +126,18 @@ type State struct {
 
 func Route(ctx context.Context, s State) func(chi.Router) {
 	return func(r chi.Router) {
-		// the login middleware will require atleast the active permission
-		r = r.With(
+
+		r.Use(
+			// the login middleware will require atleast the active permission
 			s.Authentication.LoginMiddleware,
+			// disable all cacheing for admin pages
 			middleware.NoCache,
+			// strip trailing slashes
+			middleware.StripSlashes,
 		)
+
 		p := vmiddleware.RequirePermission
+
 		r.Handle("/set-theme", templates.SetThemeHandler(
 			templates.ThemeAdminCookieName,
 		))

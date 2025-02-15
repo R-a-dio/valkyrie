@@ -207,11 +207,6 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		return errors.E(op, err)
 	}
 
-	// strip trailing slashes for all other routes
-	r = r.With(middleware.StripSlashes)
-	r.Route("/api", v0.Route)
-	r.Route(`/request/{TrackID:[0-9]+}`, v0.RequestRoute)
-
 	// version 1 of the api
 	logger.Info().Ctx(ctx).Str("event", "init").Str("part", "api_v1").Msg("")
 	v1, err := v1.NewAPI(ctx, cfg, executor, afero.NewReadOnlyFs(afero.NewOsFs()), songSecret)
@@ -219,6 +214,12 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		return errors.E(op, err)
 	}
 	defer v1.Shutdown()
+
+	// legacy api route
+	r.Route("/api", v0.Route)
+	// this is the legacy request api endpoint
+	r.Route(`/request/{TrackID:[0-9]+}`, v0.RequestRoute)
+	// new api route
 	r.Route("/v1", v1.Route)
 
 	// admin routes
