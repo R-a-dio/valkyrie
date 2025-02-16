@@ -42,9 +42,6 @@ func main() {
 	var disableStdout bool
 	var enableTelemetry bool
 
-	// telemetry stuff needs to be shutdown if we're using it
-	var telemetryShutdown func()
-
 	root := &cobra.Command{
 		Use:   "hanyuu",
 		Short: "collection of services, helpers and one-off jobs in one executable",
@@ -57,12 +54,6 @@ func main() {
 			err := NewLogger(cmd, cmd.OutOrStdout(), logLevel)
 			if err != nil {
 				return err
-			}
-			return nil
-		},
-		PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
-			if telemetryShutdown != nil {
-				telemetryShutdown()
 			}
 			return nil
 		},
