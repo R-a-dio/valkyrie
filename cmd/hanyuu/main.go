@@ -250,6 +250,11 @@ func Command(fn ExecuteFn) cobraFn {
 	return executeCommand(convertExecuteFn(fn))
 }
 
+func LoadConfig(cmd *cobra.Command) (config.Config, error) {
+	configFile, _ := cmd.Flags().GetString(flagConfig)
+	return config.LoadFile(configFile, os.Getenv("HANYUU_CONFIG"))
+}
+
 // executeCommand sets up the environment and executes the function given with it, it
 // handles OS signals, config loading, telemetry setup and systemd notifications
 func executeCommand(fn cobraFn) cobraFn {
@@ -259,8 +264,7 @@ func executeCommand(fn cobraFn) cobraFn {
 		defer cancel()
 
 		// load the configuration file
-		configFile, _ := cmd.Flags().GetString(flagConfig)
-		cfg, err := config.LoadFile(configFile, os.Getenv("HANYUU_CONFIG"))
+		cfg, err := LoadConfig(cmd)
 		if err != nil {
 			return err
 		}

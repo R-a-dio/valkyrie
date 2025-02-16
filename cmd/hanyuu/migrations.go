@@ -37,27 +37,6 @@ func MigrationCommand() *cobra.Command {
 			Short: "force the schema version, this does not run any migrations",
 			RunE:  SimpleCommand(MigrationForceVersion),
 			Args:  cobra.ExactArgs(1),
-			ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-				source, err := migrations.NewSource(cmd.Context(), cfgFromContext(cmd.Context()))
-				if err != nil {
-					return nil, cobra.ShellCompDirectiveNoFileComp
-				}
-
-				var things []string
-				for {
-					version, err := source.First()
-					if err != nil {
-						if errors.IsE(err, os.ErrNotExist) {
-							break
-						}
-						return nil, cobra.ShellCompDirectiveError | cobra.ShellCompDirectiveNoFileComp
-					}
-
-					things = append(things, strconv.Itoa(int(version)))
-				}
-
-				return things, cobra.ShellCompDirectiveNoFileComp
-			},
 		},
 		&cobra.Command{
 			Use:   "is-latest",
