@@ -25,7 +25,6 @@ require (
 	github.com/go-chi/httprate v0.14.1
 	github.com/go-sql-driver/mysql v1.8.1
 	github.com/golang-migrate/migrate/v4 v4.18.1
-	github.com/google/subcommands v1.2.0
 	github.com/gorilla/csrf v1.7.2
 	github.com/grafana/otel-profiling-go v0.5.1
 	github.com/grafana/pyroscope-go v1.2.0
@@ -43,6 +42,7 @@ require (
 	github.com/rs/xid v1.6.0
 	github.com/rs/zerolog v1.33.0
 	github.com/spf13/afero v1.11.0
+	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.10.0
 	github.com/tcolgate/mp3 v0.0.0-20170426193717-e79c5a46d300
 	github.com/testcontainers/testcontainers-go v0.34.0
@@ -142,7 +142,6 @@ require (
 	github.com/shirou/gopsutil/v3 v3.24.5 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
-	github.com/spf13/cobra v1.8.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/tklauser/go-sysconf v0.3.14 // indirect
 	github.com/tklauser/numcpus v0.9.0 // indirect
