@@ -94,9 +94,9 @@ func main() {
 			Use:   "config",
 			Short: "prints the current configuration",
 			Args:  cobra.NoArgs,
-			RunE: func(cmd *cobra.Command, args []string) error {
+			RunE: SimpleCommand(func(cmd *cobra.Command, args []string) error {
 				return cfgFromContext(cmd.Context()).Save(cmd.OutOrStdout())
-			},
+			}),
 		},
 	)
 
@@ -289,25 +289,11 @@ func executeCommand(fn cobraFn) cobraFn {
 			}
 		}
 
-		// setup signal handling
-		signalCh := make(chan os.Signal, 5)
-		signal.Notify(signalCh, os.Interrupt, syscall.SIGHUP, syscall.SIGUSR2)
-
-		// put in a way for the commands to tell us to not react to USR2
-		ctx, USR2WasUsed := WithUSR2Signal(ctx)
+		// run the OS signal handler
+		ctx = signalHandler(ctx)
 
 		// add the updated ctx to the cmd
 		cmd.SetContext(ctx)
-
-		// setup the actual execution environment for the command
-		launchedCh := make(chan struct{}, 1)
-		errCh := make(chan error, 1)
-		go func() {
-			// send a signal that this goroutine is now running
-			launchedCh <- struct{}{}
-			// run the actual command
-			errCh <- fn(cmd, args)
-		}()
 
 		// when we exit, try and send this knowledge to systemd
 		defer func() {
@@ -315,15 +301,45 @@ func executeCommand(fn cobraFn) cobraFn {
 			_ = fdstore.WaitBarrier(time.Second)
 		}()
 
+		// we need to signal systemd that we're ready, doing this "correctly" would mean doing
+		// it in each separate commands main loop, but we just do it here for now
+		if err := fdstore.Notify(fdstore.Ready); err != nil && !errors.Is(err, fdstore.ErrNoSocket) {
+			zerolog.Ctx(ctx).Err(err).Msg("failed to send sd_notify READY")
+		}
+
+		err = fn(cmd, args)
+		if err != nil && !errors.Is(err, context.Canceled) {
+			// return the original error if it isn't a context canceled
+			return err
+		}
+
+		return nil
+	}
+}
+
+func signalHandler(ctx context.Context) context.Context {
+	ctx, cancel := context.WithCancel(ctx)
+
+	// put in a way for the commands to tell us to not react to USR2
+	ctx, USR2WasUsed := WithUSR2Signal(ctx)
+
+	go func() {
+		defer cancel()
+		// setup signal handling
+		signalCh := make(chan os.Signal, 5)
+		signal.Notify(signalCh, os.Interrupt, syscall.SIGHUP, syscall.SIGUSR2)
+
 		// now handle OS signals
 		for {
 			select {
+			case <-ctx.Done():
+				return
 			case sig := <-signalCh:
 				switch sig {
 				case os.Interrupt:
 					// exit when we get an interrupt
 					zerolog.Ctx(ctx).Info().Msg("SIGINT received")
-					return nil
+					return
 				case syscall.SIGHUP:
 					// reload the configuration file, NOT IMPLEMENTED
 					zerolog.Ctx(ctx).Info().Msg("SIGHUP received: not implemented")
@@ -335,21 +351,14 @@ func executeCommand(fn cobraFn) cobraFn {
 				case syscall.SIGUSR2:
 					// only react to SIGUSR2 if the ExecuteFn isn't handling it
 					if !USR2WasUsed() {
-						// if it isn't, we just shutdown
-						return nil
+						zerolog.Ctx(ctx).Info().Msg("SIGUSR2 received")
+						return
 					}
-				}
-			case err := <-errCh:
-				return err
-			case <-launchedCh:
-				// we need to signal systemd that we're ready, doing this "correctly" would mean doing
-				// it in each separate commands main loop, but we just do it here for now
-				if err := fdstore.Notify(fdstore.Ready); err != nil && !errors.Is(err, fdstore.ErrNoSocket) {
-					zerolog.Ctx(ctx).Err(err).Msg("failed to send sd_notify READY")
 				}
 			}
 		}
-	}
+	}()
+	return ctx
 }
 
 func versionVerbose(cmd *cobra.Command, args []string) {
