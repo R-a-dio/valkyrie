@@ -3,8 +3,18 @@
     "name": "r/a/dio",
     "icons": [
         {
-            "src": "/assets/images/logo_image_small.png",
-            "sizes": "200x200",
+            "src": "/assets/images/logo-circle-96px.png",
+            "sizes": "96x96",
+            "type": "image/png"
+        },
+        {
+            "src": "/assets/images/logo-circle-192px.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "/assets/images/logo-circle-512px.png",
+            "sizes": "512x512",
             "type": "image/png"
         }
     ],
