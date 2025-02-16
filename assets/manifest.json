@@ -1,0 +1,16 @@
+{
+    "short_name": "r/a/dio",
+    "name": "r/a/dio",
+    "icons": [
+        {
+            "src": "/assets/images/logo_image_small.png",
+            "sizes": "200x200",
+            "type": "image/png"
+        }
+    ],
+    "start_url": "/",
+    "display": "fullscreen",
+    "orientation": "any",
+    "theme_color": "#222222",
+    "background_color": "#222222"
+}
