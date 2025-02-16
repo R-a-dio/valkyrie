@@ -269,17 +269,6 @@ func executeCommand(fn cobraFn) cobraFn {
 		ctx, cancel := context.WithCancel(cmd.Context())
 		defer cancel()
 
-		// setup signal handling
-		signalCh := make(chan os.Signal, 5)
-		signal.Notify(signalCh, os.Interrupt, syscall.SIGHUP, syscall.SIGUSR2)
-
-		// put in a way for the commands to tell us to not react to USR2
-		ctx, USR2WasUsed := WithUSR2Signal(ctx)
-
-		// setup the actual execution environment for the command
-		launchedCh := make(chan struct{}, 1)
-		errCh := make(chan error, 1)
-
 		// load the configuration file
 		configFile, _ := cmd.PersistentFlags().GetString(flagConfig)
 		cfg, err := config.LoadFile(configFile, os.Getenv("HANYUU_CONFIG"))
@@ -290,17 +279,29 @@ func executeCommand(fn cobraFn) cobraFn {
 
 		// setup telemetry if this is wanted
 		if enable, _ := cmd.PersistentFlags().GetBool(flagTelemetry); enable || cfg.Conf().Telemetry.Use {
-			telemetryCleanup, err := SetupTelemetry(cmd, cfg)
+			var telemetryShutdown func()
+			ctx, telemetryShutdown, err = SetupTelemetry(ctx, cfg, constructServiceName(cmd))
 			if err != nil {
 				zerolog.Ctx(cmd.Context()).Err(err).Ctx(cmd.Context()).Msg("failed to initialize telemetry")
 			}
-			if telemetryCleanup != nil {
-				defer telemetryCleanup()
+			if telemetryShutdown != nil {
+				defer telemetryShutdown()
 			}
 		}
 
+		// setup signal handling
+		signalCh := make(chan os.Signal, 5)
+		signal.Notify(signalCh, os.Interrupt, syscall.SIGHUP, syscall.SIGUSR2)
+
+		// put in a way for the commands to tell us to not react to USR2
+		ctx, USR2WasUsed := WithUSR2Signal(ctx)
+
 		// add the updated ctx to the cmd
 		cmd.SetContext(ctx)
+
+		// setup the actual execution environment for the command
+		launchedCh := make(chan struct{}, 1)
+		errCh := make(chan error, 1)
 		go func() {
 			// send a signal that this goroutine is now running
 			launchedCh <- struct{}{}
@@ -314,14 +315,17 @@ func executeCommand(fn cobraFn) cobraFn {
 			_ = fdstore.WaitBarrier(time.Second)
 		}()
 
+		// now handle OS signals
 		for {
 			select {
 			case sig := <-signalCh:
 				switch sig {
 				case os.Interrupt:
+					// exit when we get an interrupt
 					zerolog.Ctx(ctx).Info().Msg("SIGINT received")
 					return nil
 				case syscall.SIGHUP:
+					// reload the configuration file, NOT IMPLEMENTED
 					zerolog.Ctx(ctx).Info().Msg("SIGHUP received: not implemented")
 					// notify systemd that we reloaded correctly even though it isn't implemented,
 					// otherwise it will hang forever waiting for us to signal it
@@ -329,8 +333,9 @@ func executeCommand(fn cobraFn) cobraFn {
 						_ = fdstore.Notify(fdstore.Ready)
 					}
 				case syscall.SIGUSR2:
-					// only react to SIGUSR2 if the signal handler we added was not called
+					// only react to SIGUSR2 if the ExecuteFn isn't handling it
 					if !USR2WasUsed() {
+						// if it isn't, we just shutdown
 						return nil
 					}
 				}
@@ -339,7 +344,7 @@ func executeCommand(fn cobraFn) cobraFn {
 			case <-launchedCh:
 				// we need to signal systemd that we're ready, doing this "correctly" would mean doing
 				// it in each separate commands main loop, but we just do it here for now
-				if err := fdstore.Notify(fdstore.Ready); !errors.Is(err, fdstore.ErrNoSocket) {
+				if err := fdstore.Notify(fdstore.Ready); err != nil && !errors.Is(err, fdstore.ErrNoSocket) {
 					zerolog.Ctx(ctx).Err(err).Msg("failed to send sd_notify READY")
 				}
 			}
@@ -376,14 +381,13 @@ func NewLogger(cmd *cobra.Command, out io.Writer, level string) error {
 	return nil
 }
 
-func SetupTelemetry(cmd *cobra.Command, cfg config.Config) (func(), error) {
-	logger := zerolog.Ctx(cmd.Context()).Hook(otelzerolog.Hook(
+func SetupTelemetry(ctx context.Context, cfg config.Config, serviceName string) (context.Context, func(), error) {
+	logger := zerolog.Ctx(ctx).Hook(otelzerolog.Hook(
 		buildinfo.InstrumentationName,
 		buildinfo.InstrumentationVersion,
 	))
 
-	ctx := logger.WithContext(cmd.Context())
-	cmd.SetContext(ctx)
-
-	return telemetry.Init(ctx, cfg, constructServiceName(cmd))
+	ctx = logger.WithContext(ctx)
+	shutdownFn, err := telemetry.Init(ctx, cfg, serviceName)
+	return ctx, shutdownFn, err
 }
