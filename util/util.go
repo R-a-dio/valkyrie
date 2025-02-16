@@ -21,6 +21,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
+	"golang.org/x/time/rate"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -174,7 +175,7 @@ func AbsolutePath(dir string, path string) string {
 	return filepath.Join(dir, path)
 }
 
-const headerContentDisposition = "Content-Disposition"
+const HeaderContentDisposition = "Content-Disposition"
 
 func AddContentDispositionSong(w http.ResponseWriter, metadata, filename string) {
 	filename = metadata + filepath.Ext(filename)
@@ -193,7 +194,7 @@ var rfc2616 = strings.NewReplacer(
 
 func AddContentDisposition(w http.ResponseWriter, filename string) {
 	disposition := "attachment; " + makeHeader(filename)
-	w.Header().Set(headerContentDisposition, disposition)
+	w.Header().Set(HeaderContentDisposition, disposition)
 	// also add a content-type header if we can get a mimetype
 	ct := mime.TypeByExtension(filepath.Ext(filename))
 	if ct != "" {
@@ -272,7 +273,14 @@ func StreamValue[T any](ctx context.Context, fn StreamFn[T], callbackFn ...Strea
 			}
 		}()
 
+		rater := rate.NewLimiter(rate.Every(time.Second), 1)
 		for {
+			// make sure we don't spam this bit of code by rate limiting ourselves
+			if err = rater.Wait(ctx); err != nil {
+				zerolog.Ctx(ctx).Debug().Ctx(ctx).Err(err).Msg("stream-value: ctx canceled")
+				return
+			}
+
 			stream, err = fn(ctx)
 			if err != nil {
 				if status.Code(err) == codes.Canceled {
@@ -285,14 +293,7 @@ func StreamValue[T any](ctx context.Context, fn StreamFn[T], callbackFn ...Strea
 				// is down or unavailable for some reason so retry in
 				// a little bit and stay alive
 				zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("stream-value: stream error")
-				select {
-				case <-ctx.Done():
-					// context was canceled, either while we were waiting on
-					// retrying, or that was our original error and we exit
-					return
-				case <-time.After(time.Second):
-					continue
-				}
+				continue
 			}
 
 			zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("stream-value: connected")

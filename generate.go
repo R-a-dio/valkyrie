@@ -5,3 +5,4 @@ package radio
 //go:generate moq -out mocks/templates.gen.go -pkg mocks ./templates/ Executor TemplateSelectable
 //go:generate moq -out mocks/streamer.gen.go -pkg mocks ./streamer/audio/ Reader
 //go:generate moq -out mocks/util.gen.go -pkg mocks ./mocks/ FS File FileInfo
+//go:generate moq -out mocks/eventstream.gen.go -pkg mocks ./util/eventstream/ Stream

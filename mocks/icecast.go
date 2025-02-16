@@ -6,15 +6,13 @@ import (
 	"net/http/httptest"
 	"sync/atomic"
 	"testing"
-
-	"github.com/R-a-dio/valkyrie/util"
 )
 
 type icecastServerMock struct {
 	*httptest.Server
 
 	sources        atomic.Int32
-	latestMetadata util.TypedValue[string]
+	latestMetadata atomic.Value
 }
 
 func IcecastServerMock(t *testing.T) *icecastServerMock {
@@ -46,5 +44,5 @@ func (ism *icecastServerMock) Sources() int32 {
 }
 
 func (ism *icecastServerMock) LatestMetadata() string {
-	return ism.latestMetadata.Load()
+	return ism.latestMetadata.Load().(string)
 }
