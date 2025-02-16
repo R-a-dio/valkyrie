@@ -77,19 +77,24 @@ func (s prioScoreSort) Copy() search.SearchSort {
 	return &s
 }
 
-type indexSong struct {
+type indexText struct {
 	// main fields we're searching through
 	Title  string `bleve:"title"`
 	Artist string `bleve:"artist"`
 	Album  string `bleve:"album"`
 	Tags   string `bleve:"tags"`
-	// combined field for exact term matches
-	Exact string `bleve:"exact"`
+}
+
+type indexSong struct {
+	Ngram  indexText `bleve:"ngram"`
+	Ngram_ string    `bleve:"ngram_"`
+	Exact  indexText `bleve:"exact"`
+	Exact_ string    `bleve:"exact_"`
 	// time fields
 	LastRequested time.Time `bleve:"lastrequested"`
 	LastPlayed    time.Time `bleve:"lastplayed"`
 	// keyword fields
-	ID       string `bleve:"id"`
+	ID       int    `bleve:"id"`
 	Acceptor string `bleve:"acceptor"`
 	Editor   string `bleve:"editor"`
 	// sorting fields
@@ -106,17 +111,23 @@ func (is *indexSong) BleveType() string {
 func toIndexSong(s radio.Song) *indexSong {
 	data, _ := msgpack.Marshal(s)
 
-	exact := strings.Join([]string{s.Title, s.Artist, s.Album, s.Tags}, " ")
-
+	text := indexText{
+		Title:  s.Title,
+		Artist: s.Artist,
+		Album:  s.Album,
+		Tags:   s.Tags,
+	}
+	
+	all := strings.Join([]string{s.Title, s.Artist, s.Album, s.Tags}, " ")
+		
 	return &indexSong{
-		Title:         s.Title,
-		Artist:        s.Artist,
-		Album:         s.Album,
-		Tags:          s.Tags,
-		Exact:         exact,
+		Ngram:         text,
+		Ngram_:        all,
+		Exact:         text,
+		Exact_:        all,
 		LastRequested: s.LastRequested,
 		LastPlayed:    s.LastPlayed,
-		ID:            s.TrackID.String(),
+		ID:            int(s.TrackID),
 		Acceptor:      s.Acceptor,
 		Editor:        s.LastEditor,
 		Priority:      s.Priority,
@@ -139,32 +150,42 @@ func (b *indexWrap) SearchFromRequest(r *http.Request) (*bleve.SearchResult, err
 	raw := r.FormValue("q")
 	limit := AsIntOrDefault(r.FormValue("limit"), DefaultLimit)
 	offset := AsIntOrDefault(r.FormValue("offset"), DefaultOffset)
+	exact := r.FormValue("exact") == "true"
 
-	res, err := b.Search(r.Context(), raw, limit, offset)
+	res, err := b.Search(r.Context(), raw, exact, limit, offset)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
 	return res, nil
 }
 
-func (b *indexWrap) Search(ctx context.Context, raw string, limit, offset int) (*bleve.SearchResult, error) {
+func (b *indexWrap) Search(ctx context.Context, raw string, exactOnly bool, limit, offset int) (*bleve.SearchResult, error) {
 	const op errors.Op = "search/bleve.Search"
 	ctx, span := otel.Tracer("bleve").Start(ctx, string(op))
 	defer span.End()
 
-	query, err := NewQuery(ctx, raw)
+	query, err := NewQuery(ctx, raw, exactOnly)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
 
 	req := bleve.NewSearchRequestOptions(query, limit, offset, false)
-	req.SortByCustom(search.SortOrder{&prioScoreSort{}})
+	if query.SortField != "" {
+		field := query.SortField
+		if query.Descending {
+			field = "-" + field
+		}
+		req.SortBy([]string{field})
+	} else {
+		req.SortByCustom(search.SortOrder{&prioScoreSort{}})
+	}
 	req.Fields = dataField
 
 	result, err := b.index.SearchInContext(ctx, req)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
+	fmt.Println(result.Hits)
 	return result, nil
 }
 
@@ -209,9 +230,9 @@ func (b *indexWrap) Delete(ctx context.Context, tids []radio.TrackID) error {
 	return nil
 }
 
-func mixedTextMapping() *mapping.FieldMapping {
+func mixedTextMapping(analyzerName string) *mapping.FieldMapping {
 	m := bleve.NewTextFieldMapping()
-	m.Analyzer = indexAnalyzerName
+	m.Analyzer = analyzerName
 	m.Store = false
 	m.Index = true
 	return m
@@ -226,21 +247,41 @@ func constructIndexMapping() (mapping.IndexMapping, error) {
 	sm.StructTagKey = "bleve"
 	sm.DefaultAnalyzer = indexAnalyzerName
 
-	title := mixedTextMapping()
-	sm.AddFieldMappingsAt("title", title)
-	artist := mixedTextMapping()
-	sm.AddFieldMappingsAt("artist", artist)
-	album := mixedTextMapping()
-	sm.AddFieldMappingsAt("album", album)
-	tags := mixedTextMapping()
-	sm.AddFieldMappingsAt("tags", tags)
+	ngram := bleve.NewDocumentStaticMapping()
+	ngram.StructTagKey = "bleve"
+	ngram.DefaultAnalyzer = indexAnalyzerName
 
-	exact := bleve.NewTextFieldMapping()
-	exact.Analyzer = exactAnalyzerName
-	exact.Index = true
-	exact.Store = false
-	exact.IncludeInAll = false
-	sm.AddFieldMappingsAt("exact", exact)
+	title := mixedTextMapping(indexAnalyzerName)
+	ngram.AddFieldMappingsAt("title", title)
+	artist := mixedTextMapping(indexAnalyzerName)
+	ngram.AddFieldMappingsAt("artist", artist)
+	album := mixedTextMapping(indexAnalyzerName)
+	ngram.AddFieldMappingsAt("album", album)
+	tags := mixedTextMapping(indexAnalyzerName)
+	ngram.AddFieldMappingsAt("tags", tags)
+	
+	sm.AddSubDocumentMapping("ngram", ngram)
+	
+	exact := bleve.NewDocumentStaticMapping()
+	exact.StructTagKey = "bleve"
+	exact.DefaultAnalyzer = exactAnalyzerName
+	
+	title_exact := mixedTextMapping(exactAnalyzerName)
+	exact.AddFieldMappingsAt("title", title_exact)
+	artist_exact := mixedTextMapping(exactAnalyzerName)
+	exact.AddFieldMappingsAt("artist", artist_exact)
+	album_exact := mixedTextMapping(exactAnalyzerName)
+	exact.AddFieldMappingsAt("album", album_exact)
+	tags_exact := mixedTextMapping(exactAnalyzerName)
+	exact.AddFieldMappingsAt("tags", tags_exact)
+
+	sm.AddSubDocumentMapping("exact", exact)
+
+	ngram_ := mixedTextMapping(indexAnalyzerName)
+	sm.AddFieldMappingsAt("ngram_", ngram_)
+	
+	exact_ := mixedTextMapping(exactAnalyzerName)
+	sm.AddFieldMappingsAt("exact_", exact_)
 
 	acceptor := bleve.NewKeywordFieldMapping()
 	acceptor.Index = true
@@ -259,13 +300,15 @@ func constructIndexMapping() (mapping.IndexMapping, error) {
 	priority := bleve.NewNumericFieldMapping()
 	priority.Index = true
 	priority.Store = false
+	priority.Analyzer = "keyword"
 	sm.AddFieldMappingsAt("priority", priority)
 
-	id := bleve.NewKeywordFieldMapping()
+	id := bleve.NewNumericFieldMapping()
 	id.Index = true
 	id.Store = false
 	id.IncludeTermVectors = false
 	id.IncludeInAll = true
+	id.Analyzer = "keyword"
 	sm.AddFieldMappingsAt("id", id)
 
 	lr := bleve.NewDateTimeFieldMapping()

@@ -2,6 +2,8 @@ package bleve
 
 import (
 	"context"
+	"fmt"
+	"encoding/json"
 	"strings"
 	"unicode/utf8"
 
@@ -18,17 +20,92 @@ import (
 
 const MaxQuerySize = 512
 
-func NewQuery(ctx context.Context, query string) (query.Query, error) {
+func NewQuery(ctx context.Context, query string, exactOnly bool) (*RadioQuery, error) {
 	query = strings.TrimSpace(query)
-	if query == "*" {
-		// as a special case a singular wildcard query is turned into a match all query
-		return bleve.NewMatchAllQuery(), nil
-	}
+	
 	if len(query) > MaxQuerySize { // cut off the query if it goes past our MaxQuerySize
 		// but in a nice way, where we remove any invalid utf8 characters from the end
 		query = CutoffAtRune(query[:MaxQuerySize])
 	}
-	return &RadioQuery{query}, nil
+	
+	splitQuery := make([]string, 0)
+	radioQuery := &RadioQuery{}
+	radioQuery.FieldQueries = make(map[string]string)
+	
+	var fieldName string
+	inBlock := false
+	block := make([]string, 0)
+	
+	for _, part := range strings.Fields(query) {
+		if inBlock {
+			before, found := strings.CutSuffix(part, "\"");
+			block = append(block, before)
+			if found {
+				// end the block and save it as a field query
+				radioQuery.FieldQueries[fieldName] = strings.Join(block, " ")
+				block = make([]string, 0)
+				inBlock = false
+			}
+		} else {
+			after, isOperator := strings.CutPrefix(part, "!!")
+			if isOperator {
+				// this is an operator.
+				// !!<field
+				if len(after) > 0 && (after[0] == '<' || after[0] == '>') {
+					// sort order; the rest of this should be a field
+					field := after[1:len(after)]
+					if isValidField(field) {
+						radioQuery.SortField = getNgramPrefix(field) + field
+						radioQuery.Descending = after[0] == '<'
+						continue
+					}
+				}
+				//    !!field:term
+				// or !!field:"term
+				colonIdx := strings.Index(after, ":")
+				if colonIdx != -1 && isValidField(after[0:colonIdx]) {
+					fieldName = after[0:colonIdx]
+					after = after[colonIdx+1:]
+					after, isQuoted := strings.CutPrefix(after, "\"")
+					if isQuoted {
+						inBlock = true
+						block = append(block, after)
+					} else {
+						radioQuery.FieldQueries[fieldName] = after
+					}
+					continue
+				}
+				// we couldn't parse this operator, so just pass it as
+				// a regular term
+			}
+			splitQuery = append(splitQuery, part)
+		}
+	}
+	
+	query = strings.Join(splitQuery, " ")
+	
+	if inBlock {
+		// if the block was not terminated, don't return any results
+		query = ""
+		radioQuery.FieldQueries = make(map[string]string)
+	}
+
+	radioQuery.Query = query
+	radioQuery.ExactOnly = exactOnly
+	return radioQuery, nil
+}
+
+var fields = []string{
+	"artist", "title", "album", "tags", "id", "acceptor", "editor",
+	"priority", "lastrequested", "lastplayed",
+}
+func isValidField(s string) bool {
+	for _, f := range fields {
+		if f == s {
+			return true
+		}
+	}
+	return false
 }
 
 func CutoffAtRune(s string) string {
@@ -44,6 +121,18 @@ func CutoffAtRune(s string) string {
 
 type RadioQuery struct {
 	Query string `json:"query"`
+	FieldQueries map[string]string `json:"fieldQueries"`
+	SortField string `json:"sort"`
+	Descending bool `json:"desc"`
+	ExactOnly  bool `json:"exact_only"`
+}
+
+func getNgramPrefix(f string) string {
+	switch (f) {
+		case "artist", "title", "album", "tags":
+			return "ngram."
+	}
+	return ""
 }
 
 func (rq *RadioQuery) Searcher(ctx context.Context, i index.IndexReader, m mapping.IndexMapping, options search.SearcherOptions) (search.Searcher, error) {
@@ -58,72 +147,109 @@ func (rq *RadioQuery) Searcher(ctx context.Context, i index.IndexReader, m mappi
 		})
 	}
 
-	field := m.DefaultSearchField()
-	analyzerName := m.AnalyzerNameForPath(field)
-	analyzer := m.AnalyzerNamed(analyzerName)
 	
-	exactAnalyzer := m.AnalyzerNamed("exact")
-
 	// analyze our query with the default analyzer, this should be the same one as
 	// used for the index generation
-	tokens := analyzer.Analyze([]byte(rq.Query))
-	if len(tokens) == 0 {
-		// no tokens, so we just match nothing
+	
+	fmt.Println(rq.FieldQueries)
+	km, _ := json.MarshalIndent(m, "", "  ")
+	fmt.Println(string(km))
+	root_list := make([]query.Query, 0, 4)
+	
+	analyze := func(ngram_field string, exact_field string, q string) {
+		
+		ngram_list := make([]query.Query, 0, 32)
+		exact_list := make([]query.Query, 0, 32)
+		
+		// Special case for star to match everything
+		if q == "*" {
+			matchAll := bleve.NewMatchAllQuery()
+			matchAll.SetBoost(0.2)
+			root_list = append(root_list, matchAll)
+			return
+		}
+		analyzerName := m.AnalyzerNameForPath(ngram_field)
+		fmt.Println(ngram_field, analyzerName)
+		analyzer := m.AnalyzerNamed(analyzerName)
+		tokens := analyzer.Analyze([]byte(q))
+		
+		// otherwise do some light filtering on the tokens returned, while we want these for
+		// the indexing operation, we don't need (or want) all of them for the query search
+		for _, token := range tokens {
+			// skip ngram analyzer if we only want exact matches
+			if rq.ExactOnly && analyzerName == indexAnalyzerName {
+				continue
+			}
+			// skip shingle tokens, these will only match if they're in the exact order and exact token composition
+			// which is not useful for our purpose
+			if token.Type == analysis.Shingle {
+				// TODO: check if we want to add these to a disjunction query
+				continue
+			}
+			// skip tokens longer than our ngram filter, these won't match ever unless it's an exact match with
+			// what is in the index
+			//if utf8.RuneCount(token.Term) > NgramFilterMax {
+			//	continue
+			//}
+
+			tq := query.NewTermQuery(string(token.Term))
+			tq.SetField(ngram_field)
+			tq.SetBoost(0.2)
+			ngram_list = append(ngram_list, tq)
+		}
+		
+		// check the exact field for exact matches, they boost the score
+		// Only do this if the exact field exists
+		if (m.FieldMappingForPath(exact_field) != mapping.FieldMapping{}) {
+			exactAnalyzer := m.AnalyzerNamed(exactAnalyzerName)
+			exactTokens := exactAnalyzer.Analyze([]byte(q))
+			for _, token := range exactTokens {
+				// skip shingle tokens, these will only match if they're in the exact order and exact token composition
+				// which is not useful for our purpose
+				if token.Type == analysis.Shingle {
+					// TODO: check if we want to add these to a disjunction query
+					continue
+				}
+				tq := query.NewTermQuery(string(token.Term))
+				tq.SetField(exact_field)
+				tq.SetBoost(2.0)
+				exact_list = append(exact_list, tq)
+			}
+		}
+		
+		if len(ngram_list) == 0 && len(exact_list) == 0 {
+			return
+		}
+		
+		ngram := query.NewConjunctionQuery(ngram_list)
+		ngram.SetBoost(1.0)
+		
+		exact := query.NewConjunctionQuery(exact_list)
+		exact.SetBoost(1.0)
+		
+		comb := query.NewDisjunctionQuery([]query.Query{/*exact,*/ ngram})
+		comb.SetBoost(1.0)
+		
+		root_list = append(root_list, comb)
+	}
+	
+	analyze("ngram_", "exact_", rq.Query)
+	
+	for field, query := range rq.FieldQueries {
+		analyze(getNgramPrefix(field) + field, "exact." + field, query)
+	}
+
+	if len(root_list) == 0 {
+		// no subqueries, so we just match nothing
 		noneQuery := query.NewMatchNoneQuery()
 		return noneQuery.Searcher(ctx, i, m, options)
 	}
 	
-	exactTokens := exactAnalyzer.Analyze([]byte(rq.Query))
+	root := query.NewConjunctionQuery(root_list)
+	root.SetBoost(1.0)
 
-	// otherwise do some light filtering on the tokens returned, while we want these for
-	// the indexing operation, we don't need (or want) all of them for the query search
-	//should := make([]query.Query, 0, 0)
-	must := make([]query.Query, 0, len(tokens))
-	for _, token := range tokens {
-		// skip shingle tokens, these will only match if they're in the exact order and exact token composition
-		// which is not useful for our purpose
-		if token.Type == analysis.Shingle {
-			// TODO: check if we want to add these to a disjunction query
-			continue
-		}
-		// skip tokens longer than our ngram filter, these won't match ever unless it's an exact match with
-		// what is in the index
-		if utf8.RuneCount(token.Term) > NgramFilterMax {
-			continue
-		}
-
-		tq := query.NewTermQuery(string(token.Term))
-		tq.SetField(field)
-		tq.SetBoost(0.2)
-		must = append(must, tq)
-	}
-
-	cq := query.NewConjunctionQuery(must)
-	cq.SetBoost(1.0)
-
-	// check the exact field for exact matches, they boost the score
-	must_exact := make([]query.Query, 0, len(tokens))
-	for _, token := range exactTokens {
-		// skip shingle tokens, these will only match if they're in the exact order and exact token composition
-		// which is not useful for our purpose
-		if token.Type == analysis.Shingle {
-			// TODO: check if we want to add these to a disjunction query
-			continue
-		}
-		tq := query.NewTermQuery(string(token.Term))
-		tq.SetField("exact")
-		tq.SetBoost(2.0)
-		must_exact = append(must_exact, tq)
-	}
-
-	cq_exact := query.NewConjunctionQuery(must_exact)
-	cq_exact.SetBoost(1.0)
-
-	dq := query.NewDisjunctionQuery([]query.Query{cq_exact, cq})
-	dq.SetBoost(1.0)
-
-	//fmt.Println(query.DumpQuery(m, dq))
-	return dq.Searcher(ctx, i, m, options)
+	fmt.Println(query.DumpQuery(m, root))
+	return root.Searcher(ctx, i, m, options)
 }
 
 func filterQuery(q *query.Query, filter ...func(q *query.Query)) {

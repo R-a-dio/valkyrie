@@ -113,8 +113,8 @@ func ExactAnalyzerConstructor(config map[string]interface{}, cache *registry.Cac
 }
 
 func init() {
-	registry.RegisterAnalyzer("radio", AnalyzerConstructor)
-	registry.RegisterAnalyzer("exact", ExactAnalyzerConstructor)
+	registry.RegisterAnalyzer(indexAnalyzerName, AnalyzerConstructor)
+	registry.RegisterAnalyzer(exactAnalyzerName, ExactAnalyzerConstructor)
 }
 
 type FilterFn func(input analysis.TokenStream) analysis.TokenStream
