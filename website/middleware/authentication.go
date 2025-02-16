@@ -442,23 +442,32 @@ func BasicAuth(uss radio.UserStorageService) func(http.Handler) http.Handler {
 				}
 			}
 
-			us := uss.User(r.Context())
+			// turns out some DJ software doesn't give a rats ass about our response, and they
+			// just send us a request over a socket and then close the thing instantly. This means
+			// our context is already closed at this point in time, and so our database access gets
+			// interrupted due to it.
+			ctx := r.Context()
+			if err := ctx.Err(); err != nil {
+				zerolog.Ctx(ctx).Warn().Ctx(ctx).Err(err).Str("username", username).Msg("context cancellation edgecase")
+			}
+			// Remove that cancel here for just this one access.
+			us := uss.User(context.WithoutCancel(ctx))
 			user, err := us.Get(username)
 			if err != nil {
-				hlog.FromRequest(r).Error().Ctx(r.Context()).Err(err).Str("username", username).Msg("database error")
+				zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Str("username", username).Msg("database error")
 				BasicAuthFailure(w, r)
 				return
 			}
 
 			if !user.UserPermissions.Has(radio.PermActive) {
-				hlog.FromRequest(r).Error().Ctx(r.Context()).Str("username", username).Msg("inactive user")
+				zerolog.Ctx(ctx).Error().Ctx(ctx).Str("username", username).Msg("inactive user")
 				BasicAuthFailure(w, r)
 				return
 			}
 
 			err = user.ComparePassword(passwd)
 			if err != nil {
-				hlog.FromRequest(r).Error().Ctx(r.Context()).Str("username", username).Msg("invalid password")
+				zerolog.Ctx(ctx).Error().Ctx(ctx).Str("username", username).Msg("invalid password")
 				BasicAuthFailure(w, r)
 				return
 			}
