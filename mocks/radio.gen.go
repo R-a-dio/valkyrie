@@ -24,7 +24,7 @@ var _ radio.SearchService = &SearchServiceMock{}
 //			DeleteFunc: func(contextMoqParam context.Context, trackIDs ...radio.TrackID) error {
 //				panic("mock out the Delete method")
 //			},
-//			SearchFunc: func(ctx context.Context, query string, limit int64, offset int64) (*radio.SearchResult, error) {
+//			SearchFunc: func(ctx context.Context, query string, limit int64, offset int64) (radio.SearchResult, error) {
 //				panic("mock out the Search method")
 //			},
 //			UpdateFunc: func(contextMoqParam context.Context, songs ...radio.Song) error {
@@ -41,7 +41,7 @@ type SearchServiceMock struct {
 	DeleteFunc func(contextMoqParam context.Context, trackIDs ...radio.TrackID) error
 
 	// SearchFunc mocks the Search method.
-	SearchFunc func(ctx context.Context, query string, limit int64, offset int64) (*radio.SearchResult, error)
+	SearchFunc func(ctx context.Context, query string, limit int64, offset int64) (radio.SearchResult, error)
 
 	// UpdateFunc mocks the Update method.
 	UpdateFunc func(contextMoqParam context.Context, songs ...radio.Song) error
@@ -116,7 +116,7 @@ func (mock *SearchServiceMock) DeleteCalls() []struct {
 }
 
 // Search calls SearchFunc.
-func (mock *SearchServiceMock) Search(ctx context.Context, query string, limit int64, offset int64) (*radio.SearchResult, error) {
+func (mock *SearchServiceMock) Search(ctx context.Context, query string, limit int64, offset int64) (radio.SearchResult, error) {
 	if mock.SearchFunc == nil {
 		panic("SearchServiceMock.SearchFunc: method is nil but SearchService.Search was just called")
 	}
