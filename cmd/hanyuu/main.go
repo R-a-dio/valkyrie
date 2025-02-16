@@ -33,25 +33,22 @@ import (
 const (
 	flagTelemetry = "telemetry"
 	flagConfig    = "config"
+	flagLogLevel  = "log"
+	flagQuiet     = "quiet"
 )
 
 func main() {
-	// global flags
-	var configFile string
-	var logLevel string
-	var disableStdout bool
-	var enableTelemetry bool
-
 	root := &cobra.Command{
 		Use:   "hanyuu",
 		Short: "collection of services, helpers and one-off jobs in one executable",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			if disableStdout {
+			// disable stdout if we got a quiet flag
+			if quiet, _ := cmd.Flags().GetBool(flagQuiet); quiet {
 				cmd.SetOut(io.Discard)
 			}
 
 			// setup logging
-			err := NewLogger(cmd, cmd.OutOrStdout(), logLevel)
+			err := NewLogger(cmd, cmd.OutOrStdout())
 			if err != nil {
 				return err
 			}
@@ -61,11 +58,12 @@ func main() {
 	}
 
 	// add global flags
-	root.PersistentFlags().StringVar(&configFile, flagConfig, "hanyuu.toml", "filepath to configuration file")
-	root.PersistentFlags().BoolVar(&enableTelemetry, flagTelemetry, false, "enable telemetry collection")
-	root.PersistentFlags().StringVar(&logLevel, "log", "info", "what log level to use")
-	root.PersistentFlags().BoolVarP(&disableStdout, "quiet", "q", false, "set to disable logs being printed to stdout")
+	root.PersistentFlags().String(flagConfig, "hanyuu.toml", "filepath to configuration file")
+	root.PersistentFlags().Bool(flagTelemetry, false, "enable telemetry collection")
+	root.PersistentFlags().String(flagLogLevel, "info", "what log level to use")
+	root.PersistentFlags().BoolP(flagQuiet, "q", false, "set to disable logs being printed to stdout")
 
+	// add groups for our commands
 	root.AddGroup(
 		&cobra.Group{ID: "services", Title: "long-running services"},
 		&cobra.Group{ID: "jobs", Title: "one-off jobs"},
@@ -207,14 +205,13 @@ func main() {
 // if we run `hanyuu migrate up` the name will come out as `migrate.up`
 func constructServiceName(cmd *cobra.Command) string {
 	var names []string
-	for cmd != nil {
+	for ; cmd != nil; cmd = cmd.Parent() {
 		names = append(names, cmd.Name())
-		cmd = cmd.Parent()
 	}
 
 	slices.Reverse(names)
 	if len(names) > 1 {
-		// remove the 'hanyuu' if a subcommand was called
+		// remove the first bit if a subcommand was called
 		names = names[1:]
 	}
 	return strings.Join(names, ".")
@@ -222,10 +219,12 @@ func constructServiceName(cmd *cobra.Command) string {
 
 type configKey struct{}
 
+// cfgFromContext returns a stored config from the context
 func cfgFromContext(ctx context.Context) config.Config {
 	return ctx.Value(configKey{}).(config.Config)
 }
 
+// cfgWithContext stores a config in the context
 func cfgWithContext(ctx context.Context, cfg config.Config) context.Context {
 	return context.WithValue(ctx, configKey{}, cfg)
 }
@@ -246,8 +245,7 @@ func SimpleCommand(fn cobraFn) cobraFn {
 	return executeCommand(fn)
 }
 
-// Command is the wrapper to use when your function is an ExecuteFn and does
-// not require smooth-restart support (let us handle SIGUSR2)
+// Command is the wrapper to use when your function is an ExecuteFn
 func Command(fn ExecuteFn) cobraFn {
 	return executeCommand(convertExecuteFn(fn))
 }
@@ -261,7 +259,7 @@ func executeCommand(fn cobraFn) cobraFn {
 		defer cancel()
 
 		// load the configuration file
-		configFile, _ := cmd.PersistentFlags().GetString(flagConfig)
+		configFile, _ := cmd.Flags().GetString(flagConfig)
 		cfg, err := config.LoadFile(configFile, os.Getenv("HANYUU_CONFIG"))
 		if err != nil {
 			return err
@@ -269,11 +267,11 @@ func executeCommand(fn cobraFn) cobraFn {
 		ctx = cfgWithContext(ctx, cfg)
 
 		// setup telemetry if this is wanted
-		if enable, _ := cmd.PersistentFlags().GetBool(flagTelemetry); enable || cfg.Conf().Telemetry.Use {
+		if enable, _ := cmd.Flags().GetBool(flagTelemetry); enable || cfg.Conf().Telemetry.Use {
 			var telemetryShutdown func()
 			ctx, telemetryShutdown, err = SetupTelemetry(ctx, cfg, constructServiceName(cmd))
 			if err != nil {
-				zerolog.Ctx(cmd.Context()).Err(err).Ctx(cmd.Context()).Msg("failed to initialize telemetry")
+				zerolog.Ctx(ctx).Err(err).Ctx(ctx).Msg("failed to initialize telemetry")
 			}
 			if telemetryShutdown != nil {
 				defer telemetryShutdown()
@@ -363,7 +361,12 @@ func versionVerbose(cmd *cobra.Command, args []string) {
 	}
 }
 
-func NewLogger(cmd *cobra.Command, out io.Writer, level string) error {
+func NewLogger(cmd *cobra.Command, out io.Writer) error {
+	level, err := cmd.Flags().GetString(flagLogLevel)
+	if err != nil {
+		return err
+	}
+
 	zlevel, err := zerolog.ParseLevel(level)
 	if err != nil {
 		return err
