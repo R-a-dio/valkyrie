@@ -37,6 +37,10 @@ VALUES (
 
 var _ = CheckQuery[[]queueSong](QueueStoreQuery)
 
+const QueueDeleteQuery = `DELETE FROM queue`
+
+var _ = CheckQuery[NoParams](QueueDeleteQuery)
+
 // Store stores the queue given under name in the database configured
 //
 // Implements radio.QueueStorage
@@ -72,7 +76,7 @@ func (qs QueueStorage) Store(name string, queue []radio.QueueEntry) error {
 	defer tx.Rollback()
 
 	// empty the queue so we can repopulate it
-	_, err = handle.Exec(`DELETE FROM queue`)
+	_, err = handle.Exec(QueueDeleteQuery)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -113,8 +117,7 @@ ORDER BY
 	queue.id ASC;
 `)
 
-// ^ not a named query
-// var _ = CheckQuery[*[]queueSong](QueueLoadQuery)
+var _ = CheckQuery[NoParams](QueueLoadQuery)
 
 // Load loads the queue name given from the database configured
 //
@@ -126,7 +129,7 @@ func (qs QueueStorage) Load(name string) ([]radio.QueueEntry, error) {
 
 	var queue []queueSong
 
-	err := sqlx.Select(handle, &queue, QueueLoadQuery)
+	err := handle.Select(&queue, QueueLoadQuery, NoParams{})
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
