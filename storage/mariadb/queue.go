@@ -20,6 +20,23 @@ type queueSong struct {
 	Position int
 }
 
+const QueueStoreQuery = `
+INSERT INTO
+	queue (trackid, time, ip, type, meta, length, id, queue_id)
+VALUES (
+	:trackid,
+	:expectedstarttime,
+	:useridentifier,
+	:isrequest,
+	:metadata,
+	from_go_duration(:length),
+	:position,
+	:queueid
+);
+`
+
+var _ = CheckQuery[[]queueSong](QueueStoreQuery)
+
 // Store stores the queue given under name in the database configured
 //
 // Implements radio.QueueStorage
@@ -66,21 +83,7 @@ func (qs QueueStorage) Store(name string, queue []radio.QueueEntry) error {
 		return tx.Commit()
 	}
 
-	var query = `
-	INSERT INTO
-		queue (trackid, time, ip, type, meta, length, id, queue_id)
-	VALUES (
-		:trackid,
-		:expectedstarttime,
-		:useridentifier,
-		:isrequest,
-		:metadata,
-		from_go_duration(:length),
-		:position,
-		:queueid
-	);
-	`
-	_, err = sqlx.NamedExec(handle, query, entries)
+	_, err = sqlx.NamedExec(handle, QueueStoreQuery, entries)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -88,7 +91,7 @@ func (qs QueueStorage) Store(name string, queue []radio.QueueEntry) error {
 	return tx.Commit()
 }
 
-var queueLoadQuery = expand(`
+var QueueLoadQuery = expand(`
 SELECT
 	queue.queue_id AS queueid,
 	queue.trackid,
@@ -110,6 +113,9 @@ ORDER BY
 	queue.id ASC;
 `)
 
+// ^ not a named query
+// var _ = CheckQuery[*[]queueSong](QueueLoadQuery)
+
 // Load loads the queue name given from the database configured
 //
 // Implements radio.QueueStorage
@@ -120,7 +126,7 @@ func (qs QueueStorage) Load(name string) ([]radio.QueueEntry, error) {
 
 	var queue []queueSong
 
-	err := sqlx.Select(handle, &queue, queueLoadQuery)
+	err := sqlx.Select(handle, &queue, QueueLoadQuery)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}

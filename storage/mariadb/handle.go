@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"sync"
@@ -35,8 +36,43 @@ var invalidQueries = map[string]string{}
 
 type NoParams struct{}
 
+// zeroValue returns the zero value of T with things allocated inside
+// if possible, small wrapper around zeroValueImpl
+func zeroValue[T any]() T {
+	v := zeroValueImpl(reflect.TypeFor[T]())
+	return v.Interface().(T)
+}
+
+// zeroValueImpl returns a "filled" in zero value of the type given
+//
+// It does this by recursively allocating stuff until it reaches a
+// concrete type
+func zeroValueImpl(t reflect.Type) reflect.Value {
+	v := reflect.New(t).Elem()
+
+	switch v.Kind() {
+	case reflect.Ptr:
+		// if we have a pointer, allocate the thing it's pointing to
+		v.Set(zeroValueImpl(v.Type().Elem()).Addr())
+	case reflect.Slice:
+		// if we have a slice, we allocate a single element to make sqlx happy
+		v = reflect.Append(v, zeroValueImpl(v.Type().Elem()))
+	case reflect.Struct:
+		// if we have a struct, we allocate all exported fields recursively
+		for i := range v.Type().NumField() {
+			// only exported fields, or reflect will yell at us
+			if v.Type().Field(i).IsExported() {
+				fv := v.Field(i)
+				fv.Set(zeroValueImpl(fv.Type()))
+			}
+		}
+	}
+
+	return v
+}
+
 func CheckQuery[T any](query string) struct{} {
-	_, _, err := sqlx.Named(query, *new(T))
+	_, _, err := sqlx.Named(query, zeroValue[T]())
 	if err != nil {
 		_, filename, line, _ := runtime.Caller(1)
 		if tmp := strings.Split(filename, string(filepath.Separator)); len(tmp) > 2 {
