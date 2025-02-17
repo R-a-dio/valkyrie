@@ -3,6 +3,9 @@ package mariadb
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -26,6 +29,25 @@ var specialCasedColumnNames = map[string]string{
 	"DeletedAt":     "deleted_at",
 	"UpdatedAt":     "updated_at",
 	"RememberToken": "remember_token",
+}
+
+var invalidQueries = map[string]string{}
+
+type NoParams struct{}
+
+func CheckQuery[T any](query string) struct{} {
+	_, _, err := sqlx.Named(query, *new(T))
+	if err != nil {
+		_, filename, line, _ := runtime.Caller(1)
+		if tmp := strings.Split(filename, string(filepath.Separator)); len(tmp) > 2 {
+			filename = filepath.Join(tmp[len(tmp)-2:]...)
+		}
+
+		identifier := fmt.Sprintf("%s:%d", filename, line)
+		invalidQueries[identifier] = err.Error()
+	}
+
+	return struct{}{}
 }
 
 // mapperFunc implements the MapperFunc for sqlx to specialcase column names
