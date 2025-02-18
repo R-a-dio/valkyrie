@@ -14,8 +14,6 @@ import (
 	"github.com/blevesearch/bleve/v2/analysis/analyzer/keyword"
 	"github.com/blevesearch/bleve/v2/document"
 	"github.com/blevesearch/bleve/v2/mapping"
-	"github.com/blevesearch/bleve/v2/numeric"
-	"github.com/blevesearch/bleve/v2/search"
 	index "github.com/blevesearch/bleve_index_api"
 	"github.com/vmihailenco/msgpack/v4"
 	"go.opentelemetry.io/otel"
@@ -26,59 +24,6 @@ const (
 	radioCompositeField = "_radio"
 	exactCompositeField = "_exact"
 )
-
-// prioScoreSort sorts the documents by their priority and score
-type prioScoreSort struct {
-	prio float64
-}
-
-func (s *prioScoreSort) UpdateVisitor(field string, term []byte) {
-	if field != "priority" {
-		return
-	}
-	valid, shift := numeric.ValidPrefixCodedTermBytes(term)
-	if !valid || shift != 0 {
-		return
-	}
-	prio, _ := numeric.PrefixCoded(term).Int64()
-	s.prio = numeric.Int64ToFloat64(prio)
-}
-
-func (s *prioScoreSort) Value(a *search.DocumentMatch) string {
-	prio := s.prio
-	score := a.Score
-
-	// boost sort score if we had a large match score; this means that
-	// there were exact matches
-	if score > 0.5 {
-		prio += 1000
-	}
-
-	return fmt.Sprintf("%010d", int(prio))
-}
-
-func (s *prioScoreSort) Descending() bool {
-	return true
-}
-
-func (s *prioScoreSort) RequiresDocID() bool {
-	return false
-}
-
-func (s *prioScoreSort) RequiresScoring() bool {
-	return false
-}
-
-func (s *prioScoreSort) RequiresFields() []string {
-	return []string{"priority"}
-}
-
-func (s *prioScoreSort) Reverse() {
-}
-
-func (s prioScoreSort) Copy() search.SearchSort {
-	return &s
-}
 
 // indexText holds fields we index multiple times with different analyzers
 type indexText struct {
@@ -171,17 +116,13 @@ func (b *indexWrap) Search(ctx context.Context, raw string, exactOnly bool, limi
 		return nil, errors.E(op, err)
 	}
 
-	req := bleve.NewSearchRequestOptions(query, limit, offset, false)
-	if query.SortField != "" {
-		field := query.SortField
-		if query.Descending {
-			field = "-" + field
-		}
-		req.SortBy([]string{field})
-	} else {
-		req.SortByCustom(search.SortOrder{&prioScoreSort{}})
+	req := &bleve.SearchRequest{
+		Query:  query,
+		Sort:   query.SortOrder(),
+		Size:   limit,
+		From:   offset,
+		Fields: dataField,
 	}
-	req.Fields = dataField
 
 	result, err := b.index.SearchInContext(ctx, req)
 	if err != nil {

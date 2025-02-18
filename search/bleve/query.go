@@ -11,6 +11,7 @@ import (
 	"github.com/blevesearch/bleve/v2"
 	"github.com/blevesearch/bleve/v2/analysis"
 	"github.com/blevesearch/bleve/v2/mapping"
+	"github.com/blevesearch/bleve/v2/numeric"
 	"github.com/blevesearch/bleve/v2/search"
 	"github.com/blevesearch/bleve/v2/search/query"
 	index "github.com/blevesearch/bleve_index_api"
@@ -151,6 +152,73 @@ func fieldWithPrefix(f string) string {
 	default:
 		return f
 	}
+}
+
+func (rq *RadioQuery) SortOrder() search.SortOrder {
+	// sort by field if query wants us to
+	if rq.SortField != "" {
+		field := rq.SortField
+		if rq.Descending {
+			field = "-" + field
+		}
+		return search.ParseSortOrderStrings([]string{field})
+	}
+
+	// default sort is by priority / score
+	return search.SortOrder{&prioScoreSort{}}
+}
+
+// prioScoreSort sorts the documents by their priority and score
+type prioScoreSort struct {
+	prio float64
+}
+
+func (s *prioScoreSort) UpdateVisitor(field string, term []byte) {
+	if field != "priority" {
+		return
+	}
+	valid, shift := numeric.ValidPrefixCodedTermBytes(term)
+	if !valid || shift != 0 {
+		return
+	}
+	prio, _ := numeric.PrefixCoded(term).Int64()
+	s.prio = numeric.Int64ToFloat64(prio)
+}
+
+func (s *prioScoreSort) Value(a *search.DocumentMatch) string {
+	prio := s.prio
+	score := a.Score
+
+	// boost sort score if we had a large match score; this means that
+	// there were exact matches
+	if score > 0.5 {
+		prio += 1000
+	}
+
+	return fmt.Sprintf("%010d", int(prio))
+}
+
+func (s *prioScoreSort) Descending() bool {
+	return true
+}
+
+func (s *prioScoreSort) RequiresDocID() bool {
+	return false
+}
+
+func (s *prioScoreSort) RequiresScoring() bool {
+	return false
+}
+
+func (s *prioScoreSort) RequiresFields() []string {
+	return []string{"priority"}
+}
+
+func (s *prioScoreSort) Reverse() {
+}
+
+func (s prioScoreSort) Copy() search.SearchSort {
+	return &s
 }
 
 func (rq *RadioQuery) Searcher(ctx context.Context, i index.IndexReader, m mapping.IndexMapping, options search.SearcherOptions) (search.Searcher, error) {
