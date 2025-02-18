@@ -12,12 +12,19 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/blevesearch/bleve/v2"
 	"github.com/blevesearch/bleve/v2/analysis/analyzer/keyword"
+	"github.com/blevesearch/bleve/v2/document"
 	"github.com/blevesearch/bleve/v2/mapping"
 	"github.com/blevesearch/bleve/v2/numeric"
 	"github.com/blevesearch/bleve/v2/search"
+	index "github.com/blevesearch/bleve_index_api"
 	"github.com/vmihailenco/msgpack/v4"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+)
+
+const (
+	radioCompositeField = "_radio"
+	exactCompositeField = "_exact"
 )
 
 // prioScoreSort sorts the documents by their priority and score
@@ -73,6 +80,7 @@ func (s prioScoreSort) Copy() search.SearchSort {
 	return &s
 }
 
+// indexText holds fields we index multiple times with different analyzers
 type indexText struct {
 	// main fields we're searching through
 	Title  string `bleve:"title"`
@@ -81,11 +89,13 @@ type indexText struct {
 	Tags   string `bleve:"tags"`
 }
 
+// indexSong is the structure of the bleve document
 type indexSong struct {
-	Ngram  indexText `bleve:"ngram"`
-	Ngram_ string    `bleve:"ngram_"`
-	Exact  indexText `bleve:"exact"`
-	Exact_ string    `bleve:"exact_"`
+	// fields to index with radio analyzer
+	Radio indexText `bleve:"radio"`
+	// fields to index with exact analyzer
+	Exact indexText `bleve:"exact"`
+
 	// time fields
 	LastRequested time.Time `bleve:"lastrequested"`
 	LastPlayed    time.Time `bleve:"lastplayed"`
@@ -114,13 +124,9 @@ func toIndexSong(s radio.Song) *indexSong {
 		Tags:   s.Tags,
 	}
 
-	all := strings.Join([]string{s.Title, s.Artist, s.Album, s.Tags}, " ")
-
 	return &indexSong{
-		Ngram:         text,
-		Ngram_:        all,
+		Radio:         text,
 		Exact:         text,
-		Exact_:        all,
 		LastRequested: s.LastRequested,
 		LastPlayed:    s.LastPlayed,
 		ID:            int(s.TrackID),
@@ -197,8 +203,12 @@ func (b *indexWrap) Index(ctx context.Context, songs []radio.Song) error {
 
 	batch := b.index.NewBatch()
 	for _, song := range songs {
-		isong := toIndexSong(song)
-		err := batch.Index(song.TrackID.String(), isong)
+		doc, err := b.createDocument(song)
+		if err != nil {
+			return errors.E(op, err)
+		}
+
+		err = batch.IndexAdvanced(doc)
 		if err != nil {
 			return errors.E(op, err)
 		}
@@ -208,6 +218,51 @@ func (b *indexWrap) Index(ctx context.Context, songs []radio.Song) error {
 		return errors.E(op, err)
 	}
 	return nil
+}
+
+func (b *indexWrap) createDocument(song radio.Song) (*document.Document, error) {
+	doc := document.NewDocument(song.TrackID.String())
+	// first run us through the normal mapping, this will generate the usual bleve document
+	err := b.index.Mapping().MapDocument(doc, toIndexSong(song))
+	if err != nil {
+		return nil, err
+	}
+
+	// now add our own special sauce fields
+
+	// first we need to collect what fields we're including
+	radioInclude := getFieldsWithPrefix("radio.", doc)
+	exactInclude := getFieldsWithPrefix("exact.", doc)
+
+	radioField := document.NewCompositeFieldWithIndexingOptions(
+		radioCompositeField,
+		false,
+		radioInclude,
+		[]string{},
+		index.IndexField|index.IncludeTermVectors,
+	)
+	exactField := document.NewCompositeFieldWithIndexingOptions(
+		exactCompositeField,
+		false,
+		exactInclude,
+		[]string{},
+		index.IndexField|index.IncludeTermVectors,
+	)
+
+	doc.AddField(radioField)
+	doc.AddField(exactField)
+	return doc, nil
+}
+
+// getFieldsWithPrefix returns all the fields that have the prefix given
+func getFieldsWithPrefix(prefix string, doc *document.Document) []string {
+	var res []string
+	for _, f := range doc.Fields {
+		if strings.HasPrefix(f.Name(), prefix) {
+			res = append(res, f.Name())
+		}
+	}
+	return res
 }
 
 func (b *indexWrap) Delete(ctx context.Context, tids []radio.TrackID) error {
@@ -226,12 +281,10 @@ func (b *indexWrap) Delete(ctx context.Context, tids []radio.TrackID) error {
 	return nil
 }
 
-func mixedTextMapping(analyzerName string) *mapping.FieldMapping {
-	m := bleve.NewTextFieldMapping()
-	m.Analyzer = analyzerName
-	m.Store = false
-	m.Index = true
-	return m
+func newTextMapping() *mapping.FieldMapping {
+	fm := bleve.NewTextFieldMapping()
+	fm.Store = false
+	return fm
 }
 
 func constructIndexMapping() (mapping.IndexMapping, error) {
@@ -243,41 +296,27 @@ func constructIndexMapping() (mapping.IndexMapping, error) {
 	sm.StructTagKey = "bleve"
 	sm.DefaultAnalyzer = radioAnalyzerName
 
-	ngram := bleve.NewDocumentStaticMapping()
-	ngram.StructTagKey = "bleve"
-	ngram.DefaultAnalyzer = radioAnalyzerName
+	// create the radio submapping
+	rm := bleve.NewDocumentStaticMapping()
+	rm.StructTagKey = "bleve"
+	rm.DefaultAnalyzer = radioAnalyzerName
+	rm.AddFieldMappingsAt("title", newTextMapping())
+	rm.AddFieldMappingsAt("artist", newTextMapping())
+	rm.AddFieldMappingsAt("album", newTextMapping())
+	rm.AddFieldMappingsAt("tags", newTextMapping())
 
-	title := mixedTextMapping(radioAnalyzerName)
-	ngram.AddFieldMappingsAt("title", title)
-	artist := mixedTextMapping(radioAnalyzerName)
-	ngram.AddFieldMappingsAt("artist", artist)
-	album := mixedTextMapping(radioAnalyzerName)
-	ngram.AddFieldMappingsAt("album", album)
-	tags := mixedTextMapping(radioAnalyzerName)
-	ngram.AddFieldMappingsAt("tags", tags)
+	sm.AddSubDocumentMapping("radio", rm)
 
-	sm.AddSubDocumentMapping("ngram", ngram)
-
+	// create the exact submapping
 	exact := bleve.NewDocumentStaticMapping()
 	exact.StructTagKey = "bleve"
 	exact.DefaultAnalyzer = exactAnalyzerName
-
-	title_exact := mixedTextMapping(exactAnalyzerName)
-	exact.AddFieldMappingsAt("title", title_exact)
-	artist_exact := mixedTextMapping(exactAnalyzerName)
-	exact.AddFieldMappingsAt("artist", artist_exact)
-	album_exact := mixedTextMapping(exactAnalyzerName)
-	exact.AddFieldMappingsAt("album", album_exact)
-	tags_exact := mixedTextMapping(exactAnalyzerName)
-	exact.AddFieldMappingsAt("tags", tags_exact)
+	exact.AddFieldMappingsAt("title", newTextMapping())
+	exact.AddFieldMappingsAt("artist", newTextMapping())
+	exact.AddFieldMappingsAt("album", newTextMapping())
+	exact.AddFieldMappingsAt("tags", newTextMapping())
 
 	sm.AddSubDocumentMapping("exact", exact)
-
-	ngram_ := mixedTextMapping(radioAnalyzerName)
-	sm.AddFieldMappingsAt("ngram_", ngram_)
-
-	exact_ := mixedTextMapping(exactAnalyzerName)
-	sm.AddFieldMappingsAt("exact_", exact_)
 
 	acceptor := bleve.NewKeywordFieldMapping()
 	acceptor.Index = true
@@ -299,12 +338,11 @@ func constructIndexMapping() (mapping.IndexMapping, error) {
 	priority.Analyzer = "keyword"
 	sm.AddFieldMappingsAt("priority", priority)
 
-	id := bleve.NewNumericFieldMapping()
+	id := bleve.NewKeywordFieldMapping()
 	id.Index = true
 	id.Store = false
 	id.IncludeTermVectors = false
 	id.IncludeInAll = true
-	id.Analyzer = "keyword"
 	sm.AddFieldMappingsAt("id", id)
 
 	lr := bleve.NewDateTimeFieldMapping()
