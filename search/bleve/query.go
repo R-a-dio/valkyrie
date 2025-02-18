@@ -28,35 +28,28 @@ func NewQuery(ctx context.Context, query string, exactOnly bool) (*RadioQuery, e
 		query = CutoffAtRune(query[:MaxQuerySize])
 	}
 
-	splitQuery := make([]string, 0)
-	radioQuery := &RadioQuery{}
-	radioQuery.FieldQueries = make(map[string]string)
-
-	var fieldName string
-	inBlock := false
-	block := make([]string, 0)
+	var (
+		rq = &RadioQuery{
+			FieldQueries: make(map[string]string),
+		}
+		splitQuery []string
+		fieldName  string
+		inBlock    = false
+		block      []string
+	)
 
 	for _, part := range strings.Fields(query) {
-		if inBlock {
-			before, found := strings.CutSuffix(part, "\"")
-			block = append(block, before)
-			if found {
-				// end the block and save it as a field query
-				radioQuery.FieldQueries[fieldName] = strings.Join(block, " ")
-				block = make([]string, 0)
-				inBlock = false
-			}
-		} else {
+		if !inBlock {
 			after, isOperator := strings.CutPrefix(part, "!!")
 			if isOperator {
 				// this is an operator.
 				// !!<field
 				if len(after) > 0 && (after[0] == '<' || after[0] == '>') {
 					// sort order; the rest of this should be a field
-					field := after[1:len(after)]
+					field := after[1:]
 					if isValidField(field) {
-						radioQuery.SortField = getNgramPrefix(field) + field
-						radioQuery.Descending = after[0] == '<'
+						rq.SortField = fieldWithPrefix(field)
+						rq.Descending = after[0] == '<'
 						continue
 					}
 				}
@@ -65,34 +58,51 @@ func NewQuery(ctx context.Context, query string, exactOnly bool) (*RadioQuery, e
 				colonIdx := strings.Index(after, ":")
 				if colonIdx != -1 && isValidField(after[0:colonIdx]) {
 					fieldName = after[0:colonIdx]
-					after = after[colonIdx+1:]
-					after, isQuoted := strings.CutPrefix(after, "\"")
+					fieldValue := after[colonIdx+1:]
+					fieldValue, isQuoted := strings.CutPrefix(fieldValue, "\"")
 					if isQuoted {
-						inBlock = true
-						block = append(block, after)
+						if fieldValue[len(fieldValue)-1] == '"' {
+							// quoted single-term !!field:"term"
+							rq.FieldQueries[fieldName] = fieldValue[:len(fieldValue)-1]
+						} else {
+							// quoted multi-term !!field:"multi term"
+							inBlock = true
+							block = append(block, fieldValue)
+						}
 					} else {
-						radioQuery.FieldQueries[fieldName] = after
+						// unquoted field !!field:term
+						rq.FieldQueries[fieldName] = fieldValue
 					}
 					continue
 				}
 				// we couldn't parse this operator, so just pass it as
 				// a regular term
 			}
+		}
+
+		if inBlock {
+			before, found := strings.CutSuffix(part, "\"")
+			block = append(block, before)
+			if found {
+				// end the block and save it as a field query
+				rq.FieldQueries[fieldName] = strings.Join(block, " ")
+				block, inBlock = nil, false
+				continue
+			}
+		} else {
 			splitQuery = append(splitQuery, part)
 		}
 	}
 
-	query = strings.Join(splitQuery, " ")
+	rq.Query = strings.Join(splitQuery, " ")
 
 	if inBlock {
 		// if the block was not terminated, don't return any results
-		query = ""
-		radioQuery.FieldQueries = make(map[string]string)
+		rq.Query = ""
+		rq.FieldQueries = nil
 	}
 
-	radioQuery.Query = query
-	radioQuery.ExactOnly = exactOnly
-	return radioQuery, nil
+	return rq, nil
 }
 
 var fields = []string{
@@ -128,12 +138,19 @@ type RadioQuery struct {
 	ExactOnly    bool              `json:"exact_only"`
 }
 
-func getNgramPrefix(f string) string {
+func fieldWithPrefix(f string) string {
 	switch f {
-	case "artist", "title", "album", "tags":
-		return "ngram."
+	case "artist":
+		return "radio.artist"
+	case "title":
+		return "radio.title"
+	case "album":
+		return "radio.album"
+	case "tags":
+		return "radio.tags"
+	default:
+		return f
 	}
-	return ""
 }
 
 func (rq *RadioQuery) Searcher(ctx context.Context, i index.IndexReader, m mapping.IndexMapping, options search.SearcherOptions) (search.Searcher, error) {
@@ -236,7 +253,7 @@ func (rq *RadioQuery) Searcher(ctx context.Context, i index.IndexReader, m mappi
 	analyze("ngram_", "exact_", rq.Query)
 
 	for field, query := range rq.FieldQueries {
-		analyze(getNgramPrefix(field)+field, "exact."+field, query)
+		analyze(fieldWithPrefix(field), "exact."+field, query)
 	}
 
 	if len(root_list) == 0 {
