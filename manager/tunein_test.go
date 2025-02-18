@@ -2,7 +2,6 @@ package manager
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -21,7 +20,12 @@ func TestTuneinUpdater(t *testing.T) {
 	ctx := context.Background()
 	ctx = zerolog.New(zerolog.NewTestWriter(t)).WithContext(ctx)
 
+	// sleep a little bit at the very end since the goroutine launched inside of TuneinUpdater
+	// might still be running for a little bit after we cancel the context
+	defer time.Sleep(time.Second)
+
 	es := eventstream.NewEventStream((*radio.SongUpdate)(nil))
+	defer es.Shutdown()
 	m := &mocks.ManagerServiceMock{
 		CurrentSongFunc: func(ctx context.Context) (eventstream.Stream[*radio.SongUpdate], error) {
 			return es.SubStream(ctx), nil
@@ -36,15 +40,16 @@ func TestTuneinUpdater(t *testing.T) {
 
 	done := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Println("received request")
+		t.Log("received request")
 		assert.Equal(t, c.Tunein.PartnerID, r.FormValue(TUNEIN_PARTNER_ID))
 		assert.Equal(t, c.Tunein.StationID, r.FormValue(TUNEIN_STATION_ID))
 		assert.Equal(t, c.Tunein.Key, r.FormValue(TUNEIN_PARTNER_KEY))
 		assert.Equal(t, "fancy artist", r.FormValue("artist"))
 		assert.Equal(t, "a song title", r.FormValue("title"))
-		close(done)
 
 		w.WriteHeader(http.StatusOK)
+
+		close(done)
 	}))
 	defer server.Close()
 
@@ -54,6 +59,7 @@ func TestTuneinUpdater(t *testing.T) {
 	t.Log(c.Tunein)
 	tu, err := NewTuneinUpdater(ctx, cfg, m, server.Client())
 	require.NoError(t, err)
+
 	defer tu.Close()
 
 	es.Send(&radio.SongUpdate{
@@ -65,4 +71,5 @@ func TestTuneinUpdater(t *testing.T) {
 	})
 
 	<-done
+	t.Log("done")
 }
