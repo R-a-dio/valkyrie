@@ -3,7 +3,6 @@ package registry
 import (
 	"context"
 	"fmt"
-	"maps"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
@@ -19,24 +18,25 @@ type registry struct {
 	providers map[string]*authedProvider
 }
 
-type SearchResult struct {
-	provider string
-	radio.TrackMetadata
+type FindResult struct {
+	Provider string
+	Info     struct {
+		Title   string
+		Artists []string
+		Album   string
+		Art     []byte
+		ID      string
+	}
 }
 
-func (reg *registry) Search(ctx context.Context, s radio.Song) ([]*SearchResult, error) {
+func (reg *registry) Search(ctx context.Context, s radio.Song) ([]*FindResult, error) {
 	const op errors.Op = "registry/Registry.Search"
-	srs := []*SearchResult{}
+	srs := []*FindResult{}
 
-	for name, provider := range reg.providers {
-		res, err := provider.Find(ctx, provider.AuthString, s)
+	for _, provider := range reg.providers {
+		sr, err := provider.Find(ctx, provider.AuthString, s)
 		if err != nil {
 			return nil, errors.E()
-		}
-
-		sr := &SearchResult{
-			provider:      name,
-			TrackMetadata: res,
 		}
 
 		srs = append(srs, sr)
@@ -51,8 +51,6 @@ func NewRegistry(cfg config.Config) (*registry, error) {
 
 	pvds := make(map[string]*authedProvider)
 
-	fmt.Println(cfg.Conf().Metadata)
-
 	if len(cfg.Conf().Metadata) == 0 {
 		return nil, errors.E(op, fmt.Errorf("no metadata providers found"))
 	}
@@ -60,7 +58,7 @@ func NewRegistry(cfg config.Config) (*registry, error) {
 	for _, metadata := range cfg.Conf().Metadata {
 		provider, ok := providers[metadata.Name]
 		if !ok {
-			return nil, errors.E(op, fmt.Errorf("metadata provider %q not found, expected any of %v", metadata.Name, maps.Keys(providers)))
+			return nil, errors.E(op, fmt.Errorf("metadata provider %q not found, expected any of: %v", metadata.Name, mapKeys(providers)))
 		}
 		ap := &authedProvider{AuthString(metadata.Auth), provider}
 
@@ -71,6 +69,15 @@ func NewRegistry(cfg config.Config) (*registry, error) {
 	return reg, nil
 }
 
+func mapKeys[K comparable, V any](m map[K]V) []K {
+	r := []K{}
+	for k := range m {
+		r = append(r, k)
+	}
+
+	return r
+}
+
 func (reg *registry) String() string {
-	return fmt.Sprintf("registry providers: %v", reg.providers)
+	return fmt.Sprintf("providers: %v", mapKeys(reg.providers))
 }
