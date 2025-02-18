@@ -168,13 +168,18 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 		r.Post("/booth/set-thread", p(radio.PermDJ, s.PostBoothSetThread))
 
 		// setup monitoring endpoint
+		var telemetryHandler http.HandlerFunc
 		if s.TelemetryProxy != nil {
-			r.Handle("/telemetry/*", p(radio.PermTelemetryView, s.TelemetryProxy.ServeHTTP))
+			telemetryHandler = s.TelemetryProxy.ServeHTTP
 		} else {
-			r.Handle("/telemetry/*", p(radio.PermTelemetryView, func(w http.ResponseWriter, r *http.Request) {
+			telemetryHandler = func(w http.ResponseWriter, r *http.Request) {
 				http.Redirect(w, r, s.Config.TelemetryProxyURL(), http.StatusFound)
-			}))
+			}
 		}
+		// use a mounted subrouter to avoid the StripSlashes middleware breaking our wildcard
+		r.Route("/telemetry", func(r chi.Router) {
+			r.Handle("/*", p(radio.PermTelemetryView, telemetryHandler))
+		})
 
 		// debug handlers, might not be needed later
 		r.Post("/api/streamer/stop", p(radio.PermAdmin, s.PostStreamerStop))
