@@ -6,7 +6,7 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
-	
+
 	"github.com/blevesearch/bleve/v2/analysis/tokenizer/character"
 
 	"github.com/stretchr/testify/assert"
@@ -55,7 +55,7 @@ func repeatToLength(s string, l int) string {
 
 func BenchmarkAnalyzer(b *testing.B) {
 	idx := newIndex(b)
-	a := idx.index.Mapping().AnalyzerNamed(indexAnalyzerName)
+	a := idx.index.Mapping().AnalyzerNamed(radioAnalyzerName)
 
 	fn := func(s string) func(b *testing.B) {
 		in := []byte(s)

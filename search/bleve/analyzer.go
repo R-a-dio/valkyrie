@@ -21,47 +21,15 @@ import (
 	"github.com/robpike/nihongo"
 )
 
-const NgramFilterMin = 2
-const NgramFilterMax = 3
+const (
+	radioAnalyzerName = "radio"
+	exactAnalyzerName = "exact"
 
-var _ analysis.Analyzer = new(multiAnalyzer)
+	NgramFilterMin = 2
+	NgramFilterMax = 3
+)
 
-type PrefilterFn func(in []byte) (out []byte)
-
-type multiAnalyzer struct {
-	prefilter func(in []byte) (out []byte)
-	analyzers []analysis.Analyzer
-}
-
-func (ma *multiAnalyzer) Analyze(text []byte) analysis.TokenStream {
-	var res analysis.TokenStream
-
-	fmt.Println(string(text))
-	if ma.prefilter != nil {
-		new := ma.prefilter(text)
-		if !bytes.Equal(text, new) {
-			res = ma.analyze(res, new)
-		}
-	}
-
-	return ma.analyze(res, text)
-}
-
-func (ma *multiAnalyzer) analyze(res analysis.TokenStream, text []byte) analysis.TokenStream {
-	for _, a := range ma.analyzers {
-		res = append(res, a.Analyze(text)...)
-	}
-	return res
-}
-
-func NewMultiAnalyzer(pre PrefilterFn, a ...analysis.Analyzer) analysis.Analyzer {
-	return &multiAnalyzer{
-		prefilter: pre,
-		analyzers: a,
-	}
-}
-
-func AnalyzerConstructor(config map[string]interface{}, cache *registry.Cache) (analysis.Analyzer, error) {
+func RadioAnalyzerConstructor(config map[string]interface{}, cache *registry.Cache) (analysis.Analyzer, error) {
 	toLowerFilter, err := cache.TokenFilterNamed(lowercase.Name)
 	if err != nil {
 		return nil, err
@@ -113,7 +81,7 @@ func ExactAnalyzerConstructor(config map[string]interface{}, cache *registry.Cac
 }
 
 func init() {
-	registry.RegisterAnalyzer(indexAnalyzerName, AnalyzerConstructor)
+	registry.RegisterAnalyzer(radioAnalyzerName, RadioAnalyzerConstructor)
 	registry.RegisterAnalyzer(exactAnalyzerName, ExactAnalyzerConstructor)
 }
 

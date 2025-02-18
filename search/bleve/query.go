@@ -2,8 +2,8 @@ package bleve
 
 import (
 	"context"
-	"fmt"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"unicode/utf8"
 
@@ -22,23 +22,23 @@ const MaxQuerySize = 512
 
 func NewQuery(ctx context.Context, query string, exactOnly bool) (*RadioQuery, error) {
 	query = strings.TrimSpace(query)
-	
+
 	if len(query) > MaxQuerySize { // cut off the query if it goes past our MaxQuerySize
 		// but in a nice way, where we remove any invalid utf8 characters from the end
 		query = CutoffAtRune(query[:MaxQuerySize])
 	}
-	
+
 	splitQuery := make([]string, 0)
 	radioQuery := &RadioQuery{}
 	radioQuery.FieldQueries = make(map[string]string)
-	
+
 	var fieldName string
 	inBlock := false
 	block := make([]string, 0)
-	
+
 	for _, part := range strings.Fields(query) {
 		if inBlock {
-			before, found := strings.CutSuffix(part, "\"");
+			before, found := strings.CutSuffix(part, "\"")
 			block = append(block, before)
 			if found {
 				// end the block and save it as a field query
@@ -81,9 +81,9 @@ func NewQuery(ctx context.Context, query string, exactOnly bool) (*RadioQuery, e
 			splitQuery = append(splitQuery, part)
 		}
 	}
-	
+
 	query = strings.Join(splitQuery, " ")
-	
+
 	if inBlock {
 		// if the block was not terminated, don't return any results
 		query = ""
@@ -99,6 +99,7 @@ var fields = []string{
 	"artist", "title", "album", "tags", "id", "acceptor", "editor",
 	"priority", "lastrequested", "lastplayed",
 }
+
 func isValidField(s string) bool {
 	for _, f := range fields {
 		if f == s {
@@ -120,17 +121,17 @@ func CutoffAtRune(s string) string {
 }
 
 type RadioQuery struct {
-	Query string `json:"query"`
+	Query        string            `json:"query"`
 	FieldQueries map[string]string `json:"fieldQueries"`
-	SortField string `json:"sort"`
-	Descending bool `json:"desc"`
-	ExactOnly  bool `json:"exact_only"`
+	SortField    string            `json:"sort"`
+	Descending   bool              `json:"desc"`
+	ExactOnly    bool              `json:"exact_only"`
 }
 
 func getNgramPrefix(f string) string {
-	switch (f) {
-		case "artist", "title", "album", "tags":
-			return "ngram."
+	switch f {
+	case "artist", "title", "album", "tags":
+		return "ngram."
 	}
 	return ""
 }
@@ -147,20 +148,19 @@ func (rq *RadioQuery) Searcher(ctx context.Context, i index.IndexReader, m mappi
 		})
 	}
 
-	
 	// analyze our query with the default analyzer, this should be the same one as
 	// used for the index generation
-	
+
 	fmt.Println(rq.FieldQueries)
 	km, _ := json.MarshalIndent(m, "", "  ")
 	fmt.Println(string(km))
 	root_list := make([]query.Query, 0, 4)
-	
+
 	analyze := func(ngram_field string, exact_field string, q string) {
-		
+
 		ngram_list := make([]query.Query, 0, 32)
 		exact_list := make([]query.Query, 0, 32)
-		
+
 		// Special case for star to match everything
 		if q == "*" {
 			matchAll := bleve.NewMatchAllQuery()
@@ -172,12 +172,12 @@ func (rq *RadioQuery) Searcher(ctx context.Context, i index.IndexReader, m mappi
 		fmt.Println(ngram_field, analyzerName)
 		analyzer := m.AnalyzerNamed(analyzerName)
 		tokens := analyzer.Analyze([]byte(q))
-		
+
 		// otherwise do some light filtering on the tokens returned, while we want these for
 		// the indexing operation, we don't need (or want) all of them for the query search
 		for _, token := range tokens {
 			// skip ngram analyzer if we only want exact matches
-			if rq.ExactOnly && analyzerName == indexAnalyzerName {
+			if rq.ExactOnly && analyzerName == radioAnalyzerName {
 				continue
 			}
 			// skip shingle tokens, these will only match if they're in the exact order and exact token composition
@@ -197,7 +197,7 @@ func (rq *RadioQuery) Searcher(ctx context.Context, i index.IndexReader, m mappi
 			tq.SetBoost(0.2)
 			ngram_list = append(ngram_list, tq)
 		}
-		
+
 		// check the exact field for exact matches, they boost the score
 		// Only do this if the exact field exists
 		if (m.FieldMappingForPath(exact_field) != mapping.FieldMapping{}) {
@@ -216,27 +216,27 @@ func (rq *RadioQuery) Searcher(ctx context.Context, i index.IndexReader, m mappi
 				exact_list = append(exact_list, tq)
 			}
 		}
-		
+
 		if len(ngram_list) == 0 && len(exact_list) == 0 {
 			return
 		}
-		
+
 		ngram := query.NewConjunctionQuery(ngram_list)
 		ngram.SetBoost(1.0)
-		
+
 		exact := query.NewConjunctionQuery(exact_list)
 		exact.SetBoost(1.0)
-		
-		comb := query.NewDisjunctionQuery([]query.Query{/*exact,*/ ngram})
+
+		comb := query.NewDisjunctionQuery([]query.Query{ /*exact,*/ ngram})
 		comb.SetBoost(1.0)
-		
+
 		root_list = append(root_list, comb)
 	}
-	
+
 	analyze("ngram_", "exact_", rq.Query)
-	
+
 	for field, query := range rq.FieldQueries {
-		analyze(getNgramPrefix(field) + field, "exact." + field, query)
+		analyze(getNgramPrefix(field)+field, "exact."+field, query)
 	}
 
 	if len(root_list) == 0 {
@@ -244,7 +244,7 @@ func (rq *RadioQuery) Searcher(ctx context.Context, i index.IndexReader, m mappi
 		noneQuery := query.NewMatchNoneQuery()
 		return noneQuery.Searcher(ctx, i, m, options)
 	}
-	
+
 	root := query.NewConjunctionQuery(root_list)
 	root.SetBoost(1.0)
 

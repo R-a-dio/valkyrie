@@ -55,7 +55,7 @@ func TestIndexing(t *testing.T) {
 	require.EqualValues(t, len(testData), count)
 
 	// now do our search tests
-	rq, err := NewQuery(ctx, "motome hana")
+	rq, err := NewQuery(ctx, "motome hana", true)
 	require.NoError(t, err)
 
 	req := bleve.NewSearchRequestOptions(rq, 100, 0, true)
@@ -71,7 +71,7 @@ func TestIndexing(t *testing.T) {
 func TestAnalyzer(t *testing.T) {
 	idx := newIndex(t)
 
-	ian := idx.index.Mapping().AnalyzerNamed(indexAnalyzerName)
+	ian := idx.index.Mapping().AnalyzerNamed(radioAnalyzerName)
 
 	for _, in := range testData {
 		in := radio.Metadata(in.artist, in.title)

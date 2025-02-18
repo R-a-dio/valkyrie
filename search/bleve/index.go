@@ -20,11 +20,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
-const (
-	indexAnalyzerName = "radio"
-	exactAnalyzerName = "exact"
-)
-
+// prioScoreSort sorts the documents by their priority and score
 type prioScoreSort struct {
 	prio float64
 }
@@ -117,9 +113,9 @@ func toIndexSong(s radio.Song) *indexSong {
 		Album:  s.Album,
 		Tags:   s.Tags,
 	}
-	
+
 	all := strings.Join([]string{s.Title, s.Artist, s.Album, s.Tags}, " ")
-		
+
 	return &indexSong{
 		Ngram:         text,
 		Ngram_:        all,
@@ -245,27 +241,27 @@ func constructIndexMapping() (mapping.IndexMapping, error) {
 	// create a mapping for our radio.Song type
 	sm := bleve.NewDocumentStaticMapping()
 	sm.StructTagKey = "bleve"
-	sm.DefaultAnalyzer = indexAnalyzerName
+	sm.DefaultAnalyzer = radioAnalyzerName
 
 	ngram := bleve.NewDocumentStaticMapping()
 	ngram.StructTagKey = "bleve"
-	ngram.DefaultAnalyzer = indexAnalyzerName
+	ngram.DefaultAnalyzer = radioAnalyzerName
 
-	title := mixedTextMapping(indexAnalyzerName)
+	title := mixedTextMapping(radioAnalyzerName)
 	ngram.AddFieldMappingsAt("title", title)
-	artist := mixedTextMapping(indexAnalyzerName)
+	artist := mixedTextMapping(radioAnalyzerName)
 	ngram.AddFieldMappingsAt("artist", artist)
-	album := mixedTextMapping(indexAnalyzerName)
+	album := mixedTextMapping(radioAnalyzerName)
 	ngram.AddFieldMappingsAt("album", album)
-	tags := mixedTextMapping(indexAnalyzerName)
+	tags := mixedTextMapping(radioAnalyzerName)
 	ngram.AddFieldMappingsAt("tags", tags)
-	
+
 	sm.AddSubDocumentMapping("ngram", ngram)
-	
+
 	exact := bleve.NewDocumentStaticMapping()
 	exact.StructTagKey = "bleve"
 	exact.DefaultAnalyzer = exactAnalyzerName
-	
+
 	title_exact := mixedTextMapping(exactAnalyzerName)
 	exact.AddFieldMappingsAt("title", title_exact)
 	artist_exact := mixedTextMapping(exactAnalyzerName)
@@ -277,9 +273,9 @@ func constructIndexMapping() (mapping.IndexMapping, error) {
 
 	sm.AddSubDocumentMapping("exact", exact)
 
-	ngram_ := mixedTextMapping(indexAnalyzerName)
+	ngram_ := mixedTextMapping(radioAnalyzerName)
 	sm.AddFieldMappingsAt("ngram_", ngram_)
-	
+
 	exact_ := mixedTextMapping(exactAnalyzerName)
 	sm.AddFieldMappingsAt("exact_", exact_)
 
