@@ -5,8 +5,6 @@ import (
 	"testing"
 
 	radio "github.com/R-a-dio/valkyrie"
-	"github.com/blevesearch/bleve/v2"
-	"github.com/blevesearch/bleve/v2/search"
 	"github.com/stretchr/testify/require"
 )
 
@@ -58,9 +56,8 @@ func TestIndexing(t *testing.T) {
 	rq, err := NewQuery(ctx, "motome hana", true)
 	require.NoError(t, err)
 
-	req := bleve.NewSearchRequestOptions(rq, 100, 0, true)
-	req.SortByCustom(search.SortOrder{new(prioScoreSort)})
-	req.Fields = dataField
+	t.Log(rq)
+	req := NewSearchRequest(rq, 100, 0)
 
 	res, err := idx.index.Search(req)
 	require.NoError(t, err)

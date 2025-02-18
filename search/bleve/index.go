@@ -11,7 +11,6 @@ import (
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/blevesearch/bleve/v2"
-	"github.com/blevesearch/bleve/v2/analysis/analyzer/keyword"
 	"github.com/blevesearch/bleve/v2/document"
 	"github.com/blevesearch/bleve/v2/mapping"
 	index "github.com/blevesearch/bleve_index_api"
@@ -42,15 +41,15 @@ type indexSong struct {
 	Exact indexText `bleve:"exact"`
 
 	// time fields
-	LastRequested time.Time `bleve:"lastrequested"`
-	LastPlayed    time.Time `bleve:"lastplayed"`
+	LastRequested time.Time `bleve:"lr"`
+	LastPlayed    time.Time `bleve:"lp"`
 	// keyword fields
 	ID       int    `bleve:"id"`
 	Acceptor string `bleve:"acceptor"`
 	Editor   string `bleve:"editor"`
 	// sorting fields
 	Priority     int `bleve:"priority"`
-	RequestCount int `bleve:"requestcount"`
+	RequestCount int `bleve:"rc"`
 	// actual song data
 	Data string `bleve:"data"`
 }
@@ -116,13 +115,7 @@ func (b *indexWrap) Search(ctx context.Context, raw string, exactOnly bool, limi
 		return nil, errors.E(op, err)
 	}
 
-	req := &bleve.SearchRequest{
-		Query:  query,
-		Sort:   query.SortOrder(),
-		Size:   limit,
-		From:   offset,
-		Fields: dataField,
-	}
+	req := NewSearchRequest(query, limit, offset)
 
 	result, err := b.index.SearchInContext(ctx, req)
 	if err != nil {
@@ -236,6 +229,8 @@ func constructIndexMapping() (mapping.IndexMapping, error) {
 	sm := bleve.NewDocumentStaticMapping()
 	sm.StructTagKey = "bleve"
 	sm.DefaultAnalyzer = radioAnalyzerName
+	// disable the default _all field
+	sm.AddSubDocumentMapping("_all", bleve.NewDocumentDisabledMapping())
 
 	// create the radio submapping
 	rm := bleve.NewDocumentStaticMapping()
@@ -263,14 +258,12 @@ func constructIndexMapping() (mapping.IndexMapping, error) {
 	acceptor.Index = true
 	acceptor.Store = false
 	acceptor.IncludeTermVectors = false
-	acceptor.IncludeInAll = false
 	sm.AddFieldMappingsAt("acceptor", acceptor)
 
 	editor := bleve.NewKeywordFieldMapping()
 	editor.Index = true
 	editor.Store = false
 	editor.IncludeTermVectors = false
-	editor.IncludeInAll = false
 	sm.AddFieldMappingsAt("editor", editor)
 
 	priority := bleve.NewNumericFieldMapping()
@@ -279,28 +272,31 @@ func constructIndexMapping() (mapping.IndexMapping, error) {
 	priority.Analyzer = "keyword"
 	sm.AddFieldMappingsAt("priority", priority)
 
+	rc := bleve.NewNumericFieldMapping()
+	rc.Index = true
+	rc.Store = false
+	rc.Analyzer = "keyword"
+	sm.AddFieldMappingsAt("rc", priority)
+
 	id := bleve.NewKeywordFieldMapping()
 	id.Index = true
 	id.Store = false
 	id.IncludeTermVectors = false
-	id.IncludeInAll = true
 	sm.AddFieldMappingsAt("id", id)
 
 	lr := bleve.NewDateTimeFieldMapping()
 	lr.Index = true
 	lr.Store = false
-	sm.AddFieldMappingsAt("lastrequested", lr)
+	sm.AddFieldMappingsAt("lr", lr)
 
 	lp := bleve.NewDateTimeFieldMapping()
 	lp.Index = true
 	lp.Store = false
-	sm.AddFieldMappingsAt("lastplayed", lp)
+	sm.AddFieldMappingsAt("lp", lp)
 
-	data := bleve.NewTextFieldMapping()
+	data := bleve.NewKeywordFieldMapping()
 	data.Index = false
 	data.Store = true
-	data.IncludeInAll = false
-	data.Analyzer = keyword.Name
 	sm.AddFieldMappingsAt("data", data)
 
 	// register the song mapping
