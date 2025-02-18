@@ -53,7 +53,7 @@ func repeatToLength(s string, l int) string {
 	return CutoffAtRune(strings.Repeat(s, l/len(s)+1)[:l])
 }
 
-func BenchmarkAnalyzer(b *testing.B) {
+func BenchmarkRadioAnalyzer(b *testing.B) {
 	idx := newIndex(b)
 	a := idx.index.Mapping().AnalyzerNamed(radioAnalyzerName)
 
@@ -71,8 +71,26 @@ func BenchmarkAnalyzer(b *testing.B) {
 	}
 }
 
+func BenchmarkExactAnalyzer(b *testing.B) {
+	idx := newIndex(b)
+	a := idx.index.Mapping().AnalyzerNamed(exactAnalyzerName)
+
+	fn := func(s string) func(b *testing.B) {
+		in := []byte(s)
+		return func(b *testing.B) {
+			for range b.N {
+				a.Analyze(in)
+			}
+		}
+	}
+
+	for _, bench := range benches {
+		b.Run(bench.name, fn(bench.input))
+	}
+}
+
 func BenchmarkTokenizer(b *testing.B) {
-	tokenizer := character.NewCharacterTokenizer(func(r rune) bool { return !unicode.IsSpace(r) })
+	tokenizer := character.NewCharacterTokenizer(IsNotSpace)
 	tok := NewKagomeTokenizer(tokenizer)
 
 	fn := func(s string) func(b *testing.B) {

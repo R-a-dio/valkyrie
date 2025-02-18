@@ -29,6 +29,10 @@ const (
 	NgramFilterMax = 3
 )
 
+func IsNotSpace(r rune) bool {
+	return !unicode.IsSpace(r)
+}
+
 func RadioAnalyzerConstructor(config map[string]interface{}, cache *registry.Cache) (analysis.Analyzer, error) {
 	toLowerFilter, err := cache.TokenFilterNamed(lowercase.Name)
 	if err != nil {
@@ -37,7 +41,7 @@ func RadioAnalyzerConstructor(config map[string]interface{}, cache *registry.Cac
 
 	normalizeFilter := unicodenorm.MustNewUnicodeNormalizeFilter(unicodenorm.NFC)
 
-	tokenizer := character.NewCharacterTokenizer(func(r rune) bool { return !unicode.IsSpace(r) })
+	tokenizer := character.NewCharacterTokenizer(IsNotSpace)
 
 	// construct the japanese specific analyzer
 	japanese := &analysis.DefaultAnalyzer{

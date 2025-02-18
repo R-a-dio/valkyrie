@@ -107,18 +107,15 @@ func NewQuery(ctx context.Context, query string, exactOnly bool) (*RadioQuery, e
 	return rq, nil
 }
 
-var fields = []string{
-	"artist", "title", "album", "tags", "id", "acceptor", "editor",
-	"priority", "lastrequested", "lastplayed",
-}
-
 func isValidField(s string) bool {
-	for _, f := range fields {
-		if f == s {
-			return true
-		}
+	switch s {
+	case "artist", "title", "album", "tags",
+		"id", "acceptor", "editor", "priority",
+		"lr", "lp", "rc":
+		return true
+	default:
+		return false
 	}
-	return false
 }
 
 func CutoffAtRune(s string) string {
