@@ -201,6 +201,7 @@ var defaultFunctions = map[string]any{
 	"HasField":                    HasField,
 	"SongPair":                    SongPair,
 	"TimeAgo":                     TimeAgo(time.Now),
+	"Reverse": 					   Reverse,
 }
 
 type SongPairing struct {
@@ -404,4 +405,25 @@ func TimeAgo(now func() time.Time) func(time.Time, string) string {
 
 func MediaDuration(d time.Duration) string {
 	return fmt.Sprintf("%02d:%02d", d/time.Minute, d%time.Minute/time.Second)
+}
+
+// reverses some input (queue, lp, etc)
+func Reverse(s any) any {
+    if s == nil {
+        return nil
+    }
+
+    v := reflect.ValueOf(s)
+
+    if v.Kind() != reflect.Slice {
+        return s
+    }
+
+    r := reflect.MakeSlice(v.Type(), v.Len(), v.Len())
+
+    for i := 0; i < v.Len(); i++ {
+        r.Index(i).Set(v.Index(v.Len()-1-i))
+    }
+
+    return r.Interface()
 }
