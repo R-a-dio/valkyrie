@@ -201,7 +201,7 @@ var defaultFunctions = map[string]any{
 	"HasField":                    HasField,
 	"SongPair":                    SongPair,
 	"TimeAgo":                     TimeAgo(time.Now),
-	"Reverse": 					   Reverse,
+	"Reverse":                     Reverse,
 }
 
 type SongPairing struct {
