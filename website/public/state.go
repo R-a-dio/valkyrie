@@ -80,7 +80,7 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 		r.Post("/submit", s.PostSubmit)
 		r.Get("/staff", s.GetStaff)
 		r.Get("/faves", s.GetFaves)
-		r.Get("/faves/{Nick}", s.GetFaves)
+		r.Get("/faves/{Nick}", s.GetFavesOld)
 		r.Post("/faves", s.PostFaves)
 		r.Get("/irc", s.GetChat)
 		r.Get("/help", s.GetHelp)

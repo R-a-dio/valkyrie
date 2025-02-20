@@ -91,6 +91,25 @@ func NewFavesInput(ss radio.SongStorage, rs radio.RequestStorage, r *http.Reques
 	}, nil
 }
 
+// GetFavesOld handles the old URL format we used which is /faves/<nick> but supporting
+// that everywhere is annoying so we just redirect to the new url instead
+func (s *State) GetFavesOld(w http.ResponseWriter, r *http.Request) {
+	nickname := chi.URLParam(r, "Nick")
+	if nickname == "" {
+		// no nickname shouldn't ever happen, but if it does we just give back the
+		// normal faves page
+		s.GetFaves(w, r)
+		return
+	}
+
+	q := r.URL.Query()
+	q.Set("nick", nickname)
+	r.URL.RawQuery = q.Encode()
+	r.URL.Path = "/faves"
+
+	http.Redirect(w, r, r.URL.String(), http.StatusMovedPermanently)
+}
+
 func (s *State) GetFaves(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
