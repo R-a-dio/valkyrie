@@ -137,16 +137,18 @@ func (e *executor) executeAll(ctx context.Context, input TemplateSelectable, the
 
 	var out = make(map[radio.ThemeName][]byte)
 
+	var errs []error
 	for _, theme := range themes {
 		err := e.executeTemplate(ctx, theme, input.TemplateBundle(), input.TemplateName(), input, func(b *bytes.Buffer) error {
 			out[theme] = slices.Clone(b.Bytes())
 			return nil
 		})
 		if err != nil {
+			errs = append(errs, err)
 			continue
 		}
 	}
-	return out, nil
+	return out, errors.Join(errs...)
 }
 
 // ExecuteAllAdmin executes the template selected in all admin themes

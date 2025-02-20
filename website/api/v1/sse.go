@@ -19,6 +19,7 @@ import (
 	"github.com/R-a-dio/valkyrie/util/sse"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
+	"go.opentelemetry.io/otel"
 )
 
 func (a *API) runStatusUpdates(ctx context.Context) {
@@ -308,10 +309,20 @@ func trimSpace(v []byte) []byte {
 }
 
 func (s *Stream) NewMessage(ctx context.Context, event EventName, data templates.TemplateSelectable) message {
+	ctx, span := otel.Tracer("sse").Start(ctx, "website/api/v1/Stream.NewMessage")
+	defer span.End()
+
 	m, err := s.templates.ExecuteAll(ctx, data)
 	if err != nil {
-		s.logger.Error().Err(err).Msg("failed creating SSE message")
-		return message{}
+		// one or more templates failed to execute correctly
+		for _, err := range errors.UnwrapJoin(err) {
+			s.logger.Error().Err(err).Msg("failed executing template")
+		}
+		// no results at all
+		if len(m) == 0 {
+			s.logger.Error().Err(err).Msg("failed creating SSE message")
+			return message{}
+		}
 	}
 
 	// encode template results to server-side-event format
