@@ -407,23 +407,26 @@ func MediaDuration(d time.Duration) string {
 	return fmt.Sprintf("%02d:%02d", d/time.Minute, d%time.Minute/time.Second)
 }
 
-// reverses some input (queue, lp, etc)
+// Reverse reverses a slice input and returns an iter.Seq2
+// with both index and element, this means you always need
+// to use {{range $i, $v := Reverse <slice>}} to get both
+// values out, using a single only gets you the index.
 func Reverse(s any) any {
-    if s == nil {
-        return nil
-    }
+	if s == nil {
+		return nil
+	}
 
-    v := reflect.ValueOf(s)
+	v := reflect.ValueOf(s)
+	if v.Kind() != reflect.Slice {
+		return s
+	}
 
-    if v.Kind() != reflect.Slice {
-        return s
-    }
-
-    r := reflect.MakeSlice(v.Type(), v.Len(), v.Len())
-
-    for i := 0; i < v.Len(); i++ {
-        r.Index(i).Set(v.Index(v.Len()-1-i))
-    }
-
-    return r.Interface()
+	// returns an iter.Seq2[int, reflect.Value]
+	return func(yield func(int, reflect.Value) bool) {
+		for i := v.Len() - 1; i >= 0; i-- {
+			if !yield(i, v.Index(i)) {
+				return
+			}
+		}
+	}
 }
