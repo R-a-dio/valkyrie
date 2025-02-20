@@ -454,7 +454,7 @@ func (s *StorageService) ScheduleTx(ctx context.Context, tx radio.StorageTx) (ra
 
 func (s *StorageService) TrackMetadata(ctx context.Context) radio.TrackMetadataStorage {
 	return TrackMetadataStorage{
-		handle: newHandle(ctx, s.db, s.queries, "track_metadata"),
+		handle: newHandle(ctx, s.db, "track_metadata"),
 	}
 }
 
@@ -465,7 +465,7 @@ func (s *StorageService) TrackMetadataTx(ctx context.Context, tx radio.StorageTx
 	}
 
 	storage := TrackMetadataStorage{
-		handle: newHandle(ctx, db, s.queries, "track_metadata"),
+		handle: newHandle(ctx, db, "track_metadata"),
 	}
 	return storage, tx, nil
 }
