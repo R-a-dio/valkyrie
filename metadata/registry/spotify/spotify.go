@@ -18,6 +18,6 @@ type spotifyProvider struct {
 	c *http.Client
 }
 
-func (sp *spotifyProvider) Find(ctx context.Context, auth metadata.AuthString, s radio.Song) (*metadata.FindResult, error) {
+func (sp *spotifyProvider) Find(ctx context.Context, auth metadata.AuthString, s radio.Song) ([]*metadata.FindResult, error) {
 	panic("todo")
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 
@@ -23,6 +24,24 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	}
 
 	fmt.Println(reg)
+
+	var s radio.Song
+
+	s.DatabaseTrack = new(radio.DatabaseTrack)
+
+	s.DatabaseTrack.Title = "割れたリンゴ"
+
+	res, err := reg.Search(ctx, s)
+	if err != nil {
+		return errors.E(op, err)
+	}
+
+	for _, r := range res {
+		fmt.Printf("[%s] %s (%v)\n", r.ID, r.Title, r.Artists)
+		for _, rel := range r.Releases {
+			fmt.Printf("\t%s (%s)\n", rel.Name, rel.Date)
+		}
+	}
 
 	return nil
 }

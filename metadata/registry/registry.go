@@ -20,13 +20,27 @@ type registry struct {
 
 type FindResult struct {
 	Provider string
-	Info     struct {
-		Title   string
-		Artists []string
-		Album   string
-		Art     []byte
-		ID      string
-	}
+	Info
+}
+
+type Info struct {
+	ID       string
+	Title    string
+	Artists  []string
+	Releases []*Release
+	URLs     []string
+}
+
+type Release struct {
+	ID   string
+	Name string
+	Art  map[string][]byte
+	Date string
+}
+
+type Art struct {
+	Format string
+	Data   []byte
 }
 
 func (reg *registry) Search(ctx context.Context, s radio.Song) ([]*FindResult, error) {
@@ -39,7 +53,7 @@ func (reg *registry) Search(ctx context.Context, s radio.Song) ([]*FindResult, e
 			return nil, errors.E()
 		}
 
-		srs = append(srs, sr)
+		srs = append(srs, sr...)
 	}
 
 	return srs, nil

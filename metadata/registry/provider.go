@@ -9,7 +9,7 @@ import (
 type AuthString string
 
 type Provider interface {
-	Find(context.Context, AuthString, radio.Song) (*FindResult, error)
+	Find(context.Context, AuthString, radio.Song) ([]*FindResult, error)
 }
 
 var providers = map[string]Provider{}
