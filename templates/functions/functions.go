@@ -175,6 +175,17 @@ func TemplateFuncs() template.FuncMap {
 	return defaultFunctions
 }
 
+func IsRobot(user any) bool {
+	switch u := user.(type) {
+	case radio.User:
+		return radio.IsRobot(u)
+	case *radio.User:
+		return u != nil && radio.IsRobot(*u)
+	default:
+		return false
+	}
+}
+
 var defaultFunctions = map[string]any{
 	"Version":                     func() string { return buildinfo.ShortRef },
 	"printjson":                   PrintJSON,
@@ -184,7 +195,7 @@ var defaultFunctions = map[string]any{
 	"safeCSS":                     func(s string) template.CSS { return template.CSS(s) },
 	"IsValidThread":               IsValidThread,
 	"IsImageThread":               IsImageThread,
-	"IsRobot":                     radio.IsRobot,
+	"IsRobot":                     IsRobot,
 	"Until":                       time.Until,
 	"Since":                       time.Since,
 	"Now":                         time.Now,
