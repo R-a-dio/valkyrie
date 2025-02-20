@@ -421,10 +421,10 @@ func Reverse(s any) any {
 		return s
 	}
 
-	// returns an iter.Seq2[int, reflect.Value]
-	return func(yield func(int, reflect.Value) bool) {
+	// returns an iter.Seq2[int, any]
+	return func(yield func(int, any) bool) {
 		for o, i := 0, v.Len()-1; i >= 0; o, i = o+1, i-1 {
-			if !yield(o, v.Index(i)) {
+			if !yield(o, v.Index(i).Interface()) {
 				return
 			}
 		}
