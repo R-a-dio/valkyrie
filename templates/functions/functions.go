@@ -201,6 +201,7 @@ var defaultFunctions = map[string]any{
 	"HasField":                    HasField,
 	"SongPair":                    SongPair,
 	"TimeAgo":                     TimeAgo(time.Now),
+	"Reverse":                     Reverse,
 }
 
 type SongPairing struct {
@@ -404,4 +405,28 @@ func TimeAgo(now func() time.Time) func(time.Time, string) string {
 
 func MediaDuration(d time.Duration) string {
 	return fmt.Sprintf("%02d:%02d", d/time.Minute, d%time.Minute/time.Second)
+}
+
+// Reverse reverses a slice input and returns an iter.Seq2
+// with both index and element, this means you always need
+// to use {{range $i, $v := Reverse <slice>}} to get both
+// values out, using a single only gets you the index.
+func Reverse(s any) any {
+	if s == nil {
+		return nil
+	}
+
+	v := reflect.ValueOf(s)
+	if v.Kind() != reflect.Slice {
+		return s
+	}
+
+	// returns an iter.Seq2[int, reflect.Value]
+	return func(yield func(int, reflect.Value) bool) {
+		for i := v.Len() - 1; i >= 0; i-- {
+			if !yield(i, v.Index(i)) {
+				return
+			}
+		}
+	}
 }
