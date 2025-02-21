@@ -239,6 +239,7 @@ func newTextMapping() *mapping.FieldMapping {
 
 func newSortMapping() *mapping.FieldMapping {
 	fm := bleve.NewTextFieldMapping()
+	fm.Analyzer = sortAnalyzerName
 	fm.Store = false
 	return fm
 }
