@@ -20,6 +20,8 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 func (a *API) runStatusUpdates(ctx context.Context) {
@@ -327,8 +329,15 @@ func (s *Stream) NewMessage(ctx context.Context, event EventName, data templates
 
 	// encode template results to server-side-event format
 	for k, v := range m {
+		_, span = otel.Tracer("sse").Start(ctx, "util/sse/Event.Encode", trace.WithAttributes(
+			attribute.String("theme", string(k)),
+			attribute.String("event", event),
+		))
+
 		v = trimSpace(v)
 		m[k] = sse.Event{Name: event, Data: v}.Encode()
+
+		span.End()
 	}
 	return message{
 		encoded: m,
