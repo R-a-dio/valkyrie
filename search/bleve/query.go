@@ -2,7 +2,6 @@ package bleve
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"unicode/utf8"
@@ -40,6 +39,7 @@ func NewQuery(ctx context.Context, query string, exactOnly bool) (*RadioQuery, e
 		rq = &RadioQuery{
 			RawQuery:     query,
 			FieldQueries: make(map[string]string),
+			ExactOnly:    exactOnly,
 		}
 		splitQuery []string
 		fieldName  string
@@ -49,10 +49,10 @@ func NewQuery(ctx context.Context, query string, exactOnly bool) (*RadioQuery, e
 
 	for _, part := range strings.Fields(query) {
 		if !inBlock {
+			// operators start with !!
 			after, isOperator := strings.CutPrefix(part, "!!")
 			if isOperator {
-				// this is an operator.
-				// !!<field
+				// !!<field or !!>field is a sort operator
 				if len(after) > 0 && (after[0] == '<' || after[0] == '>') {
 					// sort order; the rest of this should be a field
 					field := after[1:]
@@ -63,12 +63,17 @@ func NewQuery(ctx context.Context, query string, exactOnly bool) (*RadioQuery, e
 						continue
 					}
 				}
-				//    !!field:term
-				// or !!field:"term
-				colonIdx := strings.Index(after, ":")
-				if colonIdx != -1 && isValidField(after[0:colonIdx]) {
-					fieldName = after[0:colonIdx]
-					fieldValue := after[colonIdx+1:]
+
+				// !!field: is a field-specific query, these can be either quoted for
+				// things containing spaces, or be a single term, examples:
+				//		!!field:single
+				//		!!field:"multi term"
+				//		!!field:"single"
+
+				var fieldValue string
+				var found bool
+				fieldName, fieldValue, found = strings.Cut(after, ":")
+				if found && isValidField(fieldName) {
 					fieldValue, isQuoted := strings.CutPrefix(fieldValue, "\"")
 					if isQuoted {
 						if len(fieldValue) > 0 && fieldValue[len(fieldValue)-1] == '"' {
@@ -319,7 +324,7 @@ func (rq *RadioQuery) Searcher(ctx context.Context, i index.IndexReader, m mappi
 	ctx, span := otel.Tracer("").Start(ctx, string(op))
 	defer span.End()
 	if span.IsRecording() {
-		attr := make([]attribute.KeyValue, len(rq.FieldQueries)+2)
+		attr := make([]attribute.KeyValue, 0, len(rq.FieldQueries)+2)
 
 		attr = append(attr, attribute.KeyValue{
 			Key:   "raw_query",

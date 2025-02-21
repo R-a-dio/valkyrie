@@ -53,7 +53,7 @@ func TestIndexing(t *testing.T) {
 	require.EqualValues(t, len(testData), count)
 
 	// now do our search tests
-	rq, err := NewQuery(ctx, "motome hana", true)
+	rq, err := NewQuery(ctx, "motome hana", false)
 	require.NoError(t, err)
 
 	t.Log(rq)
