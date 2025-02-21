@@ -21,6 +21,13 @@ import (
 
 const MaxQuerySize = 512
 
+func NewFieldSort(field string, desc bool) search.SearchSort {
+	if field == "id" {
+		return &search.SortDocID{Desc: desc}
+	}
+	return &search.SortField{Field: ngramField(field), Desc: desc}
+}
+
 func NewQuery(ctx context.Context, query string, exactOnly bool) (*RadioQuery, error) {
 	query = strings.TrimSpace(query)
 
@@ -50,8 +57,9 @@ func NewQuery(ctx context.Context, query string, exactOnly bool) (*RadioQuery, e
 					// sort order; the rest of this should be a field
 					field := after[1:]
 					if isValidField(field) {
-						rq.SortField = ngramField(field)
-						rq.Descending = after[0] == '<'
+						var desc = after[0] == '<'
+
+						rq.Sort = append(rq.Sort, NewFieldSort(field, desc))
 						continue
 					}
 				}
@@ -104,6 +112,10 @@ func NewQuery(ctx context.Context, query string, exactOnly bool) (*RadioQuery, e
 		rq.FieldQueries = nil
 	}
 
+	if rq.Sort == nil {
+		rq.Sort = newPrioScoreSort()
+	}
+
 	return rq, nil
 }
 
@@ -133,7 +145,7 @@ type RadioQuery struct {
 	RawQuery     string            `json:"raw_query"`
 	Query        string            `json:"query"`
 	FieldQueries map[string]string `json:"field_queries"`
-	SortField    string            `json:"sort"`
+	Sort         search.SortOrder  `json:"sort"`
 	Descending   bool              `json:"desc"`
 	ExactOnly    bool              `json:"exact_only"`
 }
@@ -141,28 +153,14 @@ type RadioQuery struct {
 func NewSearchRequest(query *RadioQuery, limit, offset int) *bleve.SearchRequest {
 	return &bleve.SearchRequest{
 		Query:  query,
-		Sort:   query.SortOrder(),
+		Sort:   query.Sort,
 		Size:   limit,
 		From:   offset,
 		Fields: dataField,
 	}
 }
 
-func (rq *RadioQuery) SortOrder() search.SortOrder {
-	// sort by field if query wants us to
-	if rq.SortField != "" {
-		if rq.SortField == "id" {
-			return search.SortOrder{
-				&search.SortDocID{Desc: rq.Descending},
-			}
-		}
-		return search.SortOrder{&search.SortField{
-			Field: rq.SortField,
-			Desc:  rq.Descending,
-		}}
-	}
-
-	// default sort is by priority / score
+func newPrioScoreSort() search.SortOrder {
 	return search.SortOrder{&prioScoreSort{}}
 }
 
