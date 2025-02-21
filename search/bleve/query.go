@@ -151,11 +151,15 @@ func NewSearchRequest(query *RadioQuery, limit, offset int) *bleve.SearchRequest
 func (rq *RadioQuery) SortOrder() search.SortOrder {
 	// sort by field if query wants us to
 	if rq.SortField != "" {
-		field := rq.SortField
-		if rq.Descending {
-			field = "-" + field
+		if rq.SortField == "id" {
+			return search.SortOrder{
+				&search.SortDocID{Desc: rq.Descending},
+			}
 		}
-		return search.ParseSortOrderStrings([]string{field})
+		return search.SortOrder{&search.SortField{
+			Field: rq.SortField,
+			Desc:  rq.Descending,
+		}}
 	}
 
 	// default sort is by priority / score
