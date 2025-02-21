@@ -26,26 +26,36 @@ SELECT
 	{lastplayedSelect},
 	{songColumns}
 FROM
-(SELECT *, MATCH (artist, track, album, tags) AGAINST (? IN BOOLEAN MODE) score
+(SELECT *, MATCH (artist, track, album, tags) AGAINST (:query IN BOOLEAN MODE) score
 	FROM tracks 
 	HAVING score > 0
-	LIMIT ? OFFSET ?) AS tracks
+	LIMIT :limit OFFSET :offset) AS tracks
 JOIN
 	esong ON esong.hash = tracks.hash
 ORDER BY
 	priority DESC, score DESC;
 `)
 
+var _ = CheckQuery[SearchSearchParams](searchSearchQuery)
+
 var searchTotalQuery = `
 SELECT COUNT(*) FROM 
-(SELECT *, MATCH (artist, track, album, tags) AGAINST (? IN BOOLEAN MODE) score
+(SELECT *, MATCH (artist, track, album, tags) AGAINST (:query IN BOOLEAN MODE) score
 	FROM tracks
 	HAVING score > 0) AS tracks;
 `
 
-func (ss SearchService) Search(ctx context.Context, search_query string, limit int64, offset int64) (*radio.SearchResult, error) {
+var _ = CheckQuery[SearchSearchParams](searchTotalQuery)
+
+type SearchSearchParams struct {
+	Query  string
+	Limit  int64
+	Offset int64
+}
+
+func (ss SearchService) Search(ctx context.Context, search_query string, limit int64, offset int64) (radio.SearchResult, error) {
 	const op errors.Op = "mariadb/SearchService.Search"
-	handle := newHandle(ctx, ss.db, nil, "search")
+	handle := newHandle(ctx, ss.db, "search")
 	handle, deferFn := handle.span(op)
 	defer deferFn()
 
@@ -54,14 +64,24 @@ func (ss SearchService) Search(ctx context.Context, search_query string, limit i
 	var total int
 	var result []searchTrack
 
-	err := sqlx.Select(handle, &result, searchSearchQuery, search_query, limit, offset)
+	err := handle.Select(&result, searchSearchQuery, SearchSearchParams{
+		Query:  search_query,
+		Limit:  limit,
+		Offset: offset,
+	})
 	if err != nil {
-		return nil, errors.E(op, err)
+		return radio.SearchResult{}, errors.E(op, err)
 	}
 
-	err = sqlx.Get(handle, &total, searchTotalQuery, search_query)
+	if len(result) == 0 {
+		return radio.SearchResult{}, errors.E(op, errors.SearchNoResults)
+	}
+
+	err = handle.Get(&total, searchTotalQuery, SearchSearchParams{
+		Query: search_query,
+	})
 	if err != nil {
-		return nil, errors.E(op, err)
+		return radio.SearchResult{}, errors.E(op, err)
 	}
 
 	var songs = make([]radio.Song, len(result))
@@ -69,7 +89,7 @@ func (ss SearchService) Search(ctx context.Context, search_query string, limit i
 		songs[i] = tmp.Song
 	}
 
-	return &radio.SearchResult{Songs: songs, TotalHits: total}, nil
+	return radio.SearchResult{Songs: songs, TotalHits: total}, nil
 }
 
 const maxQuerySize = 128

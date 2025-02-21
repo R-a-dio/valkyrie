@@ -7,6 +7,7 @@ import (
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
+	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/storage/mariadb"
 	storagetest "github.com/R-a-dio/valkyrie/storage/test"
 	"github.com/davecgh/go-spew/spew"
@@ -99,7 +100,7 @@ func FuzzProcessQuery(f *testing.F) {
 		q := mariadb.ProcessQuery(ogq)
 
 		_, err := ss.Search(ctx, q, 20, 0)
-		if !assert.NoError(t, err) {
+		if !errors.Is(errors.SearchNoResults, err) && !assert.NoError(t, err) {
 			t.Error(spew.Sdump([]byte(ogq)))
 			t.Error(spew.Sdump([]byte(q)))
 		}

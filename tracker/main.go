@@ -2,10 +2,9 @@ package tracker
 
 import (
 	"context"
-	"syscall"
 
+	"github.com/R-a-dio/valkyrie/cmd"
 	"github.com/R-a-dio/valkyrie/config"
-	"github.com/R-a-dio/valkyrie/util"
 	"github.com/Wessie/fdstore"
 	"github.com/rs/zerolog"
 )
@@ -24,7 +23,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	select {
 	case <-ctx.Done():
 		return srv.Close()
-	case <-util.Signal(syscall.SIGUSR2):
+	case <-cmd.USR2Signal(ctx):
 		if err := srv.Shutdown(ctx); err != nil {
 			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("failed to close server")
 		}

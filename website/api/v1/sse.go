@@ -19,6 +19,9 @@ import (
 	"github.com/R-a-dio/valkyrie/util/sse"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 func (a *API) runStatusUpdates(ctx context.Context) {
@@ -32,7 +35,7 @@ func (a *API) runStatusUpdates(ctx context.Context) {
 	_ = util.StreamValue(ctx, a.manager.CurrentListeners, func(ctx context.Context, i int64) {
 		// always send listeners, this acts as a keep-alive for the long-polling but also gives us
 		// a bit more up to date listener count display
-		a.sse.SendListeners(i)
+		a.sse.SendListeners(ctx, i)
 		// also store it for the status update to use below
 		listeners.Store(i)
 	})
@@ -47,7 +50,7 @@ func (a *API) runStatusUpdates(ctx context.Context) {
 
 		if status.Thread != previous.Thread {
 			log.Debug().Ctx(ctx).Str("event", EventThread).Any("value", status).Msg("sending")
-			a.sse.SendThread(status.Thread)
+			a.sse.SendThread(ctx, status.Thread)
 			// send a queue after a thread update, since our default theme
 			// uses the queue and thread in the same location
 			go a.sendQueue(ctx, status.StreamUser)
@@ -59,7 +62,7 @@ func (a *API) runStatusUpdates(ctx context.Context) {
 			status.Listeners = listeners.Load()
 
 			log.Debug().Ctx(ctx).Str("event", EventMetadata).Any("value", status).Msg("sending")
-			a.sse.SendNowPlaying(status)
+			a.sse.SendNowPlaying(ctx, status)
 			go a.sendQueue(ctx, status.StreamUser)
 			go a.sendLastPlayed(ctx)
 		}
@@ -67,7 +70,7 @@ func (a *API) runStatusUpdates(ctx context.Context) {
 		// same goes for the user one, only pass it through if the user actually changed
 		if status.User.ID != previous.User.ID || status.User.DJ != previous.User.DJ {
 			log.Debug().Ctx(ctx).Str("event", EventStreamer).Any("value", status.User).Msg("sending")
-			a.sse.SendStreamer(status.User)
+			a.sse.SendStreamer(ctx, status.User)
 			// send the queue for this user, this should fix a small desync issue where metadata
 			// is updated before the user
 			go a.sendQueue(ctx, status.StreamUser)
@@ -88,7 +91,7 @@ func (a *API) sendQueue(ctx context.Context, user *radio.User) {
 	}
 
 	zerolog.Ctx(ctx).Debug().Ctx(ctx).Str("event", EventQueue).Any("value", q).Msg("sending")
-	a.sse.SendQueue(q)
+	a.sse.SendQueue(ctx, q)
 }
 
 func (a *API) sendLastPlayed(ctx context.Context) {
@@ -99,7 +102,7 @@ func (a *API) sendLastPlayed(ctx context.Context) {
 	}
 
 	zerolog.Ctx(ctx).Debug().Ctx(ctx).Str("event", EventLastPlayed).Any("value", lp).Msg("sending")
-	a.sse.SendLastPlayed(lp)
+	a.sse.SendLastPlayed(ctx, lp)
 }
 
 const (
@@ -307,17 +310,34 @@ func trimSpace(v []byte) []byte {
 	return v
 }
 
-func (s *Stream) NewMessage(event EventName, data templates.TemplateSelectable) message {
-	m, err := s.templates.ExecuteAll(data)
+func (s *Stream) NewMessage(ctx context.Context, event EventName, data templates.TemplateSelectable) message {
+	ctx, span := otel.Tracer("sse").Start(ctx, "website/api/v1/Stream.NewMessage")
+	defer span.End()
+
+	m, err := s.templates.ExecuteAll(ctx, data)
 	if err != nil {
-		s.logger.Error().Err(err).Msg("failed creating SSE message")
-		return message{}
+		// one or more templates failed to execute correctly
+		for _, err := range errors.UnwrapJoin(err) {
+			s.logger.Error().Err(err).Msg("failed executing template")
+		}
+		// no results at all
+		if len(m) == 0 {
+			s.logger.Error().Err(err).Msg("failed creating SSE message")
+			return message{}
+		}
 	}
 
 	// encode template results to server-side-event format
 	for k, v := range m {
+		_, span = otel.Tracer("sse").Start(ctx, "util/sse/Event.Encode", trace.WithAttributes(
+			attribute.String("theme", string(k)),
+			attribute.String("event", event),
+		))
+
 		v = trimSpace(v)
 		m[k] = sse.Event{Name: event, Data: v}.Encode()
+
+		span.End()
 	}
 	return message{
 		encoded: m,
@@ -344,28 +364,28 @@ func (s *Stream) MessageCache(event EventName, data templates.TemplateSelectable
 	}
 }
 
-func (s *Stream) SendThread(data radio.Thread) {
-	s.SendEvent(EventThread, s.NewMessage(EventThread, Thread(data)))
+func (s *Stream) SendThread(ctx context.Context, data radio.Thread) {
+	s.SendEvent(EventThread, s.NewMessage(ctx, EventThread, Thread(data)))
 }
 
-func (s *Stream) SendStreamer(data radio.User) {
-	s.SendEvent(EventStreamer, s.NewMessage(EventStreamer, Streamer(data)))
+func (s *Stream) SendStreamer(ctx context.Context, data radio.User) {
+	s.SendEvent(EventStreamer, s.NewMessage(ctx, EventStreamer, Streamer(data)))
 }
 
-func (s *Stream) SendNowPlaying(data radio.Status) {
-	s.SendEvent(EventMetadata, s.NewMessage(EventMetadata, NowPlaying(data)))
+func (s *Stream) SendNowPlaying(ctx context.Context, data radio.Status) {
+	s.SendEvent(EventMetadata, s.NewMessage(ctx, EventMetadata, NowPlaying(data)))
 }
 
-func (s *Stream) SendLastPlayed(data []radio.Song) {
-	s.SendEvent(EventLastPlayed, s.NewMessage(EventLastPlayed, LastPlayed(data)))
+func (s *Stream) SendLastPlayed(ctx context.Context, data []radio.Song) {
+	s.SendEvent(EventLastPlayed, s.NewMessage(ctx, EventLastPlayed, LastPlayed(data)))
 }
 
-func (s *Stream) SendQueue(data radio.Queue) {
-	s.SendEvent(EventQueue, s.NewMessage(EventQueue, Queue(data)))
+func (s *Stream) SendQueue(ctx context.Context, data radio.Queue) {
+	s.SendEvent(EventQueue, s.NewMessage(ctx, EventQueue, Queue(data)))
 }
 
-func (s *Stream) SendListeners(data radio.Listeners) {
-	s.SendEvent(EventListeners, s.NewMessage(EventListeners, Listeners(data)))
+func (s *Stream) SendListeners(ctx context.Context, data radio.Listeners) {
+	s.SendEvent(EventListeners, s.NewMessage(ctx, EventListeners, Listeners(data)))
 }
 
 // request send over the management channel

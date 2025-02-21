@@ -267,9 +267,11 @@ func (ann *announceService) AnnounceThread(ctx context.Context, thread radio.Thr
 	defer span.End()
 
 	if ann.lastThread == thread {
-		zerolog.Ctx(ctx).Info().Ctx(ctx).Str("thread", thread).Msg("skipping thread announce because thread is the same as last")
+		span.AddEvent("skip because same")
 		return nil
 	}
+
+	zerolog.Ctx(ctx).Info().Ctx(ctx).Str("thread", thread).Msg("updating irc thread")
 
 	ann.lastThread = thread
 	message := Fmt("Thread: %s", thread)

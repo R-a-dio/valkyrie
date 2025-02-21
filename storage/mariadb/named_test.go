@@ -40,3 +40,9 @@ func TestSqlxNamed(t *testing.T) {
 		})
 	}
 }
+
+func TestNamedQueries(t *testing.T) {
+	for identifier, err := range invalidQueries {
+		t.Errorf("invalid query at: %s: cause: %s", identifier, err)
+	}
+}

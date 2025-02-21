@@ -1,8 +1,8 @@
 module github.com/R-a-dio/valkyrie
 
-go 1.23.0
+go 1.24
 
-toolchain go1.23.4
+toolchain go1.24.0
 
 replace github.com/gorilla/csrf => github.com/Wessie/csrf v0.0.0-20240430222011-49a3bdf737c0
 
@@ -25,7 +25,6 @@ require (
 	github.com/go-chi/httprate v0.14.1
 	github.com/go-sql-driver/mysql v1.8.1
 	github.com/golang-migrate/migrate/v4 v4.18.1
-	github.com/google/subcommands v1.2.0
 	github.com/gorilla/csrf v1.7.2
 	github.com/grafana/otel-profiling-go v0.5.1
 	github.com/grafana/pyroscope-go v1.2.0
@@ -43,6 +42,7 @@ require (
 	github.com/rs/xid v1.6.0
 	github.com/rs/zerolog v1.33.0
 	github.com/spf13/afero v1.11.0
+	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.10.0
 	github.com/tcolgate/mp3 v0.0.0-20170426193717-e79c5a46d300
 	github.com/testcontainers/testcontainers-go v0.34.0
@@ -63,6 +63,7 @@ require (
 	golang.org/x/crypto v0.31.0
 	golang.org/x/exp v0.0.0-20241217172543-b2144cdd0a67
 	golang.org/x/text v0.21.0
+	golang.org/x/time v0.5.0
 	golang.org/x/tools v0.28.0
 	google.golang.org/grpc v1.69.2
 )
@@ -114,6 +115,7 @@ require (
 	github.com/grafana/pyroscope-go/godeltaprof v0.1.8 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.25.1 // indirect
 	github.com/ikawaha/kagome-dict v1.1.0 // indirect
+	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/lufia/plan9stats v0.0.0-20240909124753-873cd0166683 // indirect
 	github.com/magiconair/properties v1.8.9 // indirect
@@ -141,6 +143,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.24.5 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
+	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/tklauser/go-sysconf v0.3.14 // indirect
 	github.com/tklauser/numcpus v0.9.0 // indirect
 	github.com/vmihailenco/tagparser v0.1.2 // indirect

@@ -175,6 +175,17 @@ func TemplateFuncs() template.FuncMap {
 	return defaultFunctions
 }
 
+func IsRobot(user any) bool {
+	switch u := user.(type) {
+	case radio.User:
+		return radio.IsRobot(u)
+	case *radio.User:
+		return u != nil && radio.IsRobot(*u)
+	default:
+		return false
+	}
+}
+
 var defaultFunctions = map[string]any{
 	"Version":                     func() string { return buildinfo.ShortRef },
 	"printjson":                   PrintJSON,
@@ -184,7 +195,7 @@ var defaultFunctions = map[string]any{
 	"safeCSS":                     func(s string) template.CSS { return template.CSS(s) },
 	"IsValidThread":               IsValidThread,
 	"IsImageThread":               IsImageThread,
-	"IsRobot":                     radio.IsRobot,
+	"IsRobot":                     IsRobot,
 	"Until":                       time.Until,
 	"Since":                       time.Since,
 	"Now":                         time.Now,
@@ -201,6 +212,7 @@ var defaultFunctions = map[string]any{
 	"HasField":                    HasField,
 	"SongPair":                    SongPair,
 	"TimeAgo":                     TimeAgo(time.Now),
+	"Reverse":                     Reverse,
 }
 
 type SongPairing struct {
@@ -404,4 +416,28 @@ func TimeAgo(now func() time.Time) func(time.Time, string) string {
 
 func MediaDuration(d time.Duration) string {
 	return fmt.Sprintf("%02d:%02d", d/time.Minute, d%time.Minute/time.Second)
+}
+
+// Reverse reverses a slice input and returns an iter.Seq2
+// with both index and element, this means you always need
+// to use {{range $i, $v := Reverse <slice>}} to get both
+// values out, using a single only gets you the index.
+func Reverse(s any) any {
+	if s == nil {
+		return nil
+	}
+
+	v := reflect.ValueOf(s)
+	if v.Kind() != reflect.Slice {
+		return s
+	}
+
+	// returns an iter.Seq2[int, any]
+	return func(yield func(int, any) bool) {
+		for o, i := 0, v.Len()-1; i >= 0; o, i = o+1, i-1 {
+			if !yield(o, v.Index(i).Interface()) {
+				return
+			}
+		}
+	}
 }

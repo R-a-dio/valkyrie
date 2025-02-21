@@ -30,7 +30,7 @@ func TestStream(t *testing.T) {
 	ctx = zerolog.New(zerolog.NewTestWriter(t)).WithContext(ctx)
 
 	exec := &mocks.ExecutorMock{
-		ExecuteAllFunc: func(input templates.TemplateSelectable) (map[radio.ThemeName][]byte, error) {
+		ExecuteAllFunc: func(ctx context.Context, input templates.TemplateSelectable) (map[radio.ThemeName][]byte, error) {
 			jsonData, err := json.MarshalIndent(input, "", "  ")
 			if err != nil {
 				return nil, err
@@ -102,7 +102,7 @@ func TestStream(t *testing.T) {
 			muExpected.Lock()
 			expected = sendStatus
 			muExpected.Unlock()
-			stream.SendNowPlaying(sendStatus)
+			stream.SendNowPlaying(ctx, sendStatus)
 		}
 	}()
 
@@ -132,7 +132,7 @@ func TestStreamSendInputs(t *testing.T) {
 	var name string
 
 	exec := &mocks.ExecutorMock{
-		ExecuteAllFunc: func(input templates.TemplateSelectable) (map[radio.ThemeName][]byte, error) {
+		ExecuteAllFunc: func(ctx context.Context, input templates.TemplateSelectable) (map[radio.ThemeName][]byte, error) {
 			name = input.TemplateName()
 			return nil, nil
 		},
@@ -143,34 +143,34 @@ func TestStreamSendInputs(t *testing.T) {
 	defer stream.Shutdown()
 
 	t.Run("SendStreamer", func(t *testing.T) {
-		stream.SendStreamer(radio.User{})
+		stream.SendStreamer(ctx, radio.User{})
 		assert.Equal(t, "streamer", name)
 	})
 
 	t.Run("SendNowPlaying", func(t *testing.T) {
-		stream.SendNowPlaying(radio.Status{})
+		stream.SendNowPlaying(ctx, radio.Status{})
 		assert.Equal(t, "nowplaying", name)
 	})
 
 	t.Run("SendQueue", func(t *testing.T) {
-		stream.SendQueue([]radio.QueueEntry{})
+		stream.SendQueue(ctx, []radio.QueueEntry{})
 		assert.Equal(t, "queue", name)
 	})
 
 	t.Run("SendLastPlayed", func(t *testing.T) {
-		stream.SendLastPlayed([]radio.Song{})
+		stream.SendLastPlayed(ctx, []radio.Song{})
 		assert.Equal(t, "lastplayed", name)
 	})
 
 	t.Run("SendThread", func(t *testing.T) {
-		stream.SendThread(radio.Thread(""))
+		stream.SendThread(ctx, radio.Thread(""))
 		assert.Equal(t, "thread", name)
 	})
 }
 
 func TestStreamSlowSub(t *testing.T) {
 	exec := &mocks.ExecutorMock{
-		ExecuteAllFunc: func(input templates.TemplateSelectable) (map[radio.ThemeName][]byte, error) {
+		ExecuteAllFunc: func(ctx context.Context, input templates.TemplateSelectable) (map[radio.ThemeName][]byte, error) {
 			return nil, nil
 		},
 	}

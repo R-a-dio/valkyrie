@@ -212,13 +212,13 @@ func decodeError(src io.Reader) *SearchError {
 	return &se
 }
 
-func bleveToRadio(result *bleve.SearchResult) (*radio.SearchResult, error) {
+func bleveToRadio(result *bleve.SearchResult) (radio.SearchResult, error) {
 	const op errors.Op = "search/bleve.bleveToRadio"
 
 	var res radio.SearchResult
 
 	if len(result.Hits) == 0 {
-		return &res, errors.E(op, errors.SearchNoResults)
+		return res, errors.E(op, errors.SearchNoResults)
 	}
 
 	res.TotalHits = int(result.Total)
@@ -231,11 +231,11 @@ func bleveToRadio(result *bleve.SearchResult) (*radio.SearchResult, error) {
 		data := unsafe.Slice(unsafe.StringData(tmp), len(tmp))
 		err := msgpack.Unmarshal(data, &res.Songs[i])
 		if err != nil {
-			return nil, errors.E(op, err)
+			return radio.SearchResult{}, errors.E(op, err)
 		}
 	}
 
-	return &res, nil
+	return res, nil
 }
 
 func ExtendedSearchHandler(idx *indexWrap) http.HandlerFunc {

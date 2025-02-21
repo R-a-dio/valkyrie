@@ -11,8 +11,11 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/util/pool"
+	"github.com/rs/zerolog"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var bufferPool = pool.NewResetPool(func() *bytes.Buffer {
@@ -31,8 +34,8 @@ type TemplateSelectable interface {
 type Executor interface {
 	Execute(w io.Writer, r *http.Request, input TemplateSelectable) error
 	ExecuteTemplate(ctx context.Context, theme radio.ThemeName, page, template string, output io.Writer, input any) error
-	ExecuteAll(input TemplateSelectable) (map[radio.ThemeName][]byte, error)
-	ExecuteAllAdmin(input TemplateSelectable) (map[radio.ThemeName][]byte, error)
+	ExecuteAll(ctx context.Context, input TemplateSelectable) (map[radio.ThemeName][]byte, error)
+	ExecuteAllAdmin(ctx context.Context, input TemplateSelectable) (map[radio.ThemeName][]byte, error)
 }
 
 type executor struct {
@@ -63,6 +66,21 @@ func (e *executor) Execute(w io.Writer, r *http.Request, input TemplateSelectabl
 func (e *executor) ExecuteTemplate(ctx context.Context, theme radio.ThemeName, page string, template string, output io.Writer, input any) error {
 	const op errors.Op = "templates/Executor.ExecuteTemplate"
 
+	err := e.executeTemplate(ctx, theme, page, template, input, func(b *bytes.Buffer) error {
+		_, err := io.Copy(output, b)
+		return err
+	})
+	if err != nil {
+		return errors.E(op, err)
+	}
+	return nil
+}
+
+// executeTemplate selects a theme, page and template and feeds it the input given and writing the template output
+// to the output writer. Output is buffered until template execution is done before writing to output.
+func (e *executor) executeTemplate(ctx context.Context, theme radio.ThemeName, page string, template string, input any, fn func(out *bytes.Buffer) error) (panicErr error) {
+	const op errors.Op = "templates/Executor.ExecuteTemplate"
+
 	// tracing support
 	ctx, span := otel.Tracer("templates").Start(ctx, "template")
 	if span.IsRecording() {
@@ -74,7 +92,11 @@ func (e *executor) ExecuteTemplate(ctx context.Context, theme radio.ThemeName, p
 	}
 	defer span.End()
 
+	// handle panics inside of templates
+	defer templateRecover(ctx, &panicErr)
+
 	_, span = otel.Tracer("templates").Start(ctx, "template_load")
+	defer span.End() // panic protect
 	tmpl, err := e.site.Template(theme, page)
 	span.End()
 	if err != nil {
@@ -85,13 +107,14 @@ func (e *executor) ExecuteTemplate(ctx context.Context, theme radio.ThemeName, p
 	defer bufferPool.Put(b)
 
 	_, span = otel.Tracer("templates").Start(ctx, "template_execute")
+	defer span.End() // panic protect
 	err = tmpl.ExecuteTemplate(b, template, input)
 	span.End()
 	if err != nil {
 		return errors.E(op, err)
 	}
 
-	_, err = io.Copy(output, b)
+	err = fn(b)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -99,48 +122,59 @@ func (e *executor) ExecuteTemplate(ctx context.Context, theme radio.ThemeName, p
 }
 
 // ExecuteAll executes the template selected in all public themes
-func (e *executor) ExecuteAll(input TemplateSelectable) (map[radio.ThemeName][]byte, error) {
+func (e *executor) ExecuteAll(ctx context.Context, input TemplateSelectable) (map[radio.ThemeName][]byte, error) {
 	const op errors.Op = "templates/Executor.ExecuteAll"
 
-	res, err := e.executeAll(input, e.site.ThemeNames())
+	res, err := e.executeAll(ctx, input, e.site.ThemeNames())
 	if err != nil {
-		return nil, errors.E(op, err)
+		return res, errors.E(op, err)
 	}
 	return res, nil
 }
 
-func (e *executor) executeAll(input TemplateSelectable, themes []radio.ThemeName) (map[radio.ThemeName][]byte, error) {
+func (e *executor) executeAll(ctx context.Context, input TemplateSelectable, themes []radio.ThemeName) (map[radio.ThemeName][]byte, error) {
 	const op errors.Op = "templates/Executor.executeAll"
 
 	var out = make(map[radio.ThemeName][]byte)
 
-	b := bufferPool.Get()
-	defer bufferPool.Put(b)
-
+	var errs []error
 	for _, theme := range themes {
-		tmpl, err := e.site.Template(theme, input.TemplateBundle())
+		err := e.executeTemplate(ctx, theme, input.TemplateBundle(), input.TemplateName(), input, func(b *bytes.Buffer) error {
+			out[theme] = slices.Clone(b.Bytes())
+			return nil
+		})
 		if err != nil {
-			return nil, errors.E(op, err)
+			errs = append(errs, err)
+			continue
 		}
-
-		err = tmpl.ExecuteTemplate(b, input.TemplateName(), input)
-		if err != nil {
-			return nil, errors.E(op, err)
-		}
-
-		out[theme] = slices.Clone(b.Bytes())
-		b.Reset()
 	}
-	return out, nil
+	return out, errors.Join(errs...)
 }
 
 // ExecuteAllAdmin executes the template selected in all admin themes
-func (e *executor) ExecuteAllAdmin(input TemplateSelectable) (map[radio.ThemeName][]byte, error) {
+func (e *executor) ExecuteAllAdmin(ctx context.Context, input TemplateSelectable) (map[radio.ThemeName][]byte, error) {
 	const op errors.Op = "templates/Executor.ExecuteAllAdmin"
 
-	res, err := e.executeAll(input, e.site.ThemeNamesAdmin())
+	res, err := e.executeAll(ctx, input, e.site.ThemeNamesAdmin())
 	if err != nil {
-		return nil, errors.E(op, err)
+		return res, errors.E(op, err)
 	}
 	return res, nil
+}
+
+func templateRecover(ctx context.Context, outErr *error) {
+	if rvr := recover(); rvr != nil {
+		err, ok := rvr.(error)
+		if !ok {
+			err = errors.New("panic in template")
+		}
+
+		span := trace.SpanFromContext(ctx)
+		span.SetStatus(codes.Error, "panic in template")
+		span.RecordError(err, trace.WithStackTrace(true))
+
+		zerolog.Ctx(ctx).WithLevel(zerolog.PanicLevel).Err(err).Msg("panic in template")
+
+		*outErr = err
+	}
 }

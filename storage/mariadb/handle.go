@@ -3,6 +3,10 @@ package mariadb
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"path/filepath"
+	"reflect"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -11,7 +15,6 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
-	"github.com/R-a-dio/valkyrie/storage/query"
 	"github.com/go-sql-driver/mysql" // mariadb
 	"github.com/jmoiron/sqlx"
 	"github.com/rs/zerolog"
@@ -27,6 +30,60 @@ var specialCasedColumnNames = map[string]string{
 	"DeletedAt":     "deleted_at",
 	"UpdatedAt":     "updated_at",
 	"RememberToken": "remember_token",
+}
+
+var invalidQueries = map[string]string{}
+
+type NoParams struct{}
+
+// zeroValue returns the zero value of T with things allocated inside
+// if possible, small wrapper around zeroValueImpl
+func zeroValue[T any]() T {
+	v := zeroValueImpl(reflect.TypeFor[T]())
+	return v.Interface().(T)
+}
+
+// zeroValueImpl returns a "filled" in zero value of the type given
+//
+// It does this by recursively allocating stuff until it reaches a
+// concrete type
+func zeroValueImpl(t reflect.Type) reflect.Value {
+	v := reflect.New(t).Elem()
+
+	switch v.Kind() {
+	case reflect.Ptr:
+		// if we have a pointer, allocate the thing it's pointing to
+		v.Set(zeroValueImpl(v.Type().Elem()).Addr())
+	case reflect.Slice:
+		// if we have a slice, we allocate a single element to make sqlx happy
+		v = reflect.Append(v, zeroValueImpl(v.Type().Elem()))
+	case reflect.Struct:
+		// if we have a struct, we allocate all exported fields recursively
+		for i := range v.Type().NumField() {
+			// only exported fields, or reflect will yell at us
+			if v.Type().Field(i).IsExported() {
+				fv := v.Field(i)
+				fv.Set(zeroValueImpl(fv.Type()))
+			}
+		}
+	}
+
+	return v
+}
+
+func CheckQuery[T any](query string) struct{} {
+	_, _, err := sqlx.Named(query, zeroValue[T]())
+	if err != nil {
+		_, filename, line, _ := runtime.Caller(1)
+		if tmp := strings.Split(filename, string(filepath.Separator)); len(tmp) > 2 {
+			filename = filepath.Join(tmp[len(tmp)-2:]...)
+		}
+
+		identifier := fmt.Sprintf("%s:%d", filename, line)
+		invalidQueries[identifier] = err.Error()
+	}
+
+	return struct{}{}
 }
 
 // mapperFunc implements the MapperFunc for sqlx to specialcase column names
@@ -99,8 +156,7 @@ func Connect(ctx context.Context, cfg config.Config) (radio.StorageService, erro
 
 // StorageService implements radio.StorageService with a sql database
 type StorageService struct {
-	db      *sqlx.DB
-	queries *query.Queries
+	db *sqlx.DB
 }
 
 func (s *StorageService) Close() error {
@@ -197,18 +253,17 @@ func beginTx(ctx context.Context, ex extContext, tx radio.StorageTx) (context.Co
 	panic("mariadb: invalid ex passed to beginTx")
 }
 
-func newHandle(ctx context.Context, ext extContext, queries *query.Queries, name string) handle {
+func newHandle(ctx context.Context, ext extContext, name string) handle {
 	return handle{
 		ext:     ext,
 		ctx:     ctx,
 		service: name,
-		queries: queries,
 	}
 }
 
 func (s *StorageService) Sessions(ctx context.Context) radio.SessionStorage {
 	return SessionStorage{
-		handle: newHandle(ctx, s.db, s.queries, "sessions"),
+		handle: newHandle(ctx, s.db, "sessions"),
 	}
 }
 
@@ -219,14 +274,14 @@ func (s *StorageService) SessionsTx(ctx context.Context, tx radio.StorageTx) (ra
 	}
 
 	storage := SessionStorage{
-		handle: newHandle(ctx, db, s.queries, "sessions"),
+		handle: newHandle(ctx, db, "sessions"),
 	}
 	return storage, tx, nil
 }
 
 func (s *StorageService) Queue(ctx context.Context) radio.QueueStorage {
 	return QueueStorage{
-		handle: newHandle(ctx, s.db, s.queries, "queue"),
+		handle: newHandle(ctx, s.db, "queue"),
 	}
 }
 
@@ -237,14 +292,14 @@ func (s *StorageService) QueueTx(ctx context.Context, tx radio.StorageTx) (radio
 	}
 
 	storage := QueueStorage{
-		handle: newHandle(ctx, db, s.queries, "queue"),
+		handle: newHandle(ctx, db, "queue"),
 	}
 	return storage, tx, nil
 }
 
 func (s *StorageService) Song(ctx context.Context) radio.SongStorage {
 	return SongStorage{
-		handle: newHandle(ctx, s.db, s.queries, "song"),
+		handle: newHandle(ctx, s.db, "song"),
 	}
 }
 
@@ -255,14 +310,14 @@ func (s *StorageService) SongTx(ctx context.Context, tx radio.StorageTx) (radio.
 	}
 
 	storage := SongStorage{
-		handle: newHandle(ctx, db, s.queries, "song"),
+		handle: newHandle(ctx, db, "song"),
 	}
 	return storage, tx, nil
 }
 
 func (s *StorageService) Track(ctx context.Context) radio.TrackStorage {
 	return TrackStorage{
-		handle: newHandle(ctx, s.db, s.queries, "track"),
+		handle: newHandle(ctx, s.db, "track"),
 	}
 }
 
@@ -273,14 +328,14 @@ func (s *StorageService) TrackTx(ctx context.Context, tx radio.StorageTx) (radio
 	}
 
 	storage := TrackStorage{
-		handle: newHandle(ctx, db, s.queries, "track"),
+		handle: newHandle(ctx, db, "track"),
 	}
 	return storage, tx, nil
 }
 
 func (s *StorageService) Request(ctx context.Context) radio.RequestStorage {
 	return RequestStorage{
-		handle: newHandle(ctx, s.db, s.queries, "request"),
+		handle: newHandle(ctx, s.db, "request"),
 	}
 }
 func (s *StorageService) RequestTx(ctx context.Context, tx radio.StorageTx) (radio.RequestStorage, radio.StorageTx, error) {
@@ -290,14 +345,14 @@ func (s *StorageService) RequestTx(ctx context.Context, tx radio.StorageTx) (rad
 	}
 
 	storage := RequestStorage{
-		handle: newHandle(ctx, db, s.queries, "request"),
+		handle: newHandle(ctx, db, "request"),
 	}
 	return storage, tx, nil
 }
 
 func (s *StorageService) User(ctx context.Context) radio.UserStorage {
 	return UserStorage{
-		handle: newHandle(ctx, s.db, s.queries, "user"),
+		handle: newHandle(ctx, s.db, "user"),
 	}
 }
 
@@ -308,14 +363,14 @@ func (s *StorageService) UserTx(ctx context.Context, tx radio.StorageTx) (radio.
 	}
 
 	storage := UserStorage{
-		handle: newHandle(ctx, db, s.queries, "user"),
+		handle: newHandle(ctx, db, "user"),
 	}
 	return storage, tx, nil
 }
 
 func (s *StorageService) Submissions(ctx context.Context) radio.SubmissionStorage {
 	return SubmissionStorage{
-		handle: newHandle(ctx, s.db, s.queries, "submissions"),
+		handle: newHandle(ctx, s.db, "submissions"),
 	}
 }
 
@@ -326,14 +381,14 @@ func (s *StorageService) SubmissionsTx(ctx context.Context, tx radio.StorageTx) 
 	}
 
 	storage := SubmissionStorage{
-		handle: newHandle(ctx, db, s.queries, "submissions"),
+		handle: newHandle(ctx, db, "submissions"),
 	}
 	return storage, tx, nil
 }
 
 func (s *StorageService) News(ctx context.Context) radio.NewsStorage {
 	return NewsStorage{
-		handle: newHandle(ctx, s.db, s.queries, "news"),
+		handle: newHandle(ctx, s.db, "news"),
 	}
 }
 
@@ -344,20 +399,20 @@ func (s *StorageService) NewsTx(ctx context.Context, tx radio.StorageTx) (radio.
 	}
 
 	storage := NewsStorage{
-		handle: newHandle(ctx, db, s.queries, "news"),
+		handle: newHandle(ctx, db, "news"),
 	}
 	return storage, tx, nil
 }
 
 func (s *StorageService) Status(ctx context.Context) radio.StatusStorage {
 	return StatusStorage{
-		handle: newHandle(ctx, s.db, s.queries, "status"),
+		handle: newHandle(ctx, s.db, "status"),
 	}
 }
 
 func (s *StorageService) Relay(ctx context.Context) radio.RelayStorage {
 	return RelayStorage{
-		handle: newHandle(ctx, s.db, s.queries, "relay"),
+		handle: newHandle(ctx, s.db, "relay"),
 	}
 }
 
@@ -368,7 +423,7 @@ func (s *StorageService) RelayTx(ctx context.Context, tx radio.StorageTx) (radio
 	}
 
 	storage := RelayStorage{
-		handle: newHandle(ctx, db, s.queries, "relay"),
+		handle: newHandle(ctx, db, "relay"),
 	}
 	return storage, tx, nil
 }
@@ -381,7 +436,7 @@ func (s *StorageService) Search() radio.SearchService {
 
 func (s *StorageService) Schedule(ctx context.Context) radio.ScheduleStorage {
 	return ScheduleStorage{
-		handle: newHandle(ctx, s.db, s.queries, "schedule"),
+		handle: newHandle(ctx, s.db, "schedule"),
 	}
 }
 
@@ -392,7 +447,7 @@ func (s *StorageService) ScheduleTx(ctx context.Context, tx radio.StorageTx) (ra
 	}
 
 	storage := ScheduleStorage{
-		handle: newHandle(ctx, db, s.queries, "schedule"),
+		handle: newHandle(ctx, db, "schedule"),
 	}
 	return storage, tx, nil
 }
@@ -441,7 +496,6 @@ type handle struct {
 	ctx context.Context
 
 	service string
-	queries *query.Queries
 }
 
 func (h handle) span(op errors.Op) (handle, func(...trace.SpanEndOption)) {

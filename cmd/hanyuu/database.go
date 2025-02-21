@@ -2,92 +2,60 @@ package main
 
 import (
 	"context"
-	"flag"
-	"fmt"
 	"io/fs"
-	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
 	radio "github.com/R-a-dio/valkyrie"
-	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/storage"
 	"github.com/R-a-dio/valkyrie/streamer/audio"
-	"github.com/google/subcommands"
-	"github.com/rs/zerolog"
+	"github.com/spf13/cobra"
 )
 
-type databaseCmd struct {
-	flags *flag.FlagSet
+func DatabaseCommand() *cobra.Command {
+	root := &cobra.Command{
+		Use:     "database",
+		GroupID: "helpers",
+		Short:   "helper commands to add things to the database from the command line",
+	}
+
+	root.AddCommand(
+		&cobra.Command{
+			Use:   "add-tracks <filename>...",
+			Short: "add a music file to the database",
+			RunE:  SimpleCommand(DatabaseAddTrack),
+			Args:  cobra.MinimumNArgs(1),
+			ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+				return []string{"flac", "mp3", "opus"}, cobra.ShellCompDirectiveFilterFileExt | cobra.ShellCompDirectiveNoFileComp
+			},
+		},
+		&cobra.Command{
+			Use:   "add-user <username> <password>",
+			Short: "add a user to the database",
+			RunE:  SimpleCommand(DatabaseAddUser),
+			Args:  cobra.ExactArgs(2),
+		},
+	)
+	return root
 }
 
-func (d databaseCmd) Name() string {
-	return "database"
-}
-
-func (d databaseCmd) Synopsis() string {
-	return "database allows you to do some basic database mutations"
-}
-
-func (d databaseCmd) Usage() string {
-	return "database"
-}
-
-func (d *databaseCmd) SetFlags(f *flag.FlagSet) {
-
-}
-
-func (d *databaseCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) subcommands.ExitStatus {
-	d.flags = f
-	cmder := subcommands.NewCommander(f, path.Base(os.Args[0])+" database")
-	cmder.Register(cmder.HelpCommand(), "")
-	cmder.Register(cmder.CommandsCommand(), "")
-	cmder.Register(cmd{
-		name:     "add-tracks",
-		synopsis: "add a songtrack to the database",
-		usage: `add-tracks <filename>:
-		add the given file to the database
-		`,
-		execute: withConfig(d.addTrack),
-	}, "")
-	cmder.Register(cmd{
-		name:     "add-user",
-		synopsis: "add a user to the database",
-		usage: `add-user <username> <password>:
-		add a user to the database
-		`,
-		execute: withConfig(d.addUser),
-	}, "")
-
-	zerolog.Ctx(ctx).UpdateContext(func(zc zerolog.Context) zerolog.Context {
-		return zc.Str("service", d.Name())
-	})
-
-	return cmder.Execute(ctx, args...)
-}
-
-func (d databaseCmd) addTrack(ctx context.Context, cfg config.Config) error {
-	db, err := storage.Open(ctx, cfg)
+func DatabaseAddTrack(cmd *cobra.Command, args []string) error {
+	ctx := cmd.Context()
+	db, err := storage.Open(ctx, cfgFromContext(ctx))
 	if err != nil {
 		return err
 	}
-	_ = db
 
-	if len(d.flags.Args()) < 2 {
-		return errors.E(errors.InvalidArgument, "no filename given")
-	}
-
-	for _, filename := range d.flags.Args()[1:] {
+	for _, filename := range args {
 		filename, err = filepath.Abs(filename)
 		if err != nil {
 			return err
 		}
 
-		fmt.Printf("entering: %s\n", filename)
+		cmd.Printf("entering: %s\n", filename)
 		err = filepath.WalkDir(filename, func(path string, d fs.DirEntry, err error) error {
-			fmt.Printf("attempting %s\n", path)
+			cmd.Printf("attempting %s\n", path)
 			if d.IsDir() {
 				return nil
 			}
@@ -95,11 +63,11 @@ func (d databaseCmd) addTrack(ctx context.Context, cfg config.Config) error {
 			switch filepath.Ext(path) {
 			case ".opus", ".mp3", ".flac", ".ogg":
 			default:
-				fmt.Printf("skipping %s not an audio file\n", path)
+				cmd.Printf("skipping %s not an audio file\n", path)
 				return nil
 			}
 
-			return addSingleTrack(ctx, db, path)
+			return addSingleTrack(ctx, cmd, db, path)
 		})
 		if err != nil {
 			return err
@@ -108,7 +76,7 @@ func (d databaseCmd) addTrack(ctx context.Context, cfg config.Config) error {
 	return nil
 }
 
-func addSingleTrack(ctx context.Context, db radio.StorageService, filename string) error {
+func addSingleTrack(ctx context.Context, cmd *cobra.Command, db radio.StorageService, filename string) error {
 	info, err := audio.ProbeText(ctx, filename)
 	if err != nil {
 		return err
@@ -147,24 +115,18 @@ func addSingleTrack(ctx context.Context, db radio.StorageService, filename strin
 	if err != nil && !strings.Contains(err.Error(), "Duplicate") {
 		return err
 	}
-	fmt.Printf("successfully added %s (ID: %d)\n", song.Metadata, id)
+	cmd.Printf("successfully added %s (ID: %d)\n", song.Metadata, id)
 	return nil
 }
 
-func (d databaseCmd) addUser(ctx context.Context, cfg config.Config) error {
-	db, err := storage.Open(ctx, cfg)
+func DatabaseAddUser(cmd *cobra.Command, args []string) error {
+	ctx := cmd.Context()
+	db, err := storage.Open(ctx, cfgFromContext(ctx))
 	if err != nil {
 		return err
 	}
 
-	name := d.flags.Arg(1)
-	if name == "" {
-		return errors.E("username can't be empty")
-	}
-	passwd := d.flags.Arg(2)
-	if passwd == "" {
-		return errors.E("password can't be empty")
-	}
+	name, passwd := args[0], args[1]
 
 	u := db.User(ctx)
 
@@ -194,6 +156,6 @@ func (d databaseCmd) addUser(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 
-	fmt.Printf("successfully added user %s\n", name)
+	cmd.Printf("successfully added user %s\n", name)
 	return nil
 }

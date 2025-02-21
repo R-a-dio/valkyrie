@@ -64,6 +64,8 @@ GROUP BY
 	radio_news.id;
 `)
 
+var _ = CheckQuery[NewsGetParams](newsGetQuery)
+
 type NewsGetParams struct {
 	ID radio.NewsPostID
 }
@@ -119,6 +121,8 @@ INSERT INTO
 	);
 `
 
+var _ = CheckQuery[radio.NewsPost](newsCreateQuery)
+
 // Create implements radio.NewsStorage
 func (ns NewsStorage) Create(post radio.NewsPost) (radio.NewsPostID, error) {
 	const op errors.Op = "mariadb/NewsStorage.Create"
@@ -160,6 +164,8 @@ INSERT INTO
 	);
 `
 
+var _ = CheckQuery[radio.NewsComment](newsCommentAddQuery)
+
 func (ns NewsStorage) AddComment(comment radio.NewsComment) (radio.NewsCommentID, error) {
 	const op errors.Op = "mariadb/NewsStorage.AddComment"
 	handle, deferFn := ns.handle.span(op)
@@ -188,6 +194,8 @@ WHERE
 	id=:id;
 `
 
+var _ = CheckQuery[radio.NewsPost](newsUpdateQuery)
+
 // Update implements radio.NewsStorage
 func (ns NewsStorage) Update(post radio.NewsPost) error {
 	const op errors.Op = "mariadb/NewsStorage.Update"
@@ -209,6 +217,7 @@ func (ns NewsStorage) Update(post radio.NewsPost) error {
 	return nil
 }
 
+// input: NewsDeleteParams
 const newsDeleteQuery = `
 UPDATE
 	radio_news
@@ -217,6 +226,8 @@ SET
 WHERE
 	id=:id;
 `
+
+var _ = CheckQuery[NewsDeleteParams](newsDeleteQuery)
 
 type NewsDeleteParams struct {
 	ID radio.NewsPostID
@@ -245,6 +256,7 @@ func (ns NewsStorage) Delete(id radio.NewsPostID) error {
 	return nil
 }
 
+// input: NewsListParams
 var newsListQuery = expand(`
 SELECT
 	{newsColumns}
@@ -262,6 +274,8 @@ ORDER BY
 	radio_news.created_at DESC
 LIMIT :limit OFFSET :offset;
 `)
+
+var _ = CheckQuery[NewsListParams](newsListQuery)
 
 type NewsListParams struct {
 	Limit  int64
@@ -295,6 +309,7 @@ func (ns NewsStorage) List(limit int64, offset int64) (radio.NewsList, error) {
 	return news, nil
 }
 
+// input: NewsListParams
 var newsListPublicQuery = expand(`
 SELECT
 	{newsColumns}
@@ -315,6 +330,8 @@ ORDER BY
 	radio_news.created_at DESC
 LIMIT :limit OFFSET :offset;
 `)
+
+var _ = CheckQuery[NewsListParams](newsListPublicQuery)
 
 // ListPublic implements radio.NewsStorage
 func (ns NewsStorage) ListPublic(limit int64, offset int64) (radio.NewsList, error) {
@@ -343,6 +360,7 @@ func (ns NewsStorage) ListPublic(limit int64, offset int64) (radio.NewsList, err
 	return news, nil
 }
 
+// input: NewsCommentsParams
 const newsCommentsQuery = `
 SELECT
 	radio_comments.id AS id,
@@ -392,6 +410,8 @@ ORDER BY
 	radio_comments.created_at DESC;
 `
 
+var _ = CheckQuery[NewsCommentsParams](newsCommentsQuery)
+
 type NewsCommentsParams struct {
 	ID radio.NewsPostID
 }
@@ -420,6 +440,7 @@ func (ns NewsStorage) Comments(postid radio.NewsPostID) ([]radio.NewsComment, er
 	return comments, nil
 }
 
+// input: NewsCommentsParams
 const newsCommentsPublicQuery = `
 SELECT
 	radio_comments.id AS id,
@@ -470,6 +491,8 @@ GROUP BY
 ORDER BY
 	radio_comments.created_at DESC;
 `
+
+var _ = CheckQuery[NewsCommentsParams](newsCommentsPublicQuery)
 
 // CommentsPublic implements radio.NewsStorage
 func (ns NewsStorage) CommentsPublic(postid radio.NewsPostID) ([]radio.NewsComment, error) {

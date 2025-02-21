@@ -18,6 +18,7 @@ import (
 	"github.com/R-a-dio/valkyrie/util"
 	"github.com/rs/zerolog"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type Prober func(ctx context.Context, song radio.Song) (time.Duration, error)
@@ -42,6 +43,9 @@ func ProbeDuration(ctx context.Context, filename string) (time.Duration, error) 
 	const op errors.Op = "streamer/audio.ProbeDuration"
 	ctx, span := otel.Tracer("").Start(ctx, string(op))
 	defer span.End()
+	span.SetAttributes(
+		attribute.String("filename", filename),
+	)
 
 	cmd := exec.CommandContext(ctx, "ffprobe",
 		"-loglevel", "error",
@@ -60,6 +64,10 @@ func ProbeDuration(ctx context.Context, filename string) (time.Duration, error) 
 	if err != nil {
 		return 0, errors.E(op, err)
 	}
+
+	span.SetAttributes(
+		attribute.String("duration", durString),
+	)
 
 	return dur, nil
 }

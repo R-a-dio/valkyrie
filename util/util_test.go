@@ -1,20 +1,29 @@
-package util
+package util_test
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strconv"
+	"sync/atomic"
 	"testing"
+	"time"
 
+	"github.com/R-a-dio/valkyrie/mocks"
+	"github.com/R-a-dio/valkyrie/util"
+	"github.com/R-a-dio/valkyrie/util/eventstream"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestIsHTMX(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/test", nil)
-	assert.False(t, IsHTMX(req))
+	assert.False(t, util.IsHTMX(req))
 
 	req.Header.Add("Hx-Request", "true")
-	assert.True(t, IsHTMX(req))
+	assert.True(t, util.IsHTMX(req))
 }
 
 func TestAbsolutePath(t *testing.T) {
@@ -46,7 +55,7 @@ func TestAbsolutePath(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			res := AbsolutePath(c.dir, c.path)
+			res := util.AbsolutePath(c.dir, c.path)
 			assert.Equal(t, c.expected, res)
 		})
 	}
@@ -54,10 +63,10 @@ func TestAbsolutePath(t *testing.T) {
 
 func TestAddContentDisposition(t *testing.T) {
 	w := httptest.NewRecorder()
-	assert.Empty(t, w.Header().Get(headerContentDisposition))
+	assert.Empty(t, w.Header().Get(util.HeaderContentDisposition))
 
-	AddContentDisposition(w, "test.mp3")
-	value := w.Header().Get(headerContentDisposition)
+	util.AddContentDisposition(w, "test.mp3")
+	value := w.Header().Get(util.HeaderContentDisposition)
 	assert.NotEmpty(t, value)
 	assert.Equal(t, `attachment; filename="test.mp3"; filename*=UTF-8''test.mp3`, value)
 	assert.Equal(t, "audio/mpeg", w.Header().Get("Content-Type"))
@@ -65,10 +74,10 @@ func TestAddContentDisposition(t *testing.T) {
 
 func TestAddContentDispositionSong(t *testing.T) {
 	w := httptest.NewRecorder()
-	assert.Empty(t, w.Header().Get(headerContentDisposition))
+	assert.Empty(t, w.Header().Get(util.HeaderContentDisposition))
 
-	AddContentDispositionSong(w, "hello - world", "test.flac")
-	value := w.Header().Get(headerContentDisposition)
+	util.AddContentDispositionSong(w, "hello - world", "test.flac")
+	value := w.Header().Get(util.HeaderContentDisposition)
 	assert.NotEmpty(t, value)
 	assert.Equal(t, `attachment; filename="hello - world.flac"; filename*=UTF-8''hello%20-%20world.flac`, value)
 	assert.Equal(t, "audio/flac", w.Header().Get("Content-Type"))
@@ -150,9 +159,53 @@ func TestReduceWithStep(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(strconv.Itoa(test.step), func(t *testing.T) {
-			assert.Equal(t, test.leftover, ReduceHasLeftover(in, test.step))
-			out := ReduceWithStep(in, test.step)
+			assert.Equal(t, test.leftover, util.ReduceHasLeftover(in, test.step))
+			out := util.ReduceWithStep(in, test.step)
 			assert.Equal(t, test.expected, out)
 		})
 	}
+}
+
+func TestStreamValue(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ctx = zerolog.New(os.Stdout).Level(zerolog.InfoLevel).WithContext(ctx)
+
+	t.Run("Next exits early", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(ctx, time.Second*5)
+		defer cancel()
+
+		var called atomic.Int64
+		util.StreamValue(ctx, func(ctx context.Context) (eventstream.Stream[int], error) {
+			called.Add(1)
+			return &mocks.StreamMock[int]{
+				NextFunc: func() (int, error) {
+					return 0, errors.New("an error")
+				},
+				CloseFunc: func() error { return nil },
+			}, nil
+		})
+
+		<-ctx.Done()
+		if called.Load() > 10 {
+			t.Errorf("called %d more than 10 times", called.Load())
+		}
+	})
+
+	t.Run("StreamFn errors", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(ctx, time.Second*5)
+		defer cancel()
+
+		var called atomic.Int64
+		util.StreamValue(ctx, func(ctx context.Context) (eventstream.Stream[int], error) {
+			called.Add(1)
+			return nil, errors.New("an error")
+		})
+
+		<-ctx.Done()
+		if called.Load() > 10 {
+			t.Errorf("called %d more than 10 times", called.Load())
+		}
+	})
 }

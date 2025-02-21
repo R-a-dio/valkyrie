@@ -11,6 +11,9 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 )
 
+// Join is equavalent to errors.Join
+var Join = errors.Join
+
 // Errorf is equavalent to fmt.Errorf
 var Errorf = fmt.Errorf
 
@@ -25,6 +28,24 @@ func IsE(err error, targets ...error) bool {
 		}
 	}
 	return false
+}
+
+var Unwrap = errors.Unwrap
+
+func UnwrapJoin(err error) []error {
+	type uj interface {
+		Unwrap() []error
+	}
+
+	if err == nil {
+		return nil
+	}
+
+	if j, ok := err.(uj); ok {
+		return j.Unwrap()
+	}
+
+	return UnwrapJoin(Unwrap(err))
 }
 
 // As is equavalent to errors.As

@@ -14,7 +14,7 @@ import (
 // New returns a new migration instance for the configured storage provider if
 // available, returns NoMigrations if none exist
 func New(ctx context.Context, cfg config.Config) (*migrate.Migrate, error) {
-	const op errors.Op = "migrations.NewMigration"
+	const op errors.Op = "migrations.New"
 
 	storageProvider := cfg.Conf().Providers.Storage
 	_, newFn, err := selectFunctions(storageProvider)
@@ -22,6 +22,17 @@ func New(ctx context.Context, cfg config.Config) (*migrate.Migrate, error) {
 		return nil, errors.E(op, err)
 	}
 	return newFn(ctx, cfg)
+}
+
+func NewSource(ctx context.Context, cfg config.Config) (source.Driver, error) {
+	const op errors.Op = "migrations.NewSource"
+
+	storageProvider := cfg.Conf().Providers.Storage
+	sourceFn, _, err := selectFunctions(storageProvider)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+	return sourceFn(ctx, cfg)
 }
 
 type srcFn func(context.Context, config.Config) (source.Driver, error)
