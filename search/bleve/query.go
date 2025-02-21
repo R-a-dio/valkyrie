@@ -151,7 +151,6 @@ type RadioQuery struct {
 	Query        string            `json:"query"`
 	FieldQueries map[string]string `json:"field_queries"`
 	Sort         search.SortOrder  `json:"sort"`
-	Descending   bool              `json:"desc"`
 	ExactOnly    bool              `json:"exact_only"`
 }
 
@@ -165,12 +164,17 @@ func NewSearchRequest(query *RadioQuery, limit, offset int) *bleve.SearchRequest
 	}
 }
 
+var _ search.SearchSort = &prioScoreSort{}
+
 func newPrioScoreSort() search.SortOrder {
-	return search.SortOrder{&prioScoreSort{}}
+	return search.SortOrder{&prioScoreSort{
+		Desc: true,
+	}}
 }
 
 // prioScoreSort sorts the documents by their priority and score
 type prioScoreSort struct {
+	Desc bool
 	prio float64
 }
 
@@ -197,7 +201,7 @@ func (s *prioScoreSort) Value(a *search.DocumentMatch) string {
 }
 
 func (s *prioScoreSort) Descending() bool {
-	return true
+	return s.Desc
 }
 
 func (s *prioScoreSort) RequiresDocID() bool {
@@ -213,6 +217,7 @@ func (s *prioScoreSort) RequiresFields() []string {
 }
 
 func (s *prioScoreSort) Reverse() {
+	s.Desc = !s.Desc
 }
 
 func (s prioScoreSort) Copy() search.SearchSort {
@@ -345,8 +350,8 @@ func (rq *RadioQuery) Searcher(ctx context.Context, i index.IndexReader, m mappi
 		span.SetAttributes(attr...)
 	}
 
-	km, _ := json.MarshalIndent(m, "", "  ")
-	fmt.Println(string(km))
+	//km, _ := json.MarshalIndent(m, "", "  ")
+	//fmt.Println(string(km))
 
 	var queries []query.Query
 	if rq.Query != "" {

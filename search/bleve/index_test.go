@@ -53,16 +53,29 @@ func TestIndexing(t *testing.T) {
 	require.EqualValues(t, len(testData), count)
 
 	// now do our search tests
-	rq, err := NewQuery(ctx, "motome hana", false)
-	require.NoError(t, err)
+	t.Run("ngram romaji", func(t *testing.T) {
+		rq, err := NewQuery(ctx, "motome hana", false)
+		require.NoError(t, err)
 
-	t.Log(rq)
-	req := NewSearchRequest(rq, 100, 0)
+		t.Log(rq)
+		req := NewSearchRequest(rq, 100, 0)
 
-	res, err := idx.index.Search(req)
-	require.NoError(t, err)
+		res, err := idx.index.Search(req)
+		require.NoError(t, err)
+		require.Equal(t, 1, res.Hits.Len())
+	})
 
-	t.Log(res)
+	t.Run("exact only", func(t *testing.T) {
+		rq, err := NewQuery(ctx, "toyosaki aki", true)
+		require.NoError(t, err)
+
+		t.Log(rq)
+		req := NewSearchRequest(rq, 100, 0)
+
+		res, err := idx.index.Search(req)
+		require.NoError(t, err)
+		require.Equal(t, 1, res.Hits.Len())
+	})
 }
 
 func TestAnalyzer(t *testing.T) {
