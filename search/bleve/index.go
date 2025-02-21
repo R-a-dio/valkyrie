@@ -292,17 +292,9 @@ func constructIndexMapping() (mapping.IndexMapping, error) {
 	sm.AddSubDocumentMapping("sort", sort)
 
 	// create the rest of the normal mappings
-	acceptor := bleve.NewKeywordFieldMapping()
-	acceptor.Index = true
-	acceptor.Store = false
-	acceptor.IncludeTermVectors = false
-	sm.AddFieldMappingsAt("acceptor", acceptor)
+	sm.AddFieldMappingsAt("acceptor", newSortMapping())
 
-	editor := bleve.NewKeywordFieldMapping()
-	editor.Index = true
-	editor.Store = false
-	editor.IncludeTermVectors = false
-	sm.AddFieldMappingsAt("editor", editor)
+	sm.AddFieldMappingsAt("editor", newSortMapping())
 
 	priority := bleve.NewNumericFieldMapping()
 	priority.Index = true
