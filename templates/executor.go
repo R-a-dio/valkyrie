@@ -127,7 +127,7 @@ func (e *executor) ExecuteAll(ctx context.Context, input TemplateSelectable) (ma
 
 	res, err := e.executeAll(ctx, input, e.site.ThemeNames())
 	if err != nil {
-		return nil, errors.E(op, err)
+		return res, errors.E(op, err)
 	}
 	return res, nil
 }
@@ -157,7 +157,7 @@ func (e *executor) ExecuteAllAdmin(ctx context.Context, input TemplateSelectable
 
 	res, err := e.executeAll(ctx, input, e.site.ThemeNamesAdmin())
 	if err != nil {
-		return nil, errors.E(op, err)
+		return res, errors.E(op, err)
 	}
 	return res, nil
 }
