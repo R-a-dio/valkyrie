@@ -2,7 +2,6 @@ package bleve
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -33,6 +32,16 @@ type indexText struct {
 	Tags   string `bleve:"tags"`
 }
 
+// indexSort holds fields we want to sort on, but have specific requirements
+// for that differ from standard bleve behavior
+type indexSort struct {
+	Title  string `bleve:"title"`
+	Artist string `bleve:"artist"`
+	Album  string `bleve:"album"`
+	Tags   string `bleve:"tags"`
+	ID     int    `bleve:"id"`
+}
+
 // indexSong is the structure of the bleve document
 type indexSong struct {
 	// fields to index with radio analyzer
@@ -44,12 +53,13 @@ type indexSong struct {
 	LastRequested time.Time `bleve:"lr"`
 	LastPlayed    time.Time `bleve:"lp"`
 	// keyword fields
-	ID       int    `bleve:"id"`
+	ID       string `bleve:"id"`
 	Acceptor string `bleve:"acceptor"`
 	Editor   string `bleve:"editor"`
 	// sorting fields
-	Priority     int `bleve:"priority"`
-	RequestCount int `bleve:"rc"`
+	Sort         indexSort `bleve:"sort"`
+	Priority     int       `bleve:"priority"`
+	RequestCount int       `bleve:"rc"`
 	// actual song data
 	Data string `bleve:"data"`
 }
@@ -73,12 +83,19 @@ func toIndexSong(s radio.Song) *indexSong {
 		Exact:         text,
 		LastRequested: s.LastRequested,
 		LastPlayed:    s.LastPlayed,
-		ID:            int(s.TrackID),
-		Acceptor:      s.Acceptor,
-		Editor:        s.LastEditor,
-		Priority:      s.Priority,
-		RequestCount:  s.RequestCount,
-		Data:          string(data),
+		ID:            s.TrackID.String(),
+		Sort: indexSort{
+			Title:  s.Title,
+			Artist: s.Artist,
+			Album:  s.Album,
+			Tags:   s.Tags,
+			ID:     int(s.TrackID),
+		},
+		Acceptor:     s.Acceptor,
+		Editor:       s.LastEditor,
+		Priority:     s.Priority,
+		RequestCount: s.RequestCount,
+		Data:         string(data),
 	}
 }
 
@@ -121,7 +138,6 @@ func (b *indexWrap) Search(ctx context.Context, raw string, exactOnly bool, limi
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
-	fmt.Println(result.Hits)
 	return result, nil
 }
 
@@ -221,6 +237,12 @@ func newTextMapping() *mapping.FieldMapping {
 	return fm
 }
 
+func newSortMapping() *mapping.FieldMapping {
+	fm := bleve.NewTextFieldMapping()
+	fm.Store = false
+	return fm
+}
+
 func constructIndexMapping() (mapping.IndexMapping, error) {
 	im := bleve.NewIndexMapping()
 	im.DefaultType = "song"
@@ -254,6 +276,22 @@ func constructIndexMapping() (mapping.IndexMapping, error) {
 
 	sm.AddSubDocumentMapping("exact", exact)
 
+	// create the sort submapping
+	sort := bleve.NewDocumentStaticMapping()
+	sort.StructTagKey = "bleve"
+	sort.DefaultAnalyzer = sortAnalyzerName
+	sort.AddFieldMappingsAt("title", newSortMapping())
+	sort.AddFieldMappingsAt("artist", newSortMapping())
+	sort.AddFieldMappingsAt("album", newSortMapping())
+	sort.AddFieldMappingsAt("tags", newSortMapping())
+	sortId := bleve.NewNumericFieldMapping()
+	sortId.Index = true
+	sortId.Store = false
+	sort.AddFieldMappingsAt("id", sortId)
+
+	sm.AddSubDocumentMapping("sort", sort)
+
+	// create the rest of the normal mappings
 	acceptor := bleve.NewKeywordFieldMapping()
 	acceptor.Index = true
 	acceptor.Store = false

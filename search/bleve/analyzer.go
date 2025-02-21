@@ -15,6 +15,7 @@ import (
 	"github.com/blevesearch/bleve/v2/analysis/token/unicodenorm"
 	"github.com/blevesearch/bleve/v2/analysis/token/unique"
 	"github.com/blevesearch/bleve/v2/analysis/tokenizer/character"
+	"github.com/blevesearch/bleve/v2/analysis/tokenizer/single"
 	"github.com/blevesearch/bleve/v2/registry"
 	"github.com/ikawaha/kagome-dict/ipa"
 	"github.com/ikawaha/kagome/v2/tokenizer"
@@ -23,7 +24,8 @@ import (
 
 const (
 	radioAnalyzerName = "radio"
-	exactAnalyzerName = "exact"
+	exactAnalyzerName = "radio.exact"
+	sortAnalyzerName  = "radio.sort"
 
 	NgramFilterMin = 2
 	NgramFilterMax = 3
@@ -33,6 +35,22 @@ func IsNotSpace(r rune) bool {
 	return !unicode.IsSpace(r)
 }
 
+func SortAnalyzerConstructor(config map[string]any, cache *registry.Cache) (analysis.Analyzer, error) {
+	toLowerFilter, err := cache.TokenFilterNamed(lowercase.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	normalizeFilter := unicodenorm.MustNewUnicodeNormalizeFilter(unicodenorm.NFC)
+
+	return &analysis.DefaultAnalyzer{
+		Tokenizer: single.NewSingleTokenTokenizer(),
+		TokenFilters: []analysis.TokenFilter{
+			toLowerFilter,
+			normalizeFilter,
+		},
+	}, nil
+}
 func RadioAnalyzerConstructor(config map[string]interface{}, cache *registry.Cache) (analysis.Analyzer, error) {
 	toLowerFilter, err := cache.TokenFilterNamed(lowercase.Name)
 	if err != nil {
@@ -87,6 +105,7 @@ func ExactAnalyzerConstructor(config map[string]interface{}, cache *registry.Cac
 func init() {
 	registry.RegisterAnalyzer(radioAnalyzerName, RadioAnalyzerConstructor)
 	registry.RegisterAnalyzer(exactAnalyzerName, ExactAnalyzerConstructor)
+	registry.RegisterAnalyzer(sortAnalyzerName, SortAnalyzerConstructor)
 }
 
 type FilterFn func(input analysis.TokenStream) analysis.TokenStream

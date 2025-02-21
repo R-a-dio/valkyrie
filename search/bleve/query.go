@@ -21,10 +21,10 @@ import (
 const MaxQuerySize = 512
 
 func NewFieldSort(field string, desc bool) search.SearchSort {
-	if field == "id" {
-		return &search.SortDocID{Desc: desc}
+	return &search.SortField{
+		Field: sortField(field),
+		Desc:  desc,
 	}
-	return &search.SortField{Field: ngramField(field), Desc: desc}
 }
 
 func NewQuery(ctx context.Context, query string, exactOnly bool) (*RadioQuery, error) {
@@ -240,7 +240,6 @@ func (rq *RadioQuery) generateFieldQuery(m mapping.IndexMapping, field string, q
 		analyzerName = m.AnalyzerNameForPath(field)
 	}
 
-	fmt.Println(analyzerName)
 	analyzer := m.AnalyzerNamed(analyzerName)
 
 	tokens := analyzer.Analyze([]byte(q))
@@ -262,6 +261,23 @@ func (rq *RadioQuery) generateFieldQuery(m mapping.IndexMapping, field string, q
 	}
 
 	return query.NewConjunctionQuery(queries)
+}
+
+func sortField(f string) string {
+	switch f {
+	case "id":
+		return "sort.id"
+	case "artist":
+		return "sort.artist"
+	case "title":
+		return "sort.title"
+	case "album":
+		return "sort.album"
+	case "tags":
+		return "sort.tags"
+	default:
+		return f
+	}
 }
 
 func exactField(f string) string {
@@ -350,9 +366,6 @@ func (rq *RadioQuery) Searcher(ctx context.Context, i index.IndexReader, m mappi
 		span.SetAttributes(attr...)
 	}
 
-	//km, _ := json.MarshalIndent(m, "", "  ")
-	//fmt.Println(string(km))
-
 	var queries []query.Query
 	if rq.Query != "" {
 		q := rq.generateQuery(m, "_all", rq.Query)
@@ -373,6 +386,5 @@ func (rq *RadioQuery) Searcher(ctx context.Context, i index.IndexReader, m mappi
 	q := query.NewConjunctionQuery(queries)
 	q.SetBoost(1.0)
 
-	fmt.Println(query.DumpQuery(m, q))
 	return q.Searcher(ctx, i, m, options)
 }
