@@ -279,6 +279,25 @@ func (ann *announceService) AnnounceThread(ctx context.Context, thread radio.Thr
 	return nil
 }
 
+func (ann *announceService) AnnounceMurder(ctx context.Context, by radio.User, force bool) error {
+	const op errors.Op = "ircbot/announceService.AnnounceMurder"
+	ctx, span := otel.Tracer("").Start(ctx, string(op))
+	defer span.End()
+
+	until := time.Until(ann.bot.StatusValue.Latest().SongInfo.End)
+
+	var message string
+	if force {
+		message = Fmt("I've been murdered by %s and will disconnect right now", by.DJ.Name)
+	} else if until <= 0 {
+		message = Fmt("I've been asked to disconnect by %s and will do so after the current song", by.DJ.Name)
+	} else {
+		message = Fmt("I've been asked to disconnect by %s and will do so in about %s", by.DJ.Name, FormatLongDuration(until))
+	}
+	ann.bot.c.Cmd.Message(ann.cfgMainChannel(), message)
+	return nil
+}
+
 func (ann *announceService) AnnounceUser(ctx context.Context, user *radio.User) error {
 	const op errors.Op = "ircbot/announceService.AnnounceUser"
 	ctx, span := otel.Tracer("").Start(ctx, string(op))

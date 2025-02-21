@@ -316,6 +316,7 @@ func (s *Stream) NewMessage(ctx context.Context, event EventName, data templates
 
 	m, err := s.templates.ExecuteAll(ctx, data)
 	if err != nil {
+		span.RecordError(err)
 		// one or more templates failed to execute correctly
 		for _, err := range errors.UnwrapJoin(err) {
 			s.logger.Error().Err(err).Msg("failed executing template")
