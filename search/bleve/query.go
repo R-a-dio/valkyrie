@@ -71,7 +71,7 @@ func NewQuery(ctx context.Context, query string, exactOnly bool) (*RadioQuery, e
 					fieldValue := after[colonIdx+1:]
 					fieldValue, isQuoted := strings.CutPrefix(fieldValue, "\"")
 					if isQuoted {
-						if fieldValue[len(fieldValue)-1] == '"' {
+						if len(fieldValue) > 0 && fieldValue[len(fieldValue)-1] == '"' {
 							// quoted single-term !!field:"term"
 							rq.FieldQueries[fieldName] = fieldValue[:len(fieldValue)-1]
 						} else {
