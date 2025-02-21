@@ -857,6 +857,9 @@ func (ts TrackStorage) NeedReplacement() ([]radio.Song, error) {
 		return nil, errors.E(op, err)
 	}
 
+	for i := range songs {
+		songs[i].Hydrate()
+	}
 	return songs, nil
 }
 
