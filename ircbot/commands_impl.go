@@ -265,26 +265,15 @@ func FaveTrack(e Event) error {
 		// count the amount of `last`'s used to determine how far back we should go
 		index := strings.Count(e.Arguments["relative"], "last") - 1
 
-		key := radio.LPKeyLast
-		if index > 0 {
-			// if our index is higher than 0 we need to lookup the key for that
-			_, next, err := ss.LastPlayedPagination(radio.LPKeyLast, 1, 50)
-			if err != nil {
-				return errors.E(op, err)
-			}
-			// make sure our index exists in the list
-			if index >= len(next) {
-				return errors.E(op, "index too far")
-			}
-
-			key = next[index]
-		}
-
-		songs, err := ss.LastPlayed(key, 1)
+		songs, err := ss.LastPlayed(radio.LPKeyLast, 50)
 		if err != nil {
 			return errors.E(op, err)
 		}
-		song = songs[0]
+
+		if index >= len(songs) {
+			return errors.E(op, "index too far")
+		}
+		song = songs[index]
 	} else if e.Arguments.Bool("TrackID") {
 		// for when a track number is given as argument
 		s, err := e.ArgumentTrack("TrackID")
