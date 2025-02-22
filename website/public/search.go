@@ -72,6 +72,7 @@ func NewSearchSharedInput(s radio.SearchService, rs radio.RequestStorage, r *htt
 			return nil, errors.E(op, err)
 		}
 		songs = searchResult.Songs
+		totalHits = searchResult.TotalHits
 	}
 
 	// RemoteAddr on the request should've already been scrubbed by some middleware to not
