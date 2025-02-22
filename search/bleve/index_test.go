@@ -5,8 +5,6 @@ import (
 	"testing"
 
 	radio "github.com/R-a-dio/valkyrie"
-	"github.com/blevesearch/bleve/v2"
-	"github.com/blevesearch/bleve/v2/search"
 	"github.com/stretchr/testify/require"
 )
 
@@ -55,23 +53,35 @@ func TestIndexing(t *testing.T) {
 	require.EqualValues(t, len(testData), count)
 
 	// now do our search tests
-	rq, err := NewQuery(ctx, "motome hana")
-	require.NoError(t, err)
+	t.Run("ngram romaji", func(t *testing.T) {
+		rq, err := NewQuery(ctx, "motome hana", false)
+		require.NoError(t, err)
 
-	req := bleve.NewSearchRequestOptions(rq, 100, 0, true)
-	req.SortByCustom(search.SortOrder{new(prioScoreSort)})
-	req.Fields = dataField
+		t.Log(rq)
+		req := NewSearchRequest(rq, 100, 0)
 
-	res, err := idx.index.Search(req)
-	require.NoError(t, err)
+		res, err := idx.index.Search(req)
+		require.NoError(t, err)
+		require.Equal(t, 1, res.Hits.Len())
+	})
 
-	t.Log(res)
+	t.Run("exact only", func(t *testing.T) {
+		rq, err := NewQuery(ctx, "toyosaki aki", true)
+		require.NoError(t, err)
+
+		t.Log(rq)
+		req := NewSearchRequest(rq, 100, 0)
+
+		res, err := idx.index.Search(req)
+		require.NoError(t, err)
+		require.Equal(t, 1, res.Hits.Len())
+	})
 }
 
 func TestAnalyzer(t *testing.T) {
 	idx := newIndex(t)
 
-	ian := idx.index.Mapping().AnalyzerNamed(indexAnalyzerName)
+	ian := idx.index.Mapping().AnalyzerNamed(radioAnalyzerName)
 
 	for _, in := range testData {
 		in := radio.Metadata(in.artist, in.title)
