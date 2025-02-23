@@ -649,6 +649,10 @@ func MessageFromError(err error) string {
 		return "No such user exists"
 	case errors.Is(errors.SongUnknown, err):
 		return "No such song exists"
+	case errors.Is(errors.StreamerNotRunning, err):
+		return "I'm not currently streaming"
+	case errors.Is(errors.StreamerAlreadyStopped, err):
+		return "I've already been ordered to stop"
 	}
 	return ""
 }
