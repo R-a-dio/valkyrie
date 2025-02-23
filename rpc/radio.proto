@@ -231,6 +231,12 @@ service Announcer {
     rpc AnnounceSong(SongAnnouncement) returns (google.protobuf.Empty);
     rpc AnnounceRequest(SongRequestAnnouncement) returns (google.protobuf.Empty);
     rpc AnnounceUser(UserAnnouncement) returns (google.protobuf.Empty);
+    rpc AnnounceMurder(MurderAnnouncement) returns (google.protobuf.Empty);
+}
+
+message MurderAnnouncement {
+    User by = 1;
+    bool force = 2;
 }
 
 message SongAnnouncement {

@@ -292,3 +292,7 @@ func (i *ircService) AnnounceSong(ctx context.Context, status radio.Status) erro
 func (i *ircService) AnnounceUser(ctx context.Context, user *radio.User) error {
 	return i.fn().AnnounceUser(ctx, user)
 }
+
+func (i *ircService) AnnounceMurder(ctx context.Context, by radio.User, force bool) error {
+	return i.fn().AnnounceMurder(ctx, by, force)
+}

@@ -576,6 +576,7 @@ type AnnounceService interface {
 	AnnounceSong(context.Context, Status) error
 	AnnounceRequest(context.Context, Song) error
 	AnnounceUser(context.Context, *User) error
+	AnnounceMurder(ctx context.Context, by User, force bool) error
 }
 
 // SongID is a songs identifier

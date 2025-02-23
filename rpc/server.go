@@ -86,6 +86,17 @@ func (as AnnouncerShim) AnnounceUser(ctx context.Context, au *UserAnnouncement) 
 	return new(emptypb.Empty), err
 }
 
+func (as AnnouncerShim) AnnounceMurder(ctx context.Context, ma *MurderAnnouncement) (*emptypb.Empty, error) {
+	var user radio.User
+	u := fromProtoUser(ma.By)
+	if u != nil {
+		user = *u
+	}
+
+	err := as.announcer.AnnounceMurder(ctx, user, ma.Force)
+	return new(emptypb.Empty), err
+}
+
 func NewProxy(p radio.ProxyService) ProxyServer {
 	return ProxyShim{
 		proxy: p,

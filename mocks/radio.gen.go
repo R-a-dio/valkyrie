@@ -1167,6 +1167,9 @@ var _ radio.AnnounceService = &AnnounceServiceMock{}
 //
 //		// make and configure a mocked radio.AnnounceService
 //		mockedAnnounceService := &AnnounceServiceMock{
+//			AnnounceMurderFunc: func(ctx context.Context, by radio.User, force bool) error {
+//				panic("mock out the AnnounceMurder method")
+//			},
 //			AnnounceRequestFunc: func(contextMoqParam context.Context, song radio.Song) error {
 //				panic("mock out the AnnounceRequest method")
 //			},
@@ -1183,6 +1186,9 @@ var _ radio.AnnounceService = &AnnounceServiceMock{}
 //
 //	}
 type AnnounceServiceMock struct {
+	// AnnounceMurderFunc mocks the AnnounceMurder method.
+	AnnounceMurderFunc func(ctx context.Context, by radio.User, force bool) error
+
 	// AnnounceRequestFunc mocks the AnnounceRequest method.
 	AnnounceRequestFunc func(contextMoqParam context.Context, song radio.Song) error
 
@@ -1194,6 +1200,15 @@ type AnnounceServiceMock struct {
 
 	// calls tracks calls to the methods.
 	calls struct {
+		// AnnounceMurder holds details about calls to the AnnounceMurder method.
+		AnnounceMurder []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// By is the by argument value.
+			By radio.User
+			// Force is the force argument value.
+			Force bool
+		}
 		// AnnounceRequest holds details about calls to the AnnounceRequest method.
 		AnnounceRequest []struct {
 			// ContextMoqParam is the contextMoqParam argument value.
@@ -1216,9 +1231,50 @@ type AnnounceServiceMock struct {
 			User *radio.User
 		}
 	}
+	lockAnnounceMurder  sync.RWMutex
 	lockAnnounceRequest sync.RWMutex
 	lockAnnounceSong    sync.RWMutex
 	lockAnnounceUser    sync.RWMutex
+}
+
+// AnnounceMurder calls AnnounceMurderFunc.
+func (mock *AnnounceServiceMock) AnnounceMurder(ctx context.Context, by radio.User, force bool) error {
+	if mock.AnnounceMurderFunc == nil {
+		panic("AnnounceServiceMock.AnnounceMurderFunc: method is nil but AnnounceService.AnnounceMurder was just called")
+	}
+	callInfo := struct {
+		Ctx   context.Context
+		By    radio.User
+		Force bool
+	}{
+		Ctx:   ctx,
+		By:    by,
+		Force: force,
+	}
+	mock.lockAnnounceMurder.Lock()
+	mock.calls.AnnounceMurder = append(mock.calls.AnnounceMurder, callInfo)
+	mock.lockAnnounceMurder.Unlock()
+	return mock.AnnounceMurderFunc(ctx, by, force)
+}
+
+// AnnounceMurderCalls gets all the calls that were made to AnnounceMurder.
+// Check the length with:
+//
+//	len(mockedAnnounceService.AnnounceMurderCalls())
+func (mock *AnnounceServiceMock) AnnounceMurderCalls() []struct {
+	Ctx   context.Context
+	By    radio.User
+	Force bool
+} {
+	var calls []struct {
+		Ctx   context.Context
+		By    radio.User
+		Force bool
+	}
+	mock.lockAnnounceMurder.RLock()
+	calls = mock.calls.AnnounceMurder
+	mock.lockAnnounceMurder.RUnlock()
+	return calls
 }
 
 // AnnounceRequest calls AnnounceRequestFunc.

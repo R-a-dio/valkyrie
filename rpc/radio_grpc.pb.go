@@ -1002,6 +1002,7 @@ const (
 	Announcer_AnnounceSong_FullMethodName    = "/radio.Announcer/AnnounceSong"
 	Announcer_AnnounceRequest_FullMethodName = "/radio.Announcer/AnnounceRequest"
 	Announcer_AnnounceUser_FullMethodName    = "/radio.Announcer/AnnounceUser"
+	Announcer_AnnounceMurder_FullMethodName  = "/radio.Announcer/AnnounceMurder"
 )
 
 // AnnouncerClient is the client API for Announcer service.
@@ -1011,6 +1012,7 @@ type AnnouncerClient interface {
 	AnnounceSong(ctx context.Context, in *SongAnnouncement, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	AnnounceRequest(ctx context.Context, in *SongRequestAnnouncement, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	AnnounceUser(ctx context.Context, in *UserAnnouncement, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	AnnounceMurder(ctx context.Context, in *MurderAnnouncement, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type announcerClient struct {
@@ -1051,6 +1053,16 @@ func (c *announcerClient) AnnounceUser(ctx context.Context, in *UserAnnouncement
 	return out, nil
 }
 
+func (c *announcerClient) AnnounceMurder(ctx context.Context, in *MurderAnnouncement, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, Announcer_AnnounceMurder_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AnnouncerServer is the server API for Announcer service.
 // All implementations must embed UnimplementedAnnouncerServer
 // for forward compatibility.
@@ -1058,6 +1070,7 @@ type AnnouncerServer interface {
 	AnnounceSong(context.Context, *SongAnnouncement) (*emptypb.Empty, error)
 	AnnounceRequest(context.Context, *SongRequestAnnouncement) (*emptypb.Empty, error)
 	AnnounceUser(context.Context, *UserAnnouncement) (*emptypb.Empty, error)
+	AnnounceMurder(context.Context, *MurderAnnouncement) (*emptypb.Empty, error)
 	mustEmbedUnimplementedAnnouncerServer()
 }
 
@@ -1076,6 +1089,9 @@ func (UnimplementedAnnouncerServer) AnnounceRequest(context.Context, *SongReques
 }
 func (UnimplementedAnnouncerServer) AnnounceUser(context.Context, *UserAnnouncement) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AnnounceUser not implemented")
+}
+func (UnimplementedAnnouncerServer) AnnounceMurder(context.Context, *MurderAnnouncement) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AnnounceMurder not implemented")
 }
 func (UnimplementedAnnouncerServer) mustEmbedUnimplementedAnnouncerServer() {}
 func (UnimplementedAnnouncerServer) testEmbeddedByValue()                   {}
@@ -1152,6 +1168,24 @@ func _Announcer_AnnounceUser_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Announcer_AnnounceMurder_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MurderAnnouncement)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AnnouncerServer).AnnounceMurder(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Announcer_AnnounceMurder_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AnnouncerServer).AnnounceMurder(ctx, req.(*MurderAnnouncement))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Announcer_ServiceDesc is the grpc.ServiceDesc for Announcer service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1170,6 +1204,10 @@ var Announcer_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AnnounceUser",
 			Handler:    _Announcer_AnnounceUser_Handler,
+		},
+		{
+			MethodName: "AnnounceMurder",
+			Handler:    _Announcer_AnnounceMurder_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
