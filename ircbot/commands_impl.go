@@ -469,7 +469,9 @@ func RandomTrackRequest(e Event) error {
 	} else if query != "" {
 		// query random, select of top 100 results
 		var res radio.SearchResult
-		res, err = e.Bot.Searcher.Search(e.Ctx, query, 100, 0)
+		res, err = e.Bot.Searcher.Search(e.Ctx, query, radio.SearchOptions{
+			Limit: 100,
+		})
 		if err != nil {
 			return errors.E(op, err)
 		}
@@ -526,7 +528,7 @@ func LuckyTrackRequest(e Event) error {
 		return nil
 	}
 
-	res, err := e.Bot.Searcher.Search(e.Ctx, query, 100, 0)
+	res, err := e.Bot.Searcher.Search(e.Ctx, query, radio.SearchOptions{Limit: 100})
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -572,7 +574,7 @@ func SearchTrack(e Event) error {
 	} else {
 		var res radio.SearchResult
 		query := e.Arguments["Query"]
-		res, err = e.Bot.Searcher.Search(e.Ctx, query, 5, 0)
+		res, err = e.Bot.Searcher.Search(e.Ctx, query, radio.SearchOptions{Limit: 5})
 		if err != nil {
 			return errors.E(op, err)
 		}

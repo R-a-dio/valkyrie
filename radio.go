@@ -353,9 +353,15 @@ type SongInfo struct {
 }
 
 type SearchService interface {
-	Search(ctx context.Context, query string, limit int64, offset int64) (SearchResult, error)
+	Search(ctx context.Context, query string, opt SearchOptions) (SearchResult, error)
 	Update(context.Context, ...Song) error
 	Delete(context.Context, ...TrackID) error
+}
+
+type SearchOptions struct {
+	Limit     int64
+	Offset    int64
+	ExactOnly bool
 }
 
 type SearchResult struct {

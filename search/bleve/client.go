@@ -51,9 +51,14 @@ func (se *SearchError) Error() string {
 
 var _ radio.SearchService = &Client{}
 
-func (c *Client) Search(ctx context.Context, query string, limit int64, offset int64) (radio.SearchResult, error) {
+func (c *Client) Search(ctx context.Context, query string, opt radio.SearchOptions) (radio.SearchResult, error) {
 	const op errors.Op = "search/bleve.Client.Search"
-	uri := c.searchURL + fmt.Sprintf("?q=%s&limit=%d&offset=%d", url.QueryEscape(query), limit, offset)
+	uri := c.searchURL + fmt.Sprintf("?q=%s&limit=%d&offset=%d&exact=%t",
+		url.QueryEscape(query),
+		opt.Limit,
+		opt.Offset,
+		opt.ExactOnly,
+	)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {

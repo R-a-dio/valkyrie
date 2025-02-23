@@ -99,7 +99,7 @@ func FuzzProcessQuery(f *testing.F) {
 	f.Fuzz(func(t *testing.T, ogq string) {
 		q := mariadb.ProcessQuery(ogq)
 
-		_, err := ss.Search(ctx, q, 20, 0)
+		_, err := ss.Search(ctx, q, radio.SearchOptions{Limit: 20})
 		if !errors.Is(errors.SearchNoResults, err) && !assert.NoError(t, err) {
 			t.Error(spew.Sdump([]byte(ogq)))
 			t.Error(spew.Sdump([]byte(q)))

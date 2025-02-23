@@ -67,7 +67,10 @@ func NewSearchSharedInput(s radio.SearchService, rs radio.RequestStorage, r *htt
 	var totalHits int
 	query := r.FormValue("q")
 	if len(query) > 0 {
-		searchResult, err := s.Search(ctx, query, searchPageSize, offset)
+		searchResult, err := s.Search(ctx, query, radio.SearchOptions{
+			Limit:  searchPageSize,
+			Offset: offset,
+		})
 		if err != nil && !errors.Is(errors.SearchNoResults, err) {
 			return nil, errors.E(op, err)
 		}

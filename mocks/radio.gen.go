@@ -24,7 +24,7 @@ var _ radio.SearchService = &SearchServiceMock{}
 //			DeleteFunc: func(contextMoqParam context.Context, trackIDs ...radio.TrackID) error {
 //				panic("mock out the Delete method")
 //			},
-//			SearchFunc: func(ctx context.Context, query string, limit int64, offset int64) (radio.SearchResult, error) {
+//			SearchFunc: func(ctx context.Context, query string, opt radio.SearchOptions) (radio.SearchResult, error) {
 //				panic("mock out the Search method")
 //			},
 //			UpdateFunc: func(contextMoqParam context.Context, songs ...radio.Song) error {
@@ -41,7 +41,7 @@ type SearchServiceMock struct {
 	DeleteFunc func(contextMoqParam context.Context, trackIDs ...radio.TrackID) error
 
 	// SearchFunc mocks the Search method.
-	SearchFunc func(ctx context.Context, query string, limit int64, offset int64) (radio.SearchResult, error)
+	SearchFunc func(ctx context.Context, query string, opt radio.SearchOptions) (radio.SearchResult, error)
 
 	// UpdateFunc mocks the Update method.
 	UpdateFunc func(contextMoqParam context.Context, songs ...radio.Song) error
@@ -61,10 +61,8 @@ type SearchServiceMock struct {
 			Ctx context.Context
 			// Query is the query argument value.
 			Query string
-			// Limit is the limit argument value.
-			Limit int64
-			// Offset is the offset argument value.
-			Offset int64
+			// Opt is the opt argument value.
+			Opt radio.SearchOptions
 		}
 		// Update holds details about calls to the Update method.
 		Update []struct {
@@ -116,25 +114,23 @@ func (mock *SearchServiceMock) DeleteCalls() []struct {
 }
 
 // Search calls SearchFunc.
-func (mock *SearchServiceMock) Search(ctx context.Context, query string, limit int64, offset int64) (radio.SearchResult, error) {
+func (mock *SearchServiceMock) Search(ctx context.Context, query string, opt radio.SearchOptions) (radio.SearchResult, error) {
 	if mock.SearchFunc == nil {
 		panic("SearchServiceMock.SearchFunc: method is nil but SearchService.Search was just called")
 	}
 	callInfo := struct {
-		Ctx    context.Context
-		Query  string
-		Limit  int64
-		Offset int64
+		Ctx   context.Context
+		Query string
+		Opt   radio.SearchOptions
 	}{
-		Ctx:    ctx,
-		Query:  query,
-		Limit:  limit,
-		Offset: offset,
+		Ctx:   ctx,
+		Query: query,
+		Opt:   opt,
 	}
 	mock.lockSearch.Lock()
 	mock.calls.Search = append(mock.calls.Search, callInfo)
 	mock.lockSearch.Unlock()
-	return mock.SearchFunc(ctx, query, limit, offset)
+	return mock.SearchFunc(ctx, query, opt)
 }
 
 // SearchCalls gets all the calls that were made to Search.
@@ -142,16 +138,14 @@ func (mock *SearchServiceMock) Search(ctx context.Context, query string, limit i
 //
 //	len(mockedSearchService.SearchCalls())
 func (mock *SearchServiceMock) SearchCalls() []struct {
-	Ctx    context.Context
-	Query  string
-	Limit  int64
-	Offset int64
+	Ctx   context.Context
+	Query string
+	Opt   radio.SearchOptions
 } {
 	var calls []struct {
-		Ctx    context.Context
-		Query  string
-		Limit  int64
-		Offset int64
+		Ctx   context.Context
+		Query string
+		Opt   radio.SearchOptions
 	}
 	mock.lockSearch.RLock()
 	calls = mock.calls.Search
