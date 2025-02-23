@@ -5946,6 +5946,9 @@ var _ radio.NewsStorage = &NewsStorageMock{}
 //			DeleteFunc: func(newsPostID radio.NewsPostID) error {
 //				panic("mock out the Delete method")
 //			},
+//			DeleteCommentFunc: func(newsCommentID radio.NewsCommentID) error {
+//				panic("mock out the DeleteComment method")
+//			},
 //			GetFunc: func(newsPostID radio.NewsPostID) (*radio.NewsPost, error) {
 //				panic("mock out the Get method")
 //			},
@@ -5979,6 +5982,9 @@ type NewsStorageMock struct {
 
 	// DeleteFunc mocks the Delete method.
 	DeleteFunc func(newsPostID radio.NewsPostID) error
+
+	// DeleteCommentFunc mocks the DeleteComment method.
+	DeleteCommentFunc func(newsCommentID radio.NewsCommentID) error
 
 	// GetFunc mocks the Get method.
 	GetFunc func(newsPostID radio.NewsPostID) (*radio.NewsPost, error)
@@ -6019,6 +6025,11 @@ type NewsStorageMock struct {
 			// NewsPostID is the newsPostID argument value.
 			NewsPostID radio.NewsPostID
 		}
+		// DeleteComment holds details about calls to the DeleteComment method.
+		DeleteComment []struct {
+			// NewsCommentID is the newsCommentID argument value.
+			NewsCommentID radio.NewsCommentID
+		}
 		// Get holds details about calls to the Get method.
 		Get []struct {
 			// NewsPostID is the newsPostID argument value.
@@ -6049,6 +6060,7 @@ type NewsStorageMock struct {
 	lockCommentsPublic sync.RWMutex
 	lockCreate         sync.RWMutex
 	lockDelete         sync.RWMutex
+	lockDeleteComment  sync.RWMutex
 	lockGet            sync.RWMutex
 	lockList           sync.RWMutex
 	lockListPublic     sync.RWMutex
@@ -6212,6 +6224,38 @@ func (mock *NewsStorageMock) DeleteCalls() []struct {
 	mock.lockDelete.RLock()
 	calls = mock.calls.Delete
 	mock.lockDelete.RUnlock()
+	return calls
+}
+
+// DeleteComment calls DeleteCommentFunc.
+func (mock *NewsStorageMock) DeleteComment(newsCommentID radio.NewsCommentID) error {
+	if mock.DeleteCommentFunc == nil {
+		panic("NewsStorageMock.DeleteCommentFunc: method is nil but NewsStorage.DeleteComment was just called")
+	}
+	callInfo := struct {
+		NewsCommentID radio.NewsCommentID
+	}{
+		NewsCommentID: newsCommentID,
+	}
+	mock.lockDeleteComment.Lock()
+	mock.calls.DeleteComment = append(mock.calls.DeleteComment, callInfo)
+	mock.lockDeleteComment.Unlock()
+	return mock.DeleteCommentFunc(newsCommentID)
+}
+
+// DeleteCommentCalls gets all the calls that were made to DeleteComment.
+// Check the length with:
+//
+//	len(mockedNewsStorage.DeleteCommentCalls())
+func (mock *NewsStorageMock) DeleteCommentCalls() []struct {
+	NewsCommentID radio.NewsCommentID
+} {
+	var calls []struct {
+		NewsCommentID radio.NewsCommentID
+	}
+	mock.lockDeleteComment.RLock()
+	calls = mock.calls.DeleteComment
+	mock.lockDeleteComment.RUnlock()
 	return calls
 }
 

@@ -1158,6 +1158,8 @@ type NewsStorage interface {
 	ListPublic(limit int64, offset int64) (NewsList, error)
 	// AddComment adds a comment to a news post
 	AddComment(NewsComment) (NewsCommentID, error)
+	// DeleteComment deletes a comment from a news post
+	DeleteComment(NewsCommentID) error
 	// Comments returns all comments associated with the news post given
 	Comments(NewsPostID) ([]NewsComment, error)
 	// CommentsPublic returns all comments that were not deleted
