@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"strings"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -250,7 +251,6 @@ func (s *State) PostNewsEntry(w http.ResponseWriter, r *http.Request) {
 		}
 		if isSpam {
 			hlog.FromRequest(r).Warn().Ctx(r.Context()).Str("comment", comment.Body).Msg("news comment was marked as spam")
-			s.errorHandler(w, r, errors.E(op, errors.Spam))
 			return
 		}
 	}
@@ -281,7 +281,7 @@ func ParsePostNewsEntryForm(r *http.Request) (*radio.NewsComment, error) {
 	comment := radio.NewsComment{
 		ID:         0,
 		PostID:     newsid,
-		Body:       r.FormValue("comment"),
+		Body:       strings.TrimSpace(r.FormValue("comment")),
 		Identifier: r.RemoteAddr,
 		User:       middleware.UserFromContext(ctx),
 		CreatedAt:  time.Now(),
@@ -291,6 +291,9 @@ func ParsePostNewsEntryForm(r *http.Request) (*radio.NewsComment, error) {
 		comment.UserID = &comment.User.ID
 	}
 
+	if len(comment.Body) == 0 { // comment too small
+		return nil, errors.E(op, errors.InvalidForm)
+	}
 	if len(comment.Body) > 500 { // comment too big
 		return nil, errors.E(op, errors.InvalidForm)
 	}
