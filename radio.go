@@ -471,7 +471,7 @@ const (
 
 type StreamerService interface {
 	Start(context.Context) error
-	Stop(ctx context.Context, force bool) error
+	Stop(ctx context.Context, who *User, force bool) error
 
 	RequestSong(context.Context, Song, string) error
 	// Deprecated: use QueueService
@@ -576,7 +576,7 @@ type AnnounceService interface {
 	AnnounceSong(context.Context, Status) error
 	AnnounceRequest(context.Context, Song) error
 	AnnounceUser(context.Context, *User) error
-	AnnounceMurder(ctx context.Context, by User, force bool) error
+	AnnounceMurder(ctx context.Context, by *User, force bool) error
 }
 
 // SongID is a songs identifier

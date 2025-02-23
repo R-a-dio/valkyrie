@@ -1230,7 +1230,7 @@ type StreamerClient interface {
 	Start(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*StreamerResponse, error)
 	// Stop stops the streamer, the boolean argument indicates if we should stop
 	// right away, or wait until the current song ends
-	Stop(ctx context.Context, in *wrapperspb.BoolValue, opts ...grpc.CallOption) (*StreamerResponse, error)
+	Stop(ctx context.Context, in *StreamerStopRequest, opts ...grpc.CallOption) (*StreamerResponse, error)
 	// RequestSong requests a song to be played by the streamer
 	RequestSong(ctx context.Context, in *SongRequest, opts ...grpc.CallOption) (*RequestResponse, error)
 	// SetConfig changes the configuration of the streamer
@@ -1257,7 +1257,7 @@ func (c *streamerClient) Start(ctx context.Context, in *emptypb.Empty, opts ...g
 	return out, nil
 }
 
-func (c *streamerClient) Stop(ctx context.Context, in *wrapperspb.BoolValue, opts ...grpc.CallOption) (*StreamerResponse, error) {
+func (c *streamerClient) Stop(ctx context.Context, in *StreamerStopRequest, opts ...grpc.CallOption) (*StreamerResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(StreamerResponse)
 	err := c.cc.Invoke(ctx, Streamer_Stop_FullMethodName, in, out, cOpts...)
@@ -1305,7 +1305,7 @@ type StreamerServer interface {
 	Start(context.Context, *emptypb.Empty) (*StreamerResponse, error)
 	// Stop stops the streamer, the boolean argument indicates if we should stop
 	// right away, or wait until the current song ends
-	Stop(context.Context, *wrapperspb.BoolValue) (*StreamerResponse, error)
+	Stop(context.Context, *StreamerStopRequest) (*StreamerResponse, error)
 	// RequestSong requests a song to be played by the streamer
 	RequestSong(context.Context, *SongRequest) (*RequestResponse, error)
 	// SetConfig changes the configuration of the streamer
@@ -1325,7 +1325,7 @@ type UnimplementedStreamerServer struct{}
 func (UnimplementedStreamerServer) Start(context.Context, *emptypb.Empty) (*StreamerResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Start not implemented")
 }
-func (UnimplementedStreamerServer) Stop(context.Context, *wrapperspb.BoolValue) (*StreamerResponse, error) {
+func (UnimplementedStreamerServer) Stop(context.Context, *StreamerStopRequest) (*StreamerResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Stop not implemented")
 }
 func (UnimplementedStreamerServer) RequestSong(context.Context, *SongRequest) (*RequestResponse, error) {
@@ -1377,7 +1377,7 @@ func _Streamer_Start_Handler(srv interface{}, ctx context.Context, dec func(inte
 }
 
 func _Streamer_Stop_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(wrapperspb.BoolValue)
+	in := new(StreamerStopRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -1389,7 +1389,7 @@ func _Streamer_Stop_Handler(srv interface{}, ctx context.Context, dec func(inter
 		FullMethod: Streamer_Stop_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(StreamerServer).Stop(ctx, req.(*wrapperspb.BoolValue))
+		return srv.(StreamerServer).Stop(ctx, req.(*StreamerStopRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }

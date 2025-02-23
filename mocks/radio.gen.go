@@ -700,7 +700,7 @@ var _ radio.StreamerService = &StreamerServiceMock{}
 //			StartFunc: func(contextMoqParam context.Context) error {
 //				panic("mock out the Start method")
 //			},
-//			StopFunc: func(ctx context.Context, force bool) error {
+//			StopFunc: func(ctx context.Context, who *radio.User, force bool) error {
 //				panic("mock out the Stop method")
 //			},
 //		}
@@ -720,7 +720,7 @@ type StreamerServiceMock struct {
 	StartFunc func(contextMoqParam context.Context) error
 
 	// StopFunc mocks the Stop method.
-	StopFunc func(ctx context.Context, force bool) error
+	StopFunc func(ctx context.Context, who *radio.User, force bool) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -747,6 +747,8 @@ type StreamerServiceMock struct {
 		Stop []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
+			// Who is the who argument value.
+			Who *radio.User
 			// Force is the force argument value.
 			Force bool
 		}
@@ -862,21 +864,23 @@ func (mock *StreamerServiceMock) StartCalls() []struct {
 }
 
 // Stop calls StopFunc.
-func (mock *StreamerServiceMock) Stop(ctx context.Context, force bool) error {
+func (mock *StreamerServiceMock) Stop(ctx context.Context, who *radio.User, force bool) error {
 	if mock.StopFunc == nil {
 		panic("StreamerServiceMock.StopFunc: method is nil but StreamerService.Stop was just called")
 	}
 	callInfo := struct {
 		Ctx   context.Context
+		Who   *radio.User
 		Force bool
 	}{
 		Ctx:   ctx,
+		Who:   who,
 		Force: force,
 	}
 	mock.lockStop.Lock()
 	mock.calls.Stop = append(mock.calls.Stop, callInfo)
 	mock.lockStop.Unlock()
-	return mock.StopFunc(ctx, force)
+	return mock.StopFunc(ctx, who, force)
 }
 
 // StopCalls gets all the calls that were made to Stop.
@@ -885,10 +889,12 @@ func (mock *StreamerServiceMock) Stop(ctx context.Context, force bool) error {
 //	len(mockedStreamerService.StopCalls())
 func (mock *StreamerServiceMock) StopCalls() []struct {
 	Ctx   context.Context
+	Who   *radio.User
 	Force bool
 } {
 	var calls []struct {
 		Ctx   context.Context
+		Who   *radio.User
 		Force bool
 	}
 	mock.lockStop.RLock()
@@ -1167,7 +1173,7 @@ var _ radio.AnnounceService = &AnnounceServiceMock{}
 //
 //		// make and configure a mocked radio.AnnounceService
 //		mockedAnnounceService := &AnnounceServiceMock{
-//			AnnounceMurderFunc: func(ctx context.Context, by radio.User, force bool) error {
+//			AnnounceMurderFunc: func(ctx context.Context, by *radio.User, force bool) error {
 //				panic("mock out the AnnounceMurder method")
 //			},
 //			AnnounceRequestFunc: func(contextMoqParam context.Context, song radio.Song) error {
@@ -1187,7 +1193,7 @@ var _ radio.AnnounceService = &AnnounceServiceMock{}
 //	}
 type AnnounceServiceMock struct {
 	// AnnounceMurderFunc mocks the AnnounceMurder method.
-	AnnounceMurderFunc func(ctx context.Context, by radio.User, force bool) error
+	AnnounceMurderFunc func(ctx context.Context, by *radio.User, force bool) error
 
 	// AnnounceRequestFunc mocks the AnnounceRequest method.
 	AnnounceRequestFunc func(contextMoqParam context.Context, song radio.Song) error
@@ -1205,7 +1211,7 @@ type AnnounceServiceMock struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// By is the by argument value.
-			By radio.User
+			By *radio.User
 			// Force is the force argument value.
 			Force bool
 		}
@@ -1238,13 +1244,13 @@ type AnnounceServiceMock struct {
 }
 
 // AnnounceMurder calls AnnounceMurderFunc.
-func (mock *AnnounceServiceMock) AnnounceMurder(ctx context.Context, by radio.User, force bool) error {
+func (mock *AnnounceServiceMock) AnnounceMurder(ctx context.Context, by *radio.User, force bool) error {
 	if mock.AnnounceMurderFunc == nil {
 		panic("AnnounceServiceMock.AnnounceMurderFunc: method is nil but AnnounceService.AnnounceMurder was just called")
 	}
 	callInfo := struct {
 		Ctx   context.Context
-		By    radio.User
+		By    *radio.User
 		Force bool
 	}{
 		Ctx:   ctx,
@@ -1263,12 +1269,12 @@ func (mock *AnnounceServiceMock) AnnounceMurder(ctx context.Context, by radio.Us
 //	len(mockedAnnounceService.AnnounceMurderCalls())
 func (mock *AnnounceServiceMock) AnnounceMurderCalls() []struct {
 	Ctx   context.Context
-	By    radio.User
+	By    *radio.User
 	Force bool
 } {
 	var calls []struct {
 		Ctx   context.Context
-		By    radio.User
+		By    *radio.User
 		Force bool
 	}
 	mock.lockAnnounceMurder.RLock()

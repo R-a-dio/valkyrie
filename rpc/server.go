@@ -87,13 +87,7 @@ func (as AnnouncerShim) AnnounceUser(ctx context.Context, au *UserAnnouncement) 
 }
 
 func (as AnnouncerShim) AnnounceMurder(ctx context.Context, ma *MurderAnnouncement) (*emptypb.Empty, error) {
-	var user radio.User
-	u := fromProtoUser(ma.By)
-	if u != nil {
-		user = *u
-	}
-
-	err := as.announcer.AnnounceMurder(ctx, user, ma.Force)
+	err := as.announcer.AnnounceMurder(ctx, fromProtoUser(ma.By), ma.Force)
 	return new(emptypb.Empty), err
 }
 
@@ -315,8 +309,8 @@ func (ss StreamerShim) Start(ctx context.Context, _ *emptypb.Empty) (*StreamerRe
 }
 
 // Stop implements Streamer
-func (ss StreamerShim) Stop(ctx context.Context, force *wrapperspb.BoolValue) (*StreamerResponse, error) {
-	err := ss.streamer.Stop(ctx, force.Value)
+func (ss StreamerShim) Stop(ctx context.Context, ssr *StreamerStopRequest) (*StreamerResponse, error) {
+	err := ss.streamer.Stop(ctx, fromProtoUser(ssr.Who), ssr.Force)
 	resp := new(StreamerResponse)
 	resp.Error, err = toProtoError(err)
 	return resp, err

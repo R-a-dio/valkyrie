@@ -58,12 +58,23 @@ func (s *streamerService) Start(ctx context.Context) error {
 }
 
 // Stop implements radio.StreamerService
-func (s *streamerService) Stop(ctx context.Context, force bool) error {
+func (s *streamerService) Stop(ctx context.Context, who *radio.User, force bool) error {
 	const op errors.Op = "streamer/streamerService.Stop"
+
+	zerolog.Ctx(ctx).Info().Ctx(ctx).
+		Str("who", who.Username).
+		Bool("force", force).
+		Msg("murder attempt")
 
 	err := s.streamer.Stop(ctx, force)
 	if err != nil {
 		return errors.E(op, err)
+	}
+
+	err = s.announce.AnnounceMurder(ctx, who, force)
+	if err != nil {
+		zerolog.Ctx(ctx).Err(err).Ctx(ctx).Msg("failed to announce murder")
+		// not a critical error, continue
 	}
 	return nil
 }

@@ -415,7 +415,7 @@ func KillStreamer(e Event) error {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute*15)
 		defer cancel()
 
-		err := e.Bot.Streamer.Stop(ctx, force)
+		err := e.Bot.Streamer.Stop(ctx, nil, force)
 		if err != nil {
 			quickErr <- err
 			return

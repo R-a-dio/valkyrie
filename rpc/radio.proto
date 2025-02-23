@@ -258,13 +258,18 @@ service Streamer {
     rpc Start(google.protobuf.Empty) returns (StreamerResponse);
     // Stop stops the streamer, the boolean argument indicates if we should stop
     // right away, or wait until the current song ends
-    rpc Stop(google.protobuf.BoolValue) returns (StreamerResponse);
+    rpc Stop(StreamerStopRequest) returns (StreamerResponse);
     // RequestSong requests a song to be played by the streamer
     rpc RequestSong(SongRequest) returns (RequestResponse);
     // SetConfig changes the configuration of the streamer
     rpc SetConfig(StreamerConfig) returns (google.protobuf.Empty);
     // Queue returns the current queue contents of the streamer
     rpc Queue(google.protobuf.Empty) returns (QueueInfo);
+}
+
+message StreamerStopRequest {
+    User who = 1;
+    bool Force = 2;
 }
 
 message StreamerResponse {

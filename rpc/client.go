@@ -115,9 +115,9 @@ func (a AnnouncerClientRPC) AnnounceUser(ctx context.Context, u *radio.User) err
 	return err
 }
 
-func (a AnnouncerClientRPC) AnnounceMurder(ctx context.Context, by radio.User, force bool) error {
+func (a AnnouncerClientRPC) AnnounceMurder(ctx context.Context, by *radio.User, force bool) error {
 	ma := &MurderAnnouncement{
-		By:    toProtoUser(&by),
+		By:    toProtoUser(by),
 		Force: force,
 	}
 
@@ -323,8 +323,11 @@ func (s StreamerClientRPC) Start(ctx context.Context) error {
 }
 
 // Stop implements radio.StreamerService
-func (s StreamerClientRPC) Stop(ctx context.Context, force bool) error {
-	resp, err := s.rpc.Stop(ctx, wrapperspb.Bool(force))
+func (s StreamerClientRPC) Stop(ctx context.Context, who *radio.User, force bool) error {
+	resp, err := s.rpc.Stop(ctx, &StreamerStopRequest{
+		Who:   toProtoUser(who),
+		Force: force,
+	})
 	if err != nil {
 		return err
 	}
