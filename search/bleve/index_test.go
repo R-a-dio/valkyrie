@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newIndex(t testing.TB) *indexWrap {
+func newTestIndex(t testing.TB) *indexWrap {
 	idx, err := NewIndex(":memory:")
 	require.NoError(t, err)
 	t.Cleanup(func() {
@@ -30,7 +30,7 @@ var testData = []song{
 
 func TestIndexing(t *testing.T) {
 	ctx := context.Background()
-	idx := newIndex(t)
+	idx := newTestIndex(t)
 
 	var songs []radio.Song
 	for i, song := range testData {
@@ -79,7 +79,7 @@ func TestIndexing(t *testing.T) {
 }
 
 func TestAnalyzer(t *testing.T) {
-	idx := newIndex(t)
+	idx := newTestIndex(t)
 
 	ian := idx.index.Mapping().AnalyzerNamed(radioAnalyzerName)
 

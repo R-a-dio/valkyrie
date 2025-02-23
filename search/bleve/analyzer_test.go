@@ -54,7 +54,7 @@ func repeatToLength(s string, l int) string {
 }
 
 func BenchmarkRadioAnalyzer(b *testing.B) {
-	idx := newIndex(b)
+	idx := newTestIndex(b)
 	a := idx.index.Mapping().AnalyzerNamed(radioAnalyzerName)
 
 	fn := func(s string) func(b *testing.B) {
@@ -72,7 +72,7 @@ func BenchmarkRadioAnalyzer(b *testing.B) {
 }
 
 func BenchmarkExactAnalyzer(b *testing.B) {
-	idx := newIndex(b)
+	idx := newTestIndex(b)
 	a := idx.index.Mapping().AnalyzerNamed(exactAnalyzerName)
 
 	fn := func(s string) func(b *testing.B) {

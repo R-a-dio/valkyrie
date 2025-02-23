@@ -3,6 +3,7 @@ package bleve
 import (
 	"context"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/blevesearch/bleve/v2/document"
 	"github.com/blevesearch/bleve/v2/mapping"
 	index "github.com/blevesearch/bleve_index_api"
+	"github.com/rs/xid"
 	"github.com/vmihailenco/msgpack/v4"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -100,7 +102,8 @@ func toIndexSong(s radio.Song) *indexSong {
 }
 
 type indexWrap struct {
-	index bleve.Index
+	indexPath string
+	index     bleve.Index
 }
 
 func (b *indexWrap) Close() error {
@@ -345,7 +348,7 @@ func NewIndex(indexPath string) (*indexWrap, error) {
 	idx, err := bleve.Open(indexPath)
 	if err == nil {
 		// happy path, we have an index and opened it
-		return &indexWrap{idx}, nil
+		return &indexWrap{indexPath, idx}, nil
 	}
 
 	// check if error was not-exist
@@ -353,12 +356,27 @@ func NewIndex(indexPath string) (*indexWrap, error) {
 		return nil, errors.E(op, err)
 	}
 
+	idx, err = newIndex(indexPath)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	return &indexWrap{
+		indexPath: indexPath,
+		index:     idx,
+	}, nil
+}
+
+func newIndex(indexPath string) (bleve.Index, error) {
+	const op errors.Op = "search/bleve.newIndex"
+
 	// if it was, create a new index instead
 	mapping, err := constructIndexMapping()
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
 
+	var idx bleve.Index
 	if indexPath == ":memory:" { // support memory-only index for testing purposes
 		idx, err = bleve.NewMemOnly(mapping)
 	} else {
@@ -367,5 +385,36 @@ func NewIndex(indexPath string) (*indexWrap, error) {
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
-	return &indexWrap{idx}, nil
+	return idx, nil
+}
+
+func (b *indexWrap) RebuildIndex(ctx context.Context, ts radio.TrackStorage) error {
+	const op errors.Op = "bleve.RebuildIndex"
+
+	var indexPath string
+
+	// create a temporary dir for our new index
+	indexPath = filepath.Join(indexPath, xid.New().String())
+
+	// create a new index in that location
+	idx, err := newIndex(indexPath)
+	if err != nil {
+		return errors.E(op, err)
+	}
+
+	// wrap it into our API, this is temporary
+	ss := &indexWrap{indexPath, idx}
+
+	// now get all the songs
+	songs, err := ts.All()
+	if err != nil {
+		return errors.E(op, err)
+	}
+	// and add them to the new index
+	err = ss.Index(ctx, songs)
+	if err != nil {
+		return errors.E(op, err)
+	}
+
+	return nil
 }
