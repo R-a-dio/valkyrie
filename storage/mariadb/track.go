@@ -944,17 +944,10 @@ func (ts TrackStorage) All() ([]radio.Song, error) {
 	handle, deferFn := ts.handle.span(op)
 	defer deferFn()
 
-	var songs = []radio.Song{}
-
-	err := sqlx.Select(handle, &songs, trackAllQuery)
-	if err != nil {
-		return nil, errors.E(op, err)
-	}
-
-	for i := range songs {
-		songs[i].Hydrate()
-	}
-	return songs, nil
+	return Collect(Each(SelectIter[radio.Song](handle, trackAllQuery), func(s radio.Song) radio.Song {
+		s.Hydrate()
+		return s
+	}))
 }
 
 var trackUnusableQuery = expand(`
