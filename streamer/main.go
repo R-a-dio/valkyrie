@@ -66,6 +66,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 		return nil
 	case err = <-errCh:
 		streamer.Stop(ctx, true)
+		streamer.Wait(ctx)
 		return err
 	}
 }

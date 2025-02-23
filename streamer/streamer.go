@@ -389,14 +389,14 @@ func (s *Streamer) Stop(ctx context.Context, force bool) error {
 		s.cancel(ErrForce)
 		s.forced.Store(true)
 		s.mu.Unlock()
-		return s.Wait(ctx)
+		return nil
 	}
 
 	// #2 is a normal stop, this will exit once the current song ends, we achieve this
 	// by closing the input channel then waiting for the icecast to notice the close.
 	s.trackStore.CyclePopCh()
 	s.mu.Unlock()
-	return s.Wait(ctx)
+	return nil
 }
 
 func (s *Streamer) Wait(ctx context.Context) error {
@@ -423,7 +423,12 @@ func (s *Streamer) handleRestart(ctx context.Context) error {
 	// #3 is a force stop, but we instruct the routines to store their state by
 	// using the fdstorage and restart afterwards
 	s.restart.Store(true)
-	return s.Stop(ctx, true)
+
+	err := s.Stop(ctx, true)
+	if err != nil {
+		return err
+	}
+	return s.Wait(ctx)
 }
 
 func (s *Streamer) encoder(ctx context.Context, encoder *audio.LAME) error {

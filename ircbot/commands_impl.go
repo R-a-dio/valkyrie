@@ -415,7 +415,9 @@ func KillStreamer(e Event) error {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute*15)
 		defer cancel()
 
-		err := e.Bot.Streamer.Stop(ctx, nil, force)
+		// we don't actually have the user available here, so we're going to "cheat"
+		// by just giving it a name only, this is very brittle
+		err := e.Bot.Streamer.Stop(ctx, &radio.User{Username: e.Source.Name}, force)
 		if err != nil {
 			quickErr <- err
 			return
@@ -431,19 +433,6 @@ func KillStreamer(e Event) error {
 		}
 	case <-time.After(time.Second):
 	case <-e.Ctx.Done():
-	}
-
-	status := e.Bot.StatusValue.Latest()
-
-	until := time.Until(status.SongInfo.End)
-	if force {
-		e.EchoPublic("Disconnecting right now")
-	} else if until <= 0 {
-		e.EchoPublic("Disconnecting after the current song")
-	} else {
-		e.EchoPublic("Disconnecting in about %s",
-			FormatLongDuration(until),
-		)
 	}
 
 	return nil
