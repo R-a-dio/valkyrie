@@ -154,6 +154,7 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 		r.Get("/news/{NewsID:[0-9]+|new}", p(radio.PermNews, s.GetNewsEntry))
 		r.Post("/news/{NewsID:[0-9]+|new}", p(radio.PermNews, s.PostNewsEntry))
 		r.Post("/news/render", p(radio.PermNews, s.PostNewsRender))
+		r.Post("/news/comments/remove", p(radio.PermAdmin, s.PostNewsCommentDelete))
 		r.Get("/queue", p(radio.PermQueueEdit, s.GetQueue))
 		r.Post("/queue/remove", p(radio.PermQueueEdit, s.PostQueueRemove))
 		r.Get("/schedule", p(radio.PermScheduleEdit, s.GetSchedule))
