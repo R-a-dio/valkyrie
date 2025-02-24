@@ -27,6 +27,11 @@ type FavesInput struct {
 	Faves           []radio.Song
 	FaveCount       int64
 	Page            *shared.Pagination
+
+	// IsError indicates if the message given is an error
+	IsError bool
+	// Message to show at the top of the page
+	Message string
 }
 
 func (FavesInput) TemplateBundle() string {

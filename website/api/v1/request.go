@@ -75,7 +75,12 @@ func (a *API) PostRequest(w http.ResponseWriter, r *http.Request) {
 			zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("")
 			return
 		}
-		// TODO: message handling
+		if message == "" {
+			fi.Message = "Thank you for requesting"
+		} else {
+			fi.Message = message
+			fi.IsError = true
+		}
 		input = fi
 	} else {
 		si, err := public.NewSearchInput(
