@@ -25,10 +25,10 @@ var _ templates.Executor = &ExecutorMock{}
 //			ExecuteFunc: func(w io.Writer, r *http.Request, input templates.TemplateSelectable) error {
 //				panic("mock out the Execute method")
 //			},
-//			ExecuteAllFunc: func(input templates.TemplateSelectable) (map[radio.ThemeName][]byte, error) {
+//			ExecuteAllFunc: func(ctx context.Context, input templates.TemplateSelectable) (map[radio.ThemeName][]byte, error) {
 //				panic("mock out the ExecuteAll method")
 //			},
-//			ExecuteAllAdminFunc: func(input templates.TemplateSelectable) (map[radio.ThemeName][]byte, error) {
+//			ExecuteAllAdminFunc: func(ctx context.Context, input templates.TemplateSelectable) (map[radio.ThemeName][]byte, error) {
 //				panic("mock out the ExecuteAllAdmin method")
 //			},
 //			ExecuteTemplateFunc: func(ctx context.Context, theme radio.ThemeName, page string, template string, output io.Writer, input any) error {
@@ -45,10 +45,10 @@ type ExecutorMock struct {
 	ExecuteFunc func(w io.Writer, r *http.Request, input templates.TemplateSelectable) error
 
 	// ExecuteAllFunc mocks the ExecuteAll method.
-	ExecuteAllFunc func(input templates.TemplateSelectable) (map[radio.ThemeName][]byte, error)
+	ExecuteAllFunc func(ctx context.Context, input templates.TemplateSelectable) (map[radio.ThemeName][]byte, error)
 
 	// ExecuteAllAdminFunc mocks the ExecuteAllAdmin method.
-	ExecuteAllAdminFunc func(input templates.TemplateSelectable) (map[radio.ThemeName][]byte, error)
+	ExecuteAllAdminFunc func(ctx context.Context, input templates.TemplateSelectable) (map[radio.ThemeName][]byte, error)
 
 	// ExecuteTemplateFunc mocks the ExecuteTemplate method.
 	ExecuteTemplateFunc func(ctx context.Context, theme radio.ThemeName, page string, template string, output io.Writer, input any) error
@@ -66,11 +66,15 @@ type ExecutorMock struct {
 		}
 		// ExecuteAll holds details about calls to the ExecuteAll method.
 		ExecuteAll []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
 			// Input is the input argument value.
 			Input templates.TemplateSelectable
 		}
 		// ExecuteAllAdmin holds details about calls to the ExecuteAllAdmin method.
 		ExecuteAllAdmin []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
 			// Input is the input argument value.
 			Input templates.TemplateSelectable
 		}
@@ -137,19 +141,21 @@ func (mock *ExecutorMock) ExecuteCalls() []struct {
 }
 
 // ExecuteAll calls ExecuteAllFunc.
-func (mock *ExecutorMock) ExecuteAll(input templates.TemplateSelectable) (map[radio.ThemeName][]byte, error) {
+func (mock *ExecutorMock) ExecuteAll(ctx context.Context, input templates.TemplateSelectable) (map[radio.ThemeName][]byte, error) {
 	if mock.ExecuteAllFunc == nil {
 		panic("ExecutorMock.ExecuteAllFunc: method is nil but Executor.ExecuteAll was just called")
 	}
 	callInfo := struct {
+		Ctx   context.Context
 		Input templates.TemplateSelectable
 	}{
+		Ctx:   ctx,
 		Input: input,
 	}
 	mock.lockExecuteAll.Lock()
 	mock.calls.ExecuteAll = append(mock.calls.ExecuteAll, callInfo)
 	mock.lockExecuteAll.Unlock()
-	return mock.ExecuteAllFunc(input)
+	return mock.ExecuteAllFunc(ctx, input)
 }
 
 // ExecuteAllCalls gets all the calls that were made to ExecuteAll.
@@ -157,9 +163,11 @@ func (mock *ExecutorMock) ExecuteAll(input templates.TemplateSelectable) (map[ra
 //
 //	len(mockedExecutor.ExecuteAllCalls())
 func (mock *ExecutorMock) ExecuteAllCalls() []struct {
+	Ctx   context.Context
 	Input templates.TemplateSelectable
 } {
 	var calls []struct {
+		Ctx   context.Context
 		Input templates.TemplateSelectable
 	}
 	mock.lockExecuteAll.RLock()
@@ -169,19 +177,21 @@ func (mock *ExecutorMock) ExecuteAllCalls() []struct {
 }
 
 // ExecuteAllAdmin calls ExecuteAllAdminFunc.
-func (mock *ExecutorMock) ExecuteAllAdmin(input templates.TemplateSelectable) (map[radio.ThemeName][]byte, error) {
+func (mock *ExecutorMock) ExecuteAllAdmin(ctx context.Context, input templates.TemplateSelectable) (map[radio.ThemeName][]byte, error) {
 	if mock.ExecuteAllAdminFunc == nil {
 		panic("ExecutorMock.ExecuteAllAdminFunc: method is nil but Executor.ExecuteAllAdmin was just called")
 	}
 	callInfo := struct {
+		Ctx   context.Context
 		Input templates.TemplateSelectable
 	}{
+		Ctx:   ctx,
 		Input: input,
 	}
 	mock.lockExecuteAllAdmin.Lock()
 	mock.calls.ExecuteAllAdmin = append(mock.calls.ExecuteAllAdmin, callInfo)
 	mock.lockExecuteAllAdmin.Unlock()
-	return mock.ExecuteAllAdminFunc(input)
+	return mock.ExecuteAllAdminFunc(ctx, input)
 }
 
 // ExecuteAllAdminCalls gets all the calls that were made to ExecuteAllAdmin.
@@ -189,9 +199,11 @@ func (mock *ExecutorMock) ExecuteAllAdmin(input templates.TemplateSelectable) (m
 //
 //	len(mockedExecutor.ExecuteAllAdminCalls())
 func (mock *ExecutorMock) ExecuteAllAdminCalls() []struct {
+	Ctx   context.Context
 	Input templates.TemplateSelectable
 } {
 	var calls []struct {
+		Ctx   context.Context
 		Input templates.TemplateSelectable
 	}
 	mock.lockExecuteAllAdmin.RLock()

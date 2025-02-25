@@ -42,8 +42,8 @@ func (bg background) Delete(ctx context.Context, tids ...radio.TrackID) error {
 	return nil
 }
 
-func (bg background) Search(ctx context.Context, query string, limit, offset int64) (radio.SearchResult, error) {
-	return bg.search.Search(ctx, query, limit, offset)
+func (bg background) Search(ctx context.Context, query string, opt radio.SearchOptions) (radio.SearchResult, error) {
+	return bg.search.Search(ctx, query, opt)
 }
 
 // partialStorage is an interface containing all the methods we are NOT interested in.

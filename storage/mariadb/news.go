@@ -179,6 +179,34 @@ func (ns NewsStorage) AddComment(comment radio.NewsComment) (radio.NewsCommentID
 	return radio.NewsCommentID(new), nil
 }
 
+const newsCommentDeleteQuery = `
+UPDATE
+	radio_comments
+SET
+	deleted_at=NOW()
+WHERE
+	id=:id;
+`
+
+var _ = CheckQuery[DeleteCommentParams](newsCommentDeleteQuery)
+
+type DeleteCommentParams struct {
+	ID radio.NewsCommentID
+}
+
+func (ns NewsStorage) DeleteComment(id radio.NewsCommentID) error {
+	const op errors.Op = "mariadb/NewsStorage.DeleteComment"
+	handle, deferFn := ns.handle.span(op)
+	defer deferFn()
+
+	_, err := sqlx.NamedExec(handle, newsCommentDeleteQuery, DeleteCommentParams{ID: id})
+	if err != nil {
+		return errors.E(op, err)
+	}
+
+	return nil
+}
+
 const newsUpdateQuery = `
 UPDATE
 	radio_news

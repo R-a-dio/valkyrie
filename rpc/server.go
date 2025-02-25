@@ -86,6 +86,11 @@ func (as AnnouncerShim) AnnounceUser(ctx context.Context, au *UserAnnouncement) 
 	return new(emptypb.Empty), err
 }
 
+func (as AnnouncerShim) AnnounceMurder(ctx context.Context, ma *MurderAnnouncement) (*emptypb.Empty, error) {
+	err := as.announcer.AnnounceMurder(ctx, fromProtoUser(ma.By), ma.Force)
+	return new(emptypb.Empty), err
+}
+
 func NewProxy(p radio.ProxyService) ProxyServer {
 	return ProxyShim{
 		proxy: p,
@@ -304,8 +309,8 @@ func (ss StreamerShim) Start(ctx context.Context, _ *emptypb.Empty) (*StreamerRe
 }
 
 // Stop implements Streamer
-func (ss StreamerShim) Stop(ctx context.Context, force *wrapperspb.BoolValue) (*StreamerResponse, error) {
-	err := ss.streamer.Stop(ctx, force.Value)
+func (ss StreamerShim) Stop(ctx context.Context, ssr *StreamerStopRequest) (*StreamerResponse, error) {
+	err := ss.streamer.Stop(ctx, fromProtoUser(ssr.Who), ssr.Force)
 	resp := new(StreamerResponse)
 	resp.Error, err = toProtoError(err)
 	return resp, err

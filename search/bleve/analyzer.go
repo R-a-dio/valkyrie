@@ -15,53 +15,27 @@ import (
 	"github.com/blevesearch/bleve/v2/analysis/token/unicodenorm"
 	"github.com/blevesearch/bleve/v2/analysis/token/unique"
 	"github.com/blevesearch/bleve/v2/analysis/tokenizer/character"
+	"github.com/blevesearch/bleve/v2/analysis/tokenizer/single"
 	"github.com/blevesearch/bleve/v2/registry"
 	"github.com/ikawaha/kagome-dict/ipa"
 	"github.com/ikawaha/kagome/v2/tokenizer"
 	"github.com/robpike/nihongo"
 )
 
-const NgramFilterMin = 2
-const NgramFilterMax = 3
+const (
+	radioAnalyzerName = "radio"
+	exactAnalyzerName = "radio.exact"
+	sortAnalyzerName  = "radio.sort"
 
-var _ analysis.Analyzer = new(multiAnalyzer)
+	NgramFilterMin = 2
+	NgramFilterMax = 3
+)
 
-type PrefilterFn func(in []byte) (out []byte)
-
-type multiAnalyzer struct {
-	prefilter func(in []byte) (out []byte)
-	analyzers []analysis.Analyzer
+func IsNotSpace(r rune) bool {
+	return !unicode.IsSpace(r)
 }
 
-func (ma *multiAnalyzer) Analyze(text []byte) analysis.TokenStream {
-	var res analysis.TokenStream
-
-	fmt.Println(string(text))
-	if ma.prefilter != nil {
-		new := ma.prefilter(text)
-		if !bytes.Equal(text, new) {
-			res = ma.analyze(res, new)
-		}
-	}
-
-	return ma.analyze(res, text)
-}
-
-func (ma *multiAnalyzer) analyze(res analysis.TokenStream, text []byte) analysis.TokenStream {
-	for _, a := range ma.analyzers {
-		res = append(res, a.Analyze(text)...)
-	}
-	return res
-}
-
-func NewMultiAnalyzer(pre PrefilterFn, a ...analysis.Analyzer) analysis.Analyzer {
-	return &multiAnalyzer{
-		prefilter: pre,
-		analyzers: a,
-	}
-}
-
-func AnalyzerConstructor(config map[string]interface{}, cache *registry.Cache) (analysis.Analyzer, error) {
+func SortAnalyzerConstructor(config map[string]any, cache *registry.Cache) (analysis.Analyzer, error) {
 	toLowerFilter, err := cache.TokenFilterNamed(lowercase.Name)
 	if err != nil {
 		return nil, err
@@ -69,7 +43,23 @@ func AnalyzerConstructor(config map[string]interface{}, cache *registry.Cache) (
 
 	normalizeFilter := unicodenorm.MustNewUnicodeNormalizeFilter(unicodenorm.NFC)
 
-	tokenizer := character.NewCharacterTokenizer(func(r rune) bool { return !unicode.IsSpace(r) })
+	return &analysis.DefaultAnalyzer{
+		Tokenizer: single.NewSingleTokenTokenizer(),
+		TokenFilters: []analysis.TokenFilter{
+			toLowerFilter,
+			normalizeFilter,
+		},
+	}, nil
+}
+func RadioAnalyzerConstructor(config map[string]interface{}, cache *registry.Cache) (analysis.Analyzer, error) {
+	toLowerFilter, err := cache.TokenFilterNamed(lowercase.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	normalizeFilter := unicodenorm.MustNewUnicodeNormalizeFilter(unicodenorm.NFC)
+
+	tokenizer := character.NewCharacterTokenizer(IsNotSpace)
 
 	// construct the japanese specific analyzer
 	japanese := &analysis.DefaultAnalyzer{
@@ -113,8 +103,9 @@ func ExactAnalyzerConstructor(config map[string]interface{}, cache *registry.Cac
 }
 
 func init() {
-	registry.RegisterAnalyzer("radio", AnalyzerConstructor)
-	registry.RegisterAnalyzer("exact", ExactAnalyzerConstructor)
+	registry.RegisterAnalyzer(radioAnalyzerName, RadioAnalyzerConstructor)
+	registry.RegisterAnalyzer(exactAnalyzerName, ExactAnalyzerConstructor)
+	registry.RegisterAnalyzer(sortAnalyzerName, SortAnalyzerConstructor)
 }
 
 type FilterFn func(input analysis.TokenStream) analysis.TokenStream

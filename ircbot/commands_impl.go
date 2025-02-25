@@ -265,26 +265,15 @@ func FaveTrack(e Event) error {
 		// count the amount of `last`'s used to determine how far back we should go
 		index := strings.Count(e.Arguments["relative"], "last") - 1
 
-		key := radio.LPKeyLast
-		if index > 0 {
-			// if our index is higher than 0 we need to lookup the key for that
-			_, next, err := ss.LastPlayedPagination(radio.LPKeyLast, 1, 50)
-			if err != nil {
-				return errors.E(op, err)
-			}
-			// make sure our index exists in the list
-			if index >= len(next) {
-				return errors.E(op, "index too far")
-			}
-
-			key = next[index]
-		}
-
-		songs, err := ss.LastPlayed(key, 1)
+		songs, err := ss.LastPlayed(radio.LPKeyLast, 50)
 		if err != nil {
 			return errors.E(op, err)
 		}
-		song = songs[0]
+
+		if index >= len(songs) {
+			return errors.E(op, "index too far")
+		}
+		song = songs[index]
 	} else if e.Arguments.Bool("TrackID") {
 		// for when a track number is given as argument
 		s, err := e.ArgumentTrack("TrackID")
@@ -426,7 +415,9 @@ func KillStreamer(e Event) error {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute*15)
 		defer cancel()
 
-		err := e.Bot.Streamer.Stop(ctx, force)
+		// we don't actually have the user available here, so we're going to "cheat"
+		// by just giving it a name only, this is very brittle
+		err := e.Bot.Streamer.Stop(ctx, &radio.User{Username: e.Source.Name}, force)
 		if err != nil {
 			quickErr <- err
 			return
@@ -442,19 +433,6 @@ func KillStreamer(e Event) error {
 		}
 	case <-time.After(time.Second):
 	case <-e.Ctx.Done():
-	}
-
-	status := e.Bot.StatusValue.Latest()
-
-	until := time.Until(status.SongInfo.End)
-	if force {
-		e.EchoPublic("Disconnecting right now")
-	} else if until <= 0 {
-		e.EchoPublic("Disconnecting after the current song")
-	} else {
-		e.EchoPublic("Disconnecting in about %s",
-			FormatLongDuration(until),
-		)
 	}
 
 	return nil
@@ -491,7 +469,10 @@ func RandomTrackRequest(e Event) error {
 	} else if query != "" {
 		// query random, select of top 100 results
 		var res radio.SearchResult
-		res, err = e.Bot.Searcher.Search(e.Ctx, query, 100, 0)
+		res, err = e.Bot.Searcher.Search(e.Ctx, query, radio.SearchOptions{
+			Limit:     100,
+			ExactOnly: true,
+		})
 		if err != nil {
 			return errors.E(op, err)
 		}
@@ -548,7 +529,10 @@ func LuckyTrackRequest(e Event) error {
 		return nil
 	}
 
-	res, err := e.Bot.Searcher.Search(e.Ctx, query, 100, 0)
+	res, err := e.Bot.Searcher.Search(e.Ctx, query, radio.SearchOptions{
+		Limit:     100,
+		ExactOnly: true,
+	})
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -594,7 +578,7 @@ func SearchTrack(e Event) error {
 	} else {
 		var res radio.SearchResult
 		query := e.Arguments["Query"]
-		res, err = e.Bot.Searcher.Search(e.Ctx, query, 5, 0)
+		res, err = e.Bot.Searcher.Search(e.Ctx, query, radio.SearchOptions{Limit: 5})
 		if err != nil {
 			return errors.E(op, err)
 		}
@@ -671,6 +655,10 @@ func MessageFromError(err error) string {
 		return "No such user exists"
 	case errors.Is(errors.SongUnknown, err):
 		return "No such song exists"
+	case errors.Is(errors.StreamerNotRunning, err):
+		return "I'm not currently streaming"
+	case errors.Is(errors.StreamerAlreadyStopped, err):
+		return "I've already been ordered to stop"
 	}
 	return ""
 }

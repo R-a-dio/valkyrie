@@ -60,7 +60,10 @@ func NewSongsInput(s radio.SearchService, ss secret.Secret, r *http.Request) (*S
 	}
 
 	query := r.FormValue("q")
-	searchResult, err := s.Search(ctx, query, songsPageSize, offset)
+	searchResult, err := s.Search(ctx, query, radio.SearchOptions{
+		Limit:  songsPageSize,
+		Offset: offset,
+	})
 	if err != nil && !errors.Is(errors.SearchNoResults, err) {
 		return nil, errors.E(op, err)
 	}

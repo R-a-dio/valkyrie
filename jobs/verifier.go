@@ -58,5 +58,6 @@ func decodeFile(ctx context.Context, filename string) error {
 	if err != nil {
 		return err
 	}
+	defer buf.Close()
 	return buf.Wait(ctx)
 }

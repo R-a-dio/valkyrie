@@ -192,6 +192,7 @@ func (ss SongStorage) FromHash(hash radio.SongHash) (*radio.Song, error) {
 		song.DatabaseTrack = nil
 	}
 
+	song.Hydrate()
 	return &song, nil
 }
 
@@ -258,6 +259,7 @@ func (ss SongStorage) LastPlayed(key radio.LastPlayedKey, amountPerPage int) ([]
 		if songs[i].LastPlayedBy != nil && songs[i].LastPlayedBy.ID == 0 {
 			songs[i].LastPlayedBy = nil
 		}
+		songs[i].Hydrate()
 	}
 
 	return songs, nil
@@ -644,6 +646,7 @@ func (ss SongStorage) FavoritesOf(nick string, limit, offset int64) ([]radio.Son
 		if songs[i].DatabaseTrack != nil && songs[i].TrackID == 0 {
 			songs[i].DatabaseTrack = nil
 		}
+		songs[i].Hydrate()
 	}
 
 	return songs, count, nil
@@ -666,6 +669,9 @@ func (ss SongStorage) FavoritesOfDatabase(nick string) ([]radio.Song, error) {
 		return nil, errors.E(op, err)
 	}
 
+	for i := range songs {
+		songs[i].Hydrate()
+	}
 	return songs, nil
 }
 
@@ -857,6 +863,9 @@ func (ts TrackStorage) NeedReplacement() ([]radio.Song, error) {
 		return nil, errors.E(op, err)
 	}
 
+	for i := range songs {
+		songs[i].Hydrate()
+	}
 	return songs, nil
 }
 
@@ -907,7 +916,7 @@ LEFT JOIN
 `)
 
 func (ts TrackStorage) AllRaw() ([]radio.Song, error) {
-	const op errors.Op = "mariadb/TrackStorage.All"
+	const op errors.Op = "mariadb/TrackStorage.AllRaw"
 	handle, deferFn := ts.handle.span(op)
 	defer deferFn()
 
@@ -935,17 +944,10 @@ func (ts TrackStorage) All() ([]radio.Song, error) {
 	handle, deferFn := ts.handle.span(op)
 	defer deferFn()
 
-	var songs = []radio.Song{}
-
-	err := sqlx.Select(handle, &songs, trackAllQuery)
-	if err != nil {
-		return nil, errors.E(op, err)
-	}
-
-	for i := range songs {
-		songs[i].Hydrate()
-	}
-	return songs, nil
+	return Collect(Each(SelectIter[radio.Song](handle, trackAllQuery), func(s radio.Song) radio.Song {
+		s.Hydrate()
+		return s
+	}))
 }
 
 var trackUnusableQuery = expand(`
@@ -1387,6 +1389,9 @@ func (ts TrackStorage) Random(limit int) ([]radio.Song, error) {
 		return nil, errors.E(op, err)
 	}
 
+	for i := range songs {
+		songs[i].Hydrate()
+	}
 	return songs, nil
 }
 
@@ -1446,6 +1451,10 @@ func (ts TrackStorage) RandomFavoriteOf(nick string, limit int) ([]radio.Song, e
 	})
 	if err != nil {
 		return nil, errors.E(op, err)
+	}
+
+	for i := range songs {
+		songs[i].Hydrate()
 	}
 	return songs, nil
 }

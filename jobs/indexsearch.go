@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/search"
 	"github.com/R-a-dio/valkyrie/storage"
@@ -21,7 +22,8 @@ func ExecuteIndexSearch(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 
-	songs, err := s.Track(ctx).All()
+	var songs []radio.Song
+	songs, err = s.Track(ctx).All()
 	if err != nil {
 		return err
 	}

@@ -353,9 +353,15 @@ type SongInfo struct {
 }
 
 type SearchService interface {
-	Search(ctx context.Context, query string, limit int64, offset int64) (SearchResult, error)
+	Search(ctx context.Context, query string, opt SearchOptions) (SearchResult, error)
 	Update(context.Context, ...Song) error
 	Delete(context.Context, ...TrackID) error
+}
+
+type SearchOptions struct {
+	Limit     int64
+	Offset    int64
+	ExactOnly bool
 }
 
 type SearchResult struct {
@@ -471,7 +477,7 @@ const (
 
 type StreamerService interface {
 	Start(context.Context) error
-	Stop(ctx context.Context, force bool) error
+	Stop(ctx context.Context, who *User, force bool) error
 
 	RequestSong(context.Context, Song, string) error
 	// Deprecated: use QueueService
@@ -576,6 +582,7 @@ type AnnounceService interface {
 	AnnounceSong(context.Context, Status) error
 	AnnounceRequest(context.Context, Song) error
 	AnnounceUser(context.Context, *User) error
+	AnnounceMurder(ctx context.Context, by *User, force bool) error
 }
 
 // SongID is a songs identifier
@@ -1155,6 +1162,8 @@ type NewsStorage interface {
 	ListPublic(limit int64, offset int64) (NewsList, error)
 	// AddComment adds a comment to a news post
 	AddComment(NewsComment) (NewsCommentID, error)
+	// DeleteComment deletes a comment from a news post
+	DeleteComment(NewsCommentID) error
 	// Comments returns all comments associated with the news post given
 	Comments(NewsPostID) ([]NewsComment, error)
 	// CommentsPublic returns all comments that were not deleted

@@ -267,12 +267,43 @@ func (ann *announceService) AnnounceThread(ctx context.Context, thread radio.Thr
 	defer span.End()
 
 	if ann.lastThread == thread {
-		zerolog.Ctx(ctx).Info().Ctx(ctx).Str("thread", thread).Msg("skipping thread announce because thread is the same as last")
+		span.AddEvent("skip because same")
 		return nil
 	}
 
+	zerolog.Ctx(ctx).Info().Ctx(ctx).Str("thread", thread).Msg("updating irc thread")
+
 	ann.lastThread = thread
 	message := Fmt("Thread: %s", thread)
+	ann.bot.c.Cmd.Message(ann.cfgMainChannel(), message)
+	return nil
+}
+
+func (ann *announceService) AnnounceMurder(ctx context.Context, by *radio.User, force bool) error {
+	const op errors.Op = "ircbot/announceService.AnnounceMurder"
+	ctx, span := otel.Tracer("").Start(ctx, string(op))
+	defer span.End()
+
+	until := time.Until(ann.bot.StatusValue.Latest().SongInfo.End)
+
+	name := "somebody"
+	if by != nil {
+		if by.DJ.Name != "" {
+			name = by.DJ.Name
+		} else {
+			name = by.Username
+		}
+	}
+
+	var message string
+	if force {
+		message = Fmt("I've been murdered by {red}%s{c} and will disconnect right now", name)
+	} else if until <= 0 {
+		message = Fmt("I've been asked to disconnect by {red}%s{c} and will do so after the current song", name)
+	} else {
+		message = Fmt("I've been asked to disconnect by {red}%s{c} and will do so in about {green}%s{c}",
+			name, FormatLongDuration(until))
+	}
 	ann.bot.c.Cmd.Message(ann.cfgMainChannel(), message)
 	return nil
 }
@@ -299,7 +330,7 @@ func (ann *announceService) AnnounceUser(ctx context.Context, user *radio.User) 
 	}
 
 	ann.userLast = user.DJ.Name
-	message := Fmt("Current DJ: {green}%s", user.DJ.Name)
+	message := Fmt(`{red}(/\!/\){c} Current DJ: {green}%s {red}(/\!/\){c}`, user.DJ.Name)
 	ann.bot.c.Cmd.Message(ann.cfgMainChannel(), message)
 
 	ann.queueChangeTopic(ctx, user)
@@ -307,7 +338,7 @@ func (ann *announceService) AnnounceUser(ctx context.Context, user *radio.User) 
 }
 
 func (ann *announceService) queueChangeTopic(ctx context.Context, user *radio.User) {
-	const topicDelay = time.Second * 30
+	const topicDelay = time.Second * 5
 
 	ann.topicTimerMu.Lock()
 	defer ann.topicTimerMu.Unlock()

@@ -1002,6 +1002,7 @@ const (
 	Announcer_AnnounceSong_FullMethodName    = "/radio.Announcer/AnnounceSong"
 	Announcer_AnnounceRequest_FullMethodName = "/radio.Announcer/AnnounceRequest"
 	Announcer_AnnounceUser_FullMethodName    = "/radio.Announcer/AnnounceUser"
+	Announcer_AnnounceMurder_FullMethodName  = "/radio.Announcer/AnnounceMurder"
 )
 
 // AnnouncerClient is the client API for Announcer service.
@@ -1011,6 +1012,7 @@ type AnnouncerClient interface {
 	AnnounceSong(ctx context.Context, in *SongAnnouncement, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	AnnounceRequest(ctx context.Context, in *SongRequestAnnouncement, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	AnnounceUser(ctx context.Context, in *UserAnnouncement, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	AnnounceMurder(ctx context.Context, in *MurderAnnouncement, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type announcerClient struct {
@@ -1051,6 +1053,16 @@ func (c *announcerClient) AnnounceUser(ctx context.Context, in *UserAnnouncement
 	return out, nil
 }
 
+func (c *announcerClient) AnnounceMurder(ctx context.Context, in *MurderAnnouncement, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, Announcer_AnnounceMurder_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AnnouncerServer is the server API for Announcer service.
 // All implementations must embed UnimplementedAnnouncerServer
 // for forward compatibility.
@@ -1058,6 +1070,7 @@ type AnnouncerServer interface {
 	AnnounceSong(context.Context, *SongAnnouncement) (*emptypb.Empty, error)
 	AnnounceRequest(context.Context, *SongRequestAnnouncement) (*emptypb.Empty, error)
 	AnnounceUser(context.Context, *UserAnnouncement) (*emptypb.Empty, error)
+	AnnounceMurder(context.Context, *MurderAnnouncement) (*emptypb.Empty, error)
 	mustEmbedUnimplementedAnnouncerServer()
 }
 
@@ -1076,6 +1089,9 @@ func (UnimplementedAnnouncerServer) AnnounceRequest(context.Context, *SongReques
 }
 func (UnimplementedAnnouncerServer) AnnounceUser(context.Context, *UserAnnouncement) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AnnounceUser not implemented")
+}
+func (UnimplementedAnnouncerServer) AnnounceMurder(context.Context, *MurderAnnouncement) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AnnounceMurder not implemented")
 }
 func (UnimplementedAnnouncerServer) mustEmbedUnimplementedAnnouncerServer() {}
 func (UnimplementedAnnouncerServer) testEmbeddedByValue()                   {}
@@ -1152,6 +1168,24 @@ func _Announcer_AnnounceUser_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Announcer_AnnounceMurder_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MurderAnnouncement)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AnnouncerServer).AnnounceMurder(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Announcer_AnnounceMurder_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AnnouncerServer).AnnounceMurder(ctx, req.(*MurderAnnouncement))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Announcer_ServiceDesc is the grpc.ServiceDesc for Announcer service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1170,6 +1204,10 @@ var Announcer_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AnnounceUser",
 			Handler:    _Announcer_AnnounceUser_Handler,
+		},
+		{
+			MethodName: "AnnounceMurder",
+			Handler:    _Announcer_AnnounceMurder_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -1192,7 +1230,7 @@ type StreamerClient interface {
 	Start(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*StreamerResponse, error)
 	// Stop stops the streamer, the boolean argument indicates if we should stop
 	// right away, or wait until the current song ends
-	Stop(ctx context.Context, in *wrapperspb.BoolValue, opts ...grpc.CallOption) (*StreamerResponse, error)
+	Stop(ctx context.Context, in *StreamerStopRequest, opts ...grpc.CallOption) (*StreamerResponse, error)
 	// RequestSong requests a song to be played by the streamer
 	RequestSong(ctx context.Context, in *SongRequest, opts ...grpc.CallOption) (*RequestResponse, error)
 	// SetConfig changes the configuration of the streamer
@@ -1219,7 +1257,7 @@ func (c *streamerClient) Start(ctx context.Context, in *emptypb.Empty, opts ...g
 	return out, nil
 }
 
-func (c *streamerClient) Stop(ctx context.Context, in *wrapperspb.BoolValue, opts ...grpc.CallOption) (*StreamerResponse, error) {
+func (c *streamerClient) Stop(ctx context.Context, in *StreamerStopRequest, opts ...grpc.CallOption) (*StreamerResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(StreamerResponse)
 	err := c.cc.Invoke(ctx, Streamer_Stop_FullMethodName, in, out, cOpts...)
@@ -1267,7 +1305,7 @@ type StreamerServer interface {
 	Start(context.Context, *emptypb.Empty) (*StreamerResponse, error)
 	// Stop stops the streamer, the boolean argument indicates if we should stop
 	// right away, or wait until the current song ends
-	Stop(context.Context, *wrapperspb.BoolValue) (*StreamerResponse, error)
+	Stop(context.Context, *StreamerStopRequest) (*StreamerResponse, error)
 	// RequestSong requests a song to be played by the streamer
 	RequestSong(context.Context, *SongRequest) (*RequestResponse, error)
 	// SetConfig changes the configuration of the streamer
@@ -1287,7 +1325,7 @@ type UnimplementedStreamerServer struct{}
 func (UnimplementedStreamerServer) Start(context.Context, *emptypb.Empty) (*StreamerResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Start not implemented")
 }
-func (UnimplementedStreamerServer) Stop(context.Context, *wrapperspb.BoolValue) (*StreamerResponse, error) {
+func (UnimplementedStreamerServer) Stop(context.Context, *StreamerStopRequest) (*StreamerResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Stop not implemented")
 }
 func (UnimplementedStreamerServer) RequestSong(context.Context, *SongRequest) (*RequestResponse, error) {
@@ -1339,7 +1377,7 @@ func _Streamer_Start_Handler(srv interface{}, ctx context.Context, dec func(inte
 }
 
 func _Streamer_Stop_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(wrapperspb.BoolValue)
+	in := new(StreamerStopRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -1351,7 +1389,7 @@ func _Streamer_Stop_Handler(srv interface{}, ctx context.Context, dec func(inter
 		FullMethod: Streamer_Stop_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(StreamerServer).Stop(ctx, req.(*wrapperspb.BoolValue))
+		return srv.(StreamerServer).Stop(ctx, req.(*StreamerStopRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }

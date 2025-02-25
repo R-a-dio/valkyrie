@@ -53,7 +53,7 @@ type SearchSearchParams struct {
 	Offset int64
 }
 
-func (ss SearchService) Search(ctx context.Context, search_query string, limit int64, offset int64) (radio.SearchResult, error) {
+func (ss SearchService) Search(ctx context.Context, search_query string, opt radio.SearchOptions) (radio.SearchResult, error) {
 	const op errors.Op = "mariadb/SearchService.Search"
 	handle := newHandle(ctx, ss.db, "search")
 	handle, deferFn := handle.span(op)
@@ -66,8 +66,8 @@ func (ss SearchService) Search(ctx context.Context, search_query string, limit i
 
 	err := handle.Select(&result, searchSearchQuery, SearchSearchParams{
 		Query:  search_query,
-		Limit:  limit,
-		Offset: offset,
+		Limit:  opt.Limit,
+		Offset: opt.Offset,
 	})
 	if err != nil {
 		return radio.SearchResult{}, errors.E(op, err)

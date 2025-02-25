@@ -248,7 +248,11 @@ func (s *State) postBoothStopStreamer(r *http.Request) (*BoothStopStreamerInput,
 	go func() {
 		zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("trying to stop streamer")
 		select {
-		case errCh <- s.Streamer.Stop(context.WithoutCancel(ctx), false):
+		case errCh <- s.Streamer.Stop(
+			context.WithoutCancel(ctx),
+			middleware.UserFromContext(ctx),
+			false,
+		):
 		case <-ctx.Done():
 		}
 	}()

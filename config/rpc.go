@@ -194,8 +194,8 @@ func (s *streamerService) Start(ctx context.Context) error {
 }
 
 // Stop implements radio.StreamerService.
-func (s *streamerService) Stop(ctx context.Context, force bool) error {
-	return s.fn().Stop(ctx, force)
+func (s *streamerService) Stop(ctx context.Context, who *radio.User, force bool) error {
+	return s.fn().Stop(ctx, who, force)
 }
 
 func newQueueService(cfg Config) radio.QueueService {
@@ -291,4 +291,8 @@ func (i *ircService) AnnounceSong(ctx context.Context, status radio.Status) erro
 // AnnounceUser implements radio.AnnounceService.
 func (i *ircService) AnnounceUser(ctx context.Context, user *radio.User) error {
 	return i.fn().AnnounceUser(ctx, user)
+}
+
+func (i *ircService) AnnounceMurder(ctx context.Context, by *radio.User, force bool) error {
+	return i.fn().AnnounceMurder(ctx, by, force)
 }

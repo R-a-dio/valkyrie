@@ -27,6 +27,11 @@ type FavesInput struct {
 	Faves           []radio.Song
 	FaveCount       int64
 	Page            *shared.Pagination
+
+	// IsError indicates if the message given is an error
+	IsError bool
+	// Message to show at the top of the page
+	Message string
 }
 
 func (FavesInput) TemplateBundle() string {
@@ -89,6 +94,25 @@ func NewFavesInput(ss radio.SongStorage, rs radio.RequestStorage, r *http.Reques
 		Input:          middleware.InputFromRequest(r),
 		CSRFTokenInput: csrf.TemplateField(r),
 	}, nil
+}
+
+// GetFavesOld handles the old URL format we used which is /faves/<nick> but supporting
+// that everywhere is annoying so we just redirect to the new url instead
+func (s *State) GetFavesOld(w http.ResponseWriter, r *http.Request) {
+	nickname := chi.URLParam(r, "Nick")
+	if nickname == "" {
+		// no nickname shouldn't ever happen, but if it does we just give back the
+		// normal faves page
+		s.GetFaves(w, r)
+		return
+	}
+
+	q := r.URL.Query()
+	q.Set("nick", nickname)
+	r.URL.RawQuery = q.Encode()
+	r.URL.Path = "/faves"
+
+	http.Redirect(w, r, r.URL.String(), http.StatusMovedPermanently)
 }
 
 func (s *State) GetFaves(w http.ResponseWriter, r *http.Request) {

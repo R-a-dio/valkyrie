@@ -13,6 +13,7 @@ import (
 	"github.com/R-a-dio/valkyrie/website/shared"
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/csrf"
+	"github.com/rs/zerolog/hlog"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -345,4 +346,19 @@ func NewNewsPostFromRequest(post radio.NewsPost, r *http.Request) radio.NewsPost
 	}
 
 	return post
+}
+
+func (s *State) PostNewsCommentDelete(w http.ResponseWriter, r *http.Request) {
+	id, err := radio.ParseNewsCommentID(r.FormValue("id"))
+	if err != nil {
+		hlog.FromRequest(r).Error().Ctx(r.Context()).Err(err).Msg("failed to parse NewsCommentID")
+		return
+	}
+
+	err = s.Storage.News(r.Context()).DeleteComment(id)
+	if err != nil {
+		hlog.FromRequest(r).Error().Ctx(r.Context()).Err(err).Msg("failed to delete NewsComment")
+		return
+	}
+	return
 }

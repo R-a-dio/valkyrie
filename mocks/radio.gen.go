@@ -24,7 +24,7 @@ var _ radio.SearchService = &SearchServiceMock{}
 //			DeleteFunc: func(contextMoqParam context.Context, trackIDs ...radio.TrackID) error {
 //				panic("mock out the Delete method")
 //			},
-//			SearchFunc: func(ctx context.Context, query string, limit int64, offset int64) (radio.SearchResult, error) {
+//			SearchFunc: func(ctx context.Context, query string, opt radio.SearchOptions) (radio.SearchResult, error) {
 //				panic("mock out the Search method")
 //			},
 //			UpdateFunc: func(contextMoqParam context.Context, songs ...radio.Song) error {
@@ -41,7 +41,7 @@ type SearchServiceMock struct {
 	DeleteFunc func(contextMoqParam context.Context, trackIDs ...radio.TrackID) error
 
 	// SearchFunc mocks the Search method.
-	SearchFunc func(ctx context.Context, query string, limit int64, offset int64) (radio.SearchResult, error)
+	SearchFunc func(ctx context.Context, query string, opt radio.SearchOptions) (radio.SearchResult, error)
 
 	// UpdateFunc mocks the Update method.
 	UpdateFunc func(contextMoqParam context.Context, songs ...radio.Song) error
@@ -61,10 +61,8 @@ type SearchServiceMock struct {
 			Ctx context.Context
 			// Query is the query argument value.
 			Query string
-			// Limit is the limit argument value.
-			Limit int64
-			// Offset is the offset argument value.
-			Offset int64
+			// Opt is the opt argument value.
+			Opt radio.SearchOptions
 		}
 		// Update holds details about calls to the Update method.
 		Update []struct {
@@ -116,25 +114,23 @@ func (mock *SearchServiceMock) DeleteCalls() []struct {
 }
 
 // Search calls SearchFunc.
-func (mock *SearchServiceMock) Search(ctx context.Context, query string, limit int64, offset int64) (radio.SearchResult, error) {
+func (mock *SearchServiceMock) Search(ctx context.Context, query string, opt radio.SearchOptions) (radio.SearchResult, error) {
 	if mock.SearchFunc == nil {
 		panic("SearchServiceMock.SearchFunc: method is nil but SearchService.Search was just called")
 	}
 	callInfo := struct {
-		Ctx    context.Context
-		Query  string
-		Limit  int64
-		Offset int64
+		Ctx   context.Context
+		Query string
+		Opt   radio.SearchOptions
 	}{
-		Ctx:    ctx,
-		Query:  query,
-		Limit:  limit,
-		Offset: offset,
+		Ctx:   ctx,
+		Query: query,
+		Opt:   opt,
 	}
 	mock.lockSearch.Lock()
 	mock.calls.Search = append(mock.calls.Search, callInfo)
 	mock.lockSearch.Unlock()
-	return mock.SearchFunc(ctx, query, limit, offset)
+	return mock.SearchFunc(ctx, query, opt)
 }
 
 // SearchCalls gets all the calls that were made to Search.
@@ -142,16 +138,14 @@ func (mock *SearchServiceMock) Search(ctx context.Context, query string, limit i
 //
 //	len(mockedSearchService.SearchCalls())
 func (mock *SearchServiceMock) SearchCalls() []struct {
-	Ctx    context.Context
-	Query  string
-	Limit  int64
-	Offset int64
+	Ctx   context.Context
+	Query string
+	Opt   radio.SearchOptions
 } {
 	var calls []struct {
-		Ctx    context.Context
-		Query  string
-		Limit  int64
-		Offset int64
+		Ctx   context.Context
+		Query string
+		Opt   radio.SearchOptions
 	}
 	mock.lockSearch.RLock()
 	calls = mock.calls.Search
@@ -700,7 +694,7 @@ var _ radio.StreamerService = &StreamerServiceMock{}
 //			StartFunc: func(contextMoqParam context.Context) error {
 //				panic("mock out the Start method")
 //			},
-//			StopFunc: func(ctx context.Context, force bool) error {
+//			StopFunc: func(ctx context.Context, who *radio.User, force bool) error {
 //				panic("mock out the Stop method")
 //			},
 //		}
@@ -720,7 +714,7 @@ type StreamerServiceMock struct {
 	StartFunc func(contextMoqParam context.Context) error
 
 	// StopFunc mocks the Stop method.
-	StopFunc func(ctx context.Context, force bool) error
+	StopFunc func(ctx context.Context, who *radio.User, force bool) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -747,6 +741,8 @@ type StreamerServiceMock struct {
 		Stop []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
+			// Who is the who argument value.
+			Who *radio.User
 			// Force is the force argument value.
 			Force bool
 		}
@@ -862,21 +858,23 @@ func (mock *StreamerServiceMock) StartCalls() []struct {
 }
 
 // Stop calls StopFunc.
-func (mock *StreamerServiceMock) Stop(ctx context.Context, force bool) error {
+func (mock *StreamerServiceMock) Stop(ctx context.Context, who *radio.User, force bool) error {
 	if mock.StopFunc == nil {
 		panic("StreamerServiceMock.StopFunc: method is nil but StreamerService.Stop was just called")
 	}
 	callInfo := struct {
 		Ctx   context.Context
+		Who   *radio.User
 		Force bool
 	}{
 		Ctx:   ctx,
+		Who:   who,
 		Force: force,
 	}
 	mock.lockStop.Lock()
 	mock.calls.Stop = append(mock.calls.Stop, callInfo)
 	mock.lockStop.Unlock()
-	return mock.StopFunc(ctx, force)
+	return mock.StopFunc(ctx, who, force)
 }
 
 // StopCalls gets all the calls that were made to Stop.
@@ -885,10 +883,12 @@ func (mock *StreamerServiceMock) Stop(ctx context.Context, force bool) error {
 //	len(mockedStreamerService.StopCalls())
 func (mock *StreamerServiceMock) StopCalls() []struct {
 	Ctx   context.Context
+	Who   *radio.User
 	Force bool
 } {
 	var calls []struct {
 		Ctx   context.Context
+		Who   *radio.User
 		Force bool
 	}
 	mock.lockStop.RLock()
@@ -1167,6 +1167,9 @@ var _ radio.AnnounceService = &AnnounceServiceMock{}
 //
 //		// make and configure a mocked radio.AnnounceService
 //		mockedAnnounceService := &AnnounceServiceMock{
+//			AnnounceMurderFunc: func(ctx context.Context, by *radio.User, force bool) error {
+//				panic("mock out the AnnounceMurder method")
+//			},
 //			AnnounceRequestFunc: func(contextMoqParam context.Context, song radio.Song) error {
 //				panic("mock out the AnnounceRequest method")
 //			},
@@ -1183,6 +1186,9 @@ var _ radio.AnnounceService = &AnnounceServiceMock{}
 //
 //	}
 type AnnounceServiceMock struct {
+	// AnnounceMurderFunc mocks the AnnounceMurder method.
+	AnnounceMurderFunc func(ctx context.Context, by *radio.User, force bool) error
+
 	// AnnounceRequestFunc mocks the AnnounceRequest method.
 	AnnounceRequestFunc func(contextMoqParam context.Context, song radio.Song) error
 
@@ -1194,6 +1200,15 @@ type AnnounceServiceMock struct {
 
 	// calls tracks calls to the methods.
 	calls struct {
+		// AnnounceMurder holds details about calls to the AnnounceMurder method.
+		AnnounceMurder []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// By is the by argument value.
+			By *radio.User
+			// Force is the force argument value.
+			Force bool
+		}
 		// AnnounceRequest holds details about calls to the AnnounceRequest method.
 		AnnounceRequest []struct {
 			// ContextMoqParam is the contextMoqParam argument value.
@@ -1216,9 +1231,50 @@ type AnnounceServiceMock struct {
 			User *radio.User
 		}
 	}
+	lockAnnounceMurder  sync.RWMutex
 	lockAnnounceRequest sync.RWMutex
 	lockAnnounceSong    sync.RWMutex
 	lockAnnounceUser    sync.RWMutex
+}
+
+// AnnounceMurder calls AnnounceMurderFunc.
+func (mock *AnnounceServiceMock) AnnounceMurder(ctx context.Context, by *radio.User, force bool) error {
+	if mock.AnnounceMurderFunc == nil {
+		panic("AnnounceServiceMock.AnnounceMurderFunc: method is nil but AnnounceService.AnnounceMurder was just called")
+	}
+	callInfo := struct {
+		Ctx   context.Context
+		By    *radio.User
+		Force bool
+	}{
+		Ctx:   ctx,
+		By:    by,
+		Force: force,
+	}
+	mock.lockAnnounceMurder.Lock()
+	mock.calls.AnnounceMurder = append(mock.calls.AnnounceMurder, callInfo)
+	mock.lockAnnounceMurder.Unlock()
+	return mock.AnnounceMurderFunc(ctx, by, force)
+}
+
+// AnnounceMurderCalls gets all the calls that were made to AnnounceMurder.
+// Check the length with:
+//
+//	len(mockedAnnounceService.AnnounceMurderCalls())
+func (mock *AnnounceServiceMock) AnnounceMurderCalls() []struct {
+	Ctx   context.Context
+	By    *radio.User
+	Force bool
+} {
+	var calls []struct {
+		Ctx   context.Context
+		By    *radio.User
+		Force bool
+	}
+	mock.lockAnnounceMurder.RLock()
+	calls = mock.calls.AnnounceMurder
+	mock.lockAnnounceMurder.RUnlock()
+	return calls
 }
 
 // AnnounceRequest calls AnnounceRequestFunc.
@@ -6021,6 +6077,9 @@ var _ radio.NewsStorage = &NewsStorageMock{}
 //			DeleteFunc: func(newsPostID radio.NewsPostID) error {
 //				panic("mock out the Delete method")
 //			},
+//			DeleteCommentFunc: func(newsCommentID radio.NewsCommentID) error {
+//				panic("mock out the DeleteComment method")
+//			},
 //			GetFunc: func(newsPostID radio.NewsPostID) (*radio.NewsPost, error) {
 //				panic("mock out the Get method")
 //			},
@@ -6054,6 +6113,9 @@ type NewsStorageMock struct {
 
 	// DeleteFunc mocks the Delete method.
 	DeleteFunc func(newsPostID radio.NewsPostID) error
+
+	// DeleteCommentFunc mocks the DeleteComment method.
+	DeleteCommentFunc func(newsCommentID radio.NewsCommentID) error
 
 	// GetFunc mocks the Get method.
 	GetFunc func(newsPostID radio.NewsPostID) (*radio.NewsPost, error)
@@ -6094,6 +6156,11 @@ type NewsStorageMock struct {
 			// NewsPostID is the newsPostID argument value.
 			NewsPostID radio.NewsPostID
 		}
+		// DeleteComment holds details about calls to the DeleteComment method.
+		DeleteComment []struct {
+			// NewsCommentID is the newsCommentID argument value.
+			NewsCommentID radio.NewsCommentID
+		}
 		// Get holds details about calls to the Get method.
 		Get []struct {
 			// NewsPostID is the newsPostID argument value.
@@ -6124,6 +6191,7 @@ type NewsStorageMock struct {
 	lockCommentsPublic sync.RWMutex
 	lockCreate         sync.RWMutex
 	lockDelete         sync.RWMutex
+	lockDeleteComment  sync.RWMutex
 	lockGet            sync.RWMutex
 	lockList           sync.RWMutex
 	lockListPublic     sync.RWMutex
@@ -6287,6 +6355,38 @@ func (mock *NewsStorageMock) DeleteCalls() []struct {
 	mock.lockDelete.RLock()
 	calls = mock.calls.Delete
 	mock.lockDelete.RUnlock()
+	return calls
+}
+
+// DeleteComment calls DeleteCommentFunc.
+func (mock *NewsStorageMock) DeleteComment(newsCommentID radio.NewsCommentID) error {
+	if mock.DeleteCommentFunc == nil {
+		panic("NewsStorageMock.DeleteCommentFunc: method is nil but NewsStorage.DeleteComment was just called")
+	}
+	callInfo := struct {
+		NewsCommentID radio.NewsCommentID
+	}{
+		NewsCommentID: newsCommentID,
+	}
+	mock.lockDeleteComment.Lock()
+	mock.calls.DeleteComment = append(mock.calls.DeleteComment, callInfo)
+	mock.lockDeleteComment.Unlock()
+	return mock.DeleteCommentFunc(newsCommentID)
+}
+
+// DeleteCommentCalls gets all the calls that were made to DeleteComment.
+// Check the length with:
+//
+//	len(mockedNewsStorage.DeleteCommentCalls())
+func (mock *NewsStorageMock) DeleteCommentCalls() []struct {
+	NewsCommentID radio.NewsCommentID
+} {
+	var calls []struct {
+		NewsCommentID radio.NewsCommentID
+	}
+	mock.lockDeleteComment.RLock()
+	calls = mock.calls.DeleteComment
+	mock.lockDeleteComment.RUnlock()
 	return calls
 }
 
