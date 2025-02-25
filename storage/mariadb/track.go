@@ -1458,3 +1458,33 @@ func (ts TrackStorage) RandomFavoriteOf(nick string, limit int) ([]radio.Song, e
 	}
 	return songs, nil
 }
+
+var trackNoMetadataQuery = expand(`
+SELECT
+	{trackColumns},
+	{maybeSongColumns},
+FROM
+	tracks
+LEFT JOIN
+	esong ON tracks.hash = esong.hash
+WHERE tracks.id NOT IN (SELECT DISTINCT track_id FROM track_metadata)
+`)
+
+// NoTrackMetadata implements radio.TrackStorage
+func (ts TrackStorage) NoTrackMetadata() ([]radio.Song, error) {
+	const op errors.Op = "mariadb/TrackStorage.NoTrackMetadata"
+	handle, deferFn := ts.handle.span(op)
+	defer deferFn()
+
+	var songs = []radio.Song{}
+
+	err := sqlx.Select(handle, &songs, trackNoMetadataQuery)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	for i := range songs {
+		songs[i].Hydrate()
+	}
+	return songs, nil
+}

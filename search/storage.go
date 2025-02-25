@@ -58,6 +58,7 @@ type partialStorage interface {
 	radio.SubmissionStorageService
 	radio.NewsStorageService
 	radio.ScheduleStorageService
+	radio.TrackMetadataStorageService
 	Close() error
 }
 
@@ -95,6 +96,7 @@ type partialTrackStorage interface {
 	NeedReplacement() ([]radio.Song, error)
 	BeforeLastRequested(before time.Time) ([]radio.Song, error)
 	QueueCandidates() ([]radio.TrackID, error)
+	NoTrackMetadata() ([]radio.Song, error)
 }
 
 type trackStorage struct {

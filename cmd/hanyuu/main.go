@@ -17,6 +17,7 @@ import (
 	"github.com/R-a-dio/valkyrie/ircbot"
 	"github.com/R-a-dio/valkyrie/jobs"
 	"github.com/R-a-dio/valkyrie/manager"
+	"github.com/R-a-dio/valkyrie/metadata"
 	"github.com/R-a-dio/valkyrie/proxy"
 	"github.com/R-a-dio/valkyrie/search/bleve"
 	"github.com/R-a-dio/valkyrie/streamer"
@@ -146,6 +147,13 @@ func main() {
 			Short:   "run the AFK streamer",
 			Args:    cobra.NoArgs,
 			RunE:    Command(streamer.Execute),
+		},
+		&cobra.Command{
+			Use:     "metadata",
+			GroupID: "services",
+			Short:   "run the metadata scraper",
+			Args:    cobra.NoArgs,
+			RunE:    Command(metadata.Execute),
 		},
 	)
 
