@@ -166,6 +166,7 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 		r.Get("/booth", p(radio.PermDJ, s.GetBooth))
 		r.Get("/booth/sse", p(radio.PermDJ, s.sseBoothAPI))
 		r.Post("/booth/stop-streamer", p(radio.PermDJ, s.PostBoothStopStreamer))
+		r.Post("/booth/start-streamer", p(radio.PermDJ, s.PostBoothStartStreamer))
 		r.Post("/booth/set-thread", p(radio.PermDJ, s.PostBoothSetThread))
 
 		// setup monitoring endpoint

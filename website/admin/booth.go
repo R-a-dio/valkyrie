@@ -211,6 +211,36 @@ func (s *State) boothCheckGuestPermission(r *http.Request, action radio.GuestAct
 	return s.Guest.Do(ctx, radio.UsernameToNick(user.Username), action)
 }
 
+func (s *State) PostBoothStartStreamer(w http.ResponseWriter, r *http.Request) {
+	input, err := s.postBoothStartStreamer(r)
+	if err != nil {
+		s.errorHandler(w, r, err, "")
+		return
+	}
+
+	err = s.TemplateExecutor.Execute(w, r, input)
+	if err != nil {
+		s.errorHandler(w, r, err, "")
+		return
+	}
+}
+
+func (s *State) postBoothStartStreamer(r *http.Request) (*BoothStopStreamerInput, error) {
+	ctx := r.Context()
+
+	input, err := NewBoothStopStreamerInput(
+		s.Guest,
+		r,
+		s.Config.StreamerConnectTimeout(),
+		middleware.InputFromRequest(r).Status.StreamUser,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return input, s.Streamer.Start(ctx)
+}
+
 func (s *State) PostBoothStopStreamer(w http.ResponseWriter, r *http.Request) {
 	input, err := s.postBoothStopStreamer(r)
 	if err != nil {
