@@ -63,12 +63,24 @@ func (tv *ThemeValues) StoreHoliday(theme radio.ThemeName) {
 	tv.holiday.Store(tv.resolver(theme))
 }
 
+func (tv *ThemeValues) ClearHoliday() {
+	tv.holiday.Store("")
+}
+
 func (tv *ThemeValues) LoadHoliday() radio.ThemeName {
 	return tv.holiday.Load()
 }
 
 func (tv *ThemeValues) StoreDJ(theme radio.ThemeName) {
 	tv.dj.Store(tv.resolver(theme))
+}
+
+func (tv *ThemeValues) ClearDJ() {
+	tv.dj.Store("")
+}
+
+func (tv *ThemeValues) LoadDJ() radio.ThemeName {
+	return tv.dj.Load()
 }
 
 // ThemeCtx adds a theme entry into the context of the request, that is acquirable by
@@ -144,14 +156,14 @@ func ThemeCtxSimple(theme radio.ThemeName) func(http.Handler) http.Handler {
 func (tv *ThemeValues) decide(value string) radio.ThemeName {
 	name, overwrite_dj, overwrite_holiday := cookieDecode(value)
 
-	if holidayTheme := tv.holiday.Load(); holidayTheme != "" {
+	if holidayTheme := tv.LoadHoliday(); holidayTheme != "" {
 		if overwrite_holiday {
 			return name
 		}
 		return holidayTheme
 	}
 
-	if djTheme := tv.dj.Load(); djTheme != "" {
+	if djTheme := tv.LoadDJ(); djTheme != "" {
 		if overwrite_dj {
 			return name
 		}

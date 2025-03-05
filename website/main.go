@@ -101,7 +101,7 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	_ = util.StreamValue(ctx, cfg.Manager.CurrentUser, func(ctx context.Context, u *radio.User) {
 		// if either no user, or no theme set, unset the DJ theme
 		if u == nil || u.DJ.Theme == "" {
-			themeValues.StoreDJ("")
+			themeValues.ClearDJ()
 			return
 		}
 

@@ -19,7 +19,11 @@ func TestPCMBuffer(t *testing.T) {
 	}
 	data = data[:n]
 
-	af := AudioFormat{2, 2, 44100}
+	af := AudioFormat{
+		ChannelCount:   2,
+		BytesPerSample: 2,
+		SampleRate:     44100,
+	}
 	p, err := NewMemoryBuffer("testing", nil)
 	require.NoError(t, err)
 	defer p.Close()

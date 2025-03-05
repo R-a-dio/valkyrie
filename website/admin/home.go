@@ -3,6 +3,7 @@ package admin
 import (
 	"html/template"
 	"net/http"
+	"strings"
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/util/secret"
@@ -74,7 +75,12 @@ func (s *State) PostReloadTemplates(w http.ResponseWriter, r *http.Request) {
 
 func (s *State) PostSetHolidayTheme(w http.ResponseWriter, r *http.Request) {
 	theme := r.PostFormValue("theme")
-	s.ThemeConfig.StoreHoliday(radio.ThemeName(theme))
+
+	if theme == "" || strings.EqualFold(theme, "none") {
+		s.ThemeConfig.ClearHoliday()
+	} else {
+		s.ThemeConfig.StoreHoliday(radio.ThemeName(theme))
+	}
 
 	input := NewHomeInput(r, s.Daypass, s.ThemeConfig.LoadHoliday())
 
