@@ -44,6 +44,7 @@ type SearchSharedInput struct {
 	CSRFTokenInput  template.HTML
 	Query           string
 	Songs           []radio.Song
+	TotalHits       int
 	CanRequest      bool
 	RequestCooldown time.Duration
 	Page            *shared.Pagination
@@ -97,6 +98,7 @@ func NewSearchSharedInput(s radio.SearchService, rs radio.RequestStorage, r *htt
 		CSRFTokenInput:  csrf.TemplateField(r),
 		Query:           query,
 		Songs:           songs,
+		TotalHits:       totalHits,
 		CanRequest:      ok,
 		RequestCooldown: cd,
 		Page: shared.NewPagination(
