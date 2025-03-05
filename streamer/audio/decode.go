@@ -6,44 +6,14 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"strconv"
 
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/justincormack/go-memfd"
 	"go.opentelemetry.io/otel"
 )
 
-func DecodeFileAdvanced(ctx context.Context, filename string, format Format) (*MemoryBuffer, error) {
-	const op errors.Op = "streamer/audio.DecodeFileAdvanced"
-	ctx, span := otel.Tracer("").Start(ctx, string(op))
-	defer span.End()
-
-	args := []string{
-		"-hide_banner",
-		"-loglevel", "error",
-		"-i", filename,
-		"-f", format.String(),
-		"-ac", strconv.Itoa(format.Channels),
-		"-ar", "44100",
-		"-acodec", "pcm_" + format.String(),
-		"-",
-	}
-
-	ff, err := newFFmpegCmd(ctx, filename, args)
-	if err != nil {
-		return nil, errors.E(op, err)
-	}
-
-	mb, err := ff.Run(ctx)
-	if err != nil {
-		return nil, errors.E(op, err)
-	}
-
-	return mb, nil
-}
-
 // DecodeFile decodes the filename given to an in-memory buffer as
-// 16-bit 44100Hz PCM audio data
+// PCM audio data
 func DecodeFile(ctx context.Context, filename string) (*MemoryBuffer, error) {
 	const op errors.Op = "streamer/audio.DecodeFile"
 	ctx, span := otel.Tracer("").Start(ctx, string(op))
