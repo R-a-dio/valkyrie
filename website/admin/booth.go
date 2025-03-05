@@ -190,7 +190,10 @@ type BoothStopStreamerInput struct {
 	ConnectTimeout time.Duration
 }
 
-func (BoothStopStreamerInput) FormAction() template.HTMLAttr {
+func (bssi *BoothStopStreamerInput) FormAction() template.HTMLAttr {
+	if bssi.UserIsLive {
+		return "/admin/booth/start-streamer"
+	}
 	return "/admin/booth/stop-streamer"
 }
 
