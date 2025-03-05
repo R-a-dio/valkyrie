@@ -71,6 +71,13 @@ func (p *Pagination) BaseURL() template.URL {
 	return template.URL(p.uri.Path)
 }
 
+func (p *Pagination) RawURL() *url.URL {
+	if p == nil {
+		return nil
+	}
+	return p.uri
+}
+
 func (p *Pagination) createPage(page int64) *Pagination {
 	if p == nil {
 		return nil
@@ -154,6 +161,13 @@ func (p *FromPagination[T]) BaseURL() template.URL {
 		return template.URL("")
 	}
 	return template.URL(p.uri.Path)
+}
+
+func (p *FromPagination[T]) RawURL() *url.URL {
+	if p == nil {
+		return nil
+	}
+	return p.uri
 }
 
 // First returns the first page, this uses time.Now() as the Key and
