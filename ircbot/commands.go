@@ -19,7 +19,7 @@ var (
 	reNowPlaying      = "n(ow)?p(laying)?$"
 	reLastPlayed      = "l(ast)?p(layed)?$"
 	reQueue           = "q(ueue)?$"
-	reQueueLength     = "q(ueue)? l(ength)?"
+	reQueueLength     = "q(ueue)? l(ength)?$"
 	reDJ              = "dj( (?P<isGuest>guest:)?(?P<DJ>.+))?"
 	reFave            = "(?P<isNegative>un)?f(ave|avorite)( ((?P<TrackID>[0-9]+)|(?P<relative>(last($| ))+)))?"
 	reFaveList        = "f(ave|avorite)?l(ist)?( (?P<Nick>.+))?"
@@ -31,8 +31,8 @@ var (
 	reSearch          = "s(earch)? ((?P<TrackID>[0-9]+)|(?P<Query>.+))"
 	reRequest         = "r(equest)? (?P<TrackID>[0-9]+)"
 	reLastRequestInfo = "lastr(equest)? ?(?P<Nick>.+)?"
-	reTrackInfo       = "i(nfo)? ?(?P<TrackID>[0-9]+)?"
-	reTrackTags       = "tags ?(?P<TrackID>[0-9]+)?"
+	reTrackInfo       = "i(nfo)?( (?P<TrackID>[0-9]+))?$"
+	reTrackTags       = "tags( (?P<TrackID>[0-9]+)?)?$"
 	reGuestAuth       = `(guest|guestauth|auth)( (?P<Nick>.+?))?(\s|$)`
 	reGuestCreate     = `newguest( (?P<Nick>.+?))?(\s|$)`
 )
@@ -55,14 +55,15 @@ func NewRegexHandlers(ctx context.Context, bot *Bot, handlers ...RegexHandler) R
 
 	for i, handler := range handlers {
 		h.cache[i] = compileRegex(handler.regex)
-		h.cache[i].Longest()
 	}
 
 	return h
 }
 
 func compileRegex(regex string) *regexp.Regexp {
-	return regexp.MustCompile(rePrefix + regex)
+	r := regexp.MustCompile(rePrefix + regex)
+	r.Longest()
+	return r
 }
 
 // RegexHandlers is a collection of handlers that are triggered based on a regular
