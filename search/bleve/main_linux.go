@@ -81,6 +81,7 @@ func NewServer(ctx context.Context, idx *indexWrap) (*http.Server, error) {
 	r.Get(extendedPath, ExtendedSearchHandler(idx))
 	r.Get(indexStatsPath, IndexStatsHandler(idx))
 	r.Post(deletePath, DeleteHandler(idx))
+	r.Delete(deletePath, DeleteHandler(idx))
 	r.Post(updatePath, UpdateHandler(idx))
 
 	srv := &http.Server{
