@@ -53,6 +53,8 @@ func WriteMetadata(ctx context.Context, f afero.File, song radio.Song) (*MemoryB
 		args = append(args, "-f", "mp3")
 	case ".ogg":
 		args = append(args, "-f", "ogg")
+	case ".m4a":
+		args = append(args, "-f", "ipod")
 	default:
 		return nil, errors.E(op, errors.InvalidArgument)
 	}

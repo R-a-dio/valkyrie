@@ -35,6 +35,7 @@ func init() {
 	must(mime.AddExtensionType(".opus", "audio/ogg"))
 	must(mime.AddExtensionType(".mp3", "audio/mpeg"))
 	must(mime.AddExtensionType(".flac", "audio/flac"))
+	must(mime.AddExtensionType(".m4a", "audio/mp4"))
 }
 
 func ZerologLoggerFunc(r *http.Request, status, size int, duration time.Duration) {

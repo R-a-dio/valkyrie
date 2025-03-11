@@ -241,6 +241,13 @@ func (s *State) postSubmit(r *http.Request) (SubmissionForm, error) {
 		return *form, nil
 	}
 
+	// check if the format is allowed to be uploaded
+	if !AllowedAudioFormats(song.Format) {
+		zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Msg("file format not allowed")
+		form.Errors["track"] = "file format not allowed"
+		return *form, nil
+	}
+
 	// Copy information over from the form and request to the PendingSong
 	song.Comment = form.Comment
 	song.Filename = form.OriginalFilename
@@ -536,6 +543,30 @@ func AllowedExtension(ext string) bool {
 		return true
 	case ".ogg":
 		return true
+	case ".m4a":
+		return true
 	}
+	return false
+}
+
+var allowedAudioFormats = map[string]struct{}{
+	"ogg":  struct{}{},
+	"flac": struct{}{},
+	"mp3":  struct{}{},
+	"m4a":  struct{}{},
+}
+
+// AllowedAudioFormats returns if the format string given is OK to let into the database,
+// this format string should come from the ffprobe output of a file
+func AllowedAudioFormats(format string) bool {
+	formats := strings.Split(strings.ToLower(format), ",")
+
+	for _, format = range formats {
+		_, ok := allowedAudioFormats[format]
+		if ok {
+			return true
+		}
+	}
+
 	return false
 }
