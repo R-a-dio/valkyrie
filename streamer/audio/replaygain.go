@@ -61,9 +61,16 @@ func newFFmpegWithReplaygain(ctx context.Context, filename string) (*ffmpeg, err
 		return nil, err
 	}
 
-	last := bytes.LastIndex(data, []byte("{"))
-	if last > 0 {
-		data = data[last-1:]
+	// find the first { which should be the start of our json data
+	start := bytes.LastIndexByte(data, '{')
+	if start > 0 {
+		data = data[start-1:]
+	}
+
+	// then find the first } in the rest of the data that should be the end of the json data
+	end := bytes.IndexByte(data, '}')
+	if end > 0 {
+		data = data[:end+1]
 	}
 
 	// do things with output
