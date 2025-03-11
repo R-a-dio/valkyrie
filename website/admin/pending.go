@@ -468,7 +468,7 @@ func (pf *PendingForm) ToSong(user radio.User) radio.Song {
 	var song radio.Song
 
 	song.DatabaseTrack = new(radio.DatabaseTrack)
-	if pf.Status == radio.SubmissionAccepted {
+	if pf.Status == radio.SubmissionAccepted || pf.Status == radio.SubmissionReplacement {
 		song.Artist = pf.Artist
 		song.Title = pf.Title
 		song.Album = pf.Album
