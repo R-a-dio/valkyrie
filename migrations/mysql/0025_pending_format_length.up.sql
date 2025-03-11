@@ -1,0 +1,1 @@
+ALTER TABLE pending MODIFY format VARCHAR(32);
