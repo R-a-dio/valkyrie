@@ -10,6 +10,7 @@ import (
 	"html/template"
 	"io"
 	"io/fs"
+	"math"
 	"os"
 	"reflect"
 	"regexp"
@@ -352,8 +353,14 @@ func AbsoluteDate(t time.Time) string {
 	return t.Format("15:04:05 MST")
 }
 
+const maxDuration = math.MaxInt64
+
 func HumanDuration(d time.Duration) string {
 	const day = time.Hour * 24
+
+	if d == maxDuration {
+		return "never"
+	}
 
 	d = d.Truncate(time.Second)
 

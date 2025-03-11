@@ -54,6 +54,14 @@ func TestHumanDuration(t *testing.T) {
 			assert.Equal(t, test.expected, out)
 		})
 	}
+
+	// special case check if it handles zero times
+
+	t.Run("zero-time", func(t *testing.T) {
+		out := HumanDuration(time.Since(time.Time{}))
+		assert.Equal(t, "never", out)
+	})
+
 }
 
 func TestTimeAgo(t *testing.T) {
