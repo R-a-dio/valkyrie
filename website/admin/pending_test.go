@@ -140,6 +140,7 @@ var pendingTests = []pendingTest{
 		},
 		GetRet: &radio.Song{
 			DatabaseTrack: &radio.DatabaseTrack{
+				TrackID:  50,
 				FilePath: "50_random.mp3",
 			},
 		},
