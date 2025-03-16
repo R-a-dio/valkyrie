@@ -348,7 +348,11 @@ func (m *Mount) liveSourceSwap(ctx context.Context) {
 	m.events.eventNewLiveSource(ctx, m.Name, nil)
 	// nobody here, clean ourselves up
 	if m.pm != nil {
-		m.pm.RemoveMount(m)
+		// launch in a goroutine because we are currently holding the m.SourcesMu
+		// and we're about to lock the global mountMu in RemoveMount, this can cause
+		// deadlocks, so instead use a goroutine so we can release our SourcesMu before
+		// RemoveMount runs
+		go m.pm.RemoveMount(m)
 	}
 }
 

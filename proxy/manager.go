@@ -47,6 +47,15 @@ func (pm *ProxyManager) RemoveMount(mount *Mount) {
 	pm.mountsMu.Lock()
 	defer pm.mountsMu.Unlock()
 
+	mount.SourcesMu.RLock()
+	if len(mount.Sources) > 0 {
+		// someone joined the mount while we were being called, so abort
+		// the removal
+		mount.SourcesMu.RUnlock()
+		return
+	}
+	mount.SourcesMu.RUnlock()
+
 	t := pm.cleanup[mount.Name]
 	if t != nil {
 		// we're already trying to cleanup apparently, reset the timer
