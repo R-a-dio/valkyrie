@@ -33,7 +33,6 @@ func GuestAuth(e Event) error {
 
 	u, err := e.Bot.Guest.Auth(e.Ctx, nick)
 	if err != nil {
-		e.EchoPrivate("something went wrong")
 		return err
 	}
 
