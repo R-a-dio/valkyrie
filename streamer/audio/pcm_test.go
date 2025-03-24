@@ -54,7 +54,9 @@ func TestPCMBuffer(t *testing.T) {
 	}
 
 	go func() {
-		_, _ = p.Write(data)
+		n, err := p.Write(data)
+		require.NoError(t, err)
+		require.EqualValues(t, len(data), n)
 	}()
 
 	n, err = io.ReadAtLeast(pr, data2, len(data2))

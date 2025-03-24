@@ -61,9 +61,31 @@ func TestReHandlersCompiles(t *testing.T) {
 }
 
 func TestRegexpHandlers(t *testing.T) {
+	type checker func(map[string]string) bool
+
+	hasKey := func(key string) func(m map[string]string) bool {
+		return func(m map[string]string) bool {
+			_, ok := m[key]
+			return ok
+		}
+	}
+
+	hasValue := func(key, value string) func(m map[string]string) bool {
+		return func(m map[string]string) bool {
+			v, ok := m[key]
+			if !ok {
+				return false
+			}
+			return v == value
+		}
+	}
+
+	hasFave := hasKey("isFave")
+
 	type trhcase struct {
 		input      string
 		shouldFail bool
+		checks     []checker
 	}
 	testCases := map[string][]trhcase{}
 	testCases["now_playing"] = []trhcase{
@@ -98,7 +120,20 @@ func TestRegexpHandlers(t *testing.T) {
 	testCases["thread_url"] = []trhcase{}
 	testCases["channel_topic"] = []trhcase{}
 	testCases["kill_streamer"] = []trhcase{}
-	testCases["random_track_request"] = []trhcase{}
+	testCases["random_track_request"] = []trhcase{
+		{input: ".random"},
+		{input: ".ra f", checks: []checker{hasFave}},
+		{input: ".random fave", checks: []checker{hasFave}},
+		{input: ".random fave nickname", checks: []checker{
+			hasFave,
+		}},
+		{input: ".random fukkireta", checks: []checker{
+			hasValue("Query", "fukkireta"),
+		}},
+		{input: ".random favereta", checks: []checker{
+			hasValue("Query", "favereta"),
+		}},
+	}
 	testCases["lucky_track_request"] = []trhcase{}
 	testCases["search_track"] = []trhcase{}
 	testCases["request_track"] = []trhcase{}
@@ -138,6 +173,13 @@ func TestRegexpHandlers(t *testing.T) {
 				// should succeed path
 				if !assert.NotNil(t, match) {
 					t.Logf("failed regexp match:\n\tregexp: %s\n\tinput: %s", re.regex, tc.input)
+				} else {
+					for _, check := range tc.checks {
+						if !check(match) {
+							t.Errorf("failed check:\n\tregexp: %s\n\tinput: %s\n\tmatch: %v", re.regex, tc.input, match)
+						}
+					}
+					//t.Error(tc.checks)
 				}
 			}
 		})
