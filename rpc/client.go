@@ -200,9 +200,9 @@ func (g GuestClientRPC) Create(ctx context.Context, nick string) (*radio.User, s
 func (g GuestClientRPC) Auth(ctx context.Context, nick string) (*radio.User, error) {
 	u, err := g.rpc.Auth(ctx, toProtoGuestUser(nick))
 	if u != nil {
-		return fromProtoUser(u.User), err
+		return fromProtoUser(u.User), convertClientError(err)
 	}
-	return nil, err
+	return nil, convertClientError(err)
 }
 
 func (g GuestClientRPC) Deauth(ctx context.Context, nick string) error {

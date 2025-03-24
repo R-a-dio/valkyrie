@@ -328,6 +328,10 @@ message Error {
     string error = 7;
 }
 
+message ErrorMessage {
+    repeated Error error = 1;
+}
+
 service ListenerTracker {
     rpc ListClients(google.protobuf.Empty) returns (Listeners);
     rpc RemoveClient(TrackerRemoveClientRequest) returns (google.protobuf.Empty);

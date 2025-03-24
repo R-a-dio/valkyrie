@@ -6,6 +6,7 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/rs/xid"
+	status "google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	durationpb "google.golang.org/protobuf/types/known/durationpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -358,6 +359,65 @@ func fromProtoDJ(d *DJ) radio.DJ {
 	}
 }
 
+// convertClientError turns an error returned by grpc into our usual error type, or
+// attemps to do so
+func convertClientError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	s, ok := status.FromError(err)
+	if !ok {
+		return err
+	}
+
+	// see if the status details contains our own ErrorMessage type
+	var em *ErrorMessage
+	for _, d := range s.Details() {
+		em, ok = d.(*ErrorMessage)
+		if ok {
+			break
+		}
+	}
+
+	// no ErrorMessage found in the details so we just return the original error
+	if em == nil {
+		return err
+	}
+
+	// otherwise turn it back into one of our errors
+	return fromProtoError(em.Error)
+}
+
+// convertServerError turns an error into a grpc status error with support
+// for our own custom error type
+func convertServerError(convertErr error) error {
+	if convertErr == nil {
+		return nil
+	}
+
+	// convert to the protobuf error format that we defined
+	perr, err := toProtoError(convertErr)
+	if err != nil {
+		// return the original if this fails
+		return convertErr
+	}
+
+	// wrap them into a single message
+	em := &ErrorMessage{Error: perr}
+
+	// now convert our original error to a grpc status
+	s := status.Convert(convertErr)
+	// then add our ErrorMessage as details so we can unpack it on the client
+	s, err = s.WithDetails(em)
+	if err != nil {
+		// return the original if this fails
+		return convertErr
+	}
+
+	return s.Err()
+}
+
 func toProtoError(err error) ([]*Error, error) {
 	var stack []*Error
 
@@ -365,13 +425,17 @@ func toProtoError(err error) ([]*Error, error) {
 		return stack, nil
 	}
 
-	for {
+	for err != nil {
+		// check if the error is one of ours
 		e, ok := err.(*errors.Error)
 		if !ok {
+			// if it isn't, add the message as a string instead
 			stack = append(stack, &Error{
 				Error: err.Error(),
 			})
-			break
+			// then try to unwrap it and see if more comes out
+			err = errors.Unwrap(err)
+			continue
 		}
 
 		stack = append(stack, &Error{
@@ -383,11 +447,7 @@ func toProtoError(err error) ([]*Error, error) {
 			Info:    string(e.Info),
 		})
 
-		if e.Err == nil {
-			// no other nested errors
-			break
-		}
-		// else work on the next one
+		// check the next error
 		err = e.Err
 	}
 

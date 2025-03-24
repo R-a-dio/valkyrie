@@ -160,7 +160,7 @@ func (g GuestShim) Auth(ctx context.Context, user *GuestUser) (*GuestAuthRespons
 	u, err := g.guest.Auth(ctx, fromProtoGuestUser(user))
 	return &GuestAuthResponse{
 		User: toProtoUser(u),
-	}, err
+	}, convertServerError(err)
 }
 
 func (g GuestShim) Deauth(ctx context.Context, user *GuestUser) (*emptypb.Empty, error) {
