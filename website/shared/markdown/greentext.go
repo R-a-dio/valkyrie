@@ -112,7 +112,7 @@ func (p *MemeQuoteParser) Parse(parent ast.Node, reader text.Reader, pc parser.C
 		// and construct a link out of it
 		link := ast.NewLink()
 		// we can use shouldNumber here since we made sure it is an actual number above
-		link.Destination = append([]byte("#"), shouldNumber...)
+		link.Destination = append([]byte("#comment-"), shouldNumber...)
 		// add the actual text as child of the link
 		link.AppendChild(link, ast.NewTextSegment(seg))
 
