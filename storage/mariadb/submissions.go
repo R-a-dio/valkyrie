@@ -160,9 +160,9 @@ func (ss SubmissionStorage) UpdateSubmissionTime(identifier string) error {
 const submissionStatsQuery = `
 SELECT
 	(SELECT count(*) FROM pending) AS current_pending,
-	COALESCE(SUM(accepted >= 0), 0) AS accepted_total,
-	COALESCE(SUM(accepted >= 0 && time > DATE_SUB(NOW(), INTERVAL 2 WEEK)), 0) AS accepted_last_two_weeks,
-	COALESCE(SUM(accepted >= 0 && ip=:identifier), 0) AS accepted_you,
+	COALESCE(SUM(accepted > 0), 0) AS accepted_total,
+	COALESCE(SUM(accepted > 0 && time > DATE_SUB(NOW(), INTERVAL 2 WEEK)), 0) AS accepted_last_two_weeks,
+	COALESCE(SUM(accepted > 0 && ip=:identifier), 0) AS accepted_you,
 	COALESCE(SUM(accepted = 0), 0) AS declined_total,
 	COALESCE(SUM(accepted = 0 && time > DATE_SUB(NOW(), INTERVAL 2 WEEK)), 0) AS declined_last_two_weeks,
 	COALESCE(SUM(accepted = 0 && ip=:identifier), 0) AS declined_you,
