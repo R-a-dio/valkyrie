@@ -267,7 +267,7 @@ func (s *State) postPendingDoReplace(r *http.Request, form PendingForm) (Pending
 		return form, errors.E(op, err, errors.InternalServer)
 	}
 	// ignore any metadata send by the form, use existing metadata as by #264 https://github.com/R-a-dio/valkyrie/issues/264
-	existing.FilePath = track.FilePath
+	existing.FilePath = existingPath
 	// unmark it as needing replacement
 	existing.NeedReplacement = false
 
