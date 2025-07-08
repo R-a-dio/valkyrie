@@ -639,10 +639,8 @@ func (s *v0Status) createStatusJSON(ctx context.Context) (v0StatusJSON, error) {
 	}
 
 	dj := ms.User.DJ
-	djName := dj.Name
-	if radio.IsGuest(ms.User) {
-		djName = "guest:" + djName // see https://github.com/R-a-dio/valkyrie/issues/228
-	}
+	// use actual username instead of display name, see https://github.com/R-a-dio/valkyrie/issues/272
+	djName := ms.User.Username
 
 	status.Main = v0StatusMain{
 		NowPlaying:  ms.Song.Metadata,
