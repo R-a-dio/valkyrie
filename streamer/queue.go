@@ -127,11 +127,28 @@ func (qs *QueueService) AddRequest(ctx context.Context, song radio.Song, identif
 	qs.mu.Lock()
 	defer qs.mu.Unlock()
 
-	qs.append(ctx, radio.QueueEntry{
-		Song:           song.Copy(),
-		IsUserRequest:  true,
-		UserIdentifier: identifier,
-	})
+	// there is a small edge-case where we might've populated the queue with a new song that also just
+	// got requested (see https://github.com/R-a-dio/valkyrie/issues/269) so to avoid that we check if
+	// a song is already in the queue here, and if it is we just update that entry instead of adding
+	// a new one.
+	addNew := true
+	for i := range qs.queue {
+		if qs.queue[i].TrackID != song.TrackID {
+			continue
+		}
+
+		addNew = false
+		qs.queue[i].IsUserRequest = true
+		qs.queue[i].UserIdentifier = identifier
+	}
+
+	if addNew {
+		qs.append(ctx, radio.QueueEntry{
+			Song:           song.Copy(),
+			IsUserRequest:  true,
+			UserIdentifier: identifier,
+		})
+	}
 
 	err := qs.Storage.Queue(ctx).Store(queueName, qs.queue)
 	if err != nil {
