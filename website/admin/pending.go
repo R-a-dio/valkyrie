@@ -266,10 +266,13 @@ func (s *State) postPendingDoReplace(r *http.Request, form PendingForm) (Pending
 	if err != nil {
 		return form, errors.E(op, err, errors.InternalServer)
 	}
-	track.FilePath = existing.FilePath
+	// ignore any metadata send by the form, use existing metadata as by #264 https://github.com/R-a-dio/valkyrie/issues/264
+	existing.FilePath = track.FilePath
+	// unmark it as needing replacement
+	existing.NeedReplacement = false
 
 	// update tracks data
-	err = ts.UpdateMetadata(track)
+	err = ts.UpdateMetadata(*existing)
 	if err != nil {
 		return form, errors.E(op, err, errors.InternalServer)
 	}
