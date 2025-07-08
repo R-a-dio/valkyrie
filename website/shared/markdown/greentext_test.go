@@ -26,8 +26,8 @@ yes
 	require.NoError(t, err)
 
 	result := buf.String()
-	assert.Contains(t, result, `href="#5555"`, "result did not contain href")
-	assert.Contains(t, result, `href="#6666"`, "result did not contain href")
+	assert.Contains(t, result, `href="#comment-5555"`, "result did not contain href")
+	assert.Contains(t, result, `href="#comment-6666"`, "result did not contain href")
 }
 
 func FuzzRadioStyleMarkdown(f *testing.F) {
