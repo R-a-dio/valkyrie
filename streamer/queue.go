@@ -112,9 +112,10 @@ func (qs *QueueService) append(ctx context.Context, entry radio.QueueEntry) {
 // based on the first entries ExpectedStartTime; This will generate incorrect times
 // if the first entry has a wrong time.
 func (qs *QueueService) calculateExpectedStartTime() {
-	var length = qs.queue[0].Length
 	for i := 1; i < len(qs.queue); i++ {
-		qs.queue[i].ExpectedStartTime = qs.queue[i-1].ExpectedStartTime.Add(length)
+		qs.queue[i].ExpectedStartTime = qs.queue[i-1].ExpectedStartTime.Add(
+			qs.queue[i-1].Length,
+		)
 	}
 }
 
