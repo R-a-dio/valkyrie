@@ -15,26 +15,27 @@ import (
 
 var (
 	// rePrefix is prefixed to all the below regex at runtime
-	rePrefix          = "(?i)^[.!@]"
-	reNowPlaying      = "n(ow)?p(laying)?$"
-	reLastPlayed      = "l(ast)?p(layed)?$"
-	reQueue           = "q(ueue)?$"
-	reQueueLength     = "q(ueue)? l(ength)?$"
-	reDJ              = "dj( (?P<isGuest>guest:)?(?P<DJ>.+))?"
-	reFave            = "(?P<isNegative>un)?f(ave|avorite)( ((?P<TrackID>[0-9]+)|(?P<relative>(last($| ))+)))?"
-	reFaveList        = "f(ave|avorite)?l(ist)?( (?P<Nick>.+))?"
-	reThread          = "thread( (?P<thread>.+))?"
-	reTopic           = "topic( (?P<topic>.+))?"
-	reKill            = "kill( (?P<force>force))?"
-	reRandomRequest   = `ra(ndom)?( ((?P<isFave>f(ave)?)( (?P<Nick>.+))?|(?P<Query>.+)))?`
-	reLuckyRequest    = "l(ucky)? (?P<Query>.+)"
-	reSearch          = "s(earch)? ((?P<TrackID>[0-9]+)|(?P<Query>.+))"
-	reRequest         = "r(equest)? (?P<TrackID>[0-9]+)"
-	reLastRequestInfo = "lastr(equest)? ?(?P<Nick>.+)?"
-	reTrackInfo       = "i(nfo)?( (?P<TrackID>[0-9]+))?$"
-	reTrackTags       = "tags( (?P<TrackID>[0-9]+)?)?$"
-	reGuestAuth       = `(guest|guestauth|auth)( (?P<Nick>.+?))?(\s|$)`
-	reGuestCreate     = `newguest( (?P<Nick>.+?))?(\s|$)`
+	rePrefix            = "(?i)^[.!@]"
+	reNowPlaying        = "n(ow)?p(laying)?$"
+	reLastPlayed        = "l(ast)?p(layed)?$"
+	reQueue             = "q(ueue)?$"
+	reQueueLength       = "q(ueue)? l(ength)?$"
+	reDJ                = "dj( (?P<isGuest>guest:)?(?P<DJ>.+))?"
+	reFave              = "(?P<isNegative>un)?f(ave|avorite)( ((?P<TrackID>[0-9]+)|(?P<relative>(last($| ))+)))?"
+	reFaveList          = "f(ave|avorite)?l(ist)?( (?P<Nick>.+))?"
+	reThread            = "thread( (?P<thread>.+))?"
+	reTopic             = "topic( (?P<topic>.+))?"
+	reKill              = "kill( (?P<force>force))?"
+	reRandomRequest     = `ra(ndom)?( ((?P<isFave>f(ave)?)( (?P<Nick>.+))?|(?P<Query>.+)))?`
+	reLuckyRequest      = "l(ucky)? (?P<Query>.+)"
+	reFaveSearchRequest = "r(equest)?_?f(ave|avorite)? (?P<Query>.+)"
+	reSearch            = "s(earch)? ((?P<TrackID>[0-9]+)|(?P<Query>.+))"
+	reRequest           = "r(equest)? (?P<TrackID>[0-9]+)"
+	reLastRequestInfo   = "lastr(equest)? ?(?P<Nick>.+)?"
+	reTrackInfo         = "i(nfo)?( (?P<TrackID>[0-9]+))?$"
+	reTrackTags         = "tags( (?P<TrackID>[0-9]+)?)?$"
+	reGuestAuth         = `(guest|guestauth|auth)( (?P<Nick>.+?))?(\s|$)`
+	reGuestCreate       = `newguest( (?P<Nick>.+?))?(\s|$)`
 )
 
 type HandlerFn func(Event) error
@@ -154,6 +155,7 @@ var reHandlers = []RegexHandler{
 	{"track_tags", reTrackTags, TrackTags},
 	{"guest_auth", reGuestAuth, GuestAuth},
 	{"guest_create", reGuestCreate, GuestCreate},
+	{"fave_search_track_request", reFaveSearchRequest, FaveSearchTrackRequest},
 }
 
 func RegisterCommandHandlers(ctx context.Context, b *Bot, handlers ...RegexHandler) error {

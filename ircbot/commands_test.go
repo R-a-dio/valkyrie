@@ -135,6 +135,14 @@ func TestRegexpHandlers(t *testing.T) {
 		}},
 	}
 	testCases["lucky_track_request"] = []trhcase{}
+
+	fstr_check := []checker{hasValue("Query", "test")}
+	testCases["fave_search_track_request"] = []trhcase{
+		{input: ".rf test", checks: fstr_check},
+		{input: ".request_fave test", checks: fstr_check},
+		{input: ".requestfave test", checks: fstr_check},
+		{input: ".rfave test", checks: fstr_check},
+	}
 	testCases["search_track"] = []trhcase{}
 	testCases["request_track"] = []trhcase{}
 	testCases["last_request_info"] = []trhcase{}

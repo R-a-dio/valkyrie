@@ -640,6 +640,10 @@ func RequestTrack(e Event) error {
 	return nil
 }
 
+func FaveSearchTrackRequest(e Event) error {
+	return nil
+}
+
 // MessageFromError returns a friendlier, coloured error message for errors
 func MessageFromError(err error) string {
 	switch {
