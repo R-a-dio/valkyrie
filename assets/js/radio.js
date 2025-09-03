@@ -394,7 +394,7 @@ function prettyProgress(d) {
 
 function adminPlayerPlayPause(src) {
     if (admin_player) {
-        if (src && admin_player.currentSrc.includes(src)) {
+        if (src && admin_player.src.includes(src)) {
             if (admin_player.paused) {
                 admin_player.play();
             } else {
