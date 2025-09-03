@@ -24,8 +24,8 @@ func Spectrum(ctx context.Context, filename string) (*os.File, error) {
 	cmd := exec.CommandContext(ctx, "ffmpeg", "-nostdin",
 		"-y", "-v", "error", "-hide_banner",
 		"-i", filename,
-		"-filter_complex", "[0:a:0]aresample=48000:resampler=soxr,showspectrumpic=s=640x512,crop=780:544:70:50[o]",
-		"-map", "[o]", "-frames:v", "1", "-q:v", "3", "-f", "webp", "-",
+		"-filter_complex", "[0:a:0]aresample=48000:resampler=soxr,showspectrumpic=s=640x512:color=rainbow:scale=log,crop=780:544:70:50[o]",
+		"-map", "[o]", "-frames:v", "1", "-q:v", "90", "-f", "webp", "-",
 	)
 	cmd.Stdout = f.File
 
