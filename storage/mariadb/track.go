@@ -1458,3 +1458,60 @@ func (ts TrackStorage) RandomFavoriteOf(nick string, limit int) ([]radio.Song, e
 	}
 	return songs, nil
 }
+
+var trackFilterSongsFavoriteOfQuery = `
+SELECT
+	tracks.id
+FROM
+	tracks
+JOIN
+	esong ON esong.hash_link = tracks.hash
+JOIN
+	efave ON efave.isong = esong.id
+JOIN
+	enick ON enick.id = efave.inick
+WHERE
+	enick.nick = ?
+AND
+	tracks.id IN (?);
+`
+
+type FilterSongsFavoriteOfParams struct {
+	Nick  string
+	Songs []radio.TrackID
+}
+
+func (ts TrackStorage) FilterSongsFavoriteOf(nick string, songs []radio.Song) ([]radio.Song, error) {
+	const op errors.Op = "mariadb/TrackStorage.FilterSongsFavoriteOf"
+	handle, deferFn := ts.handle.span(op)
+	defer deferFn()
+
+	var result = []radio.TrackID{}
+
+	// prepare the track id list for the query
+	ids := make([]radio.TrackID, 0, len(songs))
+	for _, song := range songs {
+		ids = append(ids, song.TrackID)
+	}
+
+	err := handle.Select(&result, trackFilterSongsFavoriteOfQuery, FilterSongsFavoriteOfParams{
+		Nick:  nick,
+		Songs: ids,
+	})
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
+
+	// create a set map for the TrackIDs we got returned
+	filterMap := make(map[radio.TrackID]struct{}, len(result))
+	for _, id := range result {
+		filterMap[id] = struct{}{}
+	}
+
+	// filter input songs by the trackids that were returned from the database
+	songs = slices.DeleteFunc(songs, func(song radio.Song) bool {
+		_, ok := filterMap[song.TrackID]
+		return !ok
+	})
+	return songs, nil
+}

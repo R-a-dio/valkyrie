@@ -591,17 +591,37 @@ var _ sqlx.Queryer = handle{}
 var _ sqlx.Ext = handle{}
 
 func (h handle) Get(dest any, query string, param any) error {
-	query, args, err := h.ext.BindNamed(query, param)
+	// handle named parameters
+	query, args, err := sqlx.Named(query, param)
 	if err != nil {
 		return err
 	}
+
+	// handle slice parameters, these get expanded to multiple inputs
+	query, args, err = sqlx.In(query, args...)
+	if err != nil {
+		return err
+	}
+
+	// rebind the query to our database type
+	query = h.ext.Rebind(query)
 	return sqlx.GetContext(h.ctx, h.ext, dest, query, args...)
 }
 
 func (h handle) Select(dest any, query string, param any) error {
-	query, args, err := h.ext.BindNamed(query, param)
+	// handle named parameters
+	query, args, err := sqlx.Named(query, param)
 	if err != nil {
 		return err
 	}
+
+	// handle slice parameters, these get expanded to multiple inputs
+	query, args, err = sqlx.In(query, args...)
+	if err != nil {
+		return err
+	}
+
+	// rebind the query to our database type
+	query = h.ext.Rebind(query)
 	return sqlx.SelectContext(h.ctx, h.ext, dest, query, args...)
 }

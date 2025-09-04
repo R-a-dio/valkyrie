@@ -27,6 +27,7 @@ var sqlxNamedTests = []namedTest{
 	{"newsComments", newsCommentsQuery, NewsCommentsParams{}},
 	{"newsCommentsPublic", newsCommentsPublicQuery, NewsCommentsParams{}},
 	{"submissionInsertPostPendingQuery", submissionInsertPostPendingQuery, adjustedPendingSong{}},
+	{"trackFilterSongsFavoriteOfQuery", trackFilterSongsFavoriteOfQuery, FilterSongsFavoriteOfParams{}},
 }
 
 // TestSqlxNamed tests if arguments are properly named in queries listed in sqlxNamedTests

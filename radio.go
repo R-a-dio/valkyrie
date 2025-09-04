@@ -1045,6 +1045,9 @@ type TrackStorage interface {
 	Random(limit int) ([]Song, error)
 	// RandomFavorite returns limit amount of tracks that are on the nicks favorite list
 	RandomFavoriteOf(nick string, limit int) ([]Song, error)
+	// FilterSongsFavoriteOf returns the songs given that are favorite'd by the nick given, it
+	// is allowed to mutate the slice given as argument.
+	FilterSongsFavoriteOf(nick string, songs []Song) ([]Song, error)
 
 	// UpdateMetadata updates track metadata only (artist/title/album/tags/filepath/needreplacement)
 	UpdateMetadata(song Song) error

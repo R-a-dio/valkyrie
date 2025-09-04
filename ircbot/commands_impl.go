@@ -485,6 +485,14 @@ func RandomTrackRequest(e Event) error {
 		}
 	}
 
+	return requestRandomSong(e, songs)
+}
+
+// requestRandomSong requests a random song from the list given, and communicates the result
+// to the command user
+func requestRandomSong(e Event, songs []radio.Song) error {
+	const op errors.Op = "irc/requestRandomSong"
+
 	if len(songs) == 0 {
 		e.Echo("no songs were found")
 		return nil
@@ -504,7 +512,7 @@ func RandomTrackRequest(e Event) error {
 		}
 
 		// try requesting the song
-		err = e.Bot.Streamer.RequestSong(e.Ctx, song, e.Source.Host)
+		err := e.Bot.Streamer.RequestSong(e.Ctx, song, e.Source.Host)
 		if err == nil {
 			// finished and requested a song successfully
 			return nil
@@ -641,7 +649,24 @@ func RequestTrack(e Event) error {
 }
 
 func FaveSearchTrackRequest(e Event) error {
-	return nil
+	const op errors.Op = "irc/FaveSearchTrackRequest"
+
+	nick := e.Source.Name
+	query := e.Arguments["Query"]
+
+	res, err := e.Bot.Searcher.Search(e.Ctx, query, radio.SearchOptions{
+		Limit: 1000,
+	})
+	if err != nil {
+		return errors.E(op, err)
+	}
+
+	songs, err := e.Bot.Storage.Track(e.Ctx).FilterSongsFavoriteOf(nick, res.Songs)
+	if err != nil {
+		return errors.E(op, err)
+	}
+
+	return requestRandomSong(e, songs)
 }
 
 // MessageFromError returns a friendlier, coloured error message for errors
