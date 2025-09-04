@@ -4068,6 +4068,9 @@ var _ radio.TrackStorage = &TrackStorageMock{}
 //			DeleteFunc: func(trackID radio.TrackID) error {
 //				panic("mock out the Delete method")
 //			},
+//			FilterSongsFavoriteOfFunc: func(nick string, songs []radio.Song) ([]radio.Song, error) {
+//				panic("mock out the FilterSongsFavoriteOf method")
+//			},
 //			GetFunc: func(trackID radio.TrackID) (*radio.Song, error) {
 //				panic("mock out the Get method")
 //			},
@@ -4125,6 +4128,9 @@ type TrackStorageMock struct {
 
 	// DeleteFunc mocks the Delete method.
 	DeleteFunc func(trackID radio.TrackID) error
+
+	// FilterSongsFavoriteOfFunc mocks the FilterSongsFavoriteOf method.
+	FilterSongsFavoriteOfFunc func(nick string, songs []radio.Song) ([]radio.Song, error)
 
 	// GetFunc mocks the Get method.
 	GetFunc func(trackID radio.TrackID) (*radio.Song, error)
@@ -4184,6 +4190,13 @@ type TrackStorageMock struct {
 		Delete []struct {
 			// TrackID is the trackID argument value.
 			TrackID radio.TrackID
+		}
+		// FilterSongsFavoriteOf holds details about calls to the FilterSongsFavoriteOf method.
+		FilterSongsFavoriteOf []struct {
+			// Nick is the nick argument value.
+			Nick string
+			// Songs is the songs argument value.
+			Songs []radio.Song
 		}
 		// Get holds details about calls to the Get method.
 		Get []struct {
@@ -4249,6 +4262,7 @@ type TrackStorageMock struct {
 	lockBeforeLastRequested   sync.RWMutex
 	lockDecrementRequestCount sync.RWMutex
 	lockDelete                sync.RWMutex
+	lockFilterSongsFavoriteOf sync.RWMutex
 	lockGet                   sync.RWMutex
 	lockInsert                sync.RWMutex
 	lockNeedReplacement       sync.RWMutex
@@ -4410,6 +4424,42 @@ func (mock *TrackStorageMock) DeleteCalls() []struct {
 	mock.lockDelete.RLock()
 	calls = mock.calls.Delete
 	mock.lockDelete.RUnlock()
+	return calls
+}
+
+// FilterSongsFavoriteOf calls FilterSongsFavoriteOfFunc.
+func (mock *TrackStorageMock) FilterSongsFavoriteOf(nick string, songs []radio.Song) ([]radio.Song, error) {
+	if mock.FilterSongsFavoriteOfFunc == nil {
+		panic("TrackStorageMock.FilterSongsFavoriteOfFunc: method is nil but TrackStorage.FilterSongsFavoriteOf was just called")
+	}
+	callInfo := struct {
+		Nick  string
+		Songs []radio.Song
+	}{
+		Nick:  nick,
+		Songs: songs,
+	}
+	mock.lockFilterSongsFavoriteOf.Lock()
+	mock.calls.FilterSongsFavoriteOf = append(mock.calls.FilterSongsFavoriteOf, callInfo)
+	mock.lockFilterSongsFavoriteOf.Unlock()
+	return mock.FilterSongsFavoriteOfFunc(nick, songs)
+}
+
+// FilterSongsFavoriteOfCalls gets all the calls that were made to FilterSongsFavoriteOf.
+// Check the length with:
+//
+//	len(mockedTrackStorage.FilterSongsFavoriteOfCalls())
+func (mock *TrackStorageMock) FilterSongsFavoriteOfCalls() []struct {
+	Nick  string
+	Songs []radio.Song
+} {
+	var calls []struct {
+		Nick  string
+		Songs []radio.Song
+	}
+	mock.lockFilterSongsFavoriteOf.RLock()
+	calls = mock.calls.FilterSongsFavoriteOf
+	mock.lockFilterSongsFavoriteOf.RUnlock()
 	return calls
 }
 

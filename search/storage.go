@@ -92,6 +92,7 @@ type partialTrackStorage interface {
 	Unusable() ([]radio.Song, error)
 	Random(limit int) ([]radio.Song, error)
 	RandomFavoriteOf(nick string, limit int) ([]radio.Song, error)
+	FilterSongsFavoriteOf(nick string, songs []radio.Song) ([]radio.Song, error)
 	NeedReplacement() ([]radio.Song, error)
 	BeforeLastRequested(before time.Time) ([]radio.Song, error)
 	QueueCandidates() ([]radio.TrackID, error)
