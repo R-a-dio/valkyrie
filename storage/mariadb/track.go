@@ -1471,10 +1471,12 @@ JOIN
 JOIN
 	enick ON enick.id = efave.inick
 WHERE
-	enick.nick = ?
+	enick.nick = :nick
 AND
-	tracks.id IN (?);
+	tracks.id IN (:songs);
 `
+
+var _ = CheckQuery[FilterSongsFavoriteOfParams](trackFilterSongsFavoriteOfQuery)
 
 type FilterSongsFavoriteOfParams struct {
 	Nick  string
