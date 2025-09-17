@@ -145,6 +145,21 @@ var pendingTests = []pendingTest{
 			},
 		},
 	},
+	{
+		Name:   "Replace different format",
+		Status: radio.SubmissionReplacement,
+		TxFunc: mocks.CommitTx,
+		PendingSong: radio.PendingSong{
+			FilePath:      "replacement.flac",
+			ReplacementID: trackID(50),
+		},
+		GetRet: &radio.Song{
+			DatabaseTrack: &radio.DatabaseTrack{
+				TrackID:  50,
+				FilePath: "50_random.mp3",
+			},
+		},
+	},
 }
 
 func trackID(id radio.TrackID) *radio.TrackID {

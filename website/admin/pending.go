@@ -266,8 +266,21 @@ func (s *State) postPendingDoReplace(r *http.Request, form PendingForm) (Pending
 	if err != nil {
 		return form, errors.E(op, err, errors.InternalServer)
 	}
-	// ignore any metadata send by the form, use existing metadata as by #264 https://github.com/R-a-dio/valkyrie/issues/264
-	existing.FilePath = existingPath
+	// make sure our file extension is still correct after the rename, since we might
+	// replace an mp3 with a flac (or other formats).
+	if filepath.Ext(pendingPath) != filepath.Ext(existingPath) {
+		fixedPath := existingPath[:len(existingPath)-len(filepath.Ext(existingPath))] + filepath.Ext(pendingPath)
+
+		err = s.FS.Rename(existingPath, fixedPath)
+		if err != nil {
+			return form, errors.E(op, err, errors.InternalServer)
+		}
+
+		existing.FilePath = fixedPath
+	} else {
+		existing.FilePath = existingPath
+	}
+
 	// unmark it as needing replacement
 	existing.NeedReplacement = false
 
