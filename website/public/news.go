@@ -235,6 +235,21 @@ func (s *State) PostNewsEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	news := s.Storage.News(r.Context())
+
+	post, err := news.Get(comment.PostID)
+	if err != nil {
+		s.errorHandler(w, r, err)
+		return
+	}
+
+	// check if the news post is private
+	if comment.User == nil && post.Private {
+		hlog.FromRequest(r).Warn().Ctx(r.Context()).Msg("news comment on private post")
+		s.errorHandler(w, r, errors.E(errors.AccessDenied))
+		return
+	}
+
 	// check if we have a configured api key
 	if key := s.Config.AkismetKey(); key != "" &&
 		comment.User == nil { // skip spam check if user is logged in
@@ -255,7 +270,7 @@ func (s *State) PostNewsEntry(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	_, err = s.Storage.News(r.Context()).AddComment(*comment)
+	_, err = news.AddComment(*comment)
 	if err != nil {
 		s.errorHandler(w, r, err)
 		return
