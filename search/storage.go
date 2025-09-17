@@ -135,6 +135,10 @@ func (ts trackStorage) UpdateMetadata(song radio.Song) error {
 		return errors.E(op, err)
 	}
 
+	// make sure our hash and metadata are up-to-date
+	song.Metadata = ""
+	song.Hydrate()
+
 	err = ts.search.Update(ts.ctx, song)
 	if err != nil {
 		return errors.E(op, err)
