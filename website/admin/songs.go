@@ -189,6 +189,7 @@ func (s *State) postSongs(r *http.Request) (*SongsForm, error) {
 	}
 
 	form.Success = true
+	form.SongURL = GenerateSongURL(s.SongSecret, form.Song)
 	return form, nil
 }
 
