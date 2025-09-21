@@ -182,6 +182,11 @@ func (s *State) postSongs(r *http.Request) (*SongsForm, error) {
 		return nil, nil
 	}
 
+	// check if all our fields are valid
+	if !form.Validate() {
+		return form, errors.E(op, errors.InvalidForm)
+	}
+
 	// anything but delete is effectively an update
 	err = ts.UpdateMetadata(form.Song)
 	if err != nil {
