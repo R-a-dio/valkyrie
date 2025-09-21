@@ -272,7 +272,11 @@ func Execute(ctx context.Context, cfg config.Config) error {
 	// restore the state from the previous process
 	var ws websiteStorage
 	_ = json.Unmarshal(state, &ws)
-	themeValues.StoreHoliday(ws.HolidayTheme)
+	if ws.HolidayTheme == "" {
+		themeValues.ClearHoliday()
+	} else {
+		themeValues.StoreHoliday(ws.HolidayTheme)
+	}
 
 	errCh := make(chan error, 1)
 	go func() {
