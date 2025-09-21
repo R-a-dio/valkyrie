@@ -15,6 +15,7 @@ import (
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/mocks"
 	"github.com/R-a-dio/valkyrie/util"
+	"github.com/R-a-dio/valkyrie/util/secret"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -158,10 +159,12 @@ func TestPostSongs(t *testing.T) {
 	require.NoError(t, afero.WriteFile(fs, filename, []byte("hello world"), 0775))
 
 	// setup state
+	ss, _ := secret.NewSecret(secret.SongLength)
 	state := State{
-		Storage: storage,
-		Config:  NewConfig(cfg),
-		FS:      fs,
+		Storage:    storage,
+		Config:     NewConfig(cfg),
+		FS:         fs,
+		SongSecret: ss,
 	}
 
 	// prepReq prepares a http.Request for use in the tests
