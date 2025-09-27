@@ -187,7 +187,7 @@ SELECT
 FROM
 	postpending
 WHERE
-	accepted=:status
+	accepted IN (:statuses)
 ORDER BY time DESC
 LIMIT 20;
 `
@@ -195,7 +195,7 @@ LIMIT 20;
 var _ = CheckQuery[SubmissionStatsRecentParams](submissionStatsRecentQuery)
 
 type SubmissionStatsRecentParams struct {
-	Status radio.SubmissionStatus
+	Statuses []radio.SubmissionStatus `db:"statuses"`
 }
 
 func (ss SubmissionStorage) SubmissionStats(identifier string) (radio.SubmissionStats, error) {
@@ -223,7 +223,7 @@ func (ss SubmissionStorage) SubmissionStats(identifier string) (radio.Submission
 	stats.RecentDeclines = make([]radio.PostPendingSong, 0, 20)
 
 	err = handle.Select(&stats.RecentDeclines, submissionStatsRecentQuery, SubmissionStatsRecentParams{
-		Status: radio.SubmissionDeclined,
+		Statuses: []radio.SubmissionStatus{radio.SubmissionDeclined},
 	})
 	if err != nil {
 		return stats, errors.E(op, err)
@@ -231,7 +231,7 @@ func (ss SubmissionStorage) SubmissionStats(identifier string) (radio.Submission
 
 	stats.RecentAccepts = make([]radio.PostPendingSong, 0, 20)
 	err = handle.Select(&stats.RecentAccepts, submissionStatsRecentQuery, SubmissionStatsRecentParams{
-		Status: radio.SubmissionAccepted,
+		Statuses: []radio.SubmissionStatus{radio.SubmissionAccepted, radio.SubmissionReplacement},
 	})
 	if err != nil {
 		return stats, errors.E(op, err)
