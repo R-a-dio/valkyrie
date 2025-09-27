@@ -56,7 +56,17 @@ func NewFavesInput(ss radio.SongStorage, rs radio.RequestStorage, r *http.Reques
 	var faves []radio.Song
 	var faveCount int64
 	if nickname != "" { // only ask for faves if we have a nickname
-		faves, faveCount, err = ss.FavoritesOf(nickname, favesPageSize, offset)
+	
+		isDownload := r.FormValue("dl") == "true"
+		
+		// return up to 1 million faves if dl=true
+		if isDownload {
+			faves, faveCount, err = ss.FavoritesOf(nickname, 1000000, 0)
+		} else {
+			// otherwise use pagination
+			faves, faveCount, err = ss.FavoritesOf(nickname, favesPageSize, offset)
+		}
+		
 		if err != nil {
 			return nil, errors.E(op, err)
 		}
