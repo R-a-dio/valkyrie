@@ -183,7 +183,8 @@ SELECT
 	trackid AS acceptedsong,
 	ip AS useridentifier,
 	time AS reviewedat,
-	reason AS declinereason
+	reason AS declinereason,
+	accepted AS acceptstatus
 FROM
 	postpending
 WHERE
