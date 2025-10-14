@@ -1407,7 +1407,7 @@ type PostPendingSong struct {
 	UserIdentifier string
 	ReviewedAt     time.Time
 	DeclineReason  *string
-	AcceptStatus	int
+	AcceptStatus   SubmissionStatus
 }
 
 // RelayStorage deals with the relays table.
