@@ -77,17 +77,14 @@ func RadioAnalyzerConstructor(config map[string]interface{}, cache *registry.Cac
 }
 
 func ExactAnalyzerConstructor(config map[string]interface{}, cache *registry.Cache) (analysis.Analyzer, error) {
-	tokenizer, err := cache.TokenizerNamed("unicode")
-	if err != nil {
-		return nil, err
-	}
-
 	toLowerFilter, err := cache.TokenFilterNamed(lowercase.Name)
 	if err != nil {
 		return nil, err
 	}
 
 	normalizeFilter := unicodenorm.MustNewUnicodeNormalizeFilter(unicodenorm.NFC)
+
+	tokenizer := character.NewCharacterTokenizer(IsNotSpace)
 
 	// construct an exact term analyzer
 	exact := &analysis.DefaultAnalyzer{
@@ -196,18 +193,17 @@ func IsASCII(input []byte) bool {
 	return true
 }
 
+func IsPunctOrSymbol(r rune) bool {
+	return unicode.IsPunct(r) || unicode.IsSymbol(r)
+}
+
 func (t *KagomeTokenizer) Tokenize(input []byte) analysis.TokenStream {
 	const DEBUG = false
 	if len(input) < 1 {
 		return nil
 	}
-	if IsASCII(input) { // check if we need kagome or can just use the standard whitespace tokenizer
-		return t.whitespace.Tokenize(input)
-	}
 
 	var bytePos int
-	var surface []byte
-	var whitespaceLen int
 	var rv = make(analysis.TokenStream, 0, 5)
 	var tokenPos int
 
@@ -215,83 +211,56 @@ func (t *KagomeTokenizer) Tokenize(input []byte) analysis.TokenStream {
 		rv, tokenPos = append(rv, token), tokenPos+1
 	}
 
-	for _, m := range t.kagome.Analyze(string(input), tokenizer.Search) {
-		if DEBUG {
-			log.Println(m)
-			log.Println([]byte(m.Surface))
-		}
-		bytePos += len(m.Surface) // add to the running byte count
+	for _, wt := range t.whitespace.Tokenize(input) {
+		// Check if ASCII to avoid tokenization on punctuation, and
+		// save on time
+		if IsASCII(wt.Term) {
+			// Strip punctuation from the left and right of the term
+			s := string(wt.Term)
+			sl := strings.TrimLeftFunc(s, IsPunctOrSymbol)
+			sr := strings.TrimRightFunc(sl, IsPunctOrSymbol)
+			if len(sr) == 0 {
+				// No point in adding an empty term
+				continue
+			}
+			wt.Start += len(s) - len(sl)
+			wt.End -= len(sl) - len(sr)
+			wt.Term = []byte(sr)
 
-		// length before we trim
-		surfaceLen := len(m.Surface)
-		m.Surface = strings.TrimRightFunc(m.Surface, unicode.IsSpace)
-		// then calculate how much whitespace we removed
-		whitespaceLen = surfaceLen - len(m.Surface)
-		if len(m.Surface) < surfaceLen {
-			// we removed something from the surface, add it to our running count and then mark
-			// the m.Surface as empty so we enter the next condition
-			surface = append(surface, m.Surface...)
-			m.Surface = m.Surface[:0]
+			if DEBUG {
+				log.Println(wt)
+			}
+			appendToken(wt)
+			continue
 		}
 
-		if len(m.Surface) == 0 && len(surface) > 0 {
-			// we found some whitespace, emit everything we've collected in the surface
+		// Kagome splits up punctuation from terms by default, so it doesn't need
+		// the stripping
+		bytePos = 0
+		for _, m := range t.kagome.Analyze(string(wt.Term), tokenizer.Search) {
+			surface := []byte(m.Surface)
+			if DEBUG {
+				log.Println(m)
+				log.Println(surface)
+			}
+			class := analysis.AlphaNumeric
+			if m.Class == tokenizer.KNOWN {
+				// KNOWN is japanese text
+				class = analysis.Ideographic
+			}
 			token := &analysis.Token{
 				Term:     surface,
 				Position: tokenPos,
-				Start:    bytePos - len(surface) - whitespaceLen,
-				End:      bytePos - whitespaceLen,
-				Type:     analysis.AlphaNumeric,
+				Start:    wt.Start + bytePos,
+				End:      wt.Start + bytePos + len(surface),
+				Type:     class,
 			}
-
-			appendToken(token)
-			surface = nil
-			continue
-		}
-
-		if m.Class == tokenizer.KNOWN {
-			// we hit something that the tokenizer knows, this probably means some
-			// japanese text, emit whatever is in the current surface first and then
-			// handle the new token
-			if len(surface) > 0 {
-				token := &analysis.Token{
-					Term:     surface,
-					Position: tokenPos,
-					Start:    bytePos - len(surface) - len(m.Surface),
-					End:      bytePos - len(m.Surface),
-					Type:     analysis.AlphaNumeric,
-				}
-
-				appendToken(token)
-				surface = nil
-			}
-
-			// now handle the KNOWN token
-			token := &analysis.Token{
-				Term:     []byte(m.Surface),
-				Position: tokenPos,
-				Start:    bytePos - len(m.Surface),
-				End:      bytePos,
-				Type:     analysis.Ideographic,
+			if DEBUG {
+				log.Println(token)
 			}
 			appendToken(token)
-			continue
+			bytePos += len(surface)
 		}
-
-		surface = append(surface, m.Surface...)
-	}
-
-	// end of the input, might have a strangling surface
-	if len(surface) > 0 {
-		token := &analysis.Token{
-			Term:     surface,
-			Position: tokenPos,
-			Start:    bytePos - len(surface) - whitespaceLen,
-			End:      bytePos - whitespaceLen,
-			Type:     analysis.AlphaNumeric,
-		}
-
-		rv = append(rv, token)
 	}
 
 	/*
