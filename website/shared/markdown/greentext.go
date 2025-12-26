@@ -8,31 +8,12 @@ import (
 	"strconv"
 	"unicode"
 
-	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/renderer"
-	"github.com/yuin/goldmark/renderer/html"
 	"github.com/yuin/goldmark/text"
 	goldutil "github.com/yuin/goldmark/util"
 )
-
-func RadioMarkdownOptions(debug bool) []goldmark.Option {
-	return []goldmark.Option{
-		goldmark.WithParser(NoBlockQuoteParser()),
-		goldmark.WithParserOptions(
-			parser.WithInlineParsers(
-				goldutil.Prioritized(&MemeQuoteParser{debugEnabled: debug}, 1),
-			),
-		),
-		goldmark.WithRendererOptions(
-			html.WithHardWraps(),
-			renderer.WithNodeRenderers(
-				goldutil.Prioritized(&MemeQuoteRenderer{}, 1),
-			),
-		),
-	}
-}
 
 func NoBlockQuoteParser() parser.Parser {
 	var found bool
@@ -131,7 +112,7 @@ func (p *MemeQuoteParser) Parse(parent ast.Node, reader text.Reader, pc parser.C
 
 		seg = text.NewSegment(seg.Start, seg.Start+stop)
 
-		green := &Node{}
+		green := &gNode{}
 		green.AppendChild(green, ast.NewTextSegment(seg))
 		reader.Advance(stop)
 		return green
@@ -142,28 +123,28 @@ func (p *MemeQuoteParser) Parse(parent ast.Node, reader text.Reader, pc parser.C
 
 type MemeQuoteRenderer struct{}
 
-var Kind = ast.NewNodeKind("greentext")
+var gKind = ast.NewNodeKind("greentext")
 
-type Node struct {
+type gNode struct {
 	ast.BaseInline
 }
 
-func (Node) Kind() ast.NodeKind {
-	return Kind
+func (gNode) Kind() ast.NodeKind {
+	return gKind
 }
 
-func (n *Node) Dump(src []byte, level int) {
+func (n *gNode) Dump(src []byte, level int) {
 	ast.DumpHelper(n, src, level, nil, nil)
 }
 
-var _ ast.Node = (*Node)(nil)
+var _ ast.Node = (*gNode)(nil)
 
 func (r *MemeQuoteRenderer) RegisterFuncs(reg renderer.NodeRendererFuncRegisterer) {
-	reg.Register(Kind, r.Render)
+	reg.Register(gKind, r.Render)
 }
 
 func (r *MemeQuoteRenderer) Render(w goldutil.BufWriter, src []byte, node ast.Node, entering bool) (ast.WalkStatus, error) {
-	_, ok := node.(*Node)
+	_, ok := node.(*gNode)
 	if !ok {
 		return ast.WalkStop, fmt.Errorf("unexpected node %T, expected 'mememark.Node'", node)
 	}

@@ -9,12 +9,8 @@ import (
 	"github.com/yuin/goldmark"
 )
 
-func TestMemeQuotesExtension(t *testing.T) {
-	data := []byte(`>>5555
-
->>6666
-yes
-	`)
+func TestTimeExtension(t *testing.T) {
+	data := []byte(`{2025-12-26T10:30:00Z} - {2025-12-26T11:30:00Z} do some stuff`)
 
 	md := goldmark.New(RadioMarkdownOptions(false)...)
 
@@ -23,6 +19,6 @@ yes
 	require.NoError(t, err)
 
 	result := buf.String()
-	assert.Contains(t, result, `href="#comment-5555"`, "result did not contain href")
-	assert.Contains(t, result, `href="#comment-6666"`, "result did not contain href")
+	assert.Contains(t, result, `1766745000`, "result did not contain correct time")
+	assert.Contains(t, result, `1766748600`, "result did not contain correct time")
 }

@@ -143,6 +143,7 @@ htmx.on('htmx:load', (event) => {
     // update any progress or times
     updateTimes();
     updateProgress();
+    localizeTimes();
     // register page-specific events in here
     let submit = document.getElementById('submit');
     if (submit) {
@@ -286,6 +287,15 @@ htmx.on('htmx:configRequest', (event) => {
     event.detail.parameters["theme"] = uri.searchParams.get("theme");
 })
 
+function localizeTimes() {
+    var elements = document.getElementsByClassName("ltime"); 
+    console.log(elements);
+    for(var i = 0; i < elements.length; i++) {
+        var ltime = new Date(int(elements.getAttribute("datetime"))*1000).toLocaleTimeString(navigator.languages, { hour12: false, timeStyle: "short" });
+        elements[j].innerHTML = ltime
+    }
+};
+
 function prettyDuration(d) {
     if (d < 0) {
         if (d > -60) {
@@ -419,7 +429,7 @@ function adminShowSpectrogram(src) {
     }
 }
 
-// updateTimes looks for all <time> elements and applies timeago logic to it
+// updateTimes looks for all <time> (non-localized) elements and applies timeago logic to it
 function updateTimes() {
     if (timeUpdateTimer) {
         clearTimeout(timeUpdateTimer);
@@ -429,7 +439,7 @@ function updateTimes() {
     var n = now() / 1000;
     var nextUpdate = 60;
 
-    document.querySelectorAll("time:not(.htmx-settling)").forEach((node) => {
+    document.querySelectorAll("time:not(.htmx-settling):not(.ltime)").forEach((node) => {
         if (node.dataset.timeset) {
             return
         }
