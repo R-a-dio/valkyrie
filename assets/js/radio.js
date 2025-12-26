@@ -143,7 +143,6 @@ htmx.on('htmx:load', (event) => {
     // update any progress or times
     updateTimes();
     updateProgress();
-    localizeTimes();
     // register page-specific events in here
     let submit = document.getElementById('submit');
     if (submit) {
@@ -287,15 +286,6 @@ htmx.on('htmx:configRequest', (event) => {
     event.detail.parameters["theme"] = uri.searchParams.get("theme");
 })
 
-function localizeTimes() {
-    var elements = document.getElementsByClassName("ltime"); 
-    console.log(elements);
-    for(var i = 0; i < elements.length; i++) {
-        var ltime = new Date(int(elements.getAttribute("datetime"))*1000).toLocaleTimeString(navigator.languages, { hour12: false, timeStyle: "short" });
-        elements[j].innerHTML = ltime
-    }
-};
-
 function prettyDuration(d) {
     if (d < 0) {
         if (d > -60) {
@@ -384,6 +374,22 @@ var dtfLong = new Intl.DateTimeFormat("default", {
     dateStyle: "short",
 })
 
+var dtfSchedule = new Intl.DateTimeFormat("default", {
+    weekday: "short",
+    day: "numeric",
+    month: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+    hour12: false,
+})
+
+var dtfScheduleDur = new Intl.DateTimeFormat("default", {
+    hour: "numeric",
+    minute: "numeric",
+    hour12: false,
+})
+
 function absoluteTime(d) {
     let today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -439,9 +445,28 @@ function updateTimes() {
     var n = now() / 1000;
     var nextUpdate = 60;
 
-    document.querySelectorAll("time:not(.htmx-settling):not(.ltime)").forEach((node) => {
+    document.querySelectorAll("time:not(.htmx-settling)").forEach((node) => {
         if (node.dataset.timeset) {
             return
+        }
+        if (node.classList.contains("ltime")) {
+            var ltimeDur = node.getAttribute("data-dur")
+            var ltime = new Date(node.getAttribute("datetime")*1000)
+            var ltimeFuture = new Date(node.getAttribute("datetime")*1000)
+            ltimeFuture.setMilliseconds(ltimeFuture.getMilliseconds() + ltimeDur)
+            console.log(ltime)
+            console.log(ltimeFuture)
+
+            if (ltimeDur == 0) {
+                node.innerHTML = dtfSchedule.format(ltime)
+            } else {
+                if (ltimeFuture.getDay() > ltime.getDay()) {
+                    node.innerHTML = dtfSchedule.format(ltime) + " - " + dtfSchedule.format(ltimeFuture)
+                } else {
+                    node.innerHTML = dtfSchedule.format(ltime) + " - " + dtfScheduleDur.format(ltimeFuture)
+                }
+            }
+            node.dataset.timeset = true;
         }
         var d = node.dateTime - n;
         switch (node.dataset.type) {

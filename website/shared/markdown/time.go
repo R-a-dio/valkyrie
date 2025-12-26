@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"time"
-	"unicode"
 
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/parser"
@@ -28,6 +27,7 @@ var _ parser.InlineParser = (*TimeParser)(nil)
 const (
 	timeStart = '{'
 	timeEnd   = '}'
+	durStart  = '|'
 )
 
 func (p *TimeParser) Trigger() []byte {
@@ -43,7 +43,9 @@ func (p *TimeParser) Parse(parent ast.Node, reader text.Reader, pc parser.Contex
 	reader.Advance(1)
 	_, seg := reader.Position()
 	var i int
-	rs := []rune{}
+	var indur bool
+	timeRs := []rune{}
+	durRs := []rune{}
 	for {
 		r, _, err := reader.ReadRune()
 		if err != nil {
@@ -51,11 +53,18 @@ func (p *TimeParser) Parse(parent ast.Node, reader text.Reader, pc parser.Contex
 		}
 		if r == timeEnd {
 			break
-		} else if unicode.IsSpace(r) { // failsafe
-			p.debug("space encountered")
+		} else if r == durStart { // allow a duration, don't include it in output text
+			indur = true
+			continue
+		} else if r == '\n' { // failsafe
+			p.debug("newline encountered")
 			return nil
 		}
-		rs = append(rs, r)
+		if indur {
+			durRs = append(durRs, r)
+			continue
+		}
+		timeRs = append(timeRs, r)
 		i++
 	}
 
@@ -63,10 +72,17 @@ func (p *TimeParser) Parse(parent ast.Node, reader text.Reader, pc parser.Contex
 
 	tn := &tNode{}
 	var err error
-	tn.t, err = time.Parse(time.RFC3339, string(rs))
+	tn.t, err = time.Parse(time.RFC822Z, string(timeRs))
 	if err != nil {
 		p.debug("error parsing time")
 		return nil
+	}
+	if len(durRs) != 0 {
+		tn.d, err = time.ParseDuration(string(durRs))
+		if err != nil {
+			p.debug("error parsing duration")
+			return nil
+		}
 	}
 	tn.AppendChild(tn, ast.NewTextSegment(seg))
 	return tn
@@ -79,6 +95,7 @@ var tKind = ast.NewNodeKind("ltime")
 type tNode struct {
 	ast.BaseInline
 	t time.Time
+	d time.Duration
 }
 
 func (tNode) Kind() ast.NodeKind {
@@ -102,7 +119,7 @@ func (r *TimeRenderer) Render(w goldutil.BufWriter, src []byte, node ast.Node, e
 	}
 
 	if entering {
-		fmt.Fprintf(w, `<time class="ltime" datetime="%d">`, tn.t.Unix())
+		fmt.Fprintf(w, `<time class="ltime" datetime="%d" data-dur="%d">`, tn.t.Unix(), tn.d.Milliseconds())
 		return ast.WalkContinue, nil
 	}
 
