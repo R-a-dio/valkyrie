@@ -402,6 +402,26 @@ function absoluteTime(d) {
     }
 }
 
+function localTime(node) {
+    var ltimeDur = node.getAttribute("data-dur")
+    var ltime = new Date(node.getAttribute("datetime")*1000)
+    var ltimeFuture = new Date(node.getAttribute("datetime")*1000)
+    ltimeFuture.setMilliseconds(ltimeFuture.getMilliseconds() + ltimeDur)
+
+    var out;
+    if (ltimeDur == 0) {
+        out = dtfSchedule.format(ltime)
+    } else {
+        if (ltimeFuture.getDay() > ltime.getDay()) {
+            out = dtfSchedule.format(ltime) + " - " + dtfSchedule.format(ltimeFuture)
+        } else {
+            out = dtfSchedule.format(ltime) + " - " + dtfScheduleDur.format(ltimeFuture)
+        }
+    }
+
+    return out
+}
+
 function prettyProgress(d) {
     d = Math.max(d, 0) / 1000;
     var mins = Math.floor(d / 60), secs = Math.floor(d % 60);
@@ -449,29 +469,14 @@ function updateTimes() {
         if (node.dataset.timeset) {
             return
         }
-        if (node.classList.contains("ltime")) {
-            var ltimeDur = node.getAttribute("data-dur")
-            var ltime = new Date(node.getAttribute("datetime")*1000)
-            var ltimeFuture = new Date(node.getAttribute("datetime")*1000)
-            ltimeFuture.setMilliseconds(ltimeFuture.getMilliseconds() + ltimeDur)
-            console.log(ltime)
-            console.log(ltimeFuture)
-
-            if (ltimeDur == 0) {
-                node.innerHTML = dtfSchedule.format(ltime)
-            } else {
-                if (ltimeFuture.getDay() > ltime.getDay()) {
-                    node.innerHTML = dtfSchedule.format(ltime) + " - " + dtfSchedule.format(ltimeFuture)
-                } else {
-                    node.innerHTML = dtfSchedule.format(ltime) + " - " + dtfScheduleDur.format(ltimeFuture)
-                }
-            }
-            node.dataset.timeset = true;
-        }
         var d = node.dateTime - n;
         switch (node.dataset.type) {
             case "absolute":
                 node.textContent = absoluteTime(node.dateTime);
+                node.dataset.timeset = true;
+                break;
+            case "local":
+                node.textContent = localTime(node);
                 node.dataset.timeset = true;
                 break;
             case "medium":

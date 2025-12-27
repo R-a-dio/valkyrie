@@ -119,7 +119,7 @@ func (r *TimeRenderer) Render(w goldutil.BufWriter, src []byte, node ast.Node, e
 	}
 
 	if entering {
-		fmt.Fprintf(w, `<time class="ltime" datetime="%d" data-dur="%d">`, tn.t.Unix(), tn.d.Milliseconds())
+		fmt.Fprintf(w, `<time datetime="%d" data-dur="%d" data-type="local">`, tn.t.Unix(), tn.d.Milliseconds())
 		return ast.WalkContinue, nil
 	}
 
