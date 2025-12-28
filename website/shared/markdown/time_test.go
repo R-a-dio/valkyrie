@@ -21,10 +21,11 @@ func TestTimeExtension(t *testing.T) {
 		{"invalid", "{26 Dec 25 1as2d|1h}", `<p>{26 Dec 25 1as2d|1h}</p>`},
 		{"opening with no time", "{: this is a weird smily {:", `<p>{: this is a weird smily {:</p>`},
 		{"opening with closing no time", "this is a valid brace with nothing good in it {}", `<p>this is a valid brace with nothing good in it {}</p>`},
-		{"newlinw", "newline time {yes \n}", "<p>newline time {yes<br>\n}</p>"},
+		{"newline", "newline time {yes \n}", "<p>newline time {yes<br>\n}</p>"},
+		{"newline in valid date", "{26 Dec 25 10:30 +0000|1h\n}", "<p>{26 Dec 25 10:30 +0000|1h<br>\n}</p>"},
 	}
 
-	md := goldmark.New(RadioMarkdownOptions(true)...)
+	md := goldmark.New(RadioMarkdownOptions(false)...)
 
 	for _, c := range cases {
 		var buf bytes.Buffer

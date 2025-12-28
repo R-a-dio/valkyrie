@@ -51,7 +51,7 @@ func (p *TimeParser) Parse(parent ast.Node, reader text.Reader, pc parser.Contex
 		rs = append(rs, r)
 	}
 
-	ts, dur, found := strings.Cut(string(rs), durSep)
+	ts, dur, hasDuration := strings.Cut(string(rs), durSep)
 
 	seg = text.NewSegment(seg.Start, seg.Start+len(ts))
 
@@ -62,7 +62,7 @@ func (p *TimeParser) Parse(parent ast.Node, reader text.Reader, pc parser.Contex
 		p.debug("error parsing time")
 		return nil
 	}
-	if found {
+	if hasDuration {
 		tn.d, err = time.ParseDuration(dur)
 		if err != nil {
 			p.debug("error parsing duration")
