@@ -3,6 +3,7 @@ package markdown
 import (
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/yuin/goldmark/ast"
@@ -27,7 +28,7 @@ var _ parser.InlineParser = (*TimeParser)(nil)
 const (
 	timeStart = '{'
 	timeEnd   = '}'
-	durStart  = '|'
+	durSep    = "|"
 )
 
 func (p *TimeParser) Trigger() []byte {
@@ -35,17 +36,10 @@ func (p *TimeParser) Trigger() []byte {
 }
 
 func (p *TimeParser) Parse(parent ast.Node, reader text.Reader, pc parser.Context) ast.Node {
-	if reader.Peek() != timeStart {
-		return nil
-	}
-
 	// eat our beginning
 	reader.Advance(1)
 	_, seg := reader.Position()
-	var i int
-	var indur bool
-	timeRs := []rune{}
-	durRs := []rune{}
+	rs := []rune{}
 	for {
 		r, _, err := reader.ReadRune()
 		if err != nil {
@@ -53,32 +47,23 @@ func (p *TimeParser) Parse(parent ast.Node, reader text.Reader, pc parser.Contex
 		}
 		if r == timeEnd {
 			break
-		} else if r == durStart { // allow a duration, don't include it in output text
-			indur = true
-			continue
-		} else if r == '\n' { // failsafe
-			p.debug("newline encountered")
-			return nil
 		}
-		if indur {
-			durRs = append(durRs, r)
-			continue
-		}
-		timeRs = append(timeRs, r)
-		i++
+		rs = append(rs, r)
 	}
 
-	seg = text.NewSegment(seg.Start, seg.Start+i)
+	ts, dur, found := strings.Cut(string(rs), durSep)
+
+	seg = text.NewSegment(seg.Start, seg.Start+len(ts))
 
 	tn := &tNode{}
 	var err error
-	tn.t, err = time.Parse(time.RFC822Z, string(timeRs))
+	tn.t, err = time.Parse(time.RFC822Z, ts)
 	if err != nil {
 		p.debug("error parsing time")
 		return nil
 	}
-	if len(durRs) != 0 {
-		tn.d, err = time.ParseDuration(string(durRs))
+	if found {
+		tn.d, err = time.ParseDuration(dur)
 		if err != nil {
 			p.debug("error parsing duration")
 			return nil

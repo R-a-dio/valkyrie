@@ -26,3 +26,20 @@ func RadioMarkdownOptions(debug bool) []goldmark.Option {
 		),
 	}
 }
+
+func RadioUntrustedMarkdownOptions(debug bool) []goldmark.Option {
+	return []goldmark.Option{
+		goldmark.WithParser(NoBlockQuoteParser()),
+		goldmark.WithParserOptions(
+			parser.WithInlineParsers(
+				goldutil.Prioritized(&MemeQuoteParser{debugEnabled: debug}, 1),
+			),
+		),
+		goldmark.WithRendererOptions(
+			html.WithHardWraps(),
+			renderer.WithNodeRenderers(
+				goldutil.Prioritized(&MemeQuoteRenderer{}, 1),
+			),
+		),
+	}
+}

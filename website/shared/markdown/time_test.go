@@ -2,6 +2,7 @@ package markdown
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -9,20 +10,31 @@ import (
 	"github.com/yuin/goldmark"
 )
 
+type timecase struct {
+	name, in, out string
+}
+
 func TestTimeExtension(t *testing.T) {
-	data := `{26 Dec 25 10:30 +0000} - {26 Dec 25 11:30 +0000} do some stuff
-	
-{26 Dec 25 10:30 +0000|1h}`
+	cases := []timecase{
+		{"valid", "{26 Dec 25 10:30 +0000}", `<p><time datetime="1766745000" data-dur="0" data-type="local">26 Dec 25 10:30 +0000</time></p>`},
+		{"valid with dur", "{26 Dec 25 10:30 +0000|1h}", `<p><time datetime="1766745000" data-dur="3600000" data-type="local">26 Dec 25 10:30 +0000</time></p>`},
+		{"invalid", "{26 Dec 25 1as2d|1h}", `<p>{26 Dec 25 1as2d|1h}</p>`},
+		{"opening with no time", "{: this is a weird smily {:", `<p>{: this is a weird smily {:</p>`},
+		{"opening with closing no time", "this is a valid brace with nothing good in it {}", `<p>this is a valid brace with nothing good in it {}</p>`},
+		{"newlinw", "newline time {yes \n}", "<p>newline time {yes<br>\n}</p>"},
+	}
 
-	md := goldmark.New(RadioMarkdownOptions(false)...)
+	md := goldmark.New(RadioMarkdownOptions(true)...)
 
-	var buf bytes.Buffer
-	err := md.Convert([]byte(data), &buf)
-	require.NoError(t, err)
+	for _, c := range cases {
+		var buf bytes.Buffer
+		err := md.Convert([]byte(c.in), &buf)
+		require.NoError(t, err)
 
-	result := buf.String()
-	// t.Log(result)
-	assert.Contains(t, result, `1766745000`, "result did not contain correct time")
-	assert.Contains(t, result, `1766748600`, "result did not contain correct time")
-	assert.Contains(t, result, `data-dur="3600000"`, "result did not contain correct duration")
+		result := buf.String()
+		// renderer appends a newline, trim it
+		result = strings.TrimSpace(result)
+		// t.Log(result)
+		assert.EqualValues(t, c.out, result)
+	}
 }

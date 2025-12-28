@@ -455,7 +455,8 @@ function adminShowSpectrogram(src) {
     }
 }
 
-// updateTimes looks for all <time> (non-localized) elements and applies timeago logic to it
+// updateTimes looks for all <time> elements and determines whether to
+// apply timeago or localization logic
 function updateTimes() {
     if (timeUpdateTimer) {
         clearTimeout(timeUpdateTimer);

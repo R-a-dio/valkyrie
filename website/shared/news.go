@@ -23,7 +23,7 @@ func NewNewsCache() *NewsCache {
 		//html.WithUnsafe(), // TODO: see if we want to enable this
 		//),
 		),
-		untrusted: goldmark.New(markdown.RadioMarkdownOptions(false)...),
+		untrusted: goldmark.New(markdown.RadioUntrustedMarkdownOptions(false)...),
 		pool:      pool.NewResetPool(func() *bytes.Buffer { return new(bytes.Buffer) }),
 		cache:     new(util.Map[newsCacheKey, NewsMarkdown]),
 	}
