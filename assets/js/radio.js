@@ -374,6 +374,22 @@ var dtfLong = new Intl.DateTimeFormat("default", {
     dateStyle: "short",
 })
 
+var dtfSchedule = new Intl.DateTimeFormat("default", {
+    weekday: "short",
+    day: "numeric",
+    month: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+    hour12: false,
+})
+
+var dtfScheduleDur = new Intl.DateTimeFormat("default", {
+    hour: "numeric",
+    minute: "numeric",
+    hour12: false,
+})
+
 function absoluteTime(d) {
     let today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -384,6 +400,26 @@ function absoluteTime(d) {
     } else {
         return dtf.format(date);
     }
+}
+
+function localTime(node) {
+    var ltimeDur = node.getAttribute("data-dur")
+    var ltime = new Date(node.getAttribute("datetime")*1000)
+    var ltimeFuture = new Date(node.getAttribute("datetime")*1000)
+    ltimeFuture.setMilliseconds(ltimeFuture.getMilliseconds() + ltimeDur)
+
+    var out;
+    if (ltimeDur == 0) {
+        out = dtfSchedule.format(ltime)
+    } else {
+        if (ltimeFuture.getDay() > ltime.getDay()) {
+            out = dtfSchedule.format(ltime) + " - " + dtfSchedule.format(ltimeFuture)
+        } else {
+            out = dtfSchedule.format(ltime) + " - " + dtfScheduleDur.format(ltimeFuture)
+        }
+    }
+
+    return out
 }
 
 function prettyProgress(d) {
@@ -419,7 +455,8 @@ function adminShowSpectrogram(src) {
     }
 }
 
-// updateTimes looks for all <time> elements and applies timeago logic to it
+// updateTimes looks for all <time> elements and determines whether to
+// apply timeago or localization logic
 function updateTimes() {
     if (timeUpdateTimer) {
         clearTimeout(timeUpdateTimer);
@@ -437,6 +474,10 @@ function updateTimes() {
         switch (node.dataset.type) {
             case "absolute":
                 node.textContent = absoluteTime(node.dateTime);
+                node.dataset.timeset = true;
+                break;
+            case "local":
+                node.textContent = localTime(node);
                 node.dataset.timeset = true;
                 break;
             case "medium":
