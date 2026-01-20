@@ -57,7 +57,7 @@ type announceService struct {
 
 	userTimer *util.CallbackTimer
 	userMu    sync.Mutex
-	userLast  string
+	userLast  *radio.User
 
 	topicTimerMu  sync.Mutex
 	topicTimer    *time.Timer
@@ -324,12 +324,12 @@ func (ann *announceService) AnnounceUser(ctx context.Context, user *radio.User) 
 
 	ann.userMu.Lock()
 	defer ann.userMu.Unlock()
-	if ann.userLast == user.DJ.Name {
+	if ann.userLast != nil && ann.userLast.ID == user.ID && ann.userLast.DJ.Name == user.DJ.Name {
 		zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("skipping user announce because user is the same as last")
 		return nil
 	}
 
-	ann.userLast = user.DJ.Name
+	ann.userLast = user
 	message := Fmt(`{red}(/\!/\){c} Current DJ: {green}%s {red}(/\!/\){c}`, user.DJ.Name)
 	ann.bot.c.Cmd.Message(ann.cfgMainChannel(), message)
 
