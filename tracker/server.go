@@ -170,6 +170,7 @@ func IcecastInfoHandler(next http.Handler) http.Handler {
 
 			return c
 		})
+		next.ServeHTTP(w, r)
 	})
 }
 
