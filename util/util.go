@@ -73,12 +73,12 @@ func NewZerologAttributes(logger zerolog.Logger) func(next http.Handler) http.Ha
 			if ref := r.Header.Get("Referer"); ref != "" {
 				zctx = zctx.Str("referer", ref)
 			}
-			// cloudflare node indicator
-			if cfray := r.Header.Get("Cf-Ray"); cfray != "" {
-				zctx = zctx.Str("cf_ray", cfray)
-			}
 			// cloudflare node indicator, but for the icecast redirect we have
 			if cfray := r.Header.Get("client.Cf-Ray"); cfray != "" {
+				zctx = zctx.Str("cf_ray", cfray)
+			}
+			// cloudflare node indicator
+			if cfray := r.Header.Get("Cf-Ray"); cfray != "" {
 				zctx = zctx.Str("cf_ray", cfray)
 			}
 
