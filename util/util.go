@@ -73,6 +73,9 @@ func NewZerologAttributes(logger zerolog.Logger) func(next http.Handler) http.Ha
 			if ref := r.Header.Get("Referer"); ref != "" {
 				zctx = zctx.Str("referer", ref)
 			}
+			if cfray := r.Header.Get("Cf-Ray"); cfray != "" {
+				zctx = zctx.Str("cf_ray", cfray)
+			}
 
 			l := zctx.Logger()
 			r = r.WithContext(l.WithContext(r.Context()))
