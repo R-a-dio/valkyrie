@@ -4,6 +4,9 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
 	"time"
 
 	radio "github.com/R-a-dio/valkyrie"
@@ -144,6 +147,32 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	return nil
 }
 
+func IcecastInfoHandler(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log := zerolog.Ctx(r.Context())
+		log.UpdateContext(func(c zerolog.Context) zerolog.Context {
+			// icecast gives us the mount with the query parameters added to it too
+			mount, query, _ := strings.Cut(r.PostFormValue("mount"), "?")
+			c = c.Str("mount", mount)
+
+			// we also have some query parameters we add ourselves for debug purposes, those need to be extracted here
+			values, _ := url.ParseQuery(query)
+			recovered := values.Has("r")
+
+			c = c.Bool("recovered", recovered)
+			if recovered {
+				// one of them is how long the listener has been listening according to their browser
+				d, _ := strconv.Atoi(values.Get("l"))
+				duration := time.Second * time.Duration(d)
+
+				c = c.Dur("duration", duration)
+			}
+
+			return c
+		})
+	})
+}
+
 func NewServer(ctx context.Context, cfg config.Config) *Server {
 	s := new(Server)
 	s.recorder = NewRecorder(ctx, cfg)
@@ -155,6 +184,7 @@ func NewServer(ctx context.Context, cfg config.Config) *Server {
 	r.Use(
 		util.NewZerologAttributes(*zerolog.Ctx(ctx)),
 		hlog.RequestIDHandler("req_id", "Request-Id"),
+		IcecastInfoHandler,
 		hlog.AccessHandler(util.ZerologLoggerFunc),
 	)
 	r.Post("/listener_joined", ListenerAdd(ctx, s.recorder))
