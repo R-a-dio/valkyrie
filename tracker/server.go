@@ -152,7 +152,7 @@ func IcecastInfoHandler(next http.Handler) http.Handler {
 		log := zerolog.Ctx(r.Context())
 		log.UpdateContext(func(c zerolog.Context) zerolog.Context {
 			// cloudflare node indicator
-			if cfray := r.PostForm.Get(CFRayHeader); cfray != "" {
+			if cfray := r.PostFormValue(CFRayHeader); cfray != "" {
 				c = c.Str("cf_ray", cfray)
 			}
 
