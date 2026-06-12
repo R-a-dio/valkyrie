@@ -582,9 +582,13 @@ var Stream = class {
         } catch (err) { }
     }
 
-    cacheAvoidURL = () => {
+    cacheAvoidURL = (recovered) => {
         let url = new URL(this.url);
         url.searchParams.set("_t", Date.now());
+        if (recovered) {
+            url.searchParams.set("r", "true");
+            url.searchParams.set("l", recovered);
+        }
         return url.href;
     }
 
@@ -606,12 +610,12 @@ var Stream = class {
         }
     }
 
-    play = async (newAudio) => {
+    play = async (newAudio, recovered) => {
         if (newAudio) {
             this.audio = this.createAudio();
         }
         // change the url slightly to avoid a firefox cache bug
-        this.audio.src = this.cacheAvoidURL();
+        this.audio.src = this.cacheAvoidURL(recovered);
 
         let pp = this.audio.play();
         this.setButton("Connecting...");
@@ -722,8 +726,14 @@ var Stream = class {
         }
         this.recoverLast = Date.now();
 
+        // grab the current time played on the stream for debugging purposes
+        let cur = 0;
+        if (this.audio) {
+            cur = this.audio.currentTime;
+        }
+
         await this.stop();
-        await this.play();
+        await this.play(false, cur);
     }
 
     setButton = (text) => {
