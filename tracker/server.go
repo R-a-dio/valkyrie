@@ -162,7 +162,7 @@ func IcecastInfoHandler(next http.Handler) http.Handler {
 			c = c.Bool("recovered", recovered)
 			if recovered {
 				// one of them is how long the listener has been listening according to their browser
-				d, _ := strconv.Atoi(values.Get("l"))
+				d, _ := strconv.ParseFloat(values.Get("l"), 64)
 				duration := time.Second * time.Duration(d)
 
 				c = c.Dur("duration", duration)
