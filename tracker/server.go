@@ -151,6 +151,11 @@ func IcecastInfoHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log := zerolog.Ctx(r.Context())
 		log.UpdateContext(func(c zerolog.Context) zerolog.Context {
+			// cloudflare node indicator
+			if cfray := r.Header.Get("client.Cf-Ray"); cfray != "" {
+				c = c.Str("cf_ray", cfray)
+			}
+
 			// icecast gives us the mount with the query parameters added to it too
 			mount, query, _ := strings.Cut(r.PostFormValue("mount"), "?")
 			c = c.Str("mount", mount)
