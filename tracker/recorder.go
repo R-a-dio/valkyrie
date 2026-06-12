@@ -172,6 +172,7 @@ func (r *Recorder) RemoveClient(ctx context.Context, id radio.ListenerClientID) 
 
 const prefix = "client."
 
+var CFRayHeader = strings.ToLower(prefix + "Cf-Ray")
 var xForwardedFor = strings.ToLower(prefix + "X-Forwarded-For")
 var xRealIP = strings.ToLower(prefix + "X-Real-IP")
 var trueClientIP = strings.ToLower(prefix + "True-Client-IP")
