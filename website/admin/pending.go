@@ -357,6 +357,23 @@ func (s *State) postPendingDoAccept(r *http.Request, form PendingForm) (PendingF
 	// create a database song from the form
 	track := form.ToSong(*middleware.UserFromContext(ctx))
 
+	songs, _, err := s.Storage.SongTx(ctx, tx)
+	if err != nil {
+		return form, errors.E(op, err, errors.InternalServer)
+	}
+
+	// see if an existing entry exists for this song
+	existing, err := songs.FromHash(track.Hash)
+	if err != nil && !errors.Is(errors.SongUnknown, err) {
+		return form, errors.E(op, err, errors.InternalServer)
+	}
+
+	// if one did exist, supplement our track with the information
+	if existing != nil {
+		track.LastPlayed = existing.LastPlayed
+		track.LastPlayedBy = existing.LastPlayedBy
+	}
+
 	ts, _, err := s.Storage.TrackTx(ctx, tx)
 	if err != nil {
 		return form, errors.E(op, err, errors.InternalServer)

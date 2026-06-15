@@ -51,6 +51,10 @@ type pendingTest struct {
 	// Return values for SubmissionStorage.RemoveSubmission
 	RemoveSubmissionErr error
 
+	// Return values for SongStorage.FromHash
+	FromHashRet *radio.Song
+	FromHashErr error
+
 	// Return values for TrackStorage.Insert
 	InsertRet radio.TrackID
 	InsertErr error
@@ -200,6 +204,13 @@ func TestPostPending(t *testing.T) {
 					RemoveSubmissionFunc: func(submissionID radio.SubmissionID) error {
 						assert.Equal(t, test.PendingSong.ID, submissionID)
 						return test.RemoveSubmissionErr
+					},
+				}, test.TxFunc(t), nil
+			}
+			storage.SongTxFunc = func(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.SongStorage, radio.StorageTx, error) {
+				return &mocks.SongStorageMock{
+					FromHashFunc: func(songHash radio.SongHash) (*radio.Song, error) {
+						return test.FromHashRet, test.FromHashErr
 					},
 				}, test.TxFunc(t), nil
 			}
