@@ -188,53 +188,74 @@ func (m *Manager) UpdateListeners(ctx context.Context, listeners radio.Listeners
 	return nil
 }
 
-func (m *Manager) UpdateFromStorage(ctx context.Context) error {
-	const op errors.Op = "manager/Manager.UpdateFromStorage"
+func (m *Manager) updateUserFromStorage(ctx context.Context) {
+	const op errors.Op = "manager/Manager.updateUserFromStorage"
 	_, span := otel.Tracer("").Start(ctx, string(op))
 	defer span.End()
 
-	{ // user update
-		current := m.userStream.Latest()
-
-		new, err := m.Storage.User(ctx).GetByID(current.ID)
-		if err != nil {
-			zerolog.Ctx(ctx).Error().
-				Err(err).
-				Uint64("user_id", uint64(current.ID)).
-				Msg("failed to update user from storage")
-		} else {
-			m.userStream.CompareAndSend(new, func(new, old *radio.User) bool {
-				if old == nil {
-					return new == nil
-				}
-
-				return new.ID == old.ID
-			})
-		}
+	current := m.userStream.Latest()
+	if current == nil {
+		// nothing to update
+		return
 	}
 
-	{ // song update
-		current := m.songStream.Latest()
-
-		new, err := m.Storage.Song(ctx).FromHash(current.Hash)
-		if err != nil {
-			zerolog.Ctx(ctx).Error().
-				Err(err).
-				Str("hash", current.Hash.String()).
-				Msg("failed to update song from storage")
-		} else {
-			m.songStream.CompareAndSend(&radio.SongUpdate{
-				Song: *new,
-				Info: current.Info,
-			}, func(new, old *radio.SongUpdate) bool {
-				if old == nil {
-					return new == nil
-				}
-
-				return new.EqualTo(old.Song)
-			})
-		}
+	new, err := m.Storage.User(ctx).GetByID(current.ID)
+	if err != nil {
+		zerolog.Ctx(ctx).Error().
+			Err(err).
+			Uint64("user_id", uint64(current.ID)).
+			Msg("failed to update user from storage")
+		return
 	}
+
+	m.userStream.CompareAndSend(new, func(new, old *radio.User) bool {
+		if old == nil {
+			return new == nil
+		}
+
+		return new.ID == old.ID
+	})
+}
+
+func (m *Manager) updateSongFromStorage(ctx context.Context) {
+	const op errors.Op = "manager/Manager.updateSongFromStorage"
+	_, span := otel.Tracer("").Start(ctx, string(op))
+	defer span.End()
+
+	current := m.songStream.Latest()
+	if current == nil {
+		// nothing to update
+		return
+	}
+
+	new, err := m.Storage.Song(ctx).FromHash(current.Hash)
+	if err != nil {
+		zerolog.Ctx(ctx).Error().
+			Err(err).
+			Str("hash", current.Hash.String()).
+			Msg("failed to update song from storage")
+		return
+	}
+
+	m.songStream.CompareAndSend(&radio.SongUpdate{
+		Song: *new,
+		Info: current.Info,
+	}, func(new, old *radio.SongUpdate) bool {
+		if old == nil {
+			return new == nil
+		}
+
+		return new.EqualTo(old.Song)
+	})
+}
+
+func (m *Manager) UpdateFromStorage(ctx context.Context) error {
+	const op errors.Op = "manager/Manager.UpdateFromStorage"
+	ctx, span := otel.Tracer("").Start(ctx, string(op))
+	defer span.End()
+
+	m.updateUserFromStorage(ctx)
+	m.updateSongFromStorage(ctx)
 
 	return nil
 }
