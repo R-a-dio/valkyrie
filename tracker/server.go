@@ -56,15 +56,15 @@ func cloneListener(ln net.Listener) (net.Listener, error) {
 
 	clone, err := ln.(fdstore.Filer).File()
 	if err != nil {
-		return nil, errors.E(op, err)
+		return ln, errors.E(op, err)
 	}
 
-	ln, err = net.FileListener(clone)
+	new, err := net.FileListener(clone)
 	if err != nil {
-		return nil, errors.E(op, err)
+		return ln, errors.E(op, err)
 	}
 
-	return ln, nil
+	return new, nil
 }
 
 func (s *Server) Start(ctx context.Context, fds *fdstore.Store) error {

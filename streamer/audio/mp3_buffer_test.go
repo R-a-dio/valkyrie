@@ -40,6 +40,7 @@ func TestMP3Buffer(t *testing.T) {
 
 		mpb, err := NewMP3Buffer("test", nil)
 		require.NoError(t, err)
+		require.NotNil(t, mpb)
 		defer mpb.Close()
 
 		var buf = make([]byte, 256) // small buffer to see if it handles partial frames
@@ -62,6 +63,9 @@ func TestMP3Buffer(t *testing.T) {
 		// a reader we make should also have the same size
 		mpr, err := mpb.Reader()
 		if !assert.NoError(t, err) {
+			continue
+		}
+		if !assert.NotNil(t, mpr) {
 			continue
 		}
 		fi, _ = mpr.Stat()
