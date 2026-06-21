@@ -95,7 +95,7 @@ func (c *Conn) Read(b []byte) (n int, err error) {
 		new := bytes.Replace(old, iceLine, httpLine, 1)
 		if len(new) > len(old) && c.logger != nil {
 			// log when this happens so we know someone is using an old client
-			c.logger.Info().Str("address", c.RemoteAddr().String()).Msg("ICE/1.0")
+			c.logger.Info().Str("address", c.RemoteAddrString()).Msg("ICE/1.0")
 		}
 
 		c.multi = MultiReader(bytes.NewReader(new), c.Conn)
@@ -116,9 +116,21 @@ func (c *Conn) Read(b []byte) (n int, err error) {
 	// encountered a HTTP/1.0 or HTTP/1.1 yet; We could implement extra stuff here to
 	// handle this case, but it should be virtually non-existant for proper behaving
 	// clients. So just log that this occured and assume it's a non-ICE request
-	c.logger.Error().Str("address", c.RemoteAddr().String()).Msg("rare compat")
+	c.logger.Error().Str("address", c.RemoteAddrString()).Msg("rare compat")
 	c.multi = c.Conn
 	return n, nil
+}
+
+func (c *Conn) RemoteAddrString() string {
+	if c == nil {
+		return ""
+	}
+
+	if addr := c.RemoteAddr(); addr != nil {
+		return addr.String()
+	}
+
+	return ""
 }
 
 func (c *Conn) Close() error {

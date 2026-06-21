@@ -258,6 +258,12 @@ func (s *State) PostNewsRender(w http.ResponseWriter, r *http.Request) {
 				s.errorHandler(w, r, err, "")
 				return
 			}
+			if tmp == nil {
+				// this shouldn't really happen unless someone manually edits the request
+				// but guard against it anyway
+				s.errorHandler(w, r, err, "")
+				return
+			}
 			post = *tmp
 		}
 		post.Title = r.FormValue("title")
@@ -285,6 +291,9 @@ func (s *State) PostNewsRender(w http.ResponseWriter, r *http.Request) {
 		input = TitleNewsRender{
 			NewsPost: post,
 		}
+	default:
+		s.errorHandler(w, r, err, "invalid part argument")
+		return
 	}
 
 	err = s.TemplateExecutor.Execute(w, r, input)

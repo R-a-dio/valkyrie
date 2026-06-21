@@ -87,6 +87,10 @@ func (m *Manager) UpdateSong(ctx context.Context, su *radio.SongUpdate) error {
 	ctx, span := otel.Tracer("").Start(ctx, string(op))
 	defer span.End()
 
+	if su == nil {
+		m.logger.Error().Ctx(ctx).Msg("received nil SongUpdate")
+		return errors.E(op, errors.InvalidArgument, "received nil SongUpdate")
+	}
 	// hydrate the song we got, this will deal with any weird metadata whitespace and
 	// fills in the hashes if they don't exist
 	su.Song.Hydrate()

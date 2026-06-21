@@ -524,8 +524,7 @@ func (sf *SubmissionForm) Validate(ts radio.TrackStorage, dp secret.Secret) bool
 		song, err := ts.Get(*sf.Replacement)
 		if err != nil {
 			sf.Errors["replacement"] = "TrackID does not exist"
-		}
-		if !song.NeedReplacement {
+		} else if !song.NeedReplacement {
 			sf.Errors["replacement"] = "TrackID does not need replacement"
 		}
 	}

@@ -988,7 +988,7 @@ func IsDuplicateKeyErr(err error) bool {
 	if !errors.As(err, &mysqlError) {
 		return false
 	}
-	return mysqlError.Number == 1062
+	return mysqlError != nil && mysqlError.Number == 1062
 }
 
 const trackInsertQuery = `
