@@ -106,7 +106,7 @@ func (s *State) PostSchedule(w http.ResponseWriter, r *http.Request) {
 
 	form, err := NewScheduleForm(
 		s.Storage.User(ctx),
-		*middleware.UserFromContext(ctx),
+		middleware.UserFromContext(ctx),
 		r,
 	)
 	if err != nil {

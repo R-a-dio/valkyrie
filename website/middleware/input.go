@@ -25,7 +25,7 @@ func InputMiddleware(cfg config.Config, status util.StreamValuer[radio.Status], 
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
 
-			user := UserFromContext(ctx)
+			user := MaybeUserFromContext(ctx)
 			input := Input{
 				Now:         time.Now(),
 				IsHTMX:      util.IsHTMX(r),

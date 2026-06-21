@@ -161,7 +161,7 @@ func (s *State) getProfile(w http.ResponseWriter, r *http.Request) error {
 		panic("admin request with no user")
 	}
 	// the user we're viewing
-	toView := *user
+	toView := user
 
 	// if admin, they can see other users, check if that is the case
 	if user.UserPermissions.Has(radio.PermAdmin) {
@@ -259,15 +259,16 @@ func (s *State) postProfile(r *http.Request) (*ProfileForm, error) {
 		// check if the username differs from what we were planning to edit
 		if username != toEdit.Username {
 			// grab the other user
-			toEdit, err = s.Storage.User(ctx).Get(username)
+			otherUser, err := s.Storage.User(ctx).Get(username)
 			if err != nil {
 				return nil, errors.E(op, err, errors.InternalServer)
 			}
+			toEdit = *otherUser
 		}
 	}
 
 	// parse the request form values into our form struct
-	form, err := NewProfileForm(*toEdit, r)
+	form, err := NewProfileForm(toEdit, r)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
@@ -300,7 +301,7 @@ func (s *State) postProfile(r *http.Request) (*ProfileForm, error) {
 	// apply any permission change, only admins can change this (for now)
 	if currentUser.UserPermissions.Has(radio.PermAdmin) {
 		form.User.UserPermissions = form.newPermissions
-		form.PermissionList = generatePermissionList(*currentUser, form.User)
+		form.PermissionList = generatePermissionList(currentUser, form.User)
 	}
 
 	// update the user in the database
@@ -530,7 +531,7 @@ func newProfileForm(user radio.User, r *http.Request) ProfileForm {
 	return ProfileForm{
 		User:           user,
 		CSRFTokenInput: csrf.TemplateField(r),
-		PermissionList: generatePermissionList(*requestUser, user),
+		PermissionList: generatePermissionList(requestUser, user),
 		IsAdmin:        requestUser.UserPermissions.Has(radio.PermAdmin),
 		IsSelf:         requestUser.Username == user.Username,
 		CurrentIP:      template.JS(r.RemoteAddr),

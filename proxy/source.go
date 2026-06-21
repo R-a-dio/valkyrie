@@ -92,7 +92,7 @@ func (s *Server) PutSource(w http.ResponseWriter, r *http.Request) {
 		r.Header.Get("Content-Type"),
 		mountName,
 		conn,
-		*user,
+		user,
 		identifier,
 		nil,
 	)

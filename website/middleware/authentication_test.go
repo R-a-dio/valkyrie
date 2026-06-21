@@ -146,7 +146,7 @@ func TestBasicAuth(t *testing.T) {
 			r := chi.NewRouter()
 			r.Use(BasicAuth(storage))
 			r.Get("/*", func(w http.ResponseWriter, r *http.Request) {
-				user := UserFromContext(r.Context())
+				user := MaybeUserFromContext(r.Context())
 				assert.Equal(t, test.GetFuncRet, user)
 			})
 			r.ServeHTTP(w, req)

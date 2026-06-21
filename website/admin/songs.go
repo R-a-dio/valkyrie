@@ -153,7 +153,7 @@ func (s *State) postSongs(r *http.Request) (*SongsForm, error) {
 	}
 
 	// construct the new updated song form from the input
-	form, err := NewSongsForm(ts, *user, r)
+	form, err := NewSongsForm(ts, user, r)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}

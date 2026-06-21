@@ -286,7 +286,7 @@ func (s *State) PostNewsRender(w http.ResponseWriter, r *http.Request) {
 	case "title":
 		if post.CreatedAt.IsZero() {
 			post.CreatedAt = time.Now()
-			post.User = *middleware.UserFromContext(ctx)
+			post.User = middleware.UserFromContext(ctx)
 		}
 		input = TitleNewsRender{
 			NewsPost: post,
@@ -332,7 +332,7 @@ func NewNewsPostFromRequest(post radio.NewsPost, r *http.Request) radio.NewsPost
 	post.Title = r.FormValue("title")
 	post.Header = r.FormValue("header")
 	post.Body = r.FormValue("body")
-	post.User = *middleware.UserFromContext(r.Context())
+	post.User = middleware.UserFromContext(r.Context())
 	post.Private = r.FormValue("private") != ""
 
 	switch r.FormValue("action") {
@@ -347,7 +347,7 @@ func NewNewsPostFromRequest(post radio.NewsPost, r *http.Request) radio.NewsPost
 	case "save":
 		if post.ID == 0 {
 			post.CreatedAt = time.Now()
-			post.User = *middleware.UserFromContext(r.Context())
+			post.User = middleware.UserFromContext(r.Context())
 		} else {
 			now := time.Now()
 			post.UpdatedAt = &now

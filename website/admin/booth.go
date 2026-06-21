@@ -153,7 +153,7 @@ func NewBoothStopStreamerInput(gs radio.GuestService, r *http.Request, timeout t
 	}
 
 	var allowedToKill = true
-	if radio.IsGuest(*user) {
+	if radio.IsGuest(user) {
 		var err error
 		allowedToKill, err = gs.CanDo(ctx, radio.UsernameToNick(user.Username), radio.GuestKill)
 		if err != nil {
@@ -205,7 +205,7 @@ func (s *State) boothCheckGuestPermission(r *http.Request, action radio.GuestAct
 	ctx := r.Context()
 	user := middleware.UserFromContext(ctx)
 
-	if !radio.IsGuest(*user) {
+	if !radio.IsGuest(user) {
 		// not a guest, so we return true
 		return true, nil
 	}
@@ -280,10 +280,12 @@ func (s *State) postBoothStopStreamer(r *http.Request) (*BoothStopStreamerInput,
 	errCh := make(chan error, 1)
 	go func() {
 		zerolog.Ctx(ctx).Info().Ctx(ctx).Msg("trying to stop streamer")
+		user := middleware.UserFromContext(ctx)
+
 		select {
 		case errCh <- s.Streamer.Stop(
 			context.WithoutCancel(ctx),
-			middleware.UserFromContext(ctx),
+			&user,
 			false,
 		):
 		case <-ctx.Done():

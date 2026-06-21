@@ -403,7 +403,15 @@ func (JSONCodec) Decode(b []byte) (time.Time, map[string]any, error) {
 
 // UserFromContext returns the user stored in the context, a user is available after
 // the LoginMiddleware
-func UserFromContext(ctx context.Context) *radio.User {
+func UserFromContext(ctx context.Context) radio.User {
+	u := MaybeUserFromContext(ctx)
+	if u == nil {
+		panic("UserFromContext called from handler not behind LoginMiddleware")
+	}
+	return *u
+}
+
+func MaybeUserFromContext(ctx context.Context) *radio.User {
 	u, ok := ctx.Value(userContextKey{}).(*radio.User)
 	if !ok {
 		zerolog.Ctx(ctx).Error().Ctx(ctx).Msg("UserFromContext: called from handler not behind LoginMiddleware")

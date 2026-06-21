@@ -311,31 +311,6 @@ func TestPostSongs(t *testing.T) {
 		checkExist(t, true, form.Song.FilePath)
 	})
 
-	t.Run("no user request", func(t *testing.T) {
-		getArg = testSong.TrackID
-		getRet = testSong
-
-		user := radio.User{
-			Username: "test",
-			UserPermissions: radio.UserPermissions{
-				radio.PermActive:         struct{}{},
-				radio.PermDatabaseEdit:   struct{}{},
-				radio.PermDatabaseDelete: struct{}{},
-			},
-		}
-
-		req := prepReq(user, testValues)
-		// remove the context that carries the user
-		req = req.WithContext(context.Background())
-
-		form, err := state.postSongs(req)
-		if assert.Error(t, err) {
-			assert.True(t, errors.Is(errors.AccessDenied, err), "error should be AccessDenied")
-		}
-		assert.Nil(t, form, "no user request should give back nothing")
-		checkExist(t, true, filename)
-	})
-
 	t.Run("mark replacement", func(t *testing.T) {
 		getArg = testSong.TrackID
 		getRet = testSong

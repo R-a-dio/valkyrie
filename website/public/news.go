@@ -298,7 +298,7 @@ func ParsePostNewsEntryForm(r *http.Request) (*radio.NewsComment, error) {
 		PostID:     newsid,
 		Body:       strings.TrimSpace(r.FormValue("comment")),
 		Identifier: r.RemoteAddr,
-		User:       middleware.UserFromContext(ctx),
+		User:       middleware.MaybeUserFromContext(ctx),
 		CreatedAt:  time.Now(),
 	}
 

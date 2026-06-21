@@ -77,7 +77,7 @@ func (SubmitInput) TemplateBundle() string {
 // getIdentifier either returns the username of a logged in user, or the RemoteAddr of
 // the request
 func getIdentifier(r *http.Request) (string, bool) {
-	if user := middleware.UserFromContext(r.Context()); user != nil {
+	if user := middleware.MaybeUserFromContext(r.Context()); user != nil {
 		return user.Username, true
 	}
 	return r.RemoteAddr, false

@@ -235,7 +235,7 @@ func (s *State) postPendingDoReplace(r *http.Request, form PendingForm) (Pending
 	}
 
 	// create a song from the form
-	track := form.ToSong(*middleware.UserFromContext(ctx))
+	track := form.ToSong(middleware.UserFromContext(ctx))
 
 	// grab our existing song data
 	existing, err := ts.Get(track.TrackID)
@@ -355,7 +355,7 @@ func (s *State) postPendingDoAccept(r *http.Request, form PendingForm) (PendingF
 	defer tx.Rollback() // rollback if we fail anywhere
 
 	// create a database song from the form
-	track := form.ToSong(*middleware.UserFromContext(ctx))
+	track := form.ToSong(middleware.UserFromContext(ctx))
 
 	songs, _, err := s.Storage.SongTx(ctx, tx)
 	if err != nil {

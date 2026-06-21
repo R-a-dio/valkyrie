@@ -57,7 +57,7 @@ func (s *Server) GetMetadata(w http.ResponseWriter, r *http.Request) {
 	err := s.proxy.SendMetadata(ctx, &Metadata{
 		Time:       time.Now(),
 		Identifier: IdentFromRequest(r),
-		User:       *middleware.UserFromContext(ctx),
+		User:       middleware.UserFromContext(ctx),
 		MountName:  mount,
 		Addr:       r.RemoteAddr,
 		Value:      metadata,

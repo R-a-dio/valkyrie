@@ -200,7 +200,8 @@ func Route(ctx context.Context, s State) func(chi.Router) {
 
 // PostStreamerStop stops the streamer forcefully
 func (s *State) PostStreamerStop(w http.ResponseWriter, r *http.Request) {
-	s.Streamer.Stop(r.Context(), vmiddleware.UserFromContext(r.Context()), true)
+	user := vmiddleware.UserFromContext(r.Context())
+	s.Streamer.Stop(r.Context(), &user, true)
 }
 
 func (s *State) errorHandler(w http.ResponseWriter, r *http.Request, err error, msg string) {
