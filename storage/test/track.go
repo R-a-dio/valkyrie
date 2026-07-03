@@ -106,7 +106,7 @@ func (suite *Suite) TestSongFaves(t *testing.T) {
 	require.False(t, addedAgain, "should have added=false since we just added this")
 
 	// ask for the list of faves, should have the one we added above
-	faves, n, err := ss.FavoritesOf(nick, 20, 0)
+	faves, n, err := ss.FavoritesOf(nick, 20, 1)
 	require.NoError(t, err)
 	require.EqualValues(t, 1, n)
 	require.Len(t, faves, 1)
@@ -131,7 +131,7 @@ func (suite *Suite) TestSongFaves(t *testing.T) {
 	// nothing instead of one entry
 
 	// ask for the list of faves, should have nothing now
-	faves, n, err = ss.FavoritesOf(nick, 20, 0)
+	faves, n, err = ss.FavoritesOf(nick, 20, 1)
 	require.NoError(t, err)
 	require.EqualValues(t, 0, n)
 	require.Len(t, faves, 0)
@@ -410,7 +410,7 @@ func (suite *Suite) TestSongFavoritesOf(t *testing.T) {
 	}
 
 	var limit = 50
-	var offset = 0
+	var offset = 1
 	faves, count, err := ss.FavoritesOf(nick, int64(limit), int64(offset))
 	require.NoError(t, err)
 	require.Len(t, faves, limit)

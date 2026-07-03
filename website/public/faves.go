@@ -56,7 +56,7 @@ func NewFavesInput(ss radio.SongStorage, rs radio.RequestStorage, r *http.Reques
 	var faves []radio.Song
 	var faveCount int64
 	if nickname != "" { // only ask for faves if we have a nickname
-		faves, faveCount, err = ss.FavoritesOf(nickname, favesPageSize, offset)
+		faves, faveCount, err = ss.FavoritesOf(nickname, favesPageSize, page)
 		if err != nil {
 			return nil, errors.E(op, err)
 		}

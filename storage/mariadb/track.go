@@ -515,7 +515,7 @@ LEFT JOIN
 GROUP BY esong.hash_link;
 `)
 
-var _ = CheckQuery[SongFavoritesOfParams](songFavoritesOfQuery3)
+// var _ = CheckQuery[SongFavoritesOfParams](songFavoritesOfQuery3)
 
 var songFavoritesOfQuery2 = expand(`
 WITH
@@ -575,9 +575,9 @@ GROUP BY esong.hash_link;
 `)
 
 type SongFavoritesOfParams struct {
-	Nick   string
-	Limit  int64
-	Offset int64
+	Nick           string
+	EntriesPerPage int64
+	Page           int64
 }
 
 var songFavoritesOfQuery = expand(`
@@ -658,22 +658,25 @@ WHERE
 `
 
 // FavoritesOf implements radio.SongStorage
-func (ss SongStorage) FavoritesOf(nick string, limit, offset int64) ([]radio.Song, int64, error) {
+func (ss SongStorage) FavoritesOf(nick string, entriesPerPage, page int64) ([]radio.Song, int64, error) {
 	const op errors.Op = "mariadb/SongStorage.FavoritesOf"
 	handle, deferFn := ss.handle.span(op)
 	defer deferFn()
 
 	if nick == "" {
-		return nil, 0, errors.E(op, errors.InvalidArgument)
+		return nil, 0, errors.E(op, errors.InvalidArgument, "nickname empty")
+	}
+	if page <= 0 {
+		return nil, 0, errors.E(op, errors.InvalidArgument, "page number <= 0")
 	}
 
 	var songs = []radio.Song{}
 	var count int64
 
-	err := handle.Select(&songs, songFavoritesOfQuery3, SongFavoritesOfParams{
-		Nick:   nick,
-		Limit:  limit,
-		Offset: offset,
+	err := handle.Select(&songs, songFavoritesOfQuery2, SongFavoritesOfParams{
+		Nick:           nick,
+		EntriesPerPage: entriesPerPage,
+		Page:           page,
 	})
 	if err != nil {
 		return nil, 0, errors.E(op, err)
