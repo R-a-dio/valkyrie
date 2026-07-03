@@ -488,6 +488,35 @@ func (ss SongStorage) UpdateHashLink(old, new radio.SongHash) error {
 	return nil
 }
 
+var songFavoritesOfQuery3 = expand(`
+WITH
+faves AS (SELECT
+		efave.id,
+		efave.isong
+	FROM
+		efave
+	JOIN
+		enick ON enick.id = efave.inick
+	WHERE enick.nick = :nick
+	ORDER BY efave.id DESC
+	LIMIT :limit OFFSET :offset)
+
+SELECT
+	{songColumns},
+	{maybeTrackColumns},
+	{lastplayedSelect},
+	NOW() AS synctime
+FROM
+	esong
+JOIN
+	faves ON faves.isong = esong.id
+LEFT JOIN
+	tracks ON tracks.hash = esong.hash_link
+GROUP BY esong.hash_link;
+`)
+
+var _ = CheckQuery[SongFavoritesOfParams](songFavoritesOfQuery3)
+
 var songFavoritesOfQuery2 = expand(`
 WITH
 -- all faves for this nickname
@@ -515,8 +544,10 @@ pages AS (SELECT
 	WHERE MOD(rownum, :entriesperpage) = 0),
 
 -- grab the needle for the specific page we're looking for
-needle AS (SELECT
-	IF((:page - 1) < 0, 0, (SELECT id FROM pages WHERE pagenum = (:page - 1) LIMIT 1)) AS id),
+needle AS (SELECT COALESCE(
+		(SELECT id FROM pages WHERE pagenum = :page LIMIT 1),
+		(SELECT MAX(faves.id) FROM faves)
+	) AS id),
 
 -- select all the esong ids on this page
 songs AS (SELECT DISTINCT
@@ -527,6 +558,7 @@ songs AS (SELECT DISTINCT
 		faves.id <= needle.id
 	ORDER BY faves.id DESC
 	LIMIT :entriesperpage)
+
 -- select the rest of the data
 SELECT
 	{songColumns},
@@ -539,8 +571,14 @@ JOIN
 	esong ON songs.isong = esong.id
 LEFT JOIN
 	tracks ON tracks.hash = esong.hash_link
-GROUP BY tracks.id;
+GROUP BY esong.hash_link;
 `)
+
+type SongFavoritesOfParams struct {
+	Nick   string
+	Limit  int64
+	Offset int64
+}
 
 var songFavoritesOfQuery = expand(`
 WITH
@@ -632,7 +670,11 @@ func (ss SongStorage) FavoritesOf(nick string, limit, offset int64) ([]radio.Son
 	var songs = []radio.Song{}
 	var count int64
 
-	err := sqlx.Select(handle, &songs, songFavoritesOfQuery, nick, limit, offset)
+	err := handle.Select(&songs, songFavoritesOfQuery3, SongFavoritesOfParams{
+		Nick:   nick,
+		Limit:  limit,
+		Offset: offset,
+	})
 	if err != nil {
 		return nil, 0, errors.E(op, err)
 	}
