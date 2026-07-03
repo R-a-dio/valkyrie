@@ -119,7 +119,12 @@ func TestRegexpHandlers(t *testing.T) {
 	testCases["fave_list"] = []trhcase{}
 	testCases["thread_url"] = []trhcase{}
 	testCases["channel_topic"] = []trhcase{}
-	testCases["kill_streamer"] = []trhcase{}
+	testCases["kill_streamer"] = []trhcase{
+		{input: ".kill", checks: []checker{hasValue("force", "")}},
+		{input: ".kill force", checks: []checker{hasKey("force")}},
+		{input: ".kill invalid", shouldFail: true},
+		{input: ".killinvalid", shouldFail: true},
+	}
 	testCases["random_track_request"] = []trhcase{
 		{input: ".random"},
 		{input: ".ra f", checks: []checker{hasFave}},
@@ -133,6 +138,8 @@ func TestRegexpHandlers(t *testing.T) {
 		{input: ".random favereta", checks: []checker{
 			hasValue("Query", "favereta"),
 		}},
+		{input: ".raf", shouldFail: true},
+		{input: ".rad", shouldFail: true},
 	}
 	testCases["lucky_track_request"] = []trhcase{}
 
