@@ -41,7 +41,7 @@ func (FavesInput) TemplateBundle() string {
 func NewFavesInput(ss radio.SongStorage, rs radio.RequestStorage, r *http.Request, requestDelay time.Duration) (*FavesInput, error) {
 	const op errors.Op = "website/public.NewFavesInput"
 
-	page, offset, err := getPageOffset(r, favesPageSize)
+	page, _, err := getPageOffset(r, favesPageSize)
 	if err != nil {
 		return nil, errors.E(op, err)
 	}
