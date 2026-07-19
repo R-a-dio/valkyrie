@@ -75,29 +75,15 @@ func (setup *PostgresSetup) Setup(ctx context.Context) error {
 		t.Log("failed to run migrations")
 		return err
 	}
+	// this db isn't needed anymore
+	setup.db.Close()
 
-	var names []string
-	err = sqlx.Select(setup.db, &names, "SELECT table_name FROM information_schema.tables WHERE table_schema = ?", setup.dbname)
+	// now make a snapshot we can restore after each test
+	err = container.Snapshot(ctx)
 	if err != nil {
-		t.Log("failed to retrieve table names from schema")
+		t.Log("failed to create snapshot")
 		return err
 	}
-
-	setup.truncateQuery = "SET FOREIGN_KEY_CHECKS=0;"
-	for _, name := range names {
-		if name == "schema_migrations" {
-			// this one is where the migrations package stores its stuff, don't truncate
-			// that one
-			continue
-		}
-		if name == "permission_kinds" {
-			// permission_kinds are constant values too, don't delete these between tests
-			continue
-		}
-
-		setup.truncateQuery += "TRUNCATE TABLE " + name + "; "
-	}
-	setup.truncateQuery += "SET FOREIGN_KEY_CHECKS=1;"
 
 	setup.storage, err = storage.Open(ctx, cfg)
 	if err != nil {
@@ -140,7 +126,11 @@ func (setup *PostgresSetup) TearDown(ctx context.Context) error {
 
 func (setup *PostgresSetup) CreateStorage(ctx context.Context) radio.StorageService {
 	// truncate all tables in the database
-	sqlx.MustExecContext(ctx, setup.db, setup.truncateQuery)
+	err := setup.container.Restore(ctx)
+	if err != nil {
+		panic("failed to restore postgres snapshot")
+	}
+
 	return setup.storage
 }
 

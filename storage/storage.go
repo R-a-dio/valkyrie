@@ -9,6 +9,7 @@ import (
 	"github.com/R-a-dio/valkyrie/migrations"
 	"github.com/R-a-dio/valkyrie/search"
 	"github.com/R-a-dio/valkyrie/storage/mariadb"
+	"github.com/R-a-dio/valkyrie/storage/postgres"
 	"github.com/rs/zerolog"
 )
 
@@ -19,6 +20,7 @@ var providers = map[string]OpenFn{}
 
 func init() {
 	Register("mariadb", mariadb.Connect)
+	Register("postgres", postgres.Connect)
 }
 
 // Register registers an OpenFn under the name given, it is not safe to
