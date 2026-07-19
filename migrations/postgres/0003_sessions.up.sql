@@ -1,8 +1,8 @@
-CREATE TABLE `sessions` (
-    `id` int(12) unsigned NOT NULL AUTO_INCREMENT,
-    `token` varchar(64) NOT NULL,
-    `expiry` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
-    `data` text NOT NULL,
-PRIMARY KEY (`id`),
-UNIQUE KEY `token` (`token`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+CREATE TABLE "sessions" (
+  "id" SERIAL,
+  "token" VARCHAR(64) NOT NULL,
+  "expiry" TIMESTAMP NOT NULL DEFAULT '1970-01-01 00:00:00',
+  "data" TEXT NOT NULL,
+  PRIMARY KEY ("id"),
+  CONSTRAINT "token" UNIQUE ("token")
+);

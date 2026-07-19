@@ -1,393 +1,345 @@
--- MySQL dump 10.16  Distrib 10.1.32-MariaDB, for Linux (x86_64)
+-- PostgreSQL initial schema
+-- Converted from MySQL dump (originally MariaDB 10.1.32)
 --
 -- Host: localhost    Database: radio
--- ------------------------------------------------------
--- Server version	10.1.32-MariaDB
-
-/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
-/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
-/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!40101 SET NAMES utf8 */;
-/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
-/*!40103 SET TIME_ZONE='+00:00' */;
-/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
-/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
-/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
-/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
--- Table structure for table `djs`
--- 
-
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `djs` (
-  `id` int(12) NOT NULL AUTO_INCREMENT,
-  `djname` varchar(60) NOT NULL,
-  `djtext` text NOT NULL,
-  `djimage` text NOT NULL,
-  `visible` int(1) unsigned NOT NULL DEFAULT '0',
-  `priority` int(12) unsigned NOT NULL DEFAULT '200',
-  `css` varchar(60) NOT NULL DEFAULT '',
-  `djcolor` varchar(15) DEFAULT '51 155 185' COMMENT 'RGB values, 0-255 R G B',
-  `role` varchar(50) NOT NULL DEFAULT '',
-  `theme_id` int(10) unsigned DEFAULT NULL,
-  `regex` varchar(200) NOT NULL DEFAULT '',
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-/*!40101 SET character_set_client = @saved_cs_client */;
+-- Table structure for table djs
+--
+CREATE TABLE "djs" (
+  "id" SERIAL,
+  "djname" VARCHAR(60) NOT NULL,
+  "djtext" TEXT NOT NULL,
+  "djimage" TEXT NOT NULL,
+  "visible" INTEGER NOT NULL DEFAULT 0,
+  "priority" INTEGER NOT NULL DEFAULT 200,
+  "css" VARCHAR(60) NOT NULL DEFAULT '',
+  "djcolor" VARCHAR(15) DEFAULT '51 155 185',
+  "role" VARCHAR(50) NOT NULL DEFAULT '',
+  "theme_id" INTEGER,
+  "regex" VARCHAR(200) NOT NULL DEFAULT '',
+  PRIMARY KEY ("id")
+);
+COMMENT ON COLUMN "djs"."djcolor" IS 'RGB values, 0-255 R G B';
 
 --
--- Table structure for table `efave`
+-- Table structure for table efave
 --
-
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `efave` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT COMMENT 'db identifier',
-  `inick` int(10) unsigned NOT NULL COMMENT 'nick id',
-  `isong` int(10) unsigned NOT NULL COMMENT 'song id',
-  UNIQUE KEY `inick` (`inick`,`isong`),
-  UNIQUE KEY `id` (`id`),
-  KEY `isong` (`isong`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `enick`
---
-
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `enick` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT COMMENT 'id',
-  `nick` varchar(30) NOT NULL COMMENT 'irc handle',
-  `dta` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'first seen',
-  `dtb` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00' COMMENT 'last seen',
-  `authcode` varchar(20) DEFAULT NULL,
-  `apikey` varchar(256) DEFAULT NULL,
-  `type` int(1) unsigned DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `nick_2` (`nick`),
-  KEY `nick` (`nick`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='normalized table for irc handles';
-/*!40101 SET character_set_client = @saved_cs_client */;
+CREATE TABLE "efave" (
+  "id" SERIAL,
+  "inick" INTEGER NOT NULL,
+  "isong" INTEGER NOT NULL,
+  UNIQUE ("inick", "isong"),
+  UNIQUE ("id")
+);
+CREATE INDEX "isong" ON "efave" ("isong");
+COMMENT ON COLUMN "efave"."id" IS 'db identifier';
+COMMENT ON COLUMN "efave"."inick" IS 'nick id';
+COMMENT ON COLUMN "efave"."isong" IS 'song id';
 
 --
--- Table structure for table `eplay`
+-- Table structure for table enick
 --
-
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `eplay` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT COMMENT 'db identifier',
-  `isong` int(10) unsigned NOT NULL COMMENT 'song id',
-  `dt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'datoklokkeslett',
-  `ldiff` int(10) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `iplay` (`isong`),
-  KEY `eplay_time_index` (`dt`),
-  CONSTRAINT `iplay` FOREIGN KEY (`isong`) REFERENCES `esong` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='normalized table for track playback events';
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `esong`
---
-
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `esong` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT COMMENT 'db identifier',
-  `hash` varchar(40) NOT NULL COMMENT 'original meta hash',
-  `len` int(10) unsigned NOT NULL COMMENT 'seconds',
-  `meta` text NOT NULL COMMENT 'current meta',
-  `hash_link` varchar(40) NOT NULL DEFAULT '',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `hash` (`hash`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='normalized table for known tracks';
-/*!40101 SET character_set_client = @saved_cs_client */;
+CREATE TABLE "enick" (
+  "id" SERIAL,
+  "nick" VARCHAR(30) NOT NULL,
+  "dta" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "dtb" TIMESTAMP NOT NULL DEFAULT '1970-01-01 00:00:00',
+  "authcode" VARCHAR(20),
+  "apikey" VARCHAR(256),
+  "type" SMALLINT,
+  PRIMARY KEY ("id"),
+  CONSTRAINT "nick_2" UNIQUE ("nick")
+);
+CREATE INDEX "nick" ON "enick" ("nick");
+COMMENT ON COLUMN "enick"."id" IS 'id';
+COMMENT ON COLUMN "enick"."nick" IS 'irc handle';
+COMMENT ON COLUMN "enick"."dta" IS 'first seen';
+COMMENT ON COLUMN "enick"."dtb" IS 'last seen';
+COMMENT ON TABLE "enick" IS 'normalized table for irc handles';
 
 --
--- Table structure for table `failed_jobs`
+-- Table structure for table esong
+-- (created before eplay because eplay has a foreign key to esong)
 --
-
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `failed_jobs` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `connection` text NOT NULL,
-  `queue` text NOT NULL,
-  `payload` text NOT NULL,
-  `failed_at` timestamp NULL DEFAULT NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `failed_logins`
---
-
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `failed_logins` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `ip` varchar(255) NOT NULL,
-  `user` varchar(100) NOT NULL,
-  `password` varchar(255) NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-/*!40101 SET character_set_client = @saved_cs_client */;
+CREATE TABLE "esong" (
+  "id" SERIAL,
+  "hash" VARCHAR(40) NOT NULL,
+  "len" INTEGER NOT NULL,
+  "meta" TEXT NOT NULL,
+  "hash_link" VARCHAR(40) NOT NULL DEFAULT '',
+  PRIMARY KEY ("id"),
+  CONSTRAINT "hash" UNIQUE ("hash")
+);
+COMMENT ON COLUMN "esong"."id" IS 'db identifier';
+COMMENT ON COLUMN "esong"."hash" IS 'original meta hash';
+COMMENT ON COLUMN "esong"."len" IS 'seconds';
+COMMENT ON COLUMN "esong"."meta" IS 'current meta';
+COMMENT ON TABLE "esong" IS 'normalized table for known tracks';
 
 --
--- Table structure for table `listenlog`
+-- Table structure for table eplay
 --
-
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `listenlog` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `listeners` int(10) unsigned NOT NULL DEFAULT '0',
-  `time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `dj` int(11) NOT NULL DEFAULT '0',
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `pending`
---
-
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `pending` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `artist` varchar(200) NOT NULL,
-  `track` varchar(200) NOT NULL,
-  `album` varchar(200) NOT NULL,
-  `path` text NOT NULL,
-  `comment` text NOT NULL,
-  `origname` text NOT NULL,
-  `submitter` varchar(50) NOT NULL,
-  `submitted` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `dupe_flag` int(11) NOT NULL DEFAULT '0',
-  `replacement` int(11) DEFAULT NULL,
-  `bitrate` int(10) unsigned DEFAULT NULL,
-  `length` float DEFAULT '0',
-  `format` varchar(10) DEFAULT 'mp3',
-  `mode` varchar(10) DEFAULT 'cbr',
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-/*!40101 SET character_set_client = @saved_cs_client */;
+CREATE TABLE "eplay" (
+  "id" SERIAL,
+  "isong" INTEGER NOT NULL,
+  "dt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "ldiff" INTEGER,
+  PRIMARY KEY ("id"),
+  CONSTRAINT "iplay" FOREIGN KEY ("isong") REFERENCES "esong" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+CREATE INDEX "iplay" ON "eplay" ("isong");
+CREATE INDEX "eplay_time_index" ON "eplay" ("dt");
+COMMENT ON COLUMN "eplay"."id" IS 'db identifier';
+COMMENT ON COLUMN "eplay"."isong" IS 'song id';
+COMMENT ON COLUMN "eplay"."dt" IS 'datoklokkeslett';
+COMMENT ON TABLE "eplay" IS 'normalized table for track playback events';
 
 --
--- Table structure for table `postpending`
+-- Table structure for table failed_jobs
 --
-
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `postpending` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `trackid` int(11) DEFAULT NULL,
-  `meta` varchar(200) NOT NULL DEFAULT '',
-  `ip` varchar(50) NOT NULL DEFAULT '0.0.0.0',
-  `accepted` int(1) NOT NULL DEFAULT '0',
-  `time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `reason` varchar(120) DEFAULT '',
-  `good_upload` int(1) DEFAULT '0',
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-/*!40101 SET character_set_client = @saved_cs_client */;
+CREATE TABLE "failed_jobs" (
+  "id" SERIAL,
+  "connection" TEXT NOT NULL,
+  "queue" TEXT NOT NULL,
+  "payload" TEXT NOT NULL,
+  "failed_at" TIMESTAMP,
+  PRIMARY KEY ("id")
+);
 
 --
--- Table structure for table `queue`
+-- Table structure for table failed_logins
 --
-
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `queue` (
-  `trackid` int(14) unsigned NOT NULL,
-  `time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `ip` text CHARACTER SET utf8 COLLATE utf8_bin,
-  `type` int(3) DEFAULT '0',
-  `meta` text,
-  `length` float DEFAULT '0',
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  PRIMARY KEY (`id`),
-  KEY `queue_time_index` (`time`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-/*!40101 SET character_set_client = @saved_cs_client */;
+CREATE TABLE "failed_logins" (
+  "id" SERIAL,
+  "ip" VARCHAR(255) NOT NULL,
+  "user" VARCHAR(100) NOT NULL,
+  "password" VARCHAR(255) NOT NULL,
+  "created_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updated_at" TIMESTAMP,
+  PRIMARY KEY ("id")
+);
 
 --
--- Table structure for table `radio_comments`
+-- Table structure for table listenlog
 --
-
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `radio_comments` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `comment` varchar(500) NOT NULL,
-  `ip` varchar(128) DEFAULT NULL,
-  `user_id` int(10) unsigned DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT NULL,
-  `deleted_at` timestamp NULL DEFAULT NULL,
-  `news_id` int(10) unsigned NOT NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-/*!40101 SET character_set_client = @saved_cs_client */;
+CREATE TABLE "listenlog" (
+  "id" SERIAL,
+  "listeners" INTEGER NOT NULL DEFAULT 0,
+  "time" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "dj" INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY ("id")
+);
 
 --
--- Table structure for table `radio_news`
+-- Table structure for table pending
 --
-
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `radio_news` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `title` varchar(200) NOT NULL,
-  `text` text,
-  `header` text,
-  `user_id` int(10) unsigned NOT NULL,
-  `deleted_at` timestamp NULL DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
-  `updated_at` timestamp NULL DEFAULT NULL,
-  `private` tinyint(4) DEFAULT '0',
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `requesttime`
---
-
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `requesttime` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `ip` varchar(50) NOT NULL,
-  `time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-/*!40101 SET character_set_client = @saved_cs_client */;
+CREATE TABLE "pending" (
+  "id" SERIAL,
+  "artist" VARCHAR(200) NOT NULL,
+  "track" VARCHAR(200) NOT NULL,
+  "album" VARCHAR(200) NOT NULL,
+  "path" TEXT NOT NULL,
+  "comment" TEXT NOT NULL,
+  "origname" TEXT NOT NULL,
+  "submitter" VARCHAR(50) NOT NULL,
+  "submitted" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "dupe_flag" INTEGER NOT NULL DEFAULT 0,
+  "replacement" INTEGER,
+  "bitrate" INTEGER,
+  "length" REAL DEFAULT 0,
+  "format" VARCHAR(10) DEFAULT 'mp3',
+  "mode" VARCHAR(10) DEFAULT 'cbr',
+  PRIMARY KEY ("id")
+);
 
 --
--- Table structure for table `streamstatus`
+-- Table structure for table postpending
 --
-
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `streamstatus` (
-  `id` int(11) NOT NULL DEFAULT '0',
-  `djid` int(10) unsigned NOT NULL DEFAULT '0',
-  `np` varchar(200) NOT NULL DEFAULT '',
-  `listeners` int(10) unsigned NOT NULL DEFAULT '0',
-  `bitrate` int(10) unsigned NOT NULL DEFAULT '0',
-  `isafkstream` int(1) NOT NULL DEFAULT '0',
-  `isstreamdesk` int(1) NOT NULL DEFAULT '0',
-  `start_time` bigint(20) unsigned NOT NULL DEFAULT '0',
-  `end_time` bigint(20) unsigned NOT NULL DEFAULT '0',
-  `lastset` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `trackid` int(12) DEFAULT NULL,
-  `thread` text,
-  `requesting` int(11) DEFAULT '0',
-  `djname` varchar(250) DEFAULT '',
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-/*!40101 SET character_set_client = @saved_cs_client */;
+CREATE TABLE "postpending" (
+  "id" SERIAL,
+  "trackid" INTEGER,
+  "meta" VARCHAR(200) NOT NULL DEFAULT '',
+  "ip" VARCHAR(50) NOT NULL DEFAULT '0.0.0.0',
+  "accepted" INTEGER NOT NULL DEFAULT 0,
+  "time" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "reason" VARCHAR(120) DEFAULT '',
+  "good_upload" INTEGER DEFAULT 0,
+  PRIMARY KEY ("id")
+);
 
 --
--- Table structure for table `themes`
+-- Table structure for table queue
 --
-
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `themes` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `name` varchar(255) NOT NULL DEFAULT '',
-  `display_name` varchar(255) NOT NULL DEFAULT '',
-  `author` varchar(255) NOT NULL DEFAULT '',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `name` (`name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `tracks`
---
-
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `tracks` (
-  `id` int(14) unsigned NOT NULL AUTO_INCREMENT,
-  `artist` varchar(500) NOT NULL,
-  `track` varchar(200) NOT NULL,
-  `album` varchar(200) NOT NULL,
-  `path` text NOT NULL,
-  `tags` text NOT NULL,
-  `priority` int(10) NOT NULL DEFAULT '0',
-  `lastplayed` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
-  `lastrequested` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
-  `usable` int(1) NOT NULL DEFAULT '0',
-  `accepter` varchar(200) NOT NULL DEFAULT '',
-  `lasteditor` varchar(200) NOT NULL DEFAULT '',
-  `hash` varchar(40) DEFAULT NULL,
-  `requestcount` int(10) NOT NULL DEFAULT '0',
-  `need_reupload` int(1) NOT NULL DEFAULT '0',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `hash` (`hash`),
-  KEY `lastplayedidx` (`lastplayed`),
-  KEY `lastrequestedidx` (`lastrequested`),
-  FULLTEXT KEY `searchindex` (`tags`,`track`,`artist`,`album`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-/*!40101 SET character_set_client = @saved_cs_client */;
+CREATE TABLE "queue" (
+  "trackid" INTEGER NOT NULL,
+  "time" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "ip" TEXT,
+  "type" INTEGER DEFAULT 0,
+  "meta" TEXT,
+  "length" REAL DEFAULT 0,
+  "id" SERIAL,
+  PRIMARY KEY ("id")
+);
+CREATE INDEX "queue_time_index" ON "queue" ("time");
 
 --
--- Table structure for table `uploadtime`
+-- Table structure for table radio_comments
 --
-
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `uploadtime` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `ip` varchar(50) NOT NULL,
-  `time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `ip` (`ip`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-/*!40101 SET character_set_client = @saved_cs_client */;
+CREATE TABLE "radio_comments" (
+  "id" SERIAL,
+  "comment" VARCHAR(500) NOT NULL,
+  "ip" VARCHAR(128),
+  "user_id" INTEGER,
+  "created_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updated_at" TIMESTAMP,
+  "deleted_at" TIMESTAMP,
+  "news_id" INTEGER NOT NULL,
+  PRIMARY KEY ("id")
+);
 
 --
--- Table structure for table `users`
+-- Table structure for table radio_news
 --
+CREATE TABLE "radio_news" (
+  "id" SERIAL,
+  "title" VARCHAR(200) NOT NULL,
+  "text" TEXT,
+  "header" TEXT,
+  "user_id" INTEGER NOT NULL,
+  "deleted_at" TIMESTAMP,
+  "created_at" TIMESTAMP NOT NULL DEFAULT '1970-01-01 00:00:00',
+  "updated_at" TIMESTAMP,
+  "private" SMALLINT DEFAULT 0,
+  PRIMARY KEY ("id")
+);
 
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `users` (
-  `id` int(12) unsigned NOT NULL AUTO_INCREMENT,
-  `user` varchar(50) NOT NULL,
-  `pass` varchar(120) DEFAULT NULL,
-  `djid` int(12) DEFAULT NULL,
-  `privileges` tinyint(3) unsigned NOT NULL DEFAULT '0',
-  `updated_at` timestamp NULL DEFAULT NULL,
-  `deleted_at` timestamp NULL DEFAULT NULL,
-  `created_at` timestamp NULL DEFAULT NULL,
-  `email` varchar(255) DEFAULT NULL,
-  `remember_token` varchar(100) DEFAULT NULL,
-  `ip` varchar(15) DEFAULT '',
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-/*!40101 SET character_set_client = @saved_cs_client */;
-/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
+--
+-- Table structure for table requesttime
+--
+CREATE TABLE "requesttime" (
+  "id" SERIAL,
+  "ip" VARCHAR(50) NOT NULL,
+  "time" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY ("id")
+);
 
-/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
-/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
-/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
-/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
-/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
-/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
-/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
+--
+-- Table structure for table streamstatus
+--
+CREATE TABLE "streamstatus" (
+  "id" INTEGER NOT NULL DEFAULT 0,
+  "djid" INTEGER NOT NULL DEFAULT 0,
+  "np" VARCHAR(200) NOT NULL DEFAULT '',
+  "listeners" INTEGER NOT NULL DEFAULT 0,
+  "bitrate" INTEGER NOT NULL DEFAULT 0,
+  "isafkstream" INTEGER NOT NULL DEFAULT 0,
+  "isstreamdesk" INTEGER NOT NULL DEFAULT 0,
+  "start_time" BIGINT NOT NULL DEFAULT 0,
+  "end_time" BIGINT NOT NULL DEFAULT 0,
+  "lastset" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "trackid" INTEGER,
+  "thread" TEXT,
+  "requesting" INTEGER DEFAULT 0,
+  "djname" VARCHAR(250) DEFAULT '',
+  PRIMARY KEY ("id")
+);
 
--- Dump completed on 2019-02-10 14:44:52
+--
+-- Table structure for table themes
+--
+CREATE TABLE "themes" (
+  "id" SERIAL,
+  "name" VARCHAR(255) NOT NULL DEFAULT '',
+  "display_name" VARCHAR(255) NOT NULL DEFAULT '',
+  "author" VARCHAR(255) NOT NULL DEFAULT '',
+  PRIMARY KEY ("id"),
+  CONSTRAINT "name" UNIQUE ("name")
+);
+
+--
+-- Table structure for table tracks
+--
+CREATE TABLE "tracks" (
+  "id" SERIAL,
+  "artist" VARCHAR(500) NOT NULL,
+  "track" VARCHAR(200) NOT NULL,
+  "album" VARCHAR(200) NOT NULL,
+  "path" TEXT NOT NULL,
+  "tags" TEXT NOT NULL,
+  "priority" INTEGER NOT NULL DEFAULT 0,
+  "lastplayed" TIMESTAMP NOT NULL DEFAULT '1970-01-01 00:00:00',
+  "lastrequested" TIMESTAMP NOT NULL DEFAULT '1970-01-01 00:00:00',
+  "usable" INTEGER NOT NULL DEFAULT 0,
+  "accepter" VARCHAR(200) NOT NULL DEFAULT '',
+  "lasteditor" VARCHAR(200) NOT NULL DEFAULT '',
+  "hash" VARCHAR(40),
+  "requestcount" INTEGER NOT NULL DEFAULT 0,
+  "need_reupload" INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY ("id"),
+  CONSTRAINT "hash" UNIQUE ("hash")
+);
+CREATE INDEX "lastplayedidx" ON "tracks" ("lastplayed");
+CREATE INDEX "lastrequestedidx" ON "tracks" ("lastrequested");
+
+--
+-- Table structure for table uploadtime
+--
+CREATE TABLE "uploadtime" (
+  "id" SERIAL,
+  "ip" VARCHAR(50) NOT NULL,
+  "time" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY ("id"),
+  CONSTRAINT "ip" UNIQUE ("ip")
+);
+
+--
+-- Table structure for table users
+--
+CREATE TABLE "users" (
+  "id" SERIAL,
+  "user" VARCHAR(50) NOT NULL,
+  "pass" VARCHAR(120),
+  "djid" INTEGER,
+  "privileges" SMALLINT NOT NULL DEFAULT 0,
+  "updated_at" TIMESTAMP,
+  "deleted_at" TIMESTAMP,
+  "created_at" TIMESTAMP,
+  "email" VARCHAR(255),
+  "remember_token" VARCHAR(100),
+  "ip" VARCHAR(15) DEFAULT '',
+  PRIMARY KEY ("id")
+);
+
+--
+-- Emulate MySQL's ON UPDATE CURRENT_TIMESTAMP behavior.
+-- A single generic trigger function sets the named column (passed as a
+-- trigger argument) to CURRENT_TIMESTAMP on every row update.
+--
+CREATE OR REPLACE FUNCTION set_auto_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW := jsonb_populate_record(NEW, jsonb_build_object(TG_ARGV[0], CURRENT_TIMESTAMP));
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER failed_logins_created_at_auto
+  BEFORE UPDATE ON "failed_logins"
+  FOR EACH ROW EXECUTE FUNCTION set_auto_timestamp('created_at');
+
+CREATE TRIGGER radio_comments_created_at_auto
+  BEFORE UPDATE ON "radio_comments"
+  FOR EACH ROW EXECUTE FUNCTION set_auto_timestamp('created_at');
+
+CREATE TRIGGER requesttime_time_auto
+  BEFORE UPDATE ON "requesttime"
+  FOR EACH ROW EXECUTE FUNCTION set_auto_timestamp('time');
+
+CREATE TRIGGER streamstatus_lastset_auto
+  BEFORE UPDATE ON "streamstatus"
+  FOR EACH ROW EXECUTE FUNCTION set_auto_timestamp('lastset');
+
+CREATE TRIGGER uploadtime_time_auto
+  BEFORE UPDATE ON "uploadtime"
+  FOR EACH ROW EXECUTE FUNCTION set_auto_timestamp('time');

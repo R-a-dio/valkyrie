@@ -1,1 +1,1 @@
-ALTER TABLE requesttime MODIFY ip TEXT;
+ALTER TABLE "requesttime" ALTER COLUMN "ip" TYPE TEXT;

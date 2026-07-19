@@ -1,1 +1,1 @@
-ALTER TABLE pending MODIFY format VARCHAR(32);
+ALTER TABLE "pending" ALTER COLUMN "format" TYPE VARCHAR(32);

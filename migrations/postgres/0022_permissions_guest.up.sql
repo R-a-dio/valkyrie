@@ -1,4 +1,3 @@
-INSERT IGNORE INTO `permission_kinds` (
-    `permission`
-) VALUES 
-    ("guest");
+INSERT INTO "permission_kinds" ("permission") VALUES
+  ('guest')
+ON CONFLICT ("permission") DO NOTHING;

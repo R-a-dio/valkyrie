@@ -1,6 +1,8 @@
-ALTER TABLE postpending MODIFY trackid INT UNSIGNED;
-ALTER TABLE postpending MODIFY meta TEXT;
-ALTER TABLE pending MODIFY replacement INT UNSIGNED;
-ALTER TABLE pending MODIFY artist TEXT;
-ALTER TABLE pending MODIFY album TEXT;
-ALTER TABLE pending MODIFY track TEXT;
+-- MySQL `ALTER TABLE ... MODIFY col TYPE` becomes PostgreSQL
+-- `ALTER TABLE ... ALTER COLUMN col TYPE newtype`.
+ALTER TABLE "postpending" ALTER COLUMN "trackid" TYPE INTEGER;
+ALTER TABLE "postpending" ALTER COLUMN "meta" TYPE TEXT;
+ALTER TABLE "pending" ALTER COLUMN "replacement" TYPE INTEGER;
+ALTER TABLE "pending" ALTER COLUMN "artist" TYPE TEXT;
+ALTER TABLE "pending" ALTER COLUMN "album" TYPE TEXT;
+ALTER TABLE "pending" ALTER COLUMN "track" TYPE TEXT;
