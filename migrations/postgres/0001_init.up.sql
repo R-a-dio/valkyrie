@@ -69,7 +69,7 @@ CREATE TABLE "esong" (
   "meta" TEXT NOT NULL,
   "hash_link" VARCHAR(40) NOT NULL DEFAULT '',
   PRIMARY KEY ("id"),
-  CONSTRAINT "hash" UNIQUE ("hash")
+  CONSTRAINT "esong_hash_unique" UNIQUE ("hash")
 );
 COMMENT ON COLUMN "esong"."id" IS 'db identifier';
 COMMENT ON COLUMN "esong"."hash" IS 'original meta hash';
@@ -277,7 +277,7 @@ CREATE TABLE "tracks" (
   "requestcount" INTEGER NOT NULL DEFAULT 0,
   "need_reupload" INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY ("id"),
-  CONSTRAINT "hash" UNIQUE ("hash")
+  CONSTRAINT "tracks_hash_unique" UNIQUE ("hash")
 );
 CREATE INDEX "lastplayedidx" ON "tracks" ("lastplayed");
 CREATE INDEX "lastrequestedidx" ON "tracks" ("lastrequested");
