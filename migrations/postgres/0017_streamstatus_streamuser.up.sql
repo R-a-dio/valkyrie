@@ -1,0 +1,1 @@
+ALTER TABLE streamstatus ADD COLUMN IF NOT EXISTS (stream_user INT DEFAULT NULL);

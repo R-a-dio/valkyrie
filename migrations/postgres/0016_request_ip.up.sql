@@ -1,0 +1,1 @@
+ALTER TABLE requesttime MODIFY ip TEXT;

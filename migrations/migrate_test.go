@@ -7,14 +7,14 @@ import (
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/stretchr/testify/require"
-	"github.com/testcontainers/testcontainers-go"
+	tlog "github.com/testcontainers/testcontainers-go/log"
 	"github.com/testcontainers/testcontainers-go/modules/mariadb"
 )
 
 func TestCheckVersion(t *testing.T) {
 	ctx := context.Background()
 
-	testcontainers.Logger = testcontainers.TestLogger(t)
+	tlog.SetDefault(tlog.TestLogger(t))
 
 	// setup a container to test in
 	container, err := mariadb.Run(ctx, "mariadb:latest",

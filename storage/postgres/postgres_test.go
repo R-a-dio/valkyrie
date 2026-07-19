@@ -1,4 +1,4 @@
-package mariadb_test
+package postgres_test
 
 import (
 	"context"
@@ -8,17 +8,18 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
-	mysqlmigrations "github.com/R-a-dio/valkyrie/migrations/mysql"
+	"github.com/R-a-dio/valkyrie/migrations"
 	"github.com/R-a-dio/valkyrie/storage"
 	storagetest "github.com/R-a-dio/valkyrie/storage/test"
-	"github.com/go-sql-driver/mysql"
+
 	"github.com/jmoiron/sqlx"
+	"github.com/testcontainers/testcontainers-go"
 	tlog "github.com/testcontainers/testcontainers-go/log"
-	"github.com/testcontainers/testcontainers-go/modules/mariadb"
+	"github.com/testcontainers/testcontainers-go/modules/postgres"
 )
 
-type MariaDBSetup struct {
-	container *mariadb.MariaDBContainer
+type PostgresSetup struct {
+	container *postgres.PostgresContainer
 	dbname    string
 	db        *sqlx.DB
 
@@ -26,17 +27,20 @@ type MariaDBSetup struct {
 	storage       radio.StorageService
 }
 
-func (setup *MariaDBSetup) Setup(ctx context.Context) error {
+func (setup *PostgresSetup) Setup(ctx context.Context) error {
 	t := storagetest.CtxT(ctx)
 	tlog.SetDefault(tlog.TestLogger(t))
 
 	setup.dbname = "go-test"
 	// setup a container to test in
-	container, err := mariadb.Run(ctx, "mariadb:latest",
-		mariadb.WithDatabase(setup.dbname),
-		mariadb.WithUsername("root"),
-		mariadb.WithPassword(""),
+	container, err := postgres.Run(ctx, "postgres:latest",
+		postgres.WithDatabase(setup.dbname),
+		postgres.WithUsername("root"),
+		postgres.WithPassword("test"),
+		postgres.BasicWaitStrategies(),
+		postgres.WithSQLDriver("pgx"),
 	)
+	testcontainers.CleanupContainer(t, container)
 	if err != nil {
 		return err
 	}
@@ -45,36 +49,37 @@ func (setup *MariaDBSetup) Setup(ctx context.Context) error {
 	// setup the DSN
 	dsn, err := container.ConnectionString(ctx)
 	if err != nil {
+		t.Log("failed to retrieve connection DSN")
 		return err
 	}
-	dsn = fixdsn(dsn)
-	mycfg, err := mysql.ParseDSN(dsn)
-	if err != nil {
-		return err
-	}
-	mycfg.MultiStatements = true
-	dsn = mycfg.FormatDSN()
+	dsn = fixdsnfordocker(dsn)
+	t.Log("DSN", dsn)
 
 	// setup the config
 	cfg := config.TestConfig()
 	bare := cfg.Conf()
 	bare.Database.DSN = dsn
+	bare.Database.DriverName = "pgx"
+	bare.Providers.Storage = "postgres"
 	cfg.StoreConf(bare)
 
 	// connect
-	setup.db, err = sqlx.ConnectContext(ctx, "mysql", dsn)
+	setup.db, err = sqlx.ConnectContext(ctx, "pgx", dsn)
 	if err != nil {
+		t.Log("failed to connect to postgres")
 		return err
 	}
 
 	err = setup.RunMigrations(ctx, cfg)
 	if err != nil {
+		t.Log("failed to run migrations")
 		return err
 	}
 
 	var names []string
 	err = sqlx.Select(setup.db, &names, "SELECT table_name FROM information_schema.tables WHERE table_schema = ?", setup.dbname)
 	if err != nil {
+		t.Log("failed to retrieve table names from schema")
 		return err
 	}
 
@@ -102,8 +107,8 @@ func (setup *MariaDBSetup) Setup(ctx context.Context) error {
 	return nil
 }
 
-func (setup *MariaDBSetup) RunMigrations(ctx context.Context, cfg config.Config) error {
-	migr, err := mysqlmigrations.New(ctx, cfg)
+func (setup *PostgresSetup) RunMigrations(ctx context.Context, cfg config.Config) error {
+	migr, err := migrations.New(ctx, cfg)
 	if err != nil {
 		return err
 	}
@@ -116,7 +121,7 @@ func (setup *MariaDBSetup) RunMigrations(ctx context.Context, cfg config.Config)
 	return nil
 }
 
-func (setup *MariaDBSetup) TearDown(ctx context.Context) error {
+func (setup *PostgresSetup) TearDown(ctx context.Context) error {
 	if setup.storage != nil {
 		setup.storage.Close()
 	}
@@ -133,19 +138,19 @@ func (setup *MariaDBSetup) TearDown(ctx context.Context) error {
 	return nil
 }
 
-func (setup *MariaDBSetup) CreateStorage(ctx context.Context) radio.StorageService {
+func (setup *PostgresSetup) CreateStorage(ctx context.Context) radio.StorageService {
 	// truncate all tables in the database
 	sqlx.MustExecContext(ctx, setup.db, setup.truncateQuery)
 	return setup.storage
 }
 
-func TestMariaDBStorage(t *testing.T) {
+func TestPostgresStorage(t *testing.T) {
 	if !testing.Short() {
-		storagetest.RunTests(t, new(MariaDBSetup))
+		storagetest.RunTests(t, new(PostgresSetup))
 	}
 }
 
-func fixdsn(dsn string) string {
+func fixdsnfordocker(dsn string) string {
 	// see https://github.com/testcontainers/testcontainers-go/issues/551
 	// using localhost as the address will run a racer on ipv4
 	// and ipv6 and connect to whoever wins, but docker doesn't

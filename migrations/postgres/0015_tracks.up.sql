@@ -1,0 +1,3 @@
+ALTER TABLE tracks MODIFY artist TEXT;
+ALTER TABLE tracks MODIFY track TEXT;
+ALTER TABLE tracks MODIFY album TEXT;

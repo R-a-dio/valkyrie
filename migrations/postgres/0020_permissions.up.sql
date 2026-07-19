@@ -1,0 +1,1 @@
+UPDATE `permission_kinds` SET permission='telemetry_view' WHERE permission = 'grafana_view';

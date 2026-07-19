@@ -7,6 +7,7 @@ import (
 	"github.com/R-a-dio/valkyrie/config"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/migrations/mysql"
+	"github.com/R-a-dio/valkyrie/migrations/postgres"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/source"
 )
@@ -42,6 +43,8 @@ func selectFunctions(provider string) (srcFn, newFn, error) {
 	switch provider {
 	case "mariadb", "mysql":
 		return mysql.Source, mysql.New, nil
+	case "postgres":
+		return postgres.Source, postgres.New, nil
 	default:
 		return nil, nil, errors.E(errors.NoMigrations)
 	}

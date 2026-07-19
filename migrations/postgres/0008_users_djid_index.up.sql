@@ -1,0 +1,1 @@
+CREATE OR REPLACE UNIQUE INDEX users_djid_index ON users (djid);
