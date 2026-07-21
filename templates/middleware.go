@@ -13,6 +13,8 @@ import (
 
 type themeKey struct{}
 
+type overwriteFlagsKey struct{}
+
 const ThemeCookieName = "theme"
 const ThemeAdminCookieName = "admin-theme"
 const ThemeDefault = "default-dark"
@@ -97,26 +99,28 @@ func ThemeCtx(tv *ThemeValues) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// figure out what default and cookie to use
-			theme, cookieName := ThemeDefault, ThemeCookieName
+			cookieDefault, cookieName := ThemeDefault, ThemeCookieName
 
 			isAdmin := strings.HasPrefix(r.URL.Path, "/admin")
 			if isAdmin {
 				// different for the admin route
-				theme, cookieName = ThemeAdminDefault, ThemeAdminCookieName
+				cookieDefault, cookieName = ThemeAdminDefault, ThemeAdminCookieName
 			}
 
-			// retrieve our cookie
+			// retrieve our cookie and decode it
+			var themeName radio.ThemeName = cookieDefault
+			var overwriteDj, overwriteHoliday bool
 			if cookie, err := r.Cookie(cookieName); err == nil {
-				theme = cookie.Value
+				themeName, overwriteDj, overwriteHoliday = cookieDecode(cookie.Value)
 			}
 
 			var themeResolved radio.ThemeName
 			// then run the theme through the decider, this will handle holiday themes, dj themes and the
 			// user configured stuff from the cookie
 			if !isAdmin { // but only if we're not loading admin pages, the special themes wont have support for those
-				themeResolved = tv.resolver(tv.decide(theme))
+				themeResolved = tv.resolver(tv.decideWithValues(themeName, overwriteDj, overwriteHoliday))
 			} else {
-				themeResolved = tv.resolver(radio.ThemeName(theme))
+				themeResolved = tv.resolver(themeName)
 			}
 
 			// or if the user set a theme in the url query (?theme=<thing>) we use that and ignore
@@ -136,7 +140,9 @@ func ThemeCtx(tv *ThemeValues) func(http.Handler) http.Handler {
 				}
 			}
 
-			ctx := SetTheme(r.Context(), themeResolved, false)
+			ctx := r.Context()
+			ctx = SetTheme(ctx, themeResolved, false)
+			ctx = SetOverwriteFlags(ctx, overwriteDj, overwriteHoliday)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -148,6 +154,7 @@ func ThemeCtxSimple(theme radio.ThemeName) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := SetTheme(r.Context(), theme, true)
+			ctx = SetOverwriteFlags(ctx, false, false)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -155,7 +162,10 @@ func ThemeCtxSimple(theme radio.ThemeName) func(http.Handler) http.Handler {
 
 func (tv *ThemeValues) decide(value string) radio.ThemeName {
 	name, overwrite_dj, overwrite_holiday := cookieDecode(value)
+	return tv.decideWithValues(name, overwrite_dj, overwrite_holiday)
+}
 
+func (tv *ThemeValues) decideWithValues(name radio.ThemeName, overwrite_dj, overwrite_holiday bool) radio.ThemeName {
 	if holidayTheme := tv.LoadHoliday(); holidayTheme != "" {
 		if overwrite_holiday {
 			return name
@@ -189,6 +199,22 @@ func GetTheme(ctx context.Context) radio.ThemeName {
 	return theme
 }
 
+// GetOverwriteFlags returns the overwrite flags from the given context.
+// panics if no overwriteFlagsKey is found, so make sure ThemeCtx is used
+func GetOverwriteFlags(ctx context.Context) (overwriteDj, overwriteHoliday bool) {
+	v := ctx.Value(overwriteFlagsKey{})
+	if v == nil {
+		panic("GetOverwriteFlags called without ThemeCtx used")
+	}
+
+	flags, ok := v.([2]bool)
+	if !ok {
+		panic("non-[2]bool overwriteFlagsKey found in context")
+	}
+
+	return flags[0], flags[1]
+}
+
 // SetTheme sets a theme in the context given, does nothing if a theme already exists
 // unless override is set to true
 func SetTheme(ctx context.Context, theme radio.ThemeName, override bool) context.Context {
@@ -198,6 +224,11 @@ func SetTheme(ctx context.Context, theme radio.ThemeName, override bool) context
 		}
 	}
 	return context.WithValue(ctx, themeKey{}, theme)
+}
+
+// SetOverwriteFlags sets the overwrite flags in the context given
+func SetOverwriteFlags(ctx context.Context, overwriteDj, overwriteHoliday bool) context.Context {
+	return context.WithValue(ctx, overwriteFlagsKey{}, [2]bool{overwriteDj, overwriteHoliday})
 }
 
 func SetThemeHandler(cookieName string) http.Handler {
@@ -238,7 +269,9 @@ func SetThemeHandler(cookieName string) http.Handler {
 		// remove the header indicating we are using htmx, since we want a full-page reload
 		r.Header.Del("Hx-Request")
 		// and change the theme so the new page actually uses our new theme set
-		r = r.WithContext(SetTheme(r.Context(), theme, true))
+		ctx := SetTheme(r.Context(), theme, true)
+		ctx = SetOverwriteFlags(ctx, overwrite_dj, overwrite_holiday)
+		r = r.WithContext(ctx)
 
 		// then redirect the request internally to the top of the stack
 		err := util.RedirectToServer(w, r)
