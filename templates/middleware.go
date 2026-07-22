@@ -108,7 +108,7 @@ func ThemeCtx(tv *ThemeValues) func(http.Handler) http.Handler {
 			}
 
 			// retrieve our cookie and decode it
-			var themeName radio.ThemeName = cookieDefault
+			var themeName = radio.ThemeName(cookieDefault)
 			var overwriteDj, overwriteHoliday bool
 			if cookie, err := r.Cookie(cookieName); err == nil {
 				themeName, overwriteDj, overwriteHoliday = cookieDecode(cookie.Value)
