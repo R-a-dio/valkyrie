@@ -556,12 +556,12 @@ func fromProtoSourceID(id *SourceID) radio.SourceID {
 		return radio.SourceID{}
 	}
 
-	rid, err := xid.FromString(id.ID)
+	sid, err := radio.ParseSourceID(id.ID)
 	if err != nil {
 		return radio.SourceID{}
 	}
 
-	return radio.SourceID{ID: rid}
+	return sid
 }
 
 func toProtoSourceEventType(et radio.ProxySourceEventType) ProxySourceEventType {
