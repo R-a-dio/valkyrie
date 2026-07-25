@@ -13,27 +13,27 @@ import (
 
 type themeKey struct{}
 
-type overwriteFlagsKey struct{}
+type overrideFlagsKey struct{}
 
 const ThemeCookieName = "theme"
 const ThemeAdminCookieName = "admin-theme"
 const ThemeDefault = "default-dark"
 const ThemeAdminDefault = "admin-dark"
 
-func cookieEncode(theme radio.ThemeName, overwrite_dj, overwrite_holiday bool) string {
+func cookieEncode(theme radio.ThemeName, override_dj, override_holiday bool) string {
 	switch {
-	case overwrite_dj && overwrite_holiday:
+	case override_dj && override_holiday:
 		return string(theme + ":11")
-	case !overwrite_dj && overwrite_holiday:
+	case !override_dj && override_holiday:
 		return string(theme + ":01")
-	case overwrite_dj && !overwrite_holiday:
+	case override_dj && !override_holiday:
 		return string(theme + ":10")
 	default:
 		return string(theme + ":00")
 	}
 }
 
-func cookieDecode(value string) (theme radio.ThemeName, overwrite_dj, overwrite_holiday bool) {
+func cookieDecode(value string) (theme radio.ThemeName, override_dj, override_holiday bool) {
 	start := len(value) - 3
 	if start < 0 {
 		return radio.ThemeName(value), false, false
@@ -89,9 +89,9 @@ func (tv *ThemeValues) LoadDJ() radio.ThemeName {
 // calling GetTheme on the request context.
 //
 // What theme to insert is a priority system that looks like this:
-//  1. user-picked (if holiday-theme is set and overwrite-holiday enabled)
+//  1. user-picked (if holiday-theme is set and override-holiday enabled)
 //  2. holiday-theme
-//  3. user-picked (if dj-theme is set and overwrite-dj enabled)
+//  3. user-picked (if dj-theme is set and override-dj enabled)
 //  4. dj-theme
 //  5. user-picked
 //  6. default-theme
@@ -109,16 +109,16 @@ func ThemeCtx(tv *ThemeValues) func(http.Handler) http.Handler {
 
 			// retrieve our cookie and decode it
 			var themeName = radio.ThemeName(cookieDefault)
-			var overwriteDj, overwriteHoliday bool
+			var overrideDj, overrideHoliday bool
 			if cookie, err := r.Cookie(cookieName); err == nil {
-				themeName, overwriteDj, overwriteHoliday = cookieDecode(cookie.Value)
+				themeName, overrideDj, overrideHoliday = cookieDecode(cookie.Value)
 			}
 
 			var themeResolved radio.ThemeName
 			// then run the theme through the decider, this will handle holiday themes, dj themes and the
 			// user configured stuff from the cookie
 			if !isAdmin { // but only if we're not loading admin pages, the special themes wont have support for those
-				themeResolved = tv.resolver(tv.decideWithValues(themeName, overwriteDj, overwriteHoliday))
+				themeResolved = tv.resolver(tv.decideWithValues(themeName, overrideDj, overrideHoliday))
 			} else {
 				themeResolved = tv.resolver(themeName)
 			}
@@ -142,7 +142,7 @@ func ThemeCtx(tv *ThemeValues) func(http.Handler) http.Handler {
 
 			ctx := r.Context()
 			ctx = SetTheme(ctx, themeResolved, false)
-			ctx = SetOverwriteFlags(ctx, overwriteDj, overwriteHoliday)
+			ctx = SetOverrideFlags(ctx, overrideDj, overrideHoliday)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -154,27 +154,27 @@ func ThemeCtxSimple(theme radio.ThemeName) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := SetTheme(r.Context(), theme, true)
-			ctx = SetOverwriteFlags(ctx, false, false)
+			ctx = SetOverrideFlags(ctx, false, false)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }
 
 func (tv *ThemeValues) decide(value string) radio.ThemeName {
-	name, overwrite_dj, overwrite_holiday := cookieDecode(value)
-	return tv.decideWithValues(name, overwrite_dj, overwrite_holiday)
+	name, override_dj, override_holiday := cookieDecode(value)
+	return tv.decideWithValues(name, override_dj, override_holiday)
 }
 
-func (tv *ThemeValues) decideWithValues(name radio.ThemeName, overwrite_dj, overwrite_holiday bool) radio.ThemeName {
+func (tv *ThemeValues) decideWithValues(name radio.ThemeName, override_dj, override_holiday bool) radio.ThemeName {
 	if holidayTheme := tv.LoadHoliday(); holidayTheme != "" {
-		if overwrite_holiday {
+		if override_holiday {
 			return name
 		}
 		return holidayTheme
 	}
 
 	if djTheme := tv.LoadDJ(); djTheme != "" {
-		if overwrite_dj {
+		if override_dj {
 			return name
 		}
 		return djTheme
@@ -199,17 +199,17 @@ func GetTheme(ctx context.Context) radio.ThemeName {
 	return theme
 }
 
-// GetOverwriteFlags returns the overwrite flags from the given context.
-// panics if no overwriteFlagsKey is found, so make sure ThemeCtx is used
-func GetOverwriteFlags(ctx context.Context) (overwriteDj, overwriteHoliday bool) {
-	v := ctx.Value(overwriteFlagsKey{})
+// GetOverrideFlags returns the override flags from the given context.
+// panics if no overrideFlagsKey is found, so make sure ThemeCtx is used
+func GetOverrideFlags(ctx context.Context) (overrideDj, overrideHoliday bool) {
+	v := ctx.Value(overrideFlagsKey{})
 	if v == nil {
-		panic("GetOverwriteFlags called without ThemeCtx used")
+		panic("GetOverrideFlags called without ThemeCtx used")
 	}
 
 	flags, ok := v.([2]bool)
 	if !ok {
-		panic("non-[2]bool overwriteFlagsKey found in context")
+		panic("non-[2]bool overrideFlagsKey found in context")
 	}
 
 	return flags[0], flags[1]
@@ -226,9 +226,9 @@ func SetTheme(ctx context.Context, theme radio.ThemeName, override bool) context
 	return context.WithValue(ctx, themeKey{}, theme)
 }
 
-// SetOverwriteFlags sets the overwrite flags in the context given
-func SetOverwriteFlags(ctx context.Context, overwriteDj, overwriteHoliday bool) context.Context {
-	return context.WithValue(ctx, overwriteFlagsKey{}, [2]bool{overwriteDj, overwriteHoliday})
+// SetOverrideFlags sets the override flags in the context given
+func SetOverrideFlags(ctx context.Context, overrideDj, overrideHoliday bool) context.Context {
+	return context.WithValue(ctx, overrideFlagsKey{}, [2]bool{overrideDj, overrideHoliday})
 }
 
 func SetThemeHandler(cookieName string) http.Handler {
@@ -238,12 +238,12 @@ func SetThemeHandler(cookieName string) http.Handler {
 		// we might want to proxy back into the server later
 		query := r.URL.Query()
 		theme := radio.ThemeName(query.Get("theme")) // TODO: use a resolver here?
-		overwrite_dj := query.Has("overwrite-dj")
-		overwrite_holiday := query.Has("overwrite-holiday")
+		override_dj := query.Has("override-dj")
+		override_holiday := query.Has("override-holiday")
 
 		http.SetCookie(w, &http.Cookie{
 			Name:     cookieName,
-			Value:    cookieEncode(theme, overwrite_dj, overwrite_holiday),
+			Value:    cookieEncode(theme, override_dj, override_holiday),
 			Path:     "/",
 			SameSite: http.SameSiteStrictMode,
 			Expires:  time.Now().Add(time.Hour * 24 * 400),
@@ -270,7 +270,7 @@ func SetThemeHandler(cookieName string) http.Handler {
 		r.Header.Del("Hx-Request")
 		// and change the theme so the new page actually uses our new theme set
 		ctx := SetTheme(r.Context(), theme, true)
-		ctx = SetOverwriteFlags(ctx, overwrite_dj, overwrite_holiday)
+		ctx = SetOverrideFlags(ctx, override_dj, override_holiday)
 		r = r.WithContext(ctx)
 
 		// then redirect the request internally to the top of the stack

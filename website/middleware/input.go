@@ -26,20 +26,20 @@ func InputMiddleware(cfg config.Config, status util.StreamValuer[radio.Status], 
 			ctx := r.Context()
 
 			user := MaybeUserFromContext(ctx)
-			overwriteDj, overwriteHoliday := templates.GetOverwriteFlags(ctx)
+			overrideDj, overrideHoliday := templates.GetOverrideFlags(ctx)
 			input := Input{
-				Now:              time.Now(),
-				IsHTMX:           util.IsHTMX(r),
-				IsUser:           user != nil,
-				User:             user,
-				StreamURL:        PublicStreamURL(),
-				RequestURL:       template.URL(r.URL.String()),
-				Status:           status.Latest(),
-				NavBar:           publicNavBar,
-				AdminNavBar:      adminNavBar.WithUser(user),
-				Theme:            templates.GetTheme(ctx),
-				OverwriteDJ:      overwriteDj,
-				OverwriteHoliday: overwriteHoliday,
+				Now:             time.Now(),
+				IsHTMX:          util.IsHTMX(r),
+				IsUser:          user != nil,
+				User:            user,
+				StreamURL:       PublicStreamURL(),
+				RequestURL:      template.URL(r.URL.String()),
+				Status:          status.Latest(),
+				NavBar:          publicNavBar,
+				AdminNavBar:     adminNavBar.WithUser(user),
+				Theme:           templates.GetTheme(ctx),
+				OverrideDJ:      overrideDj,
+				OverrideHoliday: overrideHoliday,
 			}
 
 			ctx = context.WithValue(ctx, inputKey{}, input)
@@ -86,10 +86,10 @@ type Input struct {
 	AdminNavBar navbar.NavBar
 	// Theme is the current theme being rendered
 	Theme radio.ThemeName
-	// OverwriteDJ is true if the user has enabled overriding DJ themes
-	OverwriteDJ bool
-	// OverwriteHoliday is true if the user has enabled overriding holiday themes
-	OverwriteHoliday bool
+	// OverrideDJ is true if the user has enabled overriding DJ themes
+	OverrideDJ bool
+	// OverrideHoliday is true if the user has enabled overriding holiday themes
+	OverrideHoliday bool
 }
 
 func (Input) TemplateName() string {
