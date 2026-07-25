@@ -27,6 +27,10 @@ type ProxyManager struct {
 	mountsMu sync.Mutex
 	mounts   map[string]*Mount
 	cleanup  map[string]*time.Timer
+
+	// timeoutMu protects timeoutStore
+	timeoutMu    sync.Mutex
+	timeoutStore map[radio.UserID]*UserTimeout
 }
 
 func NewProxyManager(ctx context.Context, cfg config.Config, uss radio.UserStorageService, eh *EventHandler) (*ProxyManager, error) {
@@ -141,6 +145,16 @@ func (pm *ProxyManager) AddSourceClient(source *SourceClient) error {
 	// add the source to the mount list
 	mount.AddSource(pm.ctx, source)
 	return nil
+}
+
+func (pm *ProxyManager) KickSourceClient(ctx context.Context, id radio.SourceID) error {
+	pm.timeoutMu.Lock()
+	pm.timeoutStore[id.UserID] = &UserTimeout{
+		ID:   id.UserID,
+		Time: time.Now(),
+	}
+	pm.timeoutMu.Unlock()
+	return pm.RemoveSourceClient(ctx, id)
 }
 
 func (pm *ProxyManager) RemoveSourceClient(ctx context.Context, id radio.SourceID) error {
@@ -261,4 +275,25 @@ func (pm *ProxyManager) UnmarshalJSON(b []byte) error {
 
 	pm.metaStore = sp.Metadata
 	return nil
+}
+
+type UserTimeout struct {
+	ID   radio.UserID
+	Time time.Time
+}
+
+func (pm *ProxyManager) CheckAllowedToConnect(id radio.UserID) bool {
+	pm.timeoutMu.Lock()
+	defer pm.timeoutMu.Unlock()
+
+	t, ok := pm.timeoutStore[id]
+	if !ok {
+		return true
+	}
+
+	if time.Since(t.Time) >= time.Duration(pm.cfg.Conf().Proxy.KickTimeoutDuration) {
+		return true
+	}
+
+	return false
 }

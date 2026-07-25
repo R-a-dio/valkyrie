@@ -461,12 +461,29 @@ type ProxySourceEvent struct {
 type ProxySourceEventType int
 
 type SourceID struct {
+	UserID
 	xid.ID
 }
 
 func ParseSourceID(s string) (SourceID, error) {
-	id, err := xid.FromString(s)
-	return SourceID{id}, err
+	uid, id, found := strings.Cut(s, ":")
+	if !found {
+		// try the old method
+		x, err := xid.FromString(s)
+		return SourceID{UserID: 0, ID: x}, err
+	}
+
+	u, err := ParseUserID(uid)
+	if err != nil {
+		return SourceID{}, err
+	}
+
+	x, err := xid.FromString(id)
+	return SourceID{UserID: u, ID: x}, err
+}
+
+func (sid SourceID) String() string {
+	return sid.UserID.String() + ":" + sid.ID.String()
 }
 
 const (
