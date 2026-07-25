@@ -33,6 +33,13 @@ func (s *Server) PutSource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// check if the user has recently been kicked and has a timeout
+	if s.proxy.CheckAllowedToConnect(user.ID) {
+		hlog.FromRequest(r).Error().Ctx(ctx).Str("username", user.Username).Any("user_id", user.ID).Msg("user is on timeout")
+		time.Sleep(time.Second)
+		return
+	}
+
 	mountName := GetMountpoint(r)
 
 	// get ready to hijack and proceed with data handling

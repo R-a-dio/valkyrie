@@ -13,7 +13,6 @@ import (
 	"github.com/leanovate/gopter/prop"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/constraints"
 )
 
 func TestSongHydrate(t *testing.T) {
@@ -98,6 +97,10 @@ func TestParseUserID(t *testing.T) {
 	testParseAndString(t, ParseUserID)
 }
 
+func TestParseSourceID(t *testing.T) {
+	testParseAndString(t, ParseSourceID)
+}
+
 func TestParseSongHash(t *testing.T) {
 	a := arbitrary.DefaultArbitraries()
 
@@ -115,7 +118,6 @@ func TestParseSongHash(t *testing.T) {
 
 type stringAndComparable interface {
 	fmt.Stringer
-	constraints.Integer
 	comparable
 }
 
@@ -134,7 +136,7 @@ func testParseAndString[T stringAndComparable](t *testing.T, parseFn func(string
 	// alpha-only should always fail
 	p.Property("alpha-only", prop.ForAll(func(in string) bool {
 		out, err := parseFn(in)
-		return out == 0 && err != nil
+		return out == *new(T) && err != nil
 	}, gen.AlphaString()))
 	p.TestingRun(t)
 }

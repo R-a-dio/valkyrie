@@ -83,6 +83,9 @@ type proxy struct {
 	IcecastDescription string
 	// IcecastName is the name to send to icecast for the streams
 	IcecastName string
+
+	// KickTimeoutDuration is how long someone is prevented from reconnecting after being manually kicked from the proxy
+	KickTimeoutDuration Duration
 }
 
 type telemetry struct {
