@@ -94,7 +94,7 @@ func (s *Server) PutSource(w http.ResponseWriter, r *http.Request) {
 	conn = compat.DrainBuffer(bufrw, conn)
 
 	client := NewSourceClient(
-		NewSourceID(r),
+		NewSourceID(r, user.ID),
 		r.Header.Get("User-Agent"),
 		r.Header.Get("Content-Type"),
 		mountName,
@@ -111,9 +111,9 @@ func (s *Server) PutSource(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func NewSourceID(r *http.Request) radio.SourceID {
+func NewSourceID(r *http.Request, uid radio.UserID) radio.SourceID {
 	if id, ok := hlog.IDFromRequest(r); ok {
-		return radio.SourceID{ID: id}
+		return radio.SourceID{ID: id, UserID: uid}
 	}
 	panic("NewSourceID called without hlog.RequestIDHandler middleware")
 }

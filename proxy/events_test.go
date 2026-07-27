@@ -15,7 +15,7 @@ func TestEventProxyStatus(t *testing.T) {
 
 	newsc := func(id radio.UserID) *SourceClient {
 		return &SourceClient{
-			ID: radio.SourceID{ID: xid.New()},
+			ID: radio.SourceID{ID: xid.New(), UserID: id},
 			User: radio.User{
 				ID: id,
 			},
