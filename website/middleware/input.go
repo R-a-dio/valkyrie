@@ -26,7 +26,8 @@ func InputMiddleware(cfg config.Config, status util.StreamValuer[radio.Status], 
 			ctx := r.Context()
 
 			user := MaybeUserFromContext(ctx)
-			overrideDj, overrideHoliday := templates.GetOverrideFlags(ctx)
+			theme := templates.GetTheme(ctx)
+
 			input := Input{
 				Now:             time.Now(),
 				IsHTMX:          util.IsHTMX(r),
@@ -37,9 +38,9 @@ func InputMiddleware(cfg config.Config, status util.StreamValuer[radio.Status], 
 				Status:          status.Latest(),
 				NavBar:          publicNavBar,
 				AdminNavBar:     adminNavBar.WithUser(user),
-				Theme:           templates.GetTheme(ctx),
-				OverrideDJ:      overrideDj,
-				OverrideHoliday: overrideHoliday,
+				Theme:           theme.Name,
+				OverrideDJ:      theme.OverrideDJ,
+				OverrideHoliday: theme.OverrideHoliday,
 			}
 
 			ctx = context.WithValue(ctx, inputKey{}, input)

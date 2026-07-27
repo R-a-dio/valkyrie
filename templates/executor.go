@@ -58,7 +58,7 @@ func (e *executor) Execute(w io.Writer, r *http.Request, input TemplateSelectabl
 		templateName = "partial-page"
 	}
 
-	return e.ExecuteTemplate(ctx, theme, input.TemplateBundle(), templateName, w, input)
+	return e.ExecuteTemplate(ctx, theme.Name, input.TemplateBundle(), templateName, w, input)
 }
 
 // ExecuteTemplate selects a theme, page and template and feeds it the input given and writing the template output

@@ -140,12 +140,17 @@ func ThemeCtx(tv *ThemeValues) func(http.Handler) http.Handler {
 				}
 			}
 
-			ctx := r.Context()
-			ctx = SetTheme(ctx, themeResolved, false)
-			ctx = SetOverrideFlags(ctx, overrideDj, overrideHoliday)
+			ctx := SetTheme(r.Context(), themeResolved, overrideDj, overrideHoliday)
+
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+type ThemeCtxValue struct {
+	Name            radio.ThemeName
+	OverrideDJ      bool
+	OverrideHoliday bool
 }
 
 // ThemeCtxSimple just always sets the theme to the provided theme, ignoring cookies and
@@ -153,8 +158,7 @@ func ThemeCtx(tv *ThemeValues) func(http.Handler) http.Handler {
 func ThemeCtxSimple(theme radio.ThemeName) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ctx := SetTheme(r.Context(), theme, true)
-			ctx = SetOverrideFlags(ctx, false, false)
+			ctx := SetTheme(r.Context(), theme, false, false)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -185,50 +189,36 @@ func (tv *ThemeValues) decideWithValues(name radio.ThemeName, override_dj, overr
 
 // GetTheme returns the theme from the given context.
 // panics if no ThemeKey is found, so make sure ThemeCtx is used
-func GetTheme(ctx context.Context) radio.ThemeName {
+func GetTheme(ctx context.Context) ThemeCtxValue {
 	v := ctx.Value(themeKey{})
 	if v == nil {
 		panic("GetTheme called without ThemeCtx used")
 	}
 
-	theme, ok := v.(radio.ThemeName)
+	theme, ok := v.(ThemeCtxValue)
 	if !ok {
-		panic("non-string themeKey found in context")
+		panic("non-ThemeCtxValue themeKey found in context")
 	}
 
 	return theme
 }
 
-// GetOverrideFlags returns the override flags from the given context.
-// panics if no overrideFlagsKey is found, so make sure ThemeCtx is used
-func GetOverrideFlags(ctx context.Context) (overrideDj, overrideHoliday bool) {
-	v := ctx.Value(overrideFlagsKey{})
-	if v == nil {
-		panic("GetOverrideFlags called without ThemeCtx used")
-	}
-
-	flags, ok := v.([2]bool)
-	if !ok {
-		panic("non-[2]bool overrideFlagsKey found in context")
-	}
-
-	return flags[0], flags[1]
-}
-
 // SetTheme sets a theme in the context given, does nothing if a theme already exists
-// unless override is set to true
-func SetTheme(ctx context.Context, theme radio.ThemeName, override bool) context.Context {
-	if !override {
-		if exists := ctx.Value(themeKey{}); exists != nil {
-			return ctx
-		}
+func SetTheme(ctx context.Context, theme radio.ThemeName, override_dj, override_holiday bool) context.Context {
+	if exists := ctx.Value(themeKey{}); exists != nil {
+		return ctx
 	}
-	return context.WithValue(ctx, themeKey{}, theme)
+
+	return SetThemeOverride(ctx, theme, override_dj, override_holiday)
 }
 
-// SetOverrideFlags sets the override flags in the context given
-func SetOverrideFlags(ctx context.Context, overrideDj, overrideHoliday bool) context.Context {
-	return context.WithValue(ctx, overrideFlagsKey{}, [2]bool{overrideDj, overrideHoliday})
+// SetThemeOverride sets a theme in the context given, even if one already exists
+func SetThemeOverride(ctx context.Context, theme radio.ThemeName, override_dj, override_holiday bool) context.Context {
+	return context.WithValue(ctx, themeKey{}, ThemeCtxValue{
+		Name:            theme,
+		OverrideDJ:      override_dj,
+		OverrideHoliday: override_holiday,
+	})
 }
 
 func SetThemeHandler(cookieName string) http.Handler {
@@ -269,9 +259,9 @@ func SetThemeHandler(cookieName string) http.Handler {
 		// remove the header indicating we are using htmx, since we want a full-page reload
 		r.Header.Del("Hx-Request")
 		// and change the theme so the new page actually uses our new theme set
-		ctx := SetTheme(r.Context(), theme, true)
-		ctx = SetOverrideFlags(ctx, override_dj, override_holiday)
-		r = r.WithContext(ctx)
+		r = r.WithContext(
+			SetThemeOverride(r.Context(), theme, override_dj, override_holiday),
+		)
 
 		// then redirect the request internally to the top of the stack
 		err := util.RedirectToServer(w, r)

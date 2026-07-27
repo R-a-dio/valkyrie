@@ -160,7 +160,7 @@ func (s *Stream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	log := hlog.FromRequest(r)
 	controller := http.NewResponseController(w)
-	theme := templates.GetTheme(r.Context())
+	theme := templates.GetTheme(r.Context()).Name
 
 	log.Debug().Ctx(ctx).Msg("subscribing")
 	ch := s.sub()
