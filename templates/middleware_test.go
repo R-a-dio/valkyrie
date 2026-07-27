@@ -202,7 +202,7 @@ func TestThemeCtx(t *testing.T) {
 
 			// generate the handler with the middleware infront
 			handler := ThemeCtx(tv)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				assert.Equal(t, test.expected, GetTheme(r.Context()))
+				assert.Equal(t, test.expected, GetTheme(r.Context()).Name)
 			}))
 
 			// make a request with cookie
