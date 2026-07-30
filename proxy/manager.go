@@ -179,7 +179,7 @@ func (pm *ProxyManager) ListSources(ctx context.Context) ([]radio.ProxySource, e
 		mount.SourcesMu.RLock()
 		defer mount.SourcesMu.RUnlock()
 		for _, source := range mount.Sources {
-			res = append(res, ProxySourceFromSourceClient(source.Source, source.Priority, source.MW.GetLive()))
+			res = append(res, ProxySourceFromSourceClient(source.Source, source.Priority, source.GetLive()))
 		}
 	}
 
@@ -222,7 +222,7 @@ func (pm *ProxyManager) SendMetadata(ctx context.Context, metadata *Metadata) er
 	mount, ok := pm.mounts[metadata.MountName]
 	pm.mountsMu.Unlock()
 	if ok {
-		mount.SendMetadata(ctx, metadata)
+		mount.StoreMetadata(ctx, metadata)
 		return nil
 	}
 

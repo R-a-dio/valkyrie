@@ -11,6 +11,7 @@ import (
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/proxy/compat"
+	"github.com/R-a-dio/valkyrie/util"
 	"github.com/R-a-dio/valkyrie/website/middleware"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
@@ -173,18 +174,29 @@ type MountSourceClient struct {
 	// Priority is the Priority for live-ness determination
 	// lower is higher Priority
 	Priority uint32
-	// MW is the writer this source is writing to
-	MW *MountMetadataWriter
+
+	live atomic.Bool
+	out  util.TypedValue[io.Writer]
 
 	logger zerolog.Logger
 }
 
+type MountInterface interface {
+	RemoveSource(context.Context, radio.SourceID)
+	SendMetadata(ctx context.Context, metadata string) error
+}
+
 func (msc *MountSourceClient) GoLive(ctx context.Context, out io.Writer) {
-	msc.MW.SetWriterAndLive(ctx, out, true)
+	msc.live.Store(true)
+	msc.out.Store(out)
 	msc.logger.Info().
 		Str("req_id", msc.Source.ID.String()).
 		Any("identifier", msc.Source.Identifier).
 		Msg("switching to live")
+}
+
+func (msc *MountSourceClient) GetLive() bool {
+	return msc.live.Load()
 }
 
 func (msc *MountSourceClient) runReadLoop(ctx context.Context) {
@@ -219,22 +231,29 @@ func (msc *MountSourceClient) runReadLoop(ctx context.Context) {
 			return
 		}
 
-		writen, err := msc.MW.Write(buf[:readn])
-		if err != nil {
-			msc.logger.Error().Ctx(ctx).Err(err).Msg("failed to write data")
-			return
-		}
-		if readn != writen {
-			// we didn't actually send all the data, there isn't much we can really do
-			// here, but this is most likely a network failure and we will be exiting soon
-			msc.logger.Info().Ctx(ctx).Msg("failed to write all data")
+		// check if we have an output to write to, do nothing with the data if there isn't one
+		if out := msc.out.Load(); out != nil {
+			writen, err := out.Write(buf[:readn])
+			if err != nil {
+				msc.logger.Error().Ctx(ctx).Err(err).Msg("failed to write data")
+				return
+			}
+			if readn != writen {
+				// we didn't actually send all the data, there isn't much we can really do
+				// here, but this is most likely a network failure and we will be exiting soon
+				msc.logger.Info().Ctx(ctx).Msg("failed to write all data")
+			}
 		}
 
 		// then see if we have new metadata to send
 		meta := msc.Source.Metadata.Load()
 		if meta != nil && meta.Time.After(lastMetadata) {
-			msc.MW.SendMetadata(ctx, meta)
-			lastMetadata = time.Now()
+			if msc.live.Load() {
+				msc.Mount.SendMetadata(ctx, meta.Value)
+				lastMetadata = time.Now()
+			} else {
+				msc.logger.Info().Ctx(ctx).Str("metadata", meta.Value).Msg("skipping metadata, we're not live")
+			}
 		}
 	}
 }

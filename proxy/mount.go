@@ -3,7 +3,6 @@ package proxy
 import (
 	"cmp"
 	"context"
-	"io"
 	"net"
 	"net/url"
 	"slices"
@@ -113,7 +112,7 @@ func generateMasterURL(c config.Config, mount string) *url.URL {
 	return master
 }
 
-func (m *Mount) sendMetadata(ctx context.Context, meta string) error {
+func (m *Mount) SendMetadata(ctx context.Context, meta string) error {
 	m.events.eventLiveMetadataUpdate(ctx, m.Name, meta)
 	return icecast.MetadataURL(generateMasterURL(m.cfg, m.Name))(ctx, meta)
 }
@@ -191,10 +190,10 @@ func adjustPriority(sources []*MountSourceClient) {
 	}
 }
 
-// SendMetadata finds the source associated with this metadata and updates
+// StoreMetadata finds the source associated with this metadata and updates
 // their internal metadata. This does no transmission of metadata to the
 // master server.
-func (m *Mount) SendMetadata(ctx context.Context, metadata *Metadata) {
+func (m *Mount) StoreMetadata(ctx context.Context, metadata *Metadata) {
 	m.SourcesMu.RLock()
 	defer m.SourcesMu.RUnlock()
 
@@ -221,15 +220,10 @@ func (m *Mount) SendMetadata(ctx context.Context, metadata *Metadata) {
 }
 
 func (m *Mount) AddSource(ctx context.Context, source *SourceClient) {
-	mw := &MountMetadataWriter{
-		metadataFn: m.sendMetadata,
-	}
-
 	msc := &MountSourceClient{
 		Mount:    m,
 		Source:   source,
 		Priority: 0,
-		MW:       mw,
 		logger: zerolog.Ctx(ctx).With().
 			Str("address", source.conn.RemoteAddr().String()).
 			Str("mount", source.MountName).
@@ -291,7 +285,7 @@ func (m *Mount) RemoveSource(ctx context.Context, id radio.SourceID) {
 		Msg("removing source client")
 
 	// see if the source we removed is the live source
-	if removed.MW.GetLive() {
+	if removed.GetLive() {
 		m.liveSourceSwap(ctx)
 	}
 
@@ -299,7 +293,7 @@ func (m *Mount) RemoveSource(ctx context.Context, id radio.SourceID) {
 	// - if this is a normal cooperative remove the source goroutine itself has
 	//	 already closed the conn, and this will do nothing
 	// - if this is a forced removal the source goroutine would still be running
-	//	 and by closing the connection we stop the RunMountSourceClient goroutine
+	//	 and by closing the connection we stop the MountSourceClient.runReadLoop goroutine
 	removed.Source.conn.Close()
 
 	// send an event that we disconnected
@@ -330,80 +324,4 @@ func (m *Mount) liveSourceSwap(ctx context.Context) {
 		// RemoveMount runs
 		go m.pm.RemoveMount(m)
 	}
-}
-
-type MetadataWriter interface {
-	io.Writer
-	SendMetadata(ctx context.Context, metadata *Metadata)
-}
-
-type MountMetadataWriter struct {
-	mu sync.RWMutex
-	// metadata is the last metadata we send (or tried to send)
-	Metadata string
-	// metadataFn is the function to use for sending metadata
-	metadataFn func(context.Context, string) error
-	// live indicates if we are the live writer, actually writing to the master
-	Live bool
-	// out is the writer we write into
-	Out io.Writer
-}
-
-func (mmw *MountMetadataWriter) SendMetadata(ctx context.Context, meta *Metadata) {
-	mmw.mu.Lock()
-	mmw.Metadata = meta.Value
-	mmw.mu.Unlock()
-
-	mmw.sendMetadata(ctx)
-}
-
-func (mmw *MountMetadataWriter) sendMetadata(ctx context.Context) {
-	mmw.mu.RLock()
-	defer mmw.mu.RUnlock()
-
-	// check if we're live
-	if !mmw.Live {
-		zerolog.Ctx(ctx).Info().Ctx(ctx).Str("metadata", mmw.Metadata).Msg("skipping metadata, we're not live")
-		return
-	}
-
-	zerolog.Ctx(ctx).Info().Ctx(ctx).Str("metadata", mmw.Metadata).Msg("sending metadata")
-	err := mmw.metadataFn(ctx, mmw.Metadata)
-	if err != nil {
-		zerolog.Ctx(ctx).Error().Ctx(ctx).Err(err).Str("metadata", mmw.Metadata).Msg("failed sending metadata")
-	}
-}
-
-func (mmw *MountMetadataWriter) Write(p []byte) (n int, err error) {
-	mmw.mu.RLock()
-	defer mmw.mu.RUnlock()
-
-	if mmw.Out == nil {
-		// nowhere to go with this data, just silently eat it
-		return len(p), nil
-	}
-
-	return mmw.Out.Write(p)
-}
-
-func (mmw *MountMetadataWriter) SetWriterAndLive(ctx context.Context, w io.Writer, live bool) {
-	mmw.mu.Lock()
-	mmw.Live = live
-	mmw.Out = w
-	mmw.mu.Unlock()
-	if live {
-		mmw.sendMetadata(ctx)
-	}
-}
-
-func (mmw *MountMetadataWriter) GetLive() bool {
-	mmw.mu.RLock()
-	defer mmw.mu.RUnlock()
-	return mmw.Live
-}
-
-func (mmw *MountMetadataWriter) GetMetadata() string {
-	mmw.mu.RLock()
-	defer mmw.mu.RUnlock()
-	return mmw.Metadata
 }
