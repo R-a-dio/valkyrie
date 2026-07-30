@@ -12,7 +12,6 @@ import (
 
 	radio "github.com/R-a-dio/valkyrie"
 	"github.com/R-a-dio/valkyrie/config"
-	"github.com/R-a-dio/valkyrie/errors"
 	"github.com/R-a-dio/valkyrie/streamer/icecast"
 	"github.com/R-a-dio/valkyrie/util"
 	"github.com/cenkalti/backoff"
@@ -192,29 +191,6 @@ func adjustPriority(sources []*MountSourceClient) {
 	}
 }
 
-// MountSourceClient is a SourceClient with extra fields for mount-specific
-// bookkeeping
-type MountSourceClient struct {
-	// Source is the SourceClient we're handling, should not be mutated by
-	// anything once the MountSourceClient is made
-	Source *SourceClient
-	// Priority is the Priority for live-ness determination
-	// lower is higher Priority
-	Priority uint32
-	// MW is the writer this source is writing to
-	MW *MountMetadataWriter
-
-	logger zerolog.Logger
-}
-
-func (msc *MountSourceClient) GoLive(ctx context.Context, out io.Writer) {
-	msc.MW.SetWriterAndLive(ctx, out, true)
-	msc.logger.Info().
-		Str("req_id", msc.Source.ID.String()).
-		Any("identifier", msc.Source.Identifier).
-		Msg("switching to live")
-}
-
 // SendMetadata finds the source associated with this metadata and updates
 // their internal metadata. This does no transmission of metadata to the
 // master server.
@@ -250,6 +226,7 @@ func (m *Mount) AddSource(ctx context.Context, source *SourceClient) {
 	}
 
 	msc := &MountSourceClient{
+		Mount:    m,
 		Source:   source,
 		Priority: 0,
 		MW:       mw,
@@ -265,7 +242,7 @@ func (m *Mount) AddSource(ctx context.Context, source *SourceClient) {
 	// new sources always get assigned the least priority
 	msc.Priority = leastPriority(m.Sources)
 	m.Sources = append(m.Sources, msc)
-	go m.RunMountSourceClient(ctx, msc)
+	go msc.runReadLoop(ctx)
 
 	if msc.Priority > ADJUST_PRIORITY_THRESHOLD {
 		adjustPriority(m.Sources)
@@ -358,58 +335,6 @@ func (m *Mount) liveSourceSwap(ctx context.Context) {
 type MetadataWriter interface {
 	io.Writer
 	SendMetadata(ctx context.Context, metadata *Metadata)
-}
-
-func (m *Mount) RunMountSourceClient(ctx context.Context, msc *MountSourceClient) {
-	const BUFFER_SIZE = 4096
-	// remove ourselves from the mount if we exit
-	defer m.RemoveSource(ctx, msc.Source.ID)
-	// and close our connection
-	defer msc.Source.conn.Close()
-
-	buf := make([]byte, BUFFER_SIZE)
-	// timeout before we cancel reading from the source
-	timeout := time.Second * 20
-
-	// the last time we send metadata
-	lastMetadata := time.Time{}
-
-	for {
-		// set a deadline so we don't keep bad clients around
-		err := msc.Source.conn.SetReadDeadline(time.Now().Add(timeout))
-		if err != nil {
-			// deadline failed to be set, not much we can do but log it and continue
-			msc.logger.Info().Ctx(ctx).Msg("failed to set deadline")
-		}
-		// read some data from the source
-		readn, err := msc.Source.conn.Read(buf)
-		if err != nil {
-			if errors.IsE(err, io.EOF) {
-				// client left us, exit cleanly
-				return
-			}
-			msc.logger.Error().Ctx(ctx).Err(err).Msg("failed to read data")
-			return
-		}
-
-		writen, err := msc.MW.Write(buf[:readn])
-		if err != nil {
-			msc.logger.Error().Ctx(ctx).Err(err).Msg("failed to write data")
-			return
-		}
-		if readn != writen {
-			// we didn't actually send all the data, there isn't much we can really do
-			// here, but this is most likely a network failure and we will be exiting soon
-			msc.logger.Info().Ctx(ctx).Msg("failed to write all data")
-		}
-
-		// then see if we have new metadata to send
-		meta := msc.Source.Metadata.Load()
-		if meta != nil && meta.Time.After(lastMetadata) {
-			msc.MW.SendMetadata(ctx, meta)
-			lastMetadata = time.Now()
-		}
-	}
 }
 
 type MountMetadataWriter struct {
