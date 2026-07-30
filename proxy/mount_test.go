@@ -184,8 +184,9 @@ func TestMountMetadataWriterWrite(t *testing.T) {
 	}
 
 	// setup an output
+	ctx := t.Context()
 	var buf bytes.Buffer
-	mmw.SetWriter(&buf)
+	mmw.SetWriterAndLive(ctx, &buf, false)
 
 	// we now have an output so the data should show up in the output
 	data = []byte("but then with a bit of data that should arrive")
@@ -197,7 +198,7 @@ func TestMountMetadataWriterWrite(t *testing.T) {
 
 	lastData := data
 	// set it back to nothing
-	mmw.SetWriter(nil)
+	mmw.SetWriterAndLive(ctx, nil, false)
 	data = []byte("but then with a bit of data that should be eaten again")
 	n, err = mmw.Write(data)
 	if assert.NoError(t, err) {
@@ -223,11 +224,11 @@ func TestMountMetadataWriterLive(t *testing.T) {
 	assert.False(t, called, "metadataFn should've not been called")
 
 	// now go live, this should call metadataFn
-	mmw.SetLive(ctx, true)
+	mmw.SetWriterAndLive(ctx, nil, true)
 	assert.True(t, mmw.GetLive(), "value should be true after SetLive(..., true)")
 	assert.True(t, called, "metadataFn should've been called after going live")
 
-	mmw.SetLive(ctx, false)
+	mmw.SetWriterAndLive(ctx, nil, false)
 	assert.False(t, mmw.GetLive(), "value should be false after SetLive(..., false)")
 }
 
@@ -254,7 +255,7 @@ func TestMountMetadataWriterSendMetadata(t *testing.T) {
 	assert.Zero(t, calledValue)
 	assert.Equal(t, meta.Value, mmw.Metadata, "SendMetadata should've stored the metadata")
 
-	mmw.SetLive(ctx, true)
+	mmw.SetWriterAndLive(ctx, nil, true)
 	assert.True(t, called, "metadataFn should've been called after going live")
 	assert.Equal(t, meta.Value, calledValue)
 }

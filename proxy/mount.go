@@ -208,8 +208,7 @@ type MountSourceClient struct {
 }
 
 func (msc *MountSourceClient) GoLive(ctx context.Context, out io.Writer) {
-	msc.MW.SetWriter(out)
-	msc.MW.SetLive(ctx, true)
+	msc.MW.SetWriterAndLive(ctx, out, true)
 	msc.logger.Info().
 		Str("req_id", msc.Source.ID.String()).
 		Any("identifier", msc.Source.Identifier).
@@ -462,15 +461,10 @@ func (mmw *MountMetadataWriter) Write(p []byte) (n int, err error) {
 	return mmw.Out.Write(p)
 }
 
-func (mmw *MountMetadataWriter) SetWriter(new io.Writer) {
-	mmw.mu.Lock()
-	mmw.Out = new
-	mmw.mu.Unlock()
-}
-
-func (mmw *MountMetadataWriter) SetLive(ctx context.Context, live bool) {
+func (mmw *MountMetadataWriter) SetWriterAndLive(ctx context.Context, w io.Writer, live bool) {
 	mmw.mu.Lock()
 	mmw.Live = live
+	mmw.Out = w
 	mmw.mu.Unlock()
 	if live {
 		mmw.sendMetadata(ctx)
