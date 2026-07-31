@@ -5,10 +5,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 // DecodeFileGain decodes the path given with replaygain applied
 func DecodeFileGain(ctx context.Context, af AudioFormat, filename string) (*PCMReader, error) {
+	ctx, span := otel.Tracer("").Start(ctx, "streamer/audio.DecodeFileGain")
+	defer span.End()
+
 	ff, err := newFFmpegWithReplaygain(ctx, filename)
 	if err != nil {
 		return nil, err
@@ -30,6 +36,9 @@ func DecodeFileGain(ctx context.Context, af AudioFormat, filename string) (*PCMR
 }
 
 func newFFmpegWithReplaygain(ctx context.Context, filename string) (*ffmpeg, error) {
+	ctx, span := otel.Tracer("").Start(ctx, "streamer/audio.newFFmpegWithReplaygain")
+	defer span.End()
+
 	const (
 		// target loudness in LUFs (Loudness Units Full Scale)
 		I = -14
@@ -80,6 +89,19 @@ func newFFmpegWithReplaygain(ctx context.Context, filename string) (*ffmpeg, err
 	if err != nil {
 		return nil, err
 	}
+
+	span.SetAttributes(
+		attribute.String("input_i", info.InputI),
+		attribute.String("input_tp", info.InputTp),
+		attribute.String("input_lra", info.InputLra),
+		attribute.String("input_thresh", info.InputThresh),
+		attribute.String("output_i", info.OutputI),
+		attribute.String("output_tp", info.OutputTp),
+		attribute.String("output_lra", info.OutputLra),
+		attribute.String("output_thresh", info.OutputThresh),
+		attribute.String("normalization_type", info.NormalizationType),
+		attribute.String("target_offset", info.TargetOffset),
+	)
 
 	// prepare arguments for second pass
 	var replayinfo = "loudnorm=linear=true:" + settings
