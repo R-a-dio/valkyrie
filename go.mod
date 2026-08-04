@@ -1,6 +1,6 @@
 module github.com/R-a-dio/valkyrie
 
-go 1.25.0
+go 1.26.0
 
 replace github.com/gorilla/csrf => github.com/Wessie/csrf v0.0.0-20240430222011-49a3bdf737c0
 
