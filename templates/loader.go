@@ -586,7 +586,7 @@ func (ls loadState) loadSubDir(dir string) (ThemeBundle, error) {
 	if err != nil {
 		// this isn't a fatal error, just print a warning
 		// FIXME: use proper logger(?)
-		log.Println("failed to load theme information file:", err)
+		log.Println("error loading theme information file:", err)
 	}
 
 	return ThemeBundle{
