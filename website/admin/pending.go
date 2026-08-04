@@ -221,6 +221,7 @@ func (s *State) postPending(r *http.Request) (PendingForm, error) {
 func (s *State) postPendingDoReplace(r *http.Request, form PendingForm) (PendingForm, error) {
 	const op errors.Op = "website/admin.postPendingDoReplace"
 	var ctx = r.Context()
+	var new = form
 
 	// transaction start
 	ss, tx, err := s.Storage.SubmissionsTx(ctx, nil)
@@ -242,9 +243,10 @@ func (s *State) postPendingDoReplace(r *http.Request, form PendingForm) (Pending
 	if err != nil {
 		return form, errors.E(op, err, errors.InternalServer)
 	}
+	new.AcceptedSong = existing
 
 	// insert into post-pending
-	err = ss.InsertPostPending(form.PendingSong)
+	err = ss.InsertPostPending(new.PendingSong)
 	if err != nil {
 		return form, errors.E(op, err, errors.InternalServer)
 	}
@@ -387,7 +389,7 @@ func (s *State) postPendingDoAccept(r *http.Request, form PendingForm) (PendingF
 	new.AcceptedSong = &track
 
 	// insert the song into the post-pending info
-	err = ss.InsertPostPending(form.PendingSong)
+	err = ss.InsertPostPending(new.PendingSong)
 	if err != nil {
 		return form, errors.E(op, err, errors.InternalServer)
 	}
