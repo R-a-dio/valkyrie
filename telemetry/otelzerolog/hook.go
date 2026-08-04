@@ -9,6 +9,7 @@ import (
 
 	"github.com/R-a-dio/valkyrie/util/pool"
 	"github.com/rs/zerolog"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/log"
 	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/trace"
@@ -51,7 +52,7 @@ func (h hook) Run(e *zerolog.Event, zerolevel zerolog.Level, msg string) {
 	r.SetSeverity(level)
 	r.SetSeverityText(zerolevel.String())
 
-	r.SetBody(log.StringValue(msg))
+	r.SetBody(attribute.StringValue(msg))
 
 	r.SetTimestamp(now)
 	r.SetObservedTimestamp(now)
@@ -61,7 +62,7 @@ func (h hook) Run(e *zerolog.Event, zerolevel zerolog.Level, msg string) {
 	ev := fmt.Sprintf("%s}", reflect.ValueOf(e).Elem().FieldByName("buf"))
 	_ = json.Unmarshal([]byte(ev), &logData)
 
-	attrs := make([]log.KeyValue, 0, len(logData)+2)
+	attrs := make([]attribute.KeyValue, 0, len(logData)+2)
 	for k, v := range logData {
 		attrs = append(attrs, convertToKeyValue(k, v))
 	}
@@ -73,15 +74,15 @@ func (h hook) Run(e *zerolog.Event, zerolevel zerolog.Level, msg string) {
 	// add SpanId and TraceId if applicable
 	spanCtx := trace.SpanFromContext(ctx).SpanContext()
 	if spanCtx.HasSpanID() {
-		attrs = append(attrs, log.KeyValue{
+		attrs = append(attrs, attribute.KeyValue{
 			Key:   "SpanId",
-			Value: log.StringValue(spanCtx.SpanID().String()),
+			Value: attribute.StringValue(spanCtx.SpanID().String()),
 		})
 	}
 	if spanCtx.HasTraceID() {
-		attrs = append(attrs, log.KeyValue{
+		attrs = append(attrs, attribute.KeyValue{
 			Key:   "TraceId",
-			Value: log.StringValue(spanCtx.TraceID().String()),
+			Value: attribute.StringValue(spanCtx.TraceID().String()),
 		})
 	}
 
@@ -108,40 +109,40 @@ func convertLevel(level zerolog.Level) log.Severity {
 	}
 }
 
-func convertToKeyValue(key string, value any) log.KeyValue {
-	return log.KeyValue{
-		Key:   key,
+func convertToKeyValue(key string, value any) attribute.KeyValue {
+	return attribute.KeyValue{
+		Key:   attribute.Key(key),
 		Value: convertToValue(value),
 	}
 }
 
-func convertArray(value []any) log.Value {
-	values := make([]log.Value, 0, len(value))
+func convertArray(value []any) attribute.Value {
+	values := make([]attribute.Value, 0, len(value))
 	for _, v := range value {
 		values = append(values, convertToValue(v))
 	}
-	return log.SliceValue(values...)
+	return attribute.SliceValue(values...)
 }
 
-func convertMap(value map[string]any) log.Value {
-	kvs := make([]log.KeyValue, 0, len(value))
+func convertMap(value map[string]any) attribute.Value {
+	kvs := make([]attribute.KeyValue, 0, len(value))
 	for k, v := range value {
 		kvs = append(kvs, convertToKeyValue(k, v))
 	}
-	return log.MapValue(kvs...)
+	return attribute.MapValue(kvs...)
 }
 
-func convertToValue(value any) log.Value {
+func convertToValue(value any) attribute.Value {
 	switch value := value.(type) {
 	case bool:
-		return log.BoolValue(value)
+		return attribute.BoolValue(value)
 	case float64:
 		if _, frac := math.Modf(value); frac == 0.0 {
-			return log.Int64Value(int64(value))
+			return attribute.Int64Value(int64(value))
 		}
-		return log.Float64Value(value)
+		return attribute.Float64Value(value)
 	case string:
-		return log.StringValue(value)
+		return attribute.StringValue(value)
 	case []any:
 		return convertArray(value)
 	case map[string]any:
@@ -150,5 +151,5 @@ func convertToValue(value any) log.Value {
 
 	// should be unreachable if this only gets input from encoding/json, but handle it
 	// anyway by just turning whatever value we got into a string with fmt
-	return log.StringValue(fmt.Sprintf("%v", value))
+	return attribute.StringValue(fmt.Sprintf("%v", value))
 }
