@@ -141,12 +141,14 @@ func (m *Manager) UpdateSong(ctx context.Context, su *radio.SongUpdate) error {
 		}
 
 		if song.HasTrack() { // database song, try probe for duration
-			span.AddEvent("length from prober")
 			length, err = m.prober(ctx, *song)
-			if err != nil {
-				m.logger.Error().Ctx(ctx).Err(err).Msg("duration probe failure")
+			if err == nil {
+				span.AddEvent("length from prober")
+				goto length_done
 			}
-			goto length_done
+
+			// fallthrough if the probe failed, see if we can get a length from storage instead
+			m.logger.Error().Ctx(ctx).Err(err).Msg("duration probe failure")
 		}
 
 		if song.Length > 0 { // storage song

@@ -19,6 +19,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/rs/zerolog"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -204,6 +205,7 @@ func (tx spanTx) Commit() error {
 func (tx spanTx) Rollback() error {
 	defer tx.end()
 	tx.span.AddEvent("rollback")
+	tx.span.SetStatus(codes.Error, "SQL database rollback occurred")
 
 	return tx.Tx.Rollback()
 }
