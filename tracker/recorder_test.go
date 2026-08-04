@@ -92,10 +92,19 @@ func TestListenerMultiRemove(t *testing.T) {
 				active, removed := getRecorderLength(r)
 				t.Log("active", active, "removed", removed, "listener-count", r.ListenerAmount())
 			}
-			// remove all entries marked removed
-			r.removeStale(0)
+
 			// make sure we're back to 0 listeners and 0 removed entries
-			testRecorderLengths(t, r, 0, 0)
+			if !assert.Eventually(t, func() bool {
+				// remove all entries marked removed
+				r.removeStale(0)
+				active, removed := getRecorderLength(r)
+				return active == 0 && removed == 0
+			}, eventuallyDelay, eventuallyTick, "failed to get back to empty state") {
+				t.Log(getRecorderLength(r))
+				for i, c := range getRecorderClients(r) {
+					t.Log(i, *c)
+				}
+			}
 		}
 	}
 	for removeCount := 1; removeCount < 12; removeCount++ {
@@ -181,9 +190,9 @@ func TestListenerAddAndRemovalOutOfOrder(t *testing.T) {
 	}
 
 	assert.Eventually(t, func() bool {
-		// half should have been added normally
-		return assert.Equal(t, count/2, r.ListenerAmount()) &&
-			testRecorderLengths(t, r, int(count/2), int(count/2))
+		active, removed := getRecorderLength(r)
+		return count/2 == r.ListenerAmount() && count/2 == int64(active) && // half should have been added normally
+			count/2 == int64(removed) // half should have been removed
 	}, eventuallyDelay, eventuallyTick)
 
 	// now do the inverse and we should end up with nothing
@@ -196,8 +205,9 @@ func TestListenerAddAndRemovalOutOfOrder(t *testing.T) {
 	}
 
 	assert.Eventually(t, func() bool {
-		return assert.Zero(t, r.ListenerAmount()) &&
-			testRecorderLengths(t, r, 0, 0)
+		active, removed := getRecorderLength(r)
+		return r.ListenerAmount() == 0 && active == 0 && removed == 0
+
 	}, eventuallyDelay, eventuallyTick)
 }
 
@@ -230,6 +240,17 @@ func getRecorderLength(r *Recorder) (active, removed int) {
 		return true
 	})
 	return active, removed
+}
+
+func getRecorderClients(r *Recorder) []*Listener {
+	res := make([]*Listener, 0, r.ListenerAmount())
+	r.listeners.Range(func(_ radio.ListenerClientID, value *Listener) bool {
+		res = append(res, value)
+
+		return true
+	})
+
+	return res
 }
 
 func testCtx(t *testing.T, ctxx ...context.Context) (ctx context.Context) {
@@ -299,8 +320,9 @@ func TestRecorderRemoveStalePending(t *testing.T) {
 		go r.PeriodicallyRemoveStale(ctx, eventuallyTick)
 
 		assert.Eventually(t, func() bool {
-			return testRemovedLength(t, r, 0)
-		}, eventuallyDelay, eventuallyTick*2)
+			_, removed := getRecorderLength(r)
+			return removed == 0
+		}, eventuallyDelay, eventuallyTick*2, "recorder length never reached 0")
 	})
 }
 

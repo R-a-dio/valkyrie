@@ -68,7 +68,7 @@ func (r *Recorder) removeStale(period time.Duration) (found_stale int) {
 	deadline := time.Now().Add(-period)
 
 	r.listeners.Range(func(key radio.ListenerClientID, value *Listener) bool {
-		if value.Removed && value.RemovedTime.Before(deadline) {
+		if value.Removed && (value.RemovedTime.Before(deadline) || period == 0) {
 			// deadline exceeded, remove the entry
 			if r.listeners.CompareAndDelete(key, value) {
 				found_stale++
