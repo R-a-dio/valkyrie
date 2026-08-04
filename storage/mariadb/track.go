@@ -862,19 +862,27 @@ func (ss SongStorage) UpdateLength(song radio.Song, length time.Duration) error 
 	var query = "UPDATE esong SET len=? WHERE id=?;"
 
 	len := int(length / time.Second)
-	res, err := handle.Exec(query, len, song.ID)
+	_, err := handle.Exec(query, len, song.ID)
 	if err != nil {
 		return errors.E(op, err)
 	}
 
-	n, err := res.RowsAffected()
-	if err != nil || n > 0 {
-		// either RowsAffected is not supported, or we had more than zero rows
-		// affected so we succeeded
-		return nil
-	}
+	return nil
+	// below checked if any rows were affected, this is wrong because we only get a >0 rows
+	// affected if the length given was different than the one already stored in the database
+	//
+	// intention might've been to see if the length got changed? but none of the code using
+	// the function seem to require that knowledge so we're just removing it for now
+	/*
+		n, err := res.RowsAffected()
+		if err != nil || n > 0 {
+			// either RowsAffected is not supported, or we had more than zero rows
+			// affected so we succeeded
+			return nil
+		}
 
-	return errors.E(op, errors.SongUnknown)
+		return errors.E(op, errors.SongUnknown)
+	*/
 }
 
 // TrackStorage implements radio.TrackStorage
