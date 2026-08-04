@@ -199,6 +199,12 @@ func TestPostPending(t *testing.T) {
 			storage.SubmissionsTxFunc = func(contextMoqParam context.Context, storageTx radio.StorageTx) (radio.SubmissionStorage, radio.StorageTx, error) {
 				return &mocks.SubmissionStorageMock{
 					InsertPostPendingFunc: func(pendingSong radio.PendingSong) error {
+						switch test.Status {
+						case radio.SubmissionAccepted, radio.SubmissionReplacement:
+							//assert.NotNil(t, pendingSong.AcceptedSong, "AcceptedSong should not be nil on accept or replacement")
+							//assert.NotZero(t, pendingSong.AcceptedSong.TrackID, "AcceptedSong.TrackID should not be 0 on accept or replacement")
+						case radio.SubmissionDeclined:
+						}
 						return test.InsertPostPendingErr
 					},
 					RemoveSubmissionFunc: func(submissionID radio.SubmissionID) error {
