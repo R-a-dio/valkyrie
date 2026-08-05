@@ -30,7 +30,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 	traceapi "go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 	grpccodes "google.golang.org/grpc/codes"
@@ -235,7 +235,7 @@ func DatabaseConnect(ctx context.Context, driverName string, dataSourceName stri
 	}
 
 	err = otelsql.RegisterDBStatsMetrics(db, otelsql.WithAttributes(
-		semconv.DBSystemKey.String(driverName),
+		semconv.DBSystemNameKey.String(driverName),
 	))
 	if err != nil {
 		return nil, err
