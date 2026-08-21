@@ -323,3 +323,132 @@ func TestManager(t *testing.T) {
 		require.EqualExportedValues(t, status(), m.statusFromStreams())
 	})
 }
+
+func TestUpdateUser(t *testing.T) {
+	user := &radio.User{
+		ID:       100,
+		Username: "testing",
+		DJ: radio.DJ{
+			ID:   100,
+			Name: "The Best (Me)",
+		},
+		UserPermissions: radio.NewUserPermissions(radio.PermActive, radio.PermDJ),
+	}
+	user2 := &radio.User{
+		ID:       101,
+		Username: "other",
+		DJ: radio.DJ{
+			ID:   101,
+			Name: "The Other (You)",
+		},
+		UserPermissions: radio.NewUserPermissions(radio.PermActive, radio.PermDJ),
+	}
+	robot := &radio.User{
+		ID:       3,
+		Username: "AFK",
+		DJ: radio.DJ{
+			ID:   18,
+			Name: "Hanyuu-sama",
+		},
+		UserPermissions: radio.NewUserPermissions(radio.PermActive, radio.PermDJ, radio.PermRobot),
+	}
+
+	const thread = "image:https://example.org/show.png"
+
+	users := map[radio.UserID]*radio.User{
+		user.ID:  user,
+		user2.ID: user2,
+		robot.ID: robot,
+	}
+
+	newManager := func(t *testing.T, current *radio.User) *Manager {
+		t.Helper()
+
+		ctx, cancel := context.WithCancel(context.Background())
+		t.Cleanup(cancel)
+		ctx = zerolog.New(zerolog.NewTestWriter(t)).WithContext(ctx)
+
+		us := &mocks.UserStorageMock{
+			GetByIDFunc: func(userID radio.UserID) (*radio.User, error) {
+				u, ok := users[userID]
+				if !ok {
+					return nil, errors.E(errors.UserUnknown)
+				}
+				return u, nil
+			},
+		}
+		sts := &mocks.StatusStorageMock{
+			LoadFunc: func() (*radio.Status, error) {
+				s := &radio.Status{Thread: thread}
+				if current != nil {
+					s.StreamUser = current
+					s.User = *current
+				}
+				return s, nil
+			},
+			StoreFunc: func(status radio.Status) error {
+				return nil
+			},
+		}
+		storage := &mocks.StorageServiceMock{
+			StatusFunc: func(contextMoqParam context.Context) radio.StatusStorage {
+				return sts
+			},
+			UserFunc: func(contextMoqParam context.Context) radio.UserStorage {
+				return us
+			},
+		}
+		prober := func(ctx context.Context, song radio.Song) (time.Duration, error) {
+			return 0, errors.New("not implemented")
+		}
+
+		m, err := NewManager(ctx, storage, prober, nil)
+		require.NoError(t, err)
+		require.NotNil(t, m)
+		return m
+	}
+
+	tests := []struct {
+		name     string
+		current  *radio.User
+		user     *radio.User
+		expected string
+	}{
+		{"nil to robot", nil, robot, ""},
+		{"user to robot", user, robot, ""},
+		{"user to nil", user, nil, thread},
+		{"user to user", user, user2, thread},
+		{"robot to user", robot, user, thread},
+		{"robot to robot", robot, robot, thread},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := newManager(t, tt.current)
+
+			threadCh := m.threadStream.Sub()
+			defer m.threadStream.Leave(threadCh)
+			require.Equal(t, thread, <-threadCh)
+
+			err := m.UpdateUser(context.Background(), tt.user)
+			require.NoError(t, err)
+
+			if tt.expected == "" {
+				require.Equal(t, "", <-threadCh)
+				require.Eventually(t, func() bool {
+					s, err := m.Status(context.Background())
+					return err == nil && s.Thread == ""
+				}, time.Second, 10*time.Millisecond)
+				return
+			}
+			select {
+			case got := <-threadCh:
+				t.Fatalf("unexpected thread update: %q", got)
+			case <-time.After(100 * time.Millisecond):
+			}
+			s, err := m.Status(context.Background())
+			require.NoError(t, err)
+			require.Equal(t, tt.expected, s.Thread)
+		})
+	}
+}
