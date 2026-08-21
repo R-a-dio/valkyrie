@@ -270,6 +270,12 @@ func (ann *announceService) AnnounceThread(ctx context.Context, thread radio.Thr
 		span.AddEvent("skip because same")
 		return nil
 	}
+	if thread == "" {
+		span.AddEvent("skip because empty")
+		// still record it so a later identical URL is announced
+		ann.lastThread = thread
+		return nil
+	}
 
 	zerolog.Ctx(ctx).Info().Ctx(ctx).Str("thread", thread).Msg("updating irc thread")
 
