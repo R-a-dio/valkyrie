@@ -72,11 +72,29 @@ func (m *Manager) UpdateUser(ctx context.Context, u *radio.User) error {
 		}
 	}
 
+	current := m.userStream.Latest()
 	m.userStream.Send(u)
 	if u != nil {
 		m.logger.Info().Ctx(ctx).Str("username", u.Username).Msg("updating stream user")
 	} else {
 		m.logger.Info().Ctx(ctx).Str("username", "fallback").Msg("updating stream user")
+	}
+
+	if u == nil || !radio.IsRobot(*u) {
+		return nil
+	}
+	if current != nil && radio.IsRobot(*current) {
+		return nil
+	}
+
+	thread := m.threadStream.Latest()
+	if thread == "" {
+		return nil
+	}
+
+	m.logger.Info().Ctx(ctx).Msg("clearing thread")
+	if err := m.UpdateThread(ctx, ""); err != nil {
+		m.logger.Error().Ctx(ctx).Err(err).Msg("failed to clear thread")
 	}
 	return nil
 }
