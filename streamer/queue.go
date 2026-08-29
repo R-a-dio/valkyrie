@@ -275,12 +275,6 @@ func (qs *QueueService) populate(ctx context.Context) error {
 	ctx, span := otel.Tracer("queue").Start(ctx, string(op))
 	defer span.End()
 
-	ts, tx, err := qs.Storage.TrackTx(ctx, nil)
-	if err != nil {
-		return errors.E(op, err)
-	}
-	defer tx.Rollback()
-
 	// figure out what the queue consists of right now
 	var randomEntries, requestEntries int
 	for i := range qs.queue {
@@ -303,6 +297,12 @@ func (qs *QueueService) populate(ctx context.Context) error {
 	}
 	// wanted final length of the queue
 	wantedLength := len(qs.queue) + (randomThreshold - randomEntries)
+
+	ts, tx, err := qs.Storage.TrackTx(ctx, nil)
+	if err != nil {
+		return errors.E(op, err)
+	}
+	defer tx.Rollback()
 
 	candidates, err := ts.QueueCandidates()
 	if err != nil {
