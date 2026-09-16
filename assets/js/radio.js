@@ -100,6 +100,11 @@ htmx.createEventSource = function (url) {
     theme = current.searchParams.get("theme");
     if (!theme) {
         es = new EventSource(url);
+
+        // update our timeOffset whenever a time event comes in
+        es.addEventListener("time", (event) => {
+            timeOffset = Date.now() - event.data;
+        });
         return es
     }
 
