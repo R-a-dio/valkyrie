@@ -285,6 +285,8 @@ func (s *State) postPendingDoReplace(r *http.Request, form PendingForm) (Pending
 
 	// unmark it as needing replacement
 	existing.NeedReplacement = false
+	// mark as usable if that happened to be unset
+	existing.Usable = true
 
 	// update tracks data
 	err = ts.UpdateMetadata(*existing)
