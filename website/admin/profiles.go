@@ -570,9 +570,6 @@ func (pf *ProfileForm) Update(form url.Values, isAdmin bool) {
 	if form.Has("dj.regex") {
 		pf.DJ.Regex = form.Get("dj.regex")
 	}
-	if form.Has("dj.theme.name") {
-		pf.DJ.Theme = radio.ThemeName(form.Get("dj.theme.name"))
-	}
 	if form.Has("dj.text") {
 		pf.DJ.Text = form.Get("dj.text")
 	}
@@ -594,6 +591,9 @@ func (pf *ProfileForm) Update(form url.Values, isAdmin bool) {
 	}
 	pf.newPermissions = newPermissions
 
+	if form.Has("dj.theme.name") {
+		pf.DJ.Theme = radio.ThemeName(form.Get("dj.theme.name"))
+	}
 	pf.DJ.Visible = form.Has("dj.visible")
 
 	if prio, err := strconv.Atoi(form.Get("dj.priority")); err == nil {
